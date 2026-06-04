@@ -323,6 +323,10 @@ export default function Game() {
   const shieldTimerRef = useRef(0);
   const invincibleRef = useRef(0);
 
+  // ── Touch / virtual controls ──
+  const joystickRef = useRef({ active: false, id: -1, centerX: 0, centerY: 0, curX: 0, curY: 0 });
+  const touchFireRef = useRef({ active: false, id: -1 });
+
   const syncDisplay = useCallback(() => {
     setDisplayState({ ...stateRef.current });
   }, []);
@@ -425,6 +429,17 @@ export default function Game() {
     syncDisplay();
   }, [syncDisplay]);
 
+  // Helper: map a clientX/Y to canvas-space coords
+  const toCanvas = useCallback((clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) * (CANVAS_W / rect.width),
+      y: (clientY - rect.top)  * (CANVAS_H / rect.height),
+    };
+  }, []);
+
   useEffect(() => {
     initStars();
     const onKey = (e: KeyboardEvent, down: boolean) => {
@@ -444,6 +459,77 @@ export default function Game() {
       window.removeEventListener("keyup", e => onKey(e, false));
     };
   }, [initStars, startGame, syncDisplay]);
+
+  // Touch event setup
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      const gs = stateRef.current;
+
+      // Tap to start / restart
+      if (!gs.started || gs.gameOver) { startGame(); return; }
+      // Tap to unpause
+      if (gs.paused) { gs.paused = false; syncDisplay(); return; }
+
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        const { x, y } = toCanvas(t.clientX, t.clientY);
+        if (x < CANVAS_W / 2) {
+          // Left half → joystick
+          if (!joystickRef.current.active) {
+            joystickRef.current = { active: true, id: t.identifier, centerX: x, centerY: y, curX: x, curY: y };
+          }
+        } else {
+          // Right half → fire button
+          if (!touchFireRef.current.active) {
+            touchFireRef.current = { active: true, id: t.identifier };
+          }
+        }
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.identifier === joystickRef.current.id) {
+          const { x, y } = toCanvas(t.clientX, t.clientY);
+          joystickRef.current.curX = x;
+          joystickRef.current.curY = y;
+        }
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.identifier === joystickRef.current.id) {
+          joystickRef.current.active = false;
+          joystickRef.current.id = -1;
+        }
+        if (t.identifier === touchFireRef.current.id) {
+          touchFireRef.current.active = false;
+          touchFireRef.current.id = -1;
+        }
+      }
+    };
+
+    canvas.addEventListener("touchstart",  onTouchStart, { passive: false });
+    canvas.addEventListener("touchmove",   onTouchMove,  { passive: false });
+    canvas.addEventListener("touchend",    onTouchEnd,   { passive: false });
+    canvas.addEventListener("touchcancel", onTouchEnd,   { passive: false });
+
+    return () => {
+      canvas.removeEventListener("touchstart",  onTouchStart);
+      canvas.removeEventListener("touchmove",   onTouchMove);
+      canvas.removeEventListener("touchend",    onTouchEnd);
+      canvas.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [startGame, syncDisplay, toCanvas]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -488,14 +574,19 @@ export default function Game() {
         ctx.fillText("2D Fighter Jet Simulator", CANVAS_W / 2, CANVAS_H / 2 - 40);
         ctx.fillStyle = "#fff";
         ctx.font = "16px 'Inter', sans-serif";
-        ctx.fillText("Arrow Keys / WASD — Move      Space — Shoot", CANVAS_W / 2, CANVAS_H / 2 + 10);
-        ctx.fillText("Collect points to unlock powerful weapons!", CANVAS_W / 2, CANVAS_H / 2 + 38);
+        ctx.fillText("Arrow Keys / WASD — Move  ·  Space — Shoot", CANVAS_W / 2, CANVAS_H / 2 + 10);
+        ctx.fillStyle = "#888";
+        ctx.font = "14px 'Inter', sans-serif";
+        ctx.fillText("On mobile: left side = joystick  ·  right side = fire", CANVAS_W / 2, CANVAS_H / 2 + 34);
+        ctx.fillStyle = "#aaa";
+        ctx.font = "14px 'Inter', sans-serif";
+        ctx.fillText("Collect points to unlock powerful weapons!", CANVAS_W / 2, CANVAS_H / 2 + 56);
 
         const pulse = 0.6 + 0.4 * Math.sin(timestamp / 500);
         ctx.globalAlpha = pulse;
         ctx.fillStyle = "#ffcc00";
         ctx.font = "bold 22px 'Inter', sans-serif";
-        ctx.fillText("Press SPACE to Launch", CANVAS_W / 2, CANVAS_H / 2 + 80);
+        ctx.fillText("Press SPACE or Tap to Launch", CANVAS_W / 2, CANVAS_H / 2 + 90);
         ctx.globalAlpha = 1;
 
         // Weapon tier preview
@@ -514,7 +605,7 @@ export default function Game() {
         ctx.fillText("PAUSED", CANVAS_W / 2, CANVAS_H / 2);
         ctx.font = "18px 'Inter', sans-serif";
         ctx.fillStyle = "#aaa";
-        ctx.fillText("Press P to continue", CANVAS_W / 2, CANVAS_H / 2 + 40);
+        ctx.fillText("Press P or Tap to continue", CANVAS_W / 2, CANVAS_H / 2 + 40);
         ctx.restore();
         return;
       }
@@ -537,7 +628,7 @@ export default function Game() {
         ctx.globalAlpha = pulse2;
         ctx.fillStyle = "#ffcc00";
         ctx.font = "bold 20px 'Inter', sans-serif";
-        ctx.fillText("Press SPACE to Play Again", CANVAS_W / 2, CANVAS_H / 2 + 90);
+        ctx.fillText("Press SPACE or Tap to Play Again", CANVAS_W / 2, CANVAS_H / 2 + 90);
         ctx.globalAlpha = 1;
         ctx.restore();
 
@@ -548,20 +639,34 @@ export default function Game() {
 
       // ── Input & Player Movement ──
       const spd = gs.speed;
-      if (keysRef.current.has("ArrowUp") || keysRef.current.has("w") || keysRef.current.has("W")) {
-        playerRef.current.y = clamp(playerRef.current.y - spd, 0, CANVAS_H - PLAYER_H);
-      }
-      if (keysRef.current.has("ArrowDown") || keysRef.current.has("s") || keysRef.current.has("S")) {
-        playerRef.current.y = clamp(playerRef.current.y + spd, 0, CANVAS_H - PLAYER_H);
-      }
-      if (keysRef.current.has("ArrowLeft") || keysRef.current.has("a") || keysRef.current.has("A")) {
-        playerRef.current.x = clamp(playerRef.current.x - spd * 0.8, 0, CANVAS_W - PLAYER_W);
-      }
-      if (keysRef.current.has("ArrowRight") || keysRef.current.has("d") || keysRef.current.has("D")) {
-        playerRef.current.x = clamp(playerRef.current.x + spd * 0.8, 0, CANVAS_W / 2);
+      const js = joystickRef.current;
+      const JOY_RADIUS = 70;
+
+      if (js.active) {
+        const dx = js.curX - js.centerX;
+        const dy = js.curY - js.centerY;
+        const d = Math.hypot(dx, dy);
+        const norm = Math.min(d, JOY_RADIUS) / JOY_RADIUS;
+        if (d > 8) {
+          playerRef.current.x = clamp(playerRef.current.x + (dx / d) * norm * spd * 0.8, 0, CANVAS_W / 2);
+          playerRef.current.y = clamp(playerRef.current.y + (dy / d) * norm * spd,        0, CANVAS_H - PLAYER_H);
+        }
+      } else {
+        if (keysRef.current.has("ArrowUp") || keysRef.current.has("w") || keysRef.current.has("W")) {
+          playerRef.current.y = clamp(playerRef.current.y - spd, 0, CANVAS_H - PLAYER_H);
+        }
+        if (keysRef.current.has("ArrowDown") || keysRef.current.has("s") || keysRef.current.has("S")) {
+          playerRef.current.y = clamp(playerRef.current.y + spd, 0, CANVAS_H - PLAYER_H);
+        }
+        if (keysRef.current.has("ArrowLeft") || keysRef.current.has("a") || keysRef.current.has("A")) {
+          playerRef.current.x = clamp(playerRef.current.x - spd * 0.8, 0, CANVAS_W - PLAYER_W);
+        }
+        if (keysRef.current.has("ArrowRight") || keysRef.current.has("d") || keysRef.current.has("D")) {
+          playerRef.current.x = clamp(playerRef.current.x + spd * 0.8, 0, CANVAS_W / 2);
+        }
       }
 
-      const firing = keysRef.current.has(" ");
+      const firing = keysRef.current.has(" ") || touchFireRef.current.active;
       if (firing) fireBullets(timestamp);
 
       // ── Level / Weapon tier ──
@@ -763,6 +868,9 @@ export default function Game() {
       // ── HUD ──
       drawHUD(ctx, gs, starsRef.current.length);
 
+      // ── Virtual controls overlay ──
+      drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active);
+
       // Sync display once per ~30 frames for React state
       if (timeRef.current % 30 === 0) syncDisplay();
     };
@@ -772,25 +880,94 @@ export default function Game() {
   }, [fireBullets, spawnEnemy, startGame, syncDisplay]);
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-screen bg-[#08080e] select-none">
+    <div
+      className="flex flex-col items-center justify-center w-full h-screen bg-[#08080e] select-none"
+      style={{ touchAction: "none" }}
+    >
       <canvas
         ref={canvasRef}
         width={CANVAS_W}
         height={CANVAS_H}
         className="border border-cyan-900/40 shadow-[0_0_40px_#00cfff22] rounded"
-        style={{ maxWidth: "100%", maxHeight: "100vh", objectFit: "contain" }}
+        style={{ maxWidth: "100%", maxHeight: "100vh", objectFit: "contain", touchAction: "none" }}
         tabIndex={0}
         onClick={() => {
           if (!stateRef.current.started || stateRef.current.gameOver) startGame();
         }}
       />
       {displayState.started && !displayState.gameOver && (
-        <div className="mt-2 text-xs text-gray-600 tracking-wider">
+        <div className="mt-2 text-xs text-gray-600 tracking-wider hidden sm:block">
           ARROW KEYS / WASD — Move &nbsp;·&nbsp; SPACE — Fire &nbsp;·&nbsp; P — Pause
         </div>
       )}
     </div>
   );
+}
+
+// ─── Virtual controls overlay (drawn on canvas) ───────────────────────────────
+
+const JOY_BASE_R = 56;
+const JOY_KNOB_R = 22;
+const FIRE_BTN_R = 46;
+const FIRE_BTN_X = CANVAS_W - 80;
+const FIRE_BTN_Y = CANVAS_H - 90;
+
+function drawVirtualControls(
+  ctx: CanvasRenderingContext2D,
+  js: { active: boolean; centerX: number; centerY: number; curX: number; curY: number },
+  fireActive: boolean,
+) {
+  ctx.save();
+  ctx.globalAlpha = 0.45;
+
+  // ── Joystick hint (left zone) — always show base when inactive ──
+  const baseX = js.active ? js.centerX : 110;
+  const baseY = js.active ? js.centerY : CANVAS_H - 100;
+
+  // Base ring
+  ctx.beginPath();
+  ctx.arc(baseX, baseY, JOY_BASE_R, 0, Math.PI * 2);
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff11";
+  ctx.fill();
+
+  // Knob
+  let kx = baseX, ky = baseY;
+  if (js.active) {
+    const dx = js.curX - js.centerX;
+    const dy = js.curY - js.centerY;
+    const d = Math.hypot(dx, dy);
+    const clamped = Math.min(d, JOY_BASE_R - JOY_KNOB_R);
+    kx = js.centerX + (dx / (d || 1)) * clamped;
+    ky = js.centerY + (dy / (d || 1)) * clamped;
+  }
+  ctx.beginPath();
+  ctx.arc(kx, ky, JOY_KNOB_R, 0, Math.PI * 2);
+  ctx.fillStyle = js.active ? "#00cfff99" : "#ffffff44";
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff66";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // ── Fire button (right zone) ──
+  ctx.beginPath();
+  ctx.arc(FIRE_BTN_X, FIRE_BTN_Y, FIRE_BTN_R, 0, Math.PI * 2);
+  ctx.fillStyle = fireActive ? "#ff443388" : "#ff443322";
+  ctx.fill();
+  ctx.strokeStyle = fireActive ? "#ff6644cc" : "#ff444466";
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  ctx.globalAlpha = fireActive ? 0.95 : 0.5;
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 14px 'Inter', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("FIRE", FIRE_BTN_X, FIRE_BTN_Y);
+
+  ctx.restore();
 }
 
 function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, _stars: number) {
