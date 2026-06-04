@@ -270,10 +270,12 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
 
 function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
   const alpha = p.life / p.maxLife;
+  if (alpha <= 0) return;
+  const radius = Math.max(0.1, p.radius * alpha);
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.beginPath();
-  ctx.arc(p.x, p.y, p.radius * alpha, 0, Math.PI * 2);
+  ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
   ctx.fillStyle = p.color;
   ctx.fill();
   ctx.restore();
