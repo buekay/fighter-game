@@ -425,7 +425,7 @@ export default function Game() {
     const isBossLevel = level >= 3 && timeRef.current % bossInterval < 5;
 
     if (isBossLevel && enemiesRef.current.filter(e => e.type === "boss").length === 0) {
-      type = "boss"; hp = 12 + level * 3; w = 80; h = 60; vx = -rand(0.6, 1.2); pts = 200 + level * 50; color = "#cc00ff";
+      type = "boss"; hp = 25 + level * 6; w = 90; h = 68; vx = -rand(0.6, 1.2); pts = 300 + level * 70; color = "#cc00ff";
     } else if (level >= 4 && roll < 0.15) {
       type = "bomber"; hp = 4 + level; w = 56; h = 40; vx = -rand(0.8, 1.5); pts = 60; color = "#44ff44";
     } else if (level >= 2 && roll < 0.4) {
@@ -874,7 +874,7 @@ export default function Game() {
           enemiesRef.current.filter(e => e.type === "boss").length === 0) {
         milestoneBossFiredRef.current.add(gs.level);
         const ml = gs.level;
-        const mbHp = 40 + ml * 7;
+        const mbHp = 80 + ml * 12;
         enemiesRef.current.push({
           x: CANVAS_W + 20,
           y: rand(40, CANVAS_H - 100),
@@ -962,7 +962,7 @@ export default function Game() {
               x: e.x, y: e.y + e.height / 2,
               vx: -ENEMY_BULLET_SPEED + (e.type === "boss" ? -1 : 0),
               vy: spread * ENEMY_BULLET_SPEED,
-              fromPlayer: false, damage: e.type === "boss" ? 2 : 1,
+              fromPlayer: false, damage: e.type === "boss" ? 3 : 1,
             });
           }
         }
