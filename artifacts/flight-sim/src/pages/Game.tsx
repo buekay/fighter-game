@@ -78,6 +78,37 @@ const WEAPON_TIERS = [
   { name: "Superweapon",      guns: 5, spread: true,  missile: true,  fireRate: 140, bulletDmg: 2 },
 ];
 
+// ─── Save / load ─────────────────────────────────────────────────────────────
+
+const SAVE_KEY = "fighter-command-save";
+
+interface SaveData {
+  score: number; level: number; hp: number; maxHp: number;
+  weaponTier: number; speed: number; lives: number; savedAt: number;
+}
+
+function saveGame(gs: GameState) {
+  try {
+    const data: SaveData = {
+      score: gs.score, level: gs.level, hp: gs.hp, maxHp: gs.maxHp,
+      weaponTier: gs.weaponTier, speed: gs.speed, lives: gs.lives,
+      savedAt: Date.now(),
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch { /* storage unavailable */ }
+}
+
+function loadSave(): SaveData | null {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    return raw ? (JSON.parse(raw) as SaveData) : null;
+  } catch { return null; }
+}
+
+function clearSave() {
+  try { localStorage.removeItem(SAVE_KEY); } catch {}
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function rand(min: number, max: number) { return Math.random() * (max - min) + min; }
@@ -327,6 +358,9 @@ export default function Game() {
   const joystickRef = useRef({ active: false, id: -1, centerX: 0, centerY: 0, curX: 0, curY: 0 });
   const touchFireRef = useRef({ active: false, id: -1 });
 
+  // ── Checkpoint save tracking ──
+  const saveExistsRef = useRef(!!loadSave());
+
   const syncDisplay = useCallback(() => {
     setDisplayState({ ...stateRef.current });
   }, []);
@@ -409,11 +443,18 @@ export default function Game() {
     }
   }, []);
 
-  const startGame = useCallback(() => {
+  const startGame = useCallback((fromSave = false) => {
+    const save = fromSave ? loadSave() : null;
     stateRef.current = {
-      score: 0, level: 1, hp: 5, maxHp: 5,
-      shield: 0, speed: 3.2, weaponTier: 0,
-      lives: 3, gameOver: false, started: true, paused: false,
+      score:      save?.score      ?? 0,
+      level:      save?.level      ?? 1,
+      hp:         save?.hp         ?? 5,
+      maxHp:      save?.maxHp      ?? 5,
+      shield:     0,
+      speed:      save?.speed      ?? 3.2,
+      weaponTier: save?.weaponTier ?? 0,
+      lives:      save?.lives      ?? 3,
+      gameOver: false, started: true, paused: false,
     };
     playerRef.current = { x: 60, y: CANVAS_H / 2 - PLAYER_H / 2 };
     bulletsRef.current = [];
@@ -426,6 +467,7 @@ export default function Game() {
     lastMissileRef.current = 0;
     shieldTimerRef.current = 0;
     invincibleRef.current = 0;
+    saveExistsRef.current = !!loadSave();
     syncDisplay();
   }, [syncDisplay]);
 
@@ -444,7 +486,10 @@ export default function Game() {
     initStars();
     const onKey = (e: KeyboardEvent, down: boolean) => {
       keysRef.current[down ? "add" : "delete"](e.key);
-      if (e.key === " " && !stateRef.current.started) startGame();
+      if (e.key === " " && !stateRef.current.started) startGame(saveExistsRef.current);
+      if ((e.key === "n" || e.key === "N") && !stateRef.current.started && down) {
+        clearSave(); saveExistsRef.current = false; startGame(false);
+      }
       if (e.key === "p" || e.key === "P") {
         if (stateRef.current.started && !stateRef.current.gameOver) {
           stateRef.current.paused = !stateRef.current.paused;
@@ -470,7 +515,8 @@ export default function Game() {
       const gs = stateRef.current;
 
       // Tap to start / restart
-      if (!gs.started || gs.gameOver) { startGame(); return; }
+      if (!gs.started) { startGame(saveExistsRef.current); return; }
+      if (gs.gameOver) { startGame(false); return; }
       // Tap to unpause
       if (gs.paused) { gs.paused = false; syncDisplay(); return; }
 
@@ -573,26 +619,41 @@ export default function Game() {
         ctx.font = "20px 'Inter', sans-serif";
         ctx.fillText("2D Fighter Jet Simulator", CANVAS_W / 2, CANVAS_H / 2 - 40);
         ctx.fillStyle = "#fff";
-        ctx.font = "16px 'Inter', sans-serif";
-        ctx.fillText("Arrow Keys / WASD — Move  ·  Space — Shoot", CANVAS_W / 2, CANVAS_H / 2 + 10);
-        ctx.fillStyle = "#888";
-        ctx.font = "14px 'Inter', sans-serif";
-        ctx.fillText("On mobile: left side = joystick  ·  right side = fire", CANVAS_W / 2, CANVAS_H / 2 + 34);
-        ctx.fillStyle = "#aaa";
-        ctx.font = "14px 'Inter', sans-serif";
-        ctx.fillText("Collect points to unlock powerful weapons!", CANVAS_W / 2, CANVAS_H / 2 + 56);
+        ctx.font = "15px 'Inter', sans-serif";
+        ctx.fillText("Arrow Keys / WASD — Move  ·  Space — Shoot", CANVAS_W / 2, CANVAS_H / 2 + 6);
+        ctx.fillStyle = "#777";
+        ctx.font = "13px 'Inter', sans-serif";
+        ctx.fillText("On mobile: left half = joystick  ·  right half = fire", CANVAS_W / 2, CANVAS_H / 2 + 28);
 
         const pulse = 0.6 + 0.4 * Math.sin(timestamp / 500);
-        ctx.globalAlpha = pulse;
-        ctx.fillStyle = "#ffcc00";
-        ctx.font = "bold 22px 'Inter', sans-serif";
-        ctx.fillText("Press SPACE or Tap to Launch", CANVAS_W / 2, CANVAS_H / 2 + 90);
-        ctx.globalAlpha = 1;
+        const existingSave = saveExistsRef.current ? loadSave() : null;
+        if (existingSave) {
+          // Show CONTINUE card
+          ctx.fillStyle = "#00ff8822";
+          ctx.fillRect(CANVAS_W / 2 - 200, CANVAS_H / 2 + 50, 400, 58);
+          ctx.strokeStyle = "#00ff88aa";
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(CANVAS_W / 2 - 200, CANVAS_H / 2 + 50, 400, 58);
+          ctx.globalAlpha = pulse;
+          ctx.fillStyle = "#00ff88";
+          ctx.font = "bold 18px 'Inter', sans-serif";
+          ctx.fillText(`▶  CONTINUE  —  Level ${existingSave.level}  ·  Score ${existingSave.score}  ·  ${WEAPON_TIERS[existingSave.weaponTier].name}`, CANVAS_W / 2, CANVAS_H / 2 + 68);
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = "#aaa";
+          ctx.font = "13px 'Inter', sans-serif";
+          ctx.fillText("SPACE / Tap  →  Continue      N  →  New Game", CANVAS_W / 2, CANVAS_H / 2 + 90);
+        } else {
+          ctx.globalAlpha = pulse;
+          ctx.fillStyle = "#ffcc00";
+          ctx.font = "bold 22px 'Inter', sans-serif";
+          ctx.fillText("Press SPACE or Tap to Launch", CANVAS_W / 2, CANVAS_H / 2 + 72);
+          ctx.globalAlpha = 1;
+        }
 
         // Weapon tier preview
-        ctx.fillStyle = "#555";
-        ctx.font = "13px 'Inter', sans-serif";
-        ctx.fillText("WEAPONS: Single → Twin → Triple → Quad → Missile Lock → Superweapon", CANVAS_W / 2, CANVAS_H / 2 + 130);
+        ctx.fillStyle = "#444";
+        ctx.font = "12px 'Inter', sans-serif";
+        ctx.fillText("WEAPONS: Single → Twin → Triple → Quad → Missile Lock → Superweapon", CANVAS_W / 2, CANVAS_H / 2 + 120);
         ctx.restore();
         return;
       }
@@ -677,6 +738,8 @@ export default function Game() {
         gs.level = newLevel + 1;
         gs.weaponTier = Math.min(newLevel, WEAPON_TIERS.length - 1);
         gs.speed = 3.2 + newLevel * 0.25;
+        saveGame(gs);
+        saveExistsRef.current = true;
       }
 
       // ── Spawn enemies ──
@@ -752,7 +815,7 @@ export default function Game() {
           invincibleRef.current = 90;
           spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, true);
           e.dead = true;
-          if (gs.hp <= 0) { gs.gameOver = true; syncDisplay(); }
+          if (gs.hp <= 0) { gs.gameOver = true; clearSave(); saveExistsRef.current = false; syncDisplay(); }
           syncDisplay();
           return false;
         }
@@ -801,7 +864,7 @@ export default function Game() {
         gs.hp = Math.max(0, gs.hp - b.damage);
         invincibleRef.current = 60;
         spawnExplosion(particlesRef.current, b.x, b.y, false);
-        if (gs.hp <= 0) { gs.gameOver = true; }
+        if (gs.hp <= 0) { gs.gameOver = true; clearSave(); saveExistsRef.current = false; }
         syncDisplay();
         return false;
       });
