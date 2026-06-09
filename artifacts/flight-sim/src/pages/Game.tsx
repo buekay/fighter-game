@@ -73,7 +73,11 @@ const PLAYER_H = 28;
 const BASE_BULLET_SPEED = 10;
 const ENEMY_BULLET_SPEED = 3;
 
-const LEVEL_THRESHOLDS = [0, 150, 350, 600, 900, 1250, 9999];
+const LEVEL_THRESHOLDS = [
+  0, 150, 350, 600, 900, 1300, 1800, 2400, 3100, 4000,
+  5100, 6400, 7900, 9600, 11500, 13700, 16200, 19000, 22200, 25800,
+  999999,
+];
 const WEAPON_TIERS = [
   { name: "Single Cannon",    guns: 1, spread: false, missile: false, fireRate: 280, bulletDmg: 1 },
   { name: "Twin Cannons",     guns: 2, spread: false, missile: false, fireRate: 250, bulletDmg: 1 },
@@ -415,7 +419,8 @@ export default function Game() {
     const roll = Math.random();
     let type: Enemy["type"] = "scout";
     let hp = 1, w = 40, h = 20, vx = -rand(1.5, 3), pts = 10, color = "#ff4444";
-    const isBossLevel = level >= 3 && timeRef.current % (1200 - level * 80) < 5;
+    const bossInterval = Math.max(220, 1200 - level * 60);
+    const isBossLevel = level >= 3 && timeRef.current % bossInterval < 5;
 
     if (isBossLevel && enemiesRef.current.filter(e => e.type === "boss").length === 0) {
       type = "boss"; hp = 12 + level * 3; w = 80; h = 60; vx = -rand(0.6, 1.2); pts = 200 + level * 50; color = "#cc00ff";
@@ -1303,7 +1308,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ctx.fillText(WEAPON_TIERS[gs.weaponTier].name.toUpperCase(), CANVAS_W / 2, 22);
 
   // XP bar (progress to next level)
-  const thresholds = [0, 150, 350, 600, 900, 1250, 9999];
+  const thresholds = LEVEL_THRESHOLDS;
   const lo = thresholds[gs.level - 1] ?? 0;
   const hi = thresholds[gs.level] ?? lo + 999;
   const pct = Math.min(1, (gs.score - lo) / (hi - lo));
