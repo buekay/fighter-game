@@ -78,6 +78,7 @@ const LEVEL_THRESHOLDS = [
   5100, 6400, 7900, 9600, 11500, 13700, 16200, 19000, 22200, 25800,
   999999,
 ];
+const MILESTONE_LEVELS = new Set([3, 5, 8, 10, 12, 15, 18, 20]);
 const WEAPON_TIERS = [
   { name: "Single Cannon",    guns: 1, spread: false, missile: false, fireRate: 280, bulletDmg: 1 },
   { name: "Twin Cannons",     guns: 2, spread: false, missile: false, fireRate: 250, bulletDmg: 1 },
@@ -380,6 +381,7 @@ export default function Game() {
 
   // ── Checkpoint save tracking ──
   const saveExistsRef = useRef(!!loadSave());
+  const milestoneBossFiredRef = useRef<Set<number>>(new Set());
 
   const syncDisplay = useCallback(() => {
     setDisplayState({ ...stateRef.current });
@@ -429,6 +431,9 @@ export default function Game() {
     } else if (level >= 2 && roll < 0.4) {
       type = "fighter"; hp = 2 + Math.floor(level / 2); w = 48; h = 28; vx = -rand(1.8, 3.2); pts = 30; color = "#ffcc00";
     }
+
+    // After level 5 enemies award bonus score so levels go faster
+    if (level > 5) pts = Math.round(pts * (1 + (level - 5) * 0.18));
 
     const y = rand(20, CANVAS_H - h - 20);
     enemiesRef.current.push({
@@ -526,6 +531,7 @@ export default function Game() {
     ultimaActiveRef.current = 0;
     laserChargeRef.current = 0;
     laserActiveRef.current = 0;
+    milestoneBossFiredRef.current = new Set();
     saveExistsRef.current = !!loadSave();
     syncDisplay();
   }, [syncDisplay]);
@@ -861,6 +867,28 @@ export default function Game() {
         gs.speed = 3.2 + newLevel * 0.25;
         saveGame(gs);
         saveExistsRef.current = true;
+      }
+
+      // ── Milestone boss: spawn a mega-boss when entering key levels ──
+      if (MILESTONE_LEVELS.has(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
+          enemiesRef.current.filter(e => e.type === "boss").length === 0) {
+        milestoneBossFiredRef.current.add(gs.level);
+        const ml = gs.level;
+        const mbHp = 40 + ml * 7;
+        enemiesRef.current.push({
+          x: CANVAS_W + 20,
+          y: rand(40, CANVAS_H - 100),
+          vx: -rand(0.45, 0.8),
+          vy: 0,
+          hp: mbHp, maxHp: mbHp,
+          width: 115, height: 88,
+          type: "boss",
+          shootCooldown: 12,
+          points: Math.round((700 + ml * 120) * (ml > 5 ? 1 + (ml - 5) * 0.18 : 1)),
+          color: "#ff2200",
+          angle: 0,
+          oscillate: 0,
+        });
       }
 
       // ── Spawn enemies ──
