@@ -16,6 +16,11 @@ interface Star {
   speed: number; brightness: number; size: number;
 }
 
+interface Building {
+  x: number; width: number; height: number;
+  windows: { wx: number; wy: number; lit: boolean }[];
+}
+
 interface Bullet {
   x: number; y: number;
   vx: number; vy: number;
@@ -357,6 +362,15 @@ export default function Game() {
   // ── Touch / virtual controls ──
   const joystickRef = useRef({ active: false, id: -1, centerX: 0, centerY: 0, curX: 0, curY: 0 });
   const touchFireRef = useRef({ active: false, id: -1 });
+  const touchUltiRef = useRef({ triggered: false });
+
+  // ── Ultima ──
+  const ultimaChargeRef = useRef(0);
+  const ultimaActiveRef = useRef(0);
+
+  // ── City background ──
+  const cityFarRef  = useRef<Building[]>([]);
+  const cityNearRef = useRef<Building[]>([]);
 
   // ── Checkpoint save tracking ──
   const saveExistsRef = useRef(!!loadSave());
@@ -373,6 +387,26 @@ export default function Game() {
       brightness: rand(0.4, 1),
       size: rand(0.5, 2),
     }));
+  }, []);
+
+  const initCity = useCallback(() => {
+    const genLayer = (count: number, minH: number, maxH: number, minW: number, maxW: number): Building[] => {
+      const out: Building[] = [];
+      let cx = 0;
+      for (let i = 0; i < count; i++) {
+        const w = Math.floor(rand(minW, maxW));
+        const h = Math.floor(rand(minH, maxH));
+        const wins: Building["windows"] = [];
+        for (let r = 0; r < Math.floor(h / 22); r++)
+          for (let c = 0; c < Math.floor(w / 16); c++)
+            wins.push({ wx: 5 + c * 16, wy: 6 + r * 22, lit: Math.random() < 0.35 });
+        out.push({ x: cx, width: w, height: h, windows: wins });
+        cx += w + 10;
+      }
+      return out;
+    };
+    cityFarRef.current  = genLayer(30, 50, 130, 28, 65);
+    cityNearRef.current = genLayer(20, 100, 210, 44, 100);
   }, []);
 
   const spawnEnemy = useCallback((level: number) => {
@@ -430,6 +464,20 @@ export default function Game() {
       });
     });
 
+    // Clone fires when ultima active
+    if (ultimaActiveRef.current > 0) {
+      const cloneY = clamp(playerRef.current.y + PLAYER_H / 2 + 54, PLAYER_H, CANVAS_H - PLAYER_H);
+      offsets.forEach((oy, i) => {
+        let cvx = BASE_BULLET_SPEED;
+        let cvy = 0;
+        if (tier.spread && offsets.length > 1) {
+          const spread = (i - (offsets.length - 1) / 2) * 0.12;
+          cvy = spread * BASE_BULLET_SPEED;
+        }
+        bulletsRef.current.push({ x: px, y: cloneY + oy, vx: cvx, vy: cvy, fromPlayer: true, damage: tier.bulletDmg });
+      });
+    }
+
     // Missiles
     if (tier.missile && now - lastMissileRef.current > 1800) {
       lastMissileRef.current = now;
@@ -467,6 +515,8 @@ export default function Game() {
     lastMissileRef.current = 0;
     shieldTimerRef.current = 0;
     invincibleRef.current = 0;
+    ultimaChargeRef.current = 0;
+    ultimaActiveRef.current = 0;
     saveExistsRef.current = !!loadSave();
     syncDisplay();
   }, [syncDisplay]);
@@ -484,6 +534,7 @@ export default function Game() {
 
   useEffect(() => {
     initStars();
+    initCity();
     const onKey = (e: KeyboardEvent, down: boolean) => {
       keysRef.current[down ? "add" : "delete"](e.key);
       if (e.key === " " && !stateRef.current.started) startGame(saveExistsRef.current);
@@ -496,6 +547,13 @@ export default function Game() {
           syncDisplay();
         }
       }
+      if ((e.key === "q" || e.key === "Q") && down && stateRef.current.started &&
+          !stateRef.current.gameOver && !stateRef.current.paused) {
+        if (ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0) {
+          ultimaActiveRef.current = ULTI_MAX;
+          ultimaChargeRef.current = 0;
+        }
+      }
     };
     window.addEventListener("keydown", e => onKey(e, true));
     window.addEventListener("keyup", e => onKey(e, false));
@@ -503,7 +561,7 @@ export default function Game() {
       window.removeEventListener("keydown", e => onKey(e, true));
       window.removeEventListener("keyup", e => onKey(e, false));
     };
-  }, [initStars, startGame, syncDisplay]);
+  }, [initCity, initStars, startGame, syncDisplay]);
 
   // Touch event setup
   useEffect(() => {
@@ -529,8 +587,12 @@ export default function Game() {
             joystickRef.current = { active: true, id: t.identifier, centerX: x, centerY: y, curX: x, curY: y };
           }
         } else {
-          // Right half → fire button
-          if (!touchFireRef.current.active) {
+          // Check ULTI button first
+          const du = Math.hypot(x - ULTI_BTN_X, y - ULTI_BTN_Y);
+          if (du <= ULTI_BTN_R + 12 && ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0) {
+            ultimaActiveRef.current = ULTI_MAX;
+            ultimaChargeRef.current = 0;
+          } else if (!touchFireRef.current.active) {
             touchFireRef.current = { active: true, id: t.identifier };
           }
         }
@@ -595,6 +657,27 @@ export default function Game() {
       // ── Clear ──
       ctx.fillStyle = "#08080e";
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+      // ── City silhouette background ──
+      const drawCityLayer = (buildings: Building[], speed: number, fillColor: string, winColor: string) => {
+        const totalW = buildings.reduce((s, b) => s + b.width + 10, 0);
+        if (totalW === 0) return;
+        const offset = (timeRef.current * speed) % totalW;
+        for (const b of buildings) {
+          let rx = b.x - offset;
+          if (rx + b.width < 0) rx += totalW;
+          if (rx > CANVAS_W) continue;
+          ctx.fillStyle = fillColor;
+          ctx.fillRect(rx, CANVAS_H - b.height, b.width, b.height);
+          for (const w of b.windows) {
+            if (!w.lit) continue;
+            ctx.fillStyle = winColor;
+            ctx.fillRect(rx + w.wx, CANVAS_H - b.height + w.wy, 5, 7);
+          }
+        }
+      };
+      drawCityLayer(cityFarRef.current,  0.3, "#0b0b1f", "#ffee8840");
+      drawCityLayer(cityNearRef.current, 0.9, "#10101e", "#ffee88aa");
 
       // ── Stars ──
       starsRef.current.forEach(s => {
@@ -772,6 +855,13 @@ export default function Game() {
       if (invincibleRef.current > 0) invincibleRef.current--;
       if (shieldTimerRef.current > 0) shieldTimerRef.current--;
 
+      // ── Ultima charge & countdown ──
+      if (ultimaActiveRef.current > 0) {
+        ultimaActiveRef.current--;
+      } else if (ultimaChargeRef.current < ULTI_MAX) {
+        ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + 0.18);
+      }
+
       enemiesRef.current = enemiesRef.current.filter(e => {
         if (e.dead) return false;
         e.x += e.vx;
@@ -833,6 +923,8 @@ export default function Game() {
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, e.type === "boss");
             gs.score += e.points;
+            ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current +
+              (e.type === "boss" ? 90 : e.type === "bomber" ? 40 : e.type === "fighter" ? 22 : 12));
             e.dead = true;
             // Power-up chance
             if (Math.random() < 0.18) {
@@ -909,9 +1001,19 @@ export default function Game() {
         return p.life > 0;
       });
 
-      // ── Draw player ──
+      // ── Draw player (+ clone when ultima active) ──
       if (invincibleRef.current <= 0 || Math.floor(timeRef.current / 5) % 2 === 0) {
         drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0);
+        if (ultimaActiveRef.current > 0) {
+          const cloneY = clamp(playerRef.current.y + 56, 0, CANVAS_H - PLAYER_H);
+          ctx.save();
+          const pulse = 0.65 + 0.35 * Math.sin(timeRef.current * 0.18);
+          ctx.globalAlpha = pulse;
+          ctx.shadowColor = "#ff00ff";
+          ctx.shadowBlur = 18;
+          drawPlayerJet(ctx, playerRef.current.x, cloneY, gs.weaponTier, false);
+          ctx.restore();
+        }
       }
 
       // ── Engine exhaust ──
@@ -929,10 +1031,10 @@ export default function Game() {
       }
 
       // ── HUD ──
-      drawHUD(ctx, gs, starsRef.current.length);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current);
 
       // ── Virtual controls overlay ──
-      drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active);
+      drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current);
 
       // Sync display once per ~30 frames for React state
       if (timeRef.current % 30 === 0) syncDisplay();
@@ -974,11 +1076,17 @@ const JOY_KNOB_R = 22;
 const FIRE_BTN_R = 46;
 const FIRE_BTN_X = CANVAS_W - 80;
 const FIRE_BTN_Y = CANVAS_H - 90;
+const ULTI_BTN_X = CANVAS_W - 210;
+const ULTI_BTN_Y = CANVAS_H - 90;
+const ULTI_BTN_R = 36;
+const ULTI_MAX = 300;
 
 function drawVirtualControls(
   ctx: CanvasRenderingContext2D,
   js: { active: boolean; centerX: number; centerY: number; curX: number; curY: number },
   fireActive: boolean,
+  ultimaCharge: number,
+  ultimaActive: number,
 ) {
   ctx.save();
   ctx.globalAlpha = 0.45;
@@ -1030,10 +1138,38 @@ function drawVirtualControls(
   ctx.textBaseline = "middle";
   ctx.fillText("FIRE", FIRE_BTN_X, FIRE_BTN_Y);
 
+  // ── ULTI button ──
+  const ultiReady = ultimaCharge >= ULTI_MAX && ultimaActive === 0;
+  const ultiGlow = ultiReady ? (0.55 + 0.45 * Math.sin(Date.now() / 200)) : 0.45;
+  ctx.globalAlpha = ultiGlow;
+  ctx.beginPath();
+  ctx.arc(ULTI_BTN_X, ULTI_BTN_Y, ULTI_BTN_R, 0, Math.PI * 2);
+  ctx.fillStyle   = ultimaActive > 0 ? "#ff00ff55" : ultiReady ? "#cc00ff44" : "#44004422";
+  ctx.strokeStyle = ultimaActive > 0 ? "#ff00ffcc" : ultiReady ? "#cc00ffcc" : "#88008866";
+  ctx.lineWidth = 2.5;
+  ctx.fill(); ctx.stroke();
+
+  // Charge arc
+  if (ultimaActive === 0 && ultimaCharge < ULTI_MAX) {
+    const pct = ultimaCharge / ULTI_MAX;
+    ctx.beginPath();
+    ctx.arc(ULTI_BTN_X, ULTI_BTN_Y, ULTI_BTN_R - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+    ctx.strokeStyle = "#aa00ff";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = ultiReady ? 0.95 : 0.55;
+  ctx.fillStyle = ultiReady ? "#ff00ff" : "#cc88cc";
+  ctx.font = `bold ${ultiReady ? 12 : 10}px 'Inter', sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(ultimaActive > 0 ? "ULTI!" : "ULTI", ULTI_BTN_X, ULTI_BTN_Y);
+
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, _stars: number) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number) {
   ctx.save();
   ctx.textBaseline = "top";
 
@@ -1092,6 +1228,41 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, _stars: number) {
   ctx.fillStyle = "#aaa";
   ctx.font = "13px 'Inter', sans-serif";
   ctx.fillText(`LIVES: ${"★".repeat(Math.max(0, gs.lives))}`, CANVAS_W - 8, 24);
+
+  // ULTI bar
+  const ultiPct = Math.min(1, ultimaCharge / ULTI_MAX);
+  const ultiReady = ultiPct >= 1 && ultimaActive === 0;
+  const ultiBarX = 16, ultiBarY = 32, ultiBarW = 130, ultiBarH = 5;
+  ctx.textAlign = "left";
+  ctx.font = "bold 9px 'Inter', sans-serif";
+  ctx.fillStyle = ultiReady ? "#ff00ff" : ultimaActive > 0 ? "#ff88ff" : "#884499";
+  ctx.fillText("ULTI", ultiBarX, ultiBarY - 1);
+  ctx.fillStyle = "#1a0a1a";
+  ctx.fillRect(ultiBarX + 28, ultiBarY - 1, ultiBarW, ultiBarH);
+  if (ultimaActive > 0) {
+    const activePct = ultimaActive / ULTI_MAX;
+    const ag = ctx.createLinearGradient(ultiBarX + 28, 0, ultiBarX + 28 + ultiBarW, 0);
+    ag.addColorStop(0, "#ff00ff"); ag.addColorStop(1, "#8800ff");
+    ctx.fillStyle = ag;
+    ctx.fillRect(ultiBarX + 28, ultiBarY - 1, ultiBarW * activePct, ultiBarH);
+    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(Date.now() / 120);
+    ctx.fillStyle = "#ff00ff";
+    ctx.font = "bold 9px 'Inter', sans-serif";
+    ctx.fillText("ACTIVE", ultiBarX + 164, ultiBarY - 1);
+    ctx.globalAlpha = 1;
+  } else if (ultiPct > 0) {
+    const ug = ctx.createLinearGradient(ultiBarX + 28, 0, ultiBarX + 28 + ultiBarW, 0);
+    ug.addColorStop(0, "#6600bb"); ug.addColorStop(1, "#cc00ff");
+    ctx.fillStyle = ug;
+    ctx.fillRect(ultiBarX + 28, ultiBarY - 1, ultiBarW * ultiPct, ultiBarH);
+    if (ultiReady) {
+      ctx.globalAlpha = 0.6 + 0.4 * Math.sin(Date.now() / 200);
+      ctx.fillStyle = "#ff00ff";
+      ctx.font = "bold 9px 'Inter', sans-serif";
+      ctx.fillText("Q — READY!", ultiBarX + 164, ultiBarY - 1);
+      ctx.globalAlpha = 1;
+    }
+  }
 
   ctx.restore();
 }
