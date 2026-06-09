@@ -66,7 +66,7 @@ const CANVAS_H = 600;
 const PLAYER_W = 52;
 const PLAYER_H = 28;
 const BASE_BULLET_SPEED = 10;
-const ENEMY_BULLET_SPEED = 4;
+const ENEMY_BULLET_SPEED = 3;
 
 const LEVEL_THRESHOLDS = [0, 150, 350, 600, 900, 1250, 9999];
 const WEAPON_TIERS = [
@@ -334,7 +334,7 @@ function spawnExplosion(particles: Particle[], x: number, y: number, big: boolea
 export default function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef<GameState>({
-    score: 0, level: 1, hp: 5, maxHp: 5,
+    score: 0, level: 1, hp: 10, maxHp: 10,
     shield: 0, speed: 3.2, weaponTier: 0,
     lives: 3, gameOver: false, started: false, paused: false,
   });
@@ -448,8 +448,8 @@ export default function Game() {
     stateRef.current = {
       score:      save?.score      ?? 0,
       level:      save?.level      ?? 1,
-      hp:         save?.hp         ?? 5,
-      maxHp:      save?.maxHp      ?? 5,
+      hp:         save?.hp         ?? 10,
+      maxHp:      save?.maxHp      ?? 10,
       shield:     0,
       speed:      save?.speed      ?? 3.2,
       weaponTier: save?.weaponTier ?? 0,
@@ -709,7 +709,7 @@ export default function Game() {
         const d = Math.hypot(dx, dy);
         const norm = Math.min(d, JOY_RADIUS) / JOY_RADIUS;
         if (d > 8) {
-          playerRef.current.x = clamp(playerRef.current.x + (dx / d) * norm * spd * 0.8, 0, CANVAS_W / 2);
+          playerRef.current.x = clamp(playerRef.current.x + (dx / d) * norm * spd * 0.8, 0, CANVAS_W * 0.75);
           playerRef.current.y = clamp(playerRef.current.y + (dy / d) * norm * spd,        0, CANVAS_H - PLAYER_H);
         }
       } else {
@@ -723,7 +723,7 @@ export default function Game() {
           playerRef.current.x = clamp(playerRef.current.x - spd * 0.8, 0, CANVAS_W - PLAYER_W);
         }
         if (keysRef.current.has("ArrowRight") || keysRef.current.has("d") || keysRef.current.has("D")) {
-          playerRef.current.x = clamp(playerRef.current.x + spd * 0.8, 0, CANVAS_W / 2);
+          playerRef.current.x = clamp(playerRef.current.x + spd * 0.8, 0, CANVAS_W * 0.75);
         }
       }
 
@@ -743,7 +743,7 @@ export default function Game() {
       }
 
       // ── Spawn enemies ──
-      const spawnRate = Math.max(40, 110 - gs.level * 12);
+      const spawnRate = Math.max(55, 145 - gs.level * 12);
       enemySpawnTimerRef.current++;
       if (enemySpawnTimerRef.current >= spawnRate) {
         enemySpawnTimerRef.current = 0;
@@ -811,8 +811,8 @@ export default function Game() {
         // Enemy-player collision
         if (invincibleRef.current <= 0 && shieldTimerRef.current <= 0 &&
           rectHit(playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H, e.x, e.y, e.width, e.height)) {
-          gs.hp = Math.max(0, gs.hp - 2);
-          invincibleRef.current = 90;
+          gs.hp = Math.max(0, gs.hp - 1);
+          invincibleRef.current = 140;
           spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, true);
           e.dead = true;
           if (gs.hp <= 0) { gs.gameOver = true; clearSave(); saveExistsRef.current = false; syncDisplay(); }
@@ -862,7 +862,7 @@ export default function Game() {
         }
         if (invincibleRef.current > 0) return false;
         gs.hp = Math.max(0, gs.hp - b.damage);
-        invincibleRef.current = 60;
+        invincibleRef.current = 100;
         spawnExplosion(particlesRef.current, b.x, b.y, false);
         if (gs.hp <= 0) { gs.gameOver = true; clearSave(); saveExistsRef.current = false; }
         syncDisplay();
@@ -892,7 +892,7 @@ export default function Game() {
         ctx.restore();
         // Pickup
         if (dist(playerRef.current, p) < 24) {
-          if (p.type === "health") gs.hp = Math.min(gs.maxHp, gs.hp + 2);
+          if (p.type === "health") gs.hp = Math.min(gs.maxHp, gs.hp + 3);
           if (p.type === "shield") shieldTimerRef.current = 300;
           if (p.type === "speed") gs.speed = Math.min(6, gs.speed + 0.5);
           syncDisplay();
