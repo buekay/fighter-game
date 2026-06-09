@@ -367,6 +367,8 @@ export default function Game() {
   // ── Ultima ──
   const ultimaChargeRef = useRef(0);
   const ultimaActiveRef = useRef(0);
+  const laserChargeRef = useRef(0);
+  const laserActiveRef = useRef(0);
 
   // ── City background ──
   const cityFarRef  = useRef<Building[]>([]);
@@ -517,6 +519,8 @@ export default function Game() {
     invincibleRef.current = 0;
     ultimaChargeRef.current = 0;
     ultimaActiveRef.current = 0;
+    laserChargeRef.current = 0;
+    laserActiveRef.current = 0;
     saveExistsRef.current = !!loadSave();
     syncDisplay();
   }, [syncDisplay]);
@@ -550,8 +554,15 @@ export default function Game() {
       if ((e.key === "q" || e.key === "Q") && down && stateRef.current.started &&
           !stateRef.current.gameOver && !stateRef.current.paused) {
         if (ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0) {
-          ultimaActiveRef.current = ULTI_MAX;
+          ultimaActiveRef.current = ULTI_DURATION;
           ultimaChargeRef.current = 0;
+        }
+      }
+      if ((e.key === "e" || e.key === "E") && down && stateRef.current.started &&
+          !stateRef.current.gameOver && !stateRef.current.paused) {
+        if (laserChargeRef.current >= LASER_MAX && laserActiveRef.current === 0) {
+          laserActiveRef.current = LASER_DURATION;
+          laserChargeRef.current = 0;
         }
       }
     };
@@ -589,8 +600,12 @@ export default function Game() {
         } else {
           // Check ULTI button first
           const du = Math.hypot(x - ULTI_BTN_X, y - ULTI_BTN_Y);
-          if (du <= ULTI_BTN_R + 12 && ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0) {
-            ultimaActiveRef.current = ULTI_MAX;
+          const dl = Math.hypot(x - LASER_BTN_X, y - LASER_BTN_Y);
+          if (dl <= LASER_BTN_R + 12 && laserChargeRef.current >= LASER_MAX && laserActiveRef.current === 0) {
+            laserActiveRef.current = LASER_DURATION;
+            laserChargeRef.current = 0;
+          } else if (du <= ULTI_BTN_R + 12 && ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0) {
+            ultimaActiveRef.current = ULTI_DURATION;
             ultimaChargeRef.current = 0;
           } else if (!touchFireRef.current.active) {
             touchFireRef.current = { active: true, id: t.identifier };
@@ -654,12 +669,31 @@ export default function Game() {
       const gs = stateRef.current;
       timeRef.current += 1;
 
-      // ── Clear ──
-      ctx.fillStyle = "#08080e";
+      // ── Clear (daytime sky) ──
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+      skyGrad.addColorStop(0,   "#1a70c4");
+      skyGrad.addColorStop(0.5, "#5ab2e8");
+      skyGrad.addColorStop(1,   "#b0ddf5");
+      ctx.fillStyle = skyGrad;
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-      // ── City silhouette background ──
-      const drawCityLayer = (buildings: Building[], speed: number, fillColor: string, winColor: string) => {
+      // ── Clouds ──
+      starsRef.current.slice(0, 14).forEach(s => {
+        s.x -= s.speed * 0.18;
+        if (s.x < -120) { s.x = CANVAS_W + 120; s.y = rand(18, CANVAS_H * 0.38); }
+        const cw = 50 + s.size * 28, ch = 18 + s.size * 7;
+        ctx.save();
+        ctx.globalAlpha = 0.22 + s.brightness * 0.12;
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath(); ctx.ellipse(s.x, s.y, cw, ch, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(s.x + cw * 0.32, s.y - ch * 0.4, cw * 0.65, ch * 0.65, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(s.x - cw * 0.28, s.y - ch * 0.3, cw * 0.55, ch * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      });
+      ctx.globalAlpha = 1;
+
+      // ── City silhouette (daytime) ──
+      const drawCityLayer = (buildings: Building[], speed: number, fillColor: string) => {
         const totalW = buildings.reduce((s, b) => s + b.width + 10, 0);
         if (totalW === 0) return;
         const offset = (timeRef.current * speed) % totalW;
@@ -669,42 +703,37 @@ export default function Game() {
           if (rx > CANVAS_W) continue;
           ctx.fillStyle = fillColor;
           ctx.fillRect(rx, CANVAS_H - b.height, b.width, b.height);
+          // Glass reflections (daytime)
           for (const w of b.windows) {
             if (!w.lit) continue;
-            ctx.fillStyle = winColor;
+            ctx.fillStyle = "#ffffff18";
             ctx.fillRect(rx + w.wx, CANVAS_H - b.height + w.wy, 5, 7);
           }
         }
       };
-      drawCityLayer(cityFarRef.current,  0.3, "#0b0b1f", "#ffee8840");
-      drawCityLayer(cityNearRef.current, 0.9, "#10101e", "#ffee88aa");
-
-      // ── Stars ──
-      starsRef.current.forEach(s => {
-        s.x -= s.speed;
-        if (s.x < 0) { s.x = CANVAS_W; s.y = rand(0, CANVAS_H); }
-        ctx.globalAlpha = s.brightness;
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2); ctx.fill();
-      });
-      ctx.globalAlpha = 1;
+      drawCityLayer(cityFarRef.current,  0.3, "#2c3f62");
+      drawCityLayer(cityNearRef.current, 0.9, "#1a2840");
 
       if (!gs.started) {
         // Title screen
         ctx.save();
+        ctx.fillStyle = "rgba(4,12,28,0.75)";
+        ctx.beginPath();
+        ctx.roundRect(CANVAS_W / 2 - 330, CANVAS_H / 2 - 110, 660, 270, 12);
+        ctx.fill();
         ctx.textAlign = "center";
         ctx.fillStyle = "#00cfff";
         ctx.font = "bold 52px 'Inter', sans-serif";
         ctx.shadowColor = "#00cfff"; ctx.shadowBlur = 20;
         ctx.fillText("FIGHTER COMMAND", CANVAS_W / 2, CANVAS_H / 2 - 80);
         ctx.shadowBlur = 0;
-        ctx.fillStyle = "#aaa";
+        ctx.fillStyle = "#ccddff";
         ctx.font = "20px 'Inter', sans-serif";
         ctx.fillText("2D Fighter Jet Simulator", CANVAS_W / 2, CANVAS_H / 2 - 40);
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = "#eef";
         ctx.font = "15px 'Inter', sans-serif";
-        ctx.fillText("Arrow Keys / WASD — Move  ·  Space — Shoot", CANVAS_W / 2, CANVAS_H / 2 + 6);
-        ctx.fillStyle = "#777";
+        ctx.fillText("WASD/Arrows — Move  ·  Space — Shoot  ·  Q — Clone Ulti  ·  E — Laser Ulti", CANVAS_W / 2, CANVAS_H / 2 + 6);
+        ctx.fillStyle = "#8899bb";
         ctx.font = "13px 'Inter', sans-serif";
         ctx.fillText("On mobile: left half = joystick  ·  right half = fire", CANVAS_W / 2, CANVAS_H / 2 + 28);
 
@@ -743,12 +772,14 @@ export default function Game() {
 
       if (gs.paused) {
         ctx.save();
+        ctx.fillStyle = "rgba(4,12,28,0.72)";
+        ctx.fillRect(CANVAS_W / 2 - 200, CANVAS_H / 2 - 55, 400, 110);
         ctx.textAlign = "center";
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = "#ffffff";
         ctx.font = "bold 40px 'Inter', sans-serif";
         ctx.fillText("PAUSED", CANVAS_W / 2, CANVAS_H / 2);
         ctx.font = "18px 'Inter', sans-serif";
-        ctx.fillStyle = "#aaa";
+        ctx.fillStyle = "#ccddff";
         ctx.fillText("Press P or Tap to continue", CANVAS_W / 2, CANVAS_H / 2 + 40);
         ctx.restore();
         return;
@@ -756,6 +787,8 @@ export default function Game() {
 
       if (gs.gameOver) {
         ctx.save();
+        ctx.fillStyle = "rgba(4,12,28,0.76)";
+        ctx.fillRect(CANVAS_W / 2 - 280, CANVAS_H / 2 - 90, 560, 220);
         ctx.textAlign = "center";
         ctx.fillStyle = "#ff4444";
         ctx.font = "bold 52px 'Inter', sans-serif";
@@ -861,6 +894,12 @@ export default function Game() {
       } else if (ultimaChargeRef.current < ULTI_MAX) {
         ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + 0.18);
       }
+      // ── Laser charge & countdown ──
+      if (laserActiveRef.current > 0) {
+        laserActiveRef.current--;
+      } else if (laserChargeRef.current < LASER_MAX) {
+        laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + 0.10);
+      }
 
       enemiesRef.current = enemiesRef.current.filter(e => {
         if (e.dead) return false;
@@ -925,6 +964,8 @@ export default function Game() {
             gs.score += e.points;
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current +
               (e.type === "boss" ? 90 : e.type === "bomber" ? 40 : e.type === "fighter" ? 22 : 12));
+            laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current +
+              (e.type === "boss" ? 60 : e.type === "bomber" ? 28 : e.type === "fighter" ? 14 : 8));
             e.dead = true;
             // Power-up chance
             if (Math.random() < 0.18) {
@@ -1001,6 +1042,40 @@ export default function Game() {
         return p.life > 0;
       });
 
+      // ── Laser beam ──
+      if (laserActiveRef.current > 0) {
+        const ly = playerRef.current.y + PLAYER_H / 2;
+        const lx = playerRef.current.x + PLAYER_W + 4;
+        const beamW = CANVAS_W - lx;
+        const flicker = 0.75 + 0.25 * Math.sin(timeRef.current * 0.6);
+        ctx.save();
+        ctx.globalAlpha = 0.28 * flicker;
+        ctx.fillStyle = "#ff5500"; ctx.shadowColor = "#ff3300"; ctx.shadowBlur = 50;
+        ctx.fillRect(lx, ly - 18, beamW, 36);
+        ctx.globalAlpha = 0.55 * flicker;
+        ctx.fillStyle = "#ffaa00"; ctx.shadowBlur = 25;
+        ctx.fillRect(lx, ly - 7, beamW, 14);
+        ctx.globalAlpha = flicker;
+        ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 8;
+        ctx.fillRect(lx, ly - 2, beamW, 4);
+        ctx.restore();
+        // Damage enemies in laser path
+        for (const e of enemiesRef.current) {
+          if (e.dead) continue;
+          if (e.x + e.width < lx) continue;
+          if (e.y + e.height < ly - 18 || e.y > ly + 18) continue;
+          e.hp -= 0.38;
+          if (e.hp <= 0) {
+            spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, e.type === "boss");
+            gs.score += e.points;
+            ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (e.type === "boss" ? 50 : 8));
+            laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + (e.type === "boss" ? 30 : 5));
+            e.dead = true;
+            syncDisplay();
+          }
+        }
+      }
+
       // ── Draw player (+ clone when ultima active) ──
       if (invincibleRef.current <= 0 || Math.floor(timeRef.current / 5) % 2 === 0) {
         drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0);
@@ -1031,10 +1106,10 @@ export default function Game() {
       }
 
       // ── HUD ──
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current);
 
       // ── Virtual controls overlay ──
-      drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current);
+      drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current);
 
       // Sync display once per ~30 frames for React state
       if (timeRef.current % 30 === 0) syncDisplay();
@@ -1080,6 +1155,12 @@ const ULTI_BTN_X = CANVAS_W - 210;
 const ULTI_BTN_Y = CANVAS_H - 90;
 const ULTI_BTN_R = 36;
 const ULTI_MAX = 300;
+const ULTI_DURATION = 480;
+const LASER_MAX = 520;
+const LASER_DURATION = 480;
+const LASER_BTN_X = CANVAS_W - 80;
+const LASER_BTN_Y = CANVAS_H - 195;
+const LASER_BTN_R = 36;
 
 function drawVirtualControls(
   ctx: CanvasRenderingContext2D,
@@ -1087,6 +1168,8 @@ function drawVirtualControls(
   fireActive: boolean,
   ultimaCharge: number,
   ultimaActive: number,
+  laserCharge: number,
+  laserActive: number,
 ) {
   ctx.save();
   ctx.globalAlpha = 0.45;
@@ -1166,16 +1249,40 @@ function drawVirtualControls(
   ctx.textBaseline = "middle";
   ctx.fillText(ultimaActive > 0 ? "ULTI!" : "ULTI", ULTI_BTN_X, ULTI_BTN_Y);
 
+  // ── LASER button ──
+  const laserReady = laserCharge >= LASER_MAX && laserActive === 0;
+  const laserGlow = laserReady ? (0.55 + 0.45 * Math.sin(Date.now() / 180)) : 0.45;
+  ctx.globalAlpha = laserGlow;
+  ctx.beginPath();
+  ctx.arc(LASER_BTN_X, LASER_BTN_Y, LASER_BTN_R, 0, Math.PI * 2);
+  ctx.fillStyle   = laserActive > 0 ? "#ff880055" : laserReady ? "#ff660044" : "#44110022";
+  ctx.strokeStyle = laserActive > 0 ? "#ffaa00cc" : laserReady ? "#ff8800cc" : "#88440066";
+  ctx.lineWidth = 2.5;
+  ctx.fill(); ctx.stroke();
+
+  if (laserActive === 0 && laserCharge < LASER_MAX) {
+    const lp = laserCharge / LASER_MAX;
+    ctx.beginPath();
+    ctx.arc(LASER_BTN_X, LASER_BTN_Y, LASER_BTN_R - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * lp);
+    ctx.strokeStyle = "#ff6600"; ctx.lineWidth = 4; ctx.stroke();
+  }
+
+  ctx.globalAlpha = laserReady ? 0.95 : 0.55;
+  ctx.fillStyle = laserReady ? "#ffaa00" : "#cc8844";
+  ctx.font = `bold ${laserReady ? 11 : 9}px 'Inter', sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(laserActive > 0 ? "LASER!" : "LASER", LASER_BTN_X, LASER_BTN_Y);
+
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number) {
   ctx.save();
   ctx.textBaseline = "top";
 
-  // Top bar background
-  ctx.fillStyle = "rgba(0,0,0,0.55)";
-  ctx.fillRect(0, 0, CANVAS_W, 44);
+  // Top bar background (taller to fit both ult bars)
+  ctx.fillStyle = "rgba(4,10,24,0.72)";
+  ctx.fillRect(0, 0, CANVAS_W, 56);
 
   // Score
   ctx.fillStyle = "#00cfff";
@@ -1229,40 +1336,44 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ctx.font = "13px 'Inter', sans-serif";
   ctx.fillText(`LIVES: ${"★".repeat(Math.max(0, gs.lives))}`, CANVAS_W - 8, 24);
 
-  // ULTI bar
-  const ultiPct = Math.min(1, ultimaCharge / ULTI_MAX);
-  const ultiReady = ultiPct >= 1 && ultimaActive === 0;
-  const ultiBarX = 16, ultiBarY = 32, ultiBarW = 130, ultiBarH = 5;
-  ctx.textAlign = "left";
-  ctx.font = "bold 9px 'Inter', sans-serif";
-  ctx.fillStyle = ultiReady ? "#ff00ff" : ultimaActive > 0 ? "#ff88ff" : "#884499";
-  ctx.fillText("ULTI", ultiBarX, ultiBarY - 1);
-  ctx.fillStyle = "#1a0a1a";
-  ctx.fillRect(ultiBarX + 28, ultiBarY - 1, ultiBarW, ultiBarH);
-  if (ultimaActive > 0) {
-    const activePct = ultimaActive / ULTI_MAX;
-    const ag = ctx.createLinearGradient(ultiBarX + 28, 0, ultiBarX + 28 + ultiBarW, 0);
-    ag.addColorStop(0, "#ff00ff"); ag.addColorStop(1, "#8800ff");
-    ctx.fillStyle = ag;
-    ctx.fillRect(ultiBarX + 28, ultiBarY - 1, ultiBarW * activePct, ultiBarH);
-    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(Date.now() / 120);
-    ctx.fillStyle = "#ff00ff";
-    ctx.font = "bold 9px 'Inter', sans-serif";
-    ctx.fillText("ACTIVE", ultiBarX + 164, ultiBarY - 1);
-    ctx.globalAlpha = 1;
-  } else if (ultiPct > 0) {
-    const ug = ctx.createLinearGradient(ultiBarX + 28, 0, ultiBarX + 28 + ultiBarW, 0);
-    ug.addColorStop(0, "#6600bb"); ug.addColorStop(1, "#cc00ff");
-    ctx.fillStyle = ug;
-    ctx.fillRect(ultiBarX + 28, ultiBarY - 1, ultiBarW * ultiPct, ultiBarH);
-    if (ultiReady) {
-      ctx.globalAlpha = 0.6 + 0.4 * Math.sin(Date.now() / 200);
-      ctx.fillStyle = "#ff00ff";
-      ctx.font = "bold 9px 'Inter', sans-serif";
-      ctx.fillText("Q — READY!", ultiBarX + 164, ultiBarY - 1);
+  const drawUltBar = (
+    label: string, key: string,
+    charge: number, maxCharge: number, active: number, duration: number,
+    x: number, y: number, w: number, h: number,
+    activeColors: [string, string], chargeColors: [string, string], labelColor: string,
+  ) => {
+    const pct = Math.min(1, charge / maxCharge);
+    const ready = pct >= 1 && active === 0;
+    ctx.textAlign = "left"; ctx.font = "bold 9px 'Inter', sans-serif";
+    ctx.fillStyle = ready ? labelColor : active > 0 ? labelColor + "cc" : "#556";
+    ctx.fillText(label, x, y);
+    ctx.fillStyle = "#111"; ctx.fillRect(x + 30, y, w, h);
+    if (active > 0) {
+      const ap = active / duration;
+      const ag = ctx.createLinearGradient(x + 30, 0, x + 30 + w, 0);
+      ag.addColorStop(0, activeColors[0]); ag.addColorStop(1, activeColors[1]);
+      ctx.fillStyle = ag; ctx.fillRect(x + 30, y, w * ap, h);
+      ctx.globalAlpha = 0.6 + 0.4 * Math.sin(Date.now() / 120);
+      ctx.fillStyle = labelColor; ctx.font = "bold 9px 'Inter', sans-serif";
+      ctx.fillText("ACTIVE", x + w + 36, y);
       ctx.globalAlpha = 1;
+    } else if (pct > 0) {
+      const cg = ctx.createLinearGradient(x + 30, 0, x + 30 + w, 0);
+      cg.addColorStop(0, chargeColors[0]); cg.addColorStop(1, chargeColors[1]);
+      ctx.fillStyle = cg; ctx.fillRect(x + 30, y, w * pct, h);
+      if (ready) {
+        ctx.globalAlpha = 0.6 + 0.4 * Math.sin(Date.now() / 200);
+        ctx.fillStyle = labelColor; ctx.font = "bold 9px 'Inter', sans-serif";
+        ctx.fillText(`${key} — READY!`, x + w + 36, y);
+        ctx.globalAlpha = 1;
+      }
     }
-  }
+  };
+
+  drawUltBar("CLONE", "Q", ultimaCharge, ULTI_MAX, ultimaActive, ULTI_DURATION,
+    16, 42, 120, 5, ["#ff00ff","#8800ff"], ["#6600bb","#cc00ff"], "#ff44ff");
+  drawUltBar("LASER", "E", laserCharge, LASER_MAX, laserActive, LASER_DURATION,
+    16, 52, 120, 5, ["#ff8800","#ffdd00"], ["#cc4400","#ff8800"], "#ffaa22");
 
   ctx.restore();
 }
