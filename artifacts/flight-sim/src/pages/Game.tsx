@@ -119,6 +119,39 @@ function clearSave() {
   try { localStorage.removeItem(SAVE_KEY); } catch {}
 }
 
+// ─── Skins, shop & persistent data ───────────────────────────────────────────
+
+const SKIN_KEY    = "fighter-command-skin";
+const HS_KEY      = "fighter-command-hs";
+const COINS_KEY   = "fighter-command-coins";
+const UNLOCKS_KEY = "fighter-command-unlocks";
+
+const JET_SKINS = [
+  { id: "steel",   name: "Steel",     body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0     },
+  { id: "fire",    name: "Feuer",     body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 25000 },
+  { id: "jade",    name: "Jade",      body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 25000 },
+  { id: "gold",    name: "Gold",      body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 25000 },
+  { id: "shadow",  name: "Schatten",  body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 25000 },
+  { id: "crimson", name: "Scharlach", body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 25000 },
+] as const;
+type JetSkin = typeof JET_SKINS[number];
+
+const SHOP_ITEMS = [
+  { id: "ulti_boost",  name: "Ulti-Boost",      desc: "Ultis laden 50% schneller",  cost: 25000 },
+  { id: "extra_life",  name: "+1 Leben",         desc: "Starte mit 4 statt 3 Leben", cost: 25000 },
+  { id: "weapon_head", name: "Waffen-Vorstart",  desc: "Starte auf Waffentier 2",    cost: 25000 },
+] as const;
+
+function saveHighScore(s: number) { try { if (s > loadHighScore()) localStorage.setItem(HS_KEY, String(s)); } catch {} }
+function loadHighScore(): number  { try { return parseInt(localStorage.getItem(HS_KEY) ?? "0", 10) || 0; } catch { return 0; } }
+function addCoins(n: number)      { try { localStorage.setItem(COINS_KEY, String(loadCoins() + n)); } catch {} }
+function spendCoins(n: number)    { try { const c = loadCoins(); if (c >= n) localStorage.setItem(COINS_KEY, String(c - n)); } catch {} }
+function loadCoins(): number      { try { return parseInt(localStorage.getItem(COINS_KEY) ?? "0", 10) || 0; } catch { return 0; } }
+function saveSkin(id: string)     { try { localStorage.setItem(SKIN_KEY, id); } catch {} }
+function loadSkin(): string       { try { return localStorage.getItem(SKIN_KEY) ?? "steel"; } catch { return "steel"; } }
+function addUnlock(id: string)    { try { const u = loadUnlocks(); if (!u.includes(id)) localStorage.setItem(UNLOCKS_KEY, JSON.stringify([...u, id])); } catch {} }
+function loadUnlocks(): string[]  { try { return JSON.parse(localStorage.getItem(UNLOCKS_KEY) ?? "[]") as string[]; } catch { return []; } }
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function rand(min: number, max: number) { return Math.random() * (max - min) + min; }
@@ -132,13 +165,13 @@ function rectHit(ax: number, ay: number, aw: number, ah: number,
 
 // ─── Drawing helpers ─────────────────────────────────────────────────────────
 
-function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier: number, shieldActive: boolean) {
+function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier: number, shieldActive: boolean, skin?: JetSkin) {
   ctx.save();
   ctx.translate(x + PLAYER_W / 2, y + PLAYER_H / 2);
 
   // Engine glow
   const glowColors = ["#00cfff", "#00cfff", "#00ff88", "#ff9900", "#ff4444", "#ff00ff"];
-  const glow = glowColors[Math.min(tier, glowColors.length - 1)];
+  const glow = skin?.glow ?? glowColors[Math.min(tier, glowColors.length - 1)];
   const grad = ctx.createRadialGradient(0, 0, 2, 0, 0, 40);
   grad.addColorStop(0, glow + "55");
   grad.addColorStop(1, "transparent");
@@ -154,9 +187,9 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
   ctx.lineTo(-28, 5);
   ctx.lineTo(-20, 10);
   ctx.closePath();
-  ctx.fillStyle = "#1a2a4a";
+  ctx.fillStyle = skin?.body ?? "#1a2a4a";
   ctx.fill();
-  ctx.strokeStyle = "#2a4a8a";
+  ctx.strokeStyle = skin?.stroke ?? "#2a4a8a";
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
@@ -170,9 +203,9 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
   ctx.strokeStyle = glow;
   ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-14, -22); ctx.lineTo(-22, -10); ctx.closePath();
-  ctx.fillStyle = "#162040"; ctx.fill(); ctx.stroke();
+  ctx.fillStyle = skin?.body ?? "#162040"; ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(-14, 22); ctx.lineTo(-22, 10); ctx.closePath();
-  ctx.fillStyle = "#162040"; ctx.fill(); ctx.stroke();
+  ctx.fillStyle = skin?.body ?? "#162040"; ctx.fill(); ctx.stroke();
 
   // Gun barrels
   const gunOffsets = [
@@ -382,6 +415,12 @@ export default function Game() {
   // ── Checkpoint save tracking ──
   const saveExistsRef = useRef(!!loadSave());
   const milestoneBossFiredRef = useRef<Set<number>>(new Set());
+  const gameOverCountdownRef = useRef(0);
+  const activeSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadSkin()) ?? JET_SKINS[0]);
+  const [selectedSkin, setSelectedSkin] = useState(() => loadSkin());
+  const [coins, setCoins] = useState(() => loadCoins());
+  const [highScore, setHighScore] = useState(() => loadHighScore());
+  const [unlockedItems, setUnlockedItems] = useState<string[]>(() => loadUnlocks());
 
   const syncDisplay = useCallback(() => {
     setDisplayState({ ...stateRef.current });
@@ -505,15 +544,16 @@ export default function Game() {
 
   const startGame = useCallback((fromSave = false) => {
     const save = fromSave ? loadSave() : null;
+    const unlocks = loadUnlocks();
     stateRef.current = {
-      score:      save?.score      ?? 0,
-      level:      save?.level      ?? 1,
-      hp:         save?.hp         ?? 10,
-      maxHp:      save?.maxHp      ?? 10,
+      score:      save?.score  ?? 0,
+      level:      save?.level  ?? 1,
+      hp:         save?.hp     ?? 10,
+      maxHp:      save?.maxHp  ?? 10,
       shield:     0,
-      speed:      save?.speed      ?? 3.2,
-      weaponTier: save?.weaponTier ?? 0,
-      lives:      save?.lives      ?? 3,
+      speed:      save?.speed  ?? 3.2,
+      weaponTier: fromSave ? (save?.weaponTier ?? 0) : (unlocks.includes("weapon_head") ? 2 : 0),
+      lives:      save?.lives  ?? (unlocks.includes("extra_life") ? 4 : 3),
       gameOver: false, started: true, paused: false,
     };
     playerRef.current = { x: 60, y: CANVAS_H / 2 - PLAYER_H / 2 };
@@ -726,59 +766,7 @@ export default function Game() {
       drawCityLayer(cityNearRef.current, 0.9, "#1a2840");
 
       if (!gs.started) {
-        // Title screen
-        ctx.save();
-        ctx.fillStyle = "rgba(4,12,28,0.75)";
-        ctx.beginPath();
-        ctx.roundRect(CANVAS_W / 2 - 330, CANVAS_H / 2 - 110, 660, 270, 12);
-        ctx.fill();
-        ctx.textAlign = "center";
-        ctx.fillStyle = "#00cfff";
-        ctx.font = "bold 52px 'Inter', sans-serif";
-        ctx.shadowColor = "#00cfff"; ctx.shadowBlur = 20;
-        ctx.fillText("FIGHTER COMMAND", CANVAS_W / 2, CANVAS_H / 2 - 80);
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = "#ccddff";
-        ctx.font = "20px 'Inter', sans-serif";
-        ctx.fillText("2D Fighter Jet Simulator", CANVAS_W / 2, CANVAS_H / 2 - 40);
-        ctx.fillStyle = "#eef";
-        ctx.font = "15px 'Inter', sans-serif";
-        ctx.fillText("WASD/Arrows — Move  ·  Space — Shoot  ·  Q — Clone Ulti  ·  E — Laser Ulti", CANVAS_W / 2, CANVAS_H / 2 + 6);
-        ctx.fillStyle = "#8899bb";
-        ctx.font = "13px 'Inter', sans-serif";
-        ctx.fillText("On mobile: left half = joystick  ·  right half = fire", CANVAS_W / 2, CANVAS_H / 2 + 28);
-
-        const pulse = 0.6 + 0.4 * Math.sin(timestamp / 500);
-        const existingSave = saveExistsRef.current ? loadSave() : null;
-        if (existingSave) {
-          // Show CONTINUE card
-          ctx.fillStyle = "#00ff8822";
-          ctx.fillRect(CANVAS_W / 2 - 200, CANVAS_H / 2 + 50, 400, 58);
-          ctx.strokeStyle = "#00ff88aa";
-          ctx.lineWidth = 1.5;
-          ctx.strokeRect(CANVAS_W / 2 - 200, CANVAS_H / 2 + 50, 400, 58);
-          ctx.globalAlpha = pulse;
-          ctx.fillStyle = "#00ff88";
-          ctx.font = "bold 18px 'Inter', sans-serif";
-          ctx.fillText(`▶  CONTINUE  —  Level ${existingSave.level}  ·  Score ${existingSave.score}  ·  ${WEAPON_TIERS[existingSave.weaponTier].name}`, CANVAS_W / 2, CANVAS_H / 2 + 68);
-          ctx.globalAlpha = 1;
-          ctx.fillStyle = "#aaa";
-          ctx.font = "13px 'Inter', sans-serif";
-          ctx.fillText("SPACE / Tap  →  Continue      N  →  New Game", CANVAS_W / 2, CANVAS_H / 2 + 90);
-        } else {
-          ctx.globalAlpha = pulse;
-          ctx.fillStyle = "#ffcc00";
-          ctx.font = "bold 22px 'Inter', sans-serif";
-          ctx.fillText("Press SPACE or Tap to Launch", CANVAS_W / 2, CANVAS_H / 2 + 72);
-          ctx.globalAlpha = 1;
-        }
-
-        // Weapon tier preview
-        ctx.fillStyle = "#444";
-        ctx.font = "12px 'Inter', sans-serif";
-        ctx.fillText("WEAPONS: Single → Twin → Triple → Quad → Missile Lock → Superweapon", CANVAS_W / 2, CANVAS_H / 2 + 120);
-        ctx.restore();
-        return;
+        return; // Hangar React overlay handles this screen
       }
 
       if (gs.paused) {
@@ -797,31 +785,29 @@ export default function Game() {
       }
 
       if (gs.gameOver) {
+        gameOverCountdownRef.current++;
         ctx.save();
-        ctx.fillStyle = "rgba(4,12,28,0.76)";
-        ctx.fillRect(CANVAS_W / 2 - 280, CANVAS_H / 2 - 90, 560, 220);
+        ctx.fillStyle = "rgba(4,12,28,0.84)";
+        ctx.beginPath(); ctx.roundRect(CANVAS_W/2-260, CANVAS_H/2-78, 520, 195, 14); ctx.fill();
         ctx.textAlign = "center";
-        ctx.fillStyle = "#ff4444";
-        ctx.font = "bold 52px 'Inter', sans-serif";
+        ctx.fillStyle = "#ff4444"; ctx.font = "bold 52px 'Inter', sans-serif";
         ctx.shadowColor = "#ff4444"; ctx.shadowBlur = 20;
-        ctx.fillText("GAME OVER", CANVAS_W / 2, CANVAS_H / 2 - 60);
+        ctx.fillText("GAME OVER", CANVAS_W/2, CANVAS_H/2-36);
         ctx.shadowBlur = 0;
-        ctx.fillStyle = "#fff";
-        ctx.font = "26px 'Inter', sans-serif";
-        ctx.fillText(`Final Score: ${gs.score}`, CANVAS_W / 2, CANVAS_H / 2);
-        ctx.fillStyle = "#aaa";
-        ctx.font = "18px 'Inter', sans-serif";
-        ctx.fillText(`Reached Level ${gs.level} · Weapon: ${WEAPON_TIERS[gs.weaponTier].name}`, CANVAS_W / 2, CANVAS_H / 2 + 38);
-        const pulse2 = 0.6 + 0.4 * Math.sin(timestamp / 500);
-        ctx.globalAlpha = pulse2;
-        ctx.fillStyle = "#ffcc00";
-        ctx.font = "bold 20px 'Inter', sans-serif";
-        ctx.fillText("Press SPACE or Tap to Play Again", CANVAS_W / 2, CANVAS_H / 2 + 90);
-        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#fff"; ctx.font = "24px 'Inter', sans-serif";
+        ctx.fillText(`Score: ${gs.score.toLocaleString("de-DE")}`, CANVAS_W/2, CANVAS_H/2+10);
+        ctx.fillStyle = "#aaa"; ctx.font = "15px 'Inter', sans-serif";
+        ctx.fillText(`Level ${gs.level}  ·  ${WEAPON_TIERS[gs.weaponTier].name}`, CANVAS_W/2, CANVAS_H/2+40);
+        const sLeft = Math.max(0, Math.ceil((200 - gameOverCountdownRef.current) / 60));
+        ctx.fillStyle = sLeft > 0 ? "#666" : "#ffcc00";
+        ctx.font = "13px 'Inter', sans-serif";
+        ctx.fillText(sLeft > 0 ? `Zurück zum Hangar in ${sLeft}s …  (SPACE zum Überspringen)` : "Zum Hangar …", CANVAS_W/2, CANVAS_H/2+72);
         ctx.restore();
-
-        const spacePressed = keysRef.current.has(" ");
-        if (spacePressed) startGame();
+        if (keysRef.current.has(" ") || gameOverCountdownRef.current > 200) {
+          gameOverCountdownRef.current = 0;
+          gs.started = false; gs.gameOver = false;
+          syncDisplay();
+        }
         return;
       }
 
@@ -977,7 +963,7 @@ export default function Game() {
           invincibleRef.current = 140;
           spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, true);
           e.dead = true;
-          if (gs.hp <= 0) { gs.gameOver = true; clearSave(); saveExistsRef.current = false; syncDisplay(); }
+          if (gs.hp <= 0) { gs.gameOver = true; clearSave(); saveHighScore(gs.score); addCoins(gs.score); saveExistsRef.current = false; syncDisplay(); }
           syncDisplay();
           return false;
         }
@@ -1030,7 +1016,7 @@ export default function Game() {
         gs.hp = Math.max(0, gs.hp - b.damage);
         invincibleRef.current = 100;
         spawnExplosion(particlesRef.current, b.x, b.y, false);
-        if (gs.hp <= 0) { gs.gameOver = true; clearSave(); saveExistsRef.current = false; }
+        if (gs.hp <= 0) { gs.gameOver = true; clearSave(); saveHighScore(gs.score); addCoins(gs.score); saveExistsRef.current = false; }
         syncDisplay();
         return false;
       });
@@ -1111,7 +1097,7 @@ export default function Game() {
 
       // ── Draw player (+ clone when ultima active) ──
       if (invincibleRef.current <= 0 || Math.floor(timeRef.current / 5) % 2 === 0) {
-        drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0);
+        drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current);
         if (ultimaActiveRef.current > 0) {
           const cloneY = clamp(playerRef.current.y + 56, 0, CANVAS_H - PLAYER_H);
           ctx.save();
@@ -1119,7 +1105,7 @@ export default function Game() {
           ctx.globalAlpha = pulse;
           ctx.shadowColor = "#ff00ff";
           ctx.shadowBlur = 18;
-          drawPlayerJet(ctx, playerRef.current.x, cloneY, gs.weaponTier, false);
+          drawPlayerJet(ctx, playerRef.current.x, cloneY, gs.weaponTier, false, activeSkinRef.current);
           ctx.restore();
         }
       }
@@ -1152,27 +1138,314 @@ export default function Game() {
     return () => cancelAnimationFrame(rafRef.current);
   }, [fireBullets, spawnEnemy, startGame, syncDisplay]);
 
+  const handleSkinSelect = (id: string) => {
+    const skin = JET_SKINS.find(s => s.id === id);
+    if (!skin) return;
+    setSelectedSkin(id);
+    saveSkin(id);
+    activeSkinRef.current = skin;
+  };
+
+  const handleBuy = (itemId: string) => {
+    if (loadCoins() < 25000) return;
+    spendCoins(25000);
+    addUnlock(itemId);
+    setCoins(loadCoins());
+    setUnlockedItems(loadUnlocks());
+  };
+
+  const handleUnlockSkin = (skinId: string) => {
+    if (loadCoins() < 25000) return;
+    spendCoins(25000);
+    addUnlock(skinId);
+    setCoins(loadCoins());
+    setUnlockedItems(loadUnlocks());
+    handleSkinSelect(skinId);
+  };
+
   return (
     <div
       className="flex flex-col items-center justify-center w-full h-screen bg-[#08080e] select-none"
       style={{ touchAction: "none" }}
     >
-      <canvas
-        ref={canvasRef}
-        width={CANVAS_W}
-        height={CANVAS_H}
-        className="border border-cyan-900/40 shadow-[0_0_40px_#00cfff22] rounded"
-        style={{ maxWidth: "100%", maxHeight: "100vh", objectFit: "contain", touchAction: "none" }}
-        tabIndex={0}
-        onClick={() => {
-          if (!stateRef.current.started || stateRef.current.gameOver) startGame();
-        }}
-      />
+      <div className="relative rounded overflow-hidden shadow-[0_0_40px_#00cfff22]"
+        style={{ maxWidth: "100%", maxHeight: "100vh", border: "1px solid rgba(0,207,255,0.15)" }}>
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_W}
+          height={CANVAS_H}
+          className="block"
+          style={{ maxWidth: "100%", maxHeight: "100vh", objectFit: "contain", touchAction: "none" }}
+          tabIndex={0}
+        />
+        {!displayState.started && (
+          <HangarOverlay
+            selectedSkin={selectedSkin}
+            coins={coins}
+            highScore={highScore}
+            unlockedItems={unlockedItems}
+            hasSave={saveExistsRef.current}
+            saveData={saveExistsRef.current ? loadSave() : null}
+            onStart={() => startGame(saveExistsRef.current)}
+            onNewGame={() => startGame(false)}
+            onSkinSelect={handleSkinSelect}
+            onBuy={handleBuy}
+            onUnlockSkin={handleUnlockSkin}
+          />
+        )}
+      </div>
       {displayState.started && !displayState.gameOver && (
         <div className="mt-2 text-xs text-gray-600 tracking-wider hidden sm:block">
-          ARROW KEYS / WASD — Move &nbsp;·&nbsp; SPACE — Fire &nbsp;·&nbsp; P — Pause
+          WASD — Bewegen &nbsp;·&nbsp; SPACE — Schießen &nbsp;·&nbsp; Q — Clone &nbsp;·&nbsp; E — Laser &nbsp;·&nbsp; P — Pause
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Hangar Overlay ───────────────────────────────────────────────────────────
+
+function HangarOverlay({
+  selectedSkin, coins, highScore, unlockedItems, hasSave, saveData,
+  onStart, onNewGame, onSkinSelect, onBuy, onUnlockSkin,
+}: {
+  selectedSkin: string; coins: number; highScore: number;
+  unlockedItems: string[]; hasSave: boolean; saveData: { level: number; score: number; weaponTier: number } | null;
+  onStart: () => void; onNewGame: () => void;
+  onSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void;
+}) {
+  const [view, setView] = useState<"main" | "upgrades" | "settings">("main");
+  const previewRef = useRef<HTMLCanvasElement>(null);
+  const skin = JET_SKINS.find(s => s.id === selectedSkin) ?? JET_SKINS[0];
+
+  useEffect(() => {
+    const c = previewRef.current;
+    if (!c) return;
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, 240, 140);
+    const bg = ctx.createLinearGradient(0, 0, 0, 140);
+    bg.addColorStop(0, "#0a1628"); bg.addColorStop(1, "#050a10");
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, 240, 140);
+    const gg = ctx.createRadialGradient(120, 70, 4, 120, 70, 65);
+    gg.addColorStop(0, skin.glow + "44"); gg.addColorStop(1, "transparent");
+    ctx.fillStyle = gg; ctx.fillRect(0, 0, 240, 140);
+    drawPlayerJet(ctx, 90, 56, 5, false, skin);
+  }, [selectedSkin, skin]);
+
+  if (view === "upgrades") {
+    return (
+      <div className="absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
+        <ShopScreen coins={coins} unlockedItems={unlockedItems} selectedSkin={selectedSkin}
+          onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect} />
+      </div>
+    );
+  }
+  if (view === "settings") {
+    return (
+      <div className="absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
+        <SettingsScreen onBack={() => setView("main")} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-between px-6 py-4"
+      style={{ background: "rgba(4,12,28,0.90)" }}>
+      {/* ── Top bar ── */}
+      <div className="w-full flex items-start justify-between">
+        <div>
+          <div className="font-black text-2xl tracking-widest" style={{ color: "#00cfff", textShadow: "0 0 14px #00cfff99" }}>
+            FIGHTER COMMAND
+          </div>
+          <div className="text-xs text-slate-400 mt-0.5">2D Kampfjet-Simulator</div>
+        </div>
+        <div className="text-right">
+          <div className="text-yellow-300 font-bold text-sm">⭐ {highScore.toLocaleString("de-DE")}</div>
+          <div className="text-amber-400 font-bold text-sm">💰 {coins.toLocaleString("de-DE")}</div>
+        </div>
+      </div>
+
+      {/* ── Jet preview ── */}
+      <div className="flex flex-col items-center gap-2">
+        <div className="text-xs text-slate-500 uppercase tracking-widest">Dein Jet</div>
+        <div className="rounded-2xl overflow-hidden"
+          style={{ border: `1.5px solid ${skin.glow}55`, boxShadow: `0 0 24px ${skin.glow}33` }}>
+          <canvas ref={previewRef} width={240} height={140} className="block" />
+        </div>
+        <div className="font-bold text-white text-sm tracking-wide">{skin.name}</div>
+        {/* Colour picker dots */}
+        <div className="flex gap-2.5 mt-0.5">
+          {JET_SKINS.map(s => {
+            const owned = s.cost === 0 || unlockedItems.includes(s.id);
+            const active = s.id === selectedSkin;
+            return (
+              <button key={s.id}
+                onClick={() => owned ? onSkinSelect(s.id) : setView("upgrades")}
+                title={owned ? s.name : `${s.name} — 🔒 ${s.cost.toLocaleString("de-DE")} Punkte`}
+                style={{
+                  width: 22, height: 22, borderRadius: "50%", background: s.glow,
+                  border: active ? "3px solid #fff" : `2px solid ${s.glow}66`,
+                  opacity: owned ? 1 : 0.3,
+                  boxShadow: active ? `0 0 10px ${s.glow}` : "none",
+                  transition: "transform 0.12s",
+                }}
+              />
+            );
+          })}
+        </div>
+        {/* Continue hint */}
+        {hasSave && saveData && (
+          <div className="text-xs text-emerald-400/80 mt-1">
+            Gespeichert: Level {saveData.level} · {saveData.score.toLocaleString("de-DE")} Punkte · {WEAPON_TIERS[saveData.weaponTier]?.name}
+          </div>
+        )}
+      </div>
+
+      {/* ── Bottom buttons ── */}
+      <div className="w-full flex gap-2">
+        <button onClick={() => setView("upgrades")}
+          className="flex-1 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-95"
+          style={{ background: "rgba(50,15,90,0.75)", border: "1.5px solid #7733bb", color: "#cc88ff" }}>
+          ⚔️ AUFRÜSTEN
+        </button>
+        <div className="flex-[1.6] flex flex-col gap-1.5">
+          {hasSave ? (
+            <>
+              <button onClick={onStart}
+                className="w-full py-2.5 rounded-xl font-bold text-base tracking-widest transition-all active:scale-95"
+                style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #00cfff", color: "#00cfff", textShadow: "0 0 10px #00cfff88" }}>
+                ▶ WEITERSPIELEN
+              </button>
+              <button onClick={onNewGame}
+                className="w-full py-1.5 rounded-xl font-bold text-xs tracking-wider transition-all active:scale-95"
+                style={{ background: "rgba(20,20,30,0.7)", border: "1px solid #334466", color: "#667799" }}>
+                NEU STARTEN
+              </button>
+            </>
+          ) : (
+            <button onClick={onStart}
+              className="w-full py-3 rounded-xl font-bold text-lg tracking-widest transition-all active:scale-95"
+              style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #00cfff", color: "#00cfff", textShadow: "0 0 10px #00cfff88" }}>
+              ▶ STARTEN
+            </button>
+          )}
+        </div>
+        <button onClick={() => setView("settings")}
+          className="flex-1 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-95"
+          style={{ background: "rgba(15,30,45,0.75)", border: "1.5px solid #335566", color: "#7799bb" }}>
+          ⚙️ EINSTELLUNGEN
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Shop Screen ──────────────────────────────────────────────────────────────
+
+function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnlockSkin, onSkinSelect }: {
+  coins: number; unlockedItems: string[]; selectedSkin: string;
+  onBack: () => void; onBuy: (id: string) => void;
+  onUnlockSkin: (id: string) => void; onSkinSelect: (id: string) => void;
+}) {
+  return (
+    <div className="flex flex-col h-full p-4 gap-3 overflow-y-auto select-none text-white">
+      <div className="flex items-center gap-3 shrink-0">
+        <button onClick={onBack} className="text-slate-400 hover:text-white text-xl font-bold px-2">←</button>
+        <h2 className="font-bold text-xl tracking-wide">AUFRÜSTEN</h2>
+        <span className="ml-auto text-amber-300 font-bold text-sm">💰 {coins.toLocaleString("de-DE")}</span>
+      </div>
+
+      <div className="text-slate-500 text-xs uppercase tracking-widest">Jet-Skins · 25.000 Punkte</div>
+      <div className="grid grid-cols-3 gap-2 shrink-0">
+        {JET_SKINS.map(s => {
+          const owned = s.cost === 0 || unlockedItems.includes(s.id);
+          const active = s.id === selectedSkin;
+          const canAfford = coins >= s.cost;
+          return (
+            <button key={s.id}
+              onClick={() => owned ? onSkinSelect(s.id) : canAfford ? onUnlockSkin(s.id) : undefined}
+              className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all active:scale-95"
+              style={{
+                background: active ? s.glow + "22" : "rgba(255,255,255,0.04)",
+                border: active ? `2px solid ${s.glow}` : `1px solid ${s.glow}33`,
+                opacity: !owned && !canAfford ? 0.45 : 1,
+              }}>
+              <div className="w-5 h-5 rounded-full" style={{ background: s.glow, boxShadow: `0 0 8px ${s.glow}88` }} />
+              <div className="text-xs font-bold">{s.name}</div>
+              {owned
+                ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div>
+                : <div className={`text-xs font-bold ${canAfford ? "text-amber-300" : "text-slate-500"}`}>
+                    {canAfford ? "💰 Kaufen" : "🔒"}
+                  </div>
+              }
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="text-slate-500 text-xs uppercase tracking-widest mt-1">Upgrades · je 25.000 Punkte</div>
+      <div className="flex flex-col gap-2">
+        {SHOP_ITEMS.map(item => {
+          const owned = unlockedItems.includes(item.id);
+          const canAfford = coins >= item.cost;
+          return (
+            <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl"
+              style={{ background: owned ? "rgba(0,180,80,0.10)" : "rgba(255,255,255,0.04)", border: `1px solid ${owned ? "#00aa4444" : "#333"}` }}>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm">{item.name}</div>
+                <div className="text-slate-400 text-xs">{item.desc}</div>
+              </div>
+              {owned
+                ? <span className="text-green-400 font-bold text-lg shrink-0">✓</span>
+                : <button onClick={() => canAfford && onBuy(item.id)} disabled={!canAfford}
+                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-40"
+                    style={{ background: "rgba(80,50,0,0.6)", border: "1px solid #aa8800", color: "#ffcc44" }}>
+                    💰 {item.cost.toLocaleString("de-DE")}
+                  </button>
+              }
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Settings Screen ──────────────────────────────────────────────────────────
+
+function SettingsScreen({ onBack }: { onBack: () => void }) {
+  const controls = [
+    ["WASD / Pfeiltasten", "Bewegen"],
+    ["LEERTASTE", "Schießen"],
+    ["Q", "Clone-Ulti"],
+    ["E", "Laser-Ulti"],
+    ["P", "Pause"],
+  ];
+  return (
+    <div className="flex flex-col h-full p-4 gap-4 text-white select-none">
+      <div className="flex items-center gap-3">
+        <button onClick={onBack} className="text-slate-400 hover:text-white text-xl font-bold px-2">←</button>
+        <h2 className="font-bold text-xl tracking-wide">EINSTELLUNGEN</h2>
+      </div>
+      <div className="text-slate-500 text-xs uppercase tracking-widest">Tastatur</div>
+      <div className="flex flex-col gap-2">
+        {controls.map(([key, desc]) => (
+          <div key={key} className="flex items-center gap-3">
+            <kbd className="px-2 py-1 rounded-md bg-slate-800 text-slate-200 text-xs font-mono min-w-[120px] text-center border border-slate-600">{key}</kbd>
+            <span className="text-slate-300 text-sm">{desc}</span>
+          </div>
+        ))}
+      </div>
+      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Mobil / Touch</div>
+      <div className="flex flex-col gap-1 text-slate-300 text-sm">
+        <div>Linke Seite → Joystick (Bewegen)</div>
+        <div>FIRE → Schießen</div>
+        <div>CLONE → Clone-Ulti (Q)</div>
+        <div>LASER → Laser-Ulti (E)</div>
+      </div>
+      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Shop</div>
+      <div className="text-slate-300 text-sm">Sammle Punkte beim Spielen — sie bleiben als Währung erhalten.<br />Jedes Item im Shop kostet <span className="text-amber-300 font-bold">25.000 Punkte</span>.</div>
     </div>
   );
 }
