@@ -28,6 +28,7 @@ interface Bullet {
   damage: number;
   isMissile?: boolean;
   missileTarget?: Enemy | null;
+  trackPlayer?: boolean;
 }
 
 interface Enemy {
@@ -42,6 +43,9 @@ interface Enemy {
   angle: number;
   oscillate?: number;
   dead?: boolean;
+  missileTimer?: number;
+  bossVyTimer?: number;
+  bossVyDir?: number;
 }
 
 interface PowerUp {
@@ -74,11 +78,19 @@ const BASE_BULLET_SPEED = 10;
 const ENEMY_BULLET_SPEED = 3;
 
 const LEVEL_THRESHOLDS = [
+  // 1-10
   0, 150, 350, 600, 900, 1300, 1800, 2400, 3100, 4000,
+  // 11-20
   5100, 6400, 7900, 9600, 11500, 13700, 16200, 19000, 22200, 25800,
-  999999,
+  // 21-30
+  29800, 34200, 38900, 43900, 49300, 55100, 61300, 67900, 74900, 82400,
+  // 31-40
+  90400, 99000, 108000, 117500, 127500, 138000, 149000, 160500, 172500, 185000,
+  // 41-50
+  198000, 212000, 226500, 241500, 257000, 273000, 289500, 306500, 324000, 342000,
+  9999999,
 ];
-const MILESTONE_LEVELS = new Set([3, 5, 8, 10, 12, 15, 18, 20]);
+const MILESTONE_LEVELS = new Set([3, 5, 8, 10, 12, 15, 18, 20, 25, 30, 35, 40, 45, 50]);
 const WEAPON_TIERS = [
   { name: "Single Cannon",    guns: 1, spread: false, missile: false, fireRate: 280, bulletDmg: 1 },
   { name: "Twin Cannons",     guns: 2, spread: false, missile: false, fireRate: 250, bulletDmg: 1 },
@@ -137,9 +149,11 @@ const JET_SKINS = [
 type JetSkin = typeof JET_SKINS[number];
 
 const SHOP_ITEMS = [
-  { id: "ulti_boost",  name: "Ulti-Boost",      desc: "Ultis laden 50% schneller",  cost: 25000 },
-  { id: "extra_life",  name: "+1 Leben",         desc: "Starte mit 4 statt 3 Leben", cost: 25000 },
-  { id: "weapon_head", name: "Waffen-Vorstart",  desc: "Starte auf Waffentier 2",    cost: 25000 },
+  { id: "ulti_boost",     name: "Ulti-Boost",       desc: "Ultis laden 50% schneller",                    cost: 25000 },
+  { id: "extra_life",     name: "+1 Leben",          desc: "Starte mit 4 statt 3 Leben",                   cost: 25000 },
+  { id: "weapon_head",    name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                      cost: 25000 },
+  { id: "clone_upgrade",  name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",    cost: 25000 },
+  { id: "laser_upgrade",  name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",     cost: 25000 },
 ] as const;
 
 function saveHighScore(s: number) { try { if (s > loadHighScore()) localStorage.setItem(HS_KEY, String(s)); } catch {} }
@@ -317,7 +331,19 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
 
 function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
   ctx.save();
-  if (b.isMissile) {
+  if (b.isMissile && b.trackPlayer) {
+    // Enemy homing missile — magenta/purple
+    ctx.translate(b.x, b.y);
+    const ang = Math.atan2(b.vy, b.vx);
+    ctx.rotate(ang);
+    ctx.beginPath();
+    ctx.moveTo(12, 0); ctx.lineTo(-6, -5); ctx.lineTo(-4, 0); ctx.lineTo(-6, 5); ctx.closePath();
+    ctx.fillStyle = "#dd00ff"; ctx.fill();
+    ctx.shadowColor = "#aa00ff"; ctx.shadowBlur = 10;
+    ctx.fill();
+    ctx.beginPath(); ctx.arc(-9, 0, 5, 0, Math.PI * 2);
+    ctx.fillStyle = "#88008888"; ctx.fill();
+  } else if (b.isMissile) {
     ctx.translate(b.x, b.y);
     const ang = Math.atan2(b.vy, b.vx);
     ctx.rotate(ang);
@@ -417,6 +443,7 @@ export default function Game() {
   const milestoneBossFiredRef = useRef<Set<number>>(new Set());
   const gameOverCountdownRef = useRef(0);
   const activeSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadSkin()) ?? JET_SKINS[0]);
+  const activeUnlocksRef = useRef<string[]>([]);
   const [selectedSkin, setSelectedSkin] = useState(() => loadSkin());
   const [coins, setCoins] = useState(() => loadCoins());
   const [highScore, setHighScore] = useState(() => loadHighScore());
@@ -464,7 +491,7 @@ export default function Game() {
     const isBossLevel = level >= 3 && timeRef.current % bossInterval < 5;
 
     if (isBossLevel && enemiesRef.current.filter(e => e.type === "boss").length === 0) {
-      type = "boss"; hp = 25 + level * 6; w = 90; h = 68; vx = -rand(0.6, 1.2); pts = 300 + level * 70; color = "#cc00ff";
+      type = "boss"; hp = 25 + level * 6; w = 90; h = 68; vx = -rand(0.6, 1.2); pts = 50; color = "#cc00ff";
     } else if (level >= 4 && roll < 0.15) {
       type = "bomber"; hp = 4 + level; w = 56; h = 40; vx = -rand(0.8, 1.5); pts = 60; color = "#44ff44";
     } else if (level >= 2 && roll < 0.4) {
@@ -545,6 +572,7 @@ export default function Game() {
   const startGame = useCallback((fromSave = false) => {
     const save = fromSave ? loadSave() : null;
     const unlocks = loadUnlocks();
+    activeUnlocksRef.current = unlocks;
     stateRef.current = {
       score:      save?.score  ?? 0,
       level:      save?.level  ?? 1,
@@ -596,7 +624,7 @@ export default function Game() {
       if ((e.key === "n" || e.key === "N") && !stateRef.current.started && down) {
         clearSave(); saveExistsRef.current = false; startGame(false);
       }
-      if (e.key === "p" || e.key === "P") {
+      if ((e.key === "p" || e.key === "P") && down) {
         if (stateRef.current.started && !stateRef.current.gameOver) {
           stateRef.current.paused = !stateRef.current.paused;
           syncDisplay();
@@ -870,7 +898,7 @@ export default function Game() {
           width: 115, height: 88,
           type: "boss",
           shootCooldown: 12,
-          points: Math.round((700 + ml * 120) * (ml > 5 ? 1 + (ml - 5) * 0.18 : 1)),
+          points: 50,
           color: "#ff2200",
           angle: 0,
           oscillate: 0,
@@ -897,6 +925,16 @@ export default function Game() {
           const ms = 7;
           if (spd2 > ms) { b.vx = b.vx / spd2 * ms; b.vy = b.vy / spd2 * ms; }
         }
+        // Enemy homing missile tracks player
+        if (b.trackPlayer && !b.fromPlayer) {
+          const tx = playerRef.current.x + PLAYER_W / 2;
+          const ty = playerRef.current.y + PLAYER_H / 2;
+          const ang = Math.atan2(ty - b.y, tx - b.x);
+          b.vx += (Math.cos(ang) * 0.5 - b.vx) * 0.06;
+          b.vy += (Math.sin(ang) * 0.5 - b.vy) * 0.06;
+          const sp = Math.hypot(b.vx, b.vy);
+          if (sp > 5) { b.vx = b.vx / sp * 5; b.vy = b.vy / sp * 5; }
+        }
         b.x += b.vx;
         b.y += b.vy;
         drawBullet(ctx, b);
@@ -911,13 +949,17 @@ export default function Game() {
       if (ultimaActiveRef.current > 0) {
         ultimaActiveRef.current--;
       } else if (ultimaChargeRef.current < ULTI_MAX) {
-        ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + 0.18);
+        const cloneMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
+        const cloneBonus = activeUnlocksRef.current.includes("clone_upgrade") ? 1.25 : 1;
+        ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + 0.18 * cloneMult * cloneBonus);
       }
       // ── Laser charge & countdown ──
       if (laserActiveRef.current > 0) {
         laserActiveRef.current--;
       } else if (laserChargeRef.current < LASER_MAX) {
-        laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + 0.10);
+        const laserMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
+        const laserBonus = activeUnlocksRef.current.includes("laser_upgrade") ? 1.25 : 1;
+        laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + 0.10 * laserMult * laserBonus);
       }
 
       enemiesRef.current = enemiesRef.current.filter(e => {
@@ -932,6 +974,33 @@ export default function Game() {
           e.vx = Math.sin(timeRef.current * 0.02) * -1.2;
           if (e.x > CANVAS_W - e.width - 10) e.x = CANVAS_W - e.width - 10;
           if (e.x < CANVAS_W * 0.5) e.x = CANVAS_W * 0.5;
+
+          // Vertical dodge every 4 s (level 10+)
+          if (gs.level >= 10) {
+            e.bossVyTimer = (e.bossVyTimer ?? 0) + 1;
+            if (e.bossVyTimer >= 240) {
+              e.bossVyTimer = 0;
+              e.bossVyDir = Math.random() > 0.5 ? 1 : -1;
+            }
+            const dodgeDecay = Math.max(0, 1 - e.bossVyTimer / 90);
+            e.vy = (e.bossVyDir ?? 0) * 2.2 * dodgeDecay;
+          }
+
+          // Homing missile every 4 s (level 10+)
+          if (gs.level >= 10) {
+            e.missileTimer = (e.missileTimer ?? 240) - 1;
+            if (e.missileTimer <= 0) {
+              e.missileTimer = 240;
+              bulletsRef.current.push({
+                x: e.x, y: e.y + e.height / 2,
+                vx: -4, vy: 0,
+                fromPlayer: false,
+                damage: 2,
+                isMissile: true,
+                trackPlayer: true,
+              });
+            }
+          }
         }
 
         // Off screen left
@@ -1215,8 +1284,10 @@ function HangarOverlay({
   onSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void;
 }) {
   const [view, setView] = useState<"main" | "upgrades" | "settings">("main");
+  const [hoverSkin, setHoverSkin] = useState<string | null>(null);
   const previewRef = useRef<HTMLCanvasElement>(null);
-  const skin = JET_SKINS.find(s => s.id === selectedSkin) ?? JET_SKINS[0];
+  const activeSkinId = hoverSkin ?? selectedSkin;
+  const skin = JET_SKINS.find(s => s.id === activeSkinId) ?? JET_SKINS[0];
 
   useEffect(() => {
     const c = previewRef.current;
@@ -1231,7 +1302,7 @@ function HangarOverlay({
     gg.addColorStop(0, skin.glow + "44"); gg.addColorStop(1, "transparent");
     ctx.fillStyle = gg; ctx.fillRect(0, 0, 240, 140);
     drawPlayerJet(ctx, 90, 56, 5, false, skin);
-  }, [selectedSkin, skin]);
+  }, [activeSkinId, skin]);
 
   if (view === "upgrades") {
     return (
@@ -1279,16 +1350,20 @@ function HangarOverlay({
           {JET_SKINS.map(s => {
             const owned = s.cost === 0 || unlockedItems.includes(s.id);
             const active = s.id === selectedSkin;
+            const previewing = s.id === hoverSkin;
             return (
               <button key={s.id}
                 onClick={() => owned ? onSkinSelect(s.id) : setView("upgrades")}
+                onMouseEnter={() => setHoverSkin(s.id)}
+                onMouseLeave={() => setHoverSkin(null)}
                 title={owned ? s.name : `${s.name} — 🔒 ${s.cost.toLocaleString("de-DE")} Punkte`}
                 style={{
                   width: 22, height: 22, borderRadius: "50%", background: s.glow,
-                  border: active ? "3px solid #fff" : `2px solid ${s.glow}66`,
+                  border: previewing ? `3px solid #fff` : active ? "3px solid #fff" : `2px solid ${s.glow}66`,
                   opacity: owned ? 1 : 0.3,
-                  boxShadow: active ? `0 0 10px ${s.glow}` : "none",
-                  transition: "transform 0.12s",
+                  boxShadow: previewing ? `0 0 14px ${s.glow}, 0 0 4px #fff8` : active ? `0 0 10px ${s.glow}` : "none",
+                  transform: previewing ? "scale(1.25)" : "scale(1)",
+                  transition: "transform 0.12s, box-shadow 0.12s",
                 }}
               />
             );
