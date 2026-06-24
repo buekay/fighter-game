@@ -771,7 +771,11 @@ export default function Game() {
           // Check ULTI button first
           const du = Math.hypot(x - ULTI_BTN_X, y - ULTI_BTN_Y);
           const dl = Math.hypot(x - LASER_BTN_X, y - LASER_BTN_Y);
-          if (dl <= LASER_BTN_R + 12 && laserChargeRef.current >= LASER_MAX && laserActiveRef.current === 0) {
+          const ds = Math.hypot(x - STEALTH_BTN_X, y - STEALTH_BTN_Y);
+          if (ds <= STEALTH_BTN_R + 12 && stealthChargeRef.current >= STEALTH_MAX && stealthActiveRef.current === 0) {
+            stealthActiveRef.current = STEALTH_DURATION;
+            stealthChargeRef.current = 0;
+          } else if (dl <= LASER_BTN_R + 12 && laserChargeRef.current >= LASER_MAX && laserActiveRef.current === 0) {
             laserActiveRef.current = LASER_DURATION;
             laserChargeRef.current = 0;
           } else if (du <= ULTI_BTN_R + 12 && ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0) {
@@ -1317,7 +1321,7 @@ export default function Game() {
       drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current);
 
       // ── Virtual controls overlay ──
-      drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current);
+      drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current);
 
       // Sync display once per ~30 frames for React state
       if (timeRef.current % 30 === 0) syncDisplay();
@@ -1797,6 +1801,9 @@ const LASER_BTN_Y = CANVAS_H - 195;
 const LASER_BTN_R = 36;
 const STEALTH_MAX = 520;
 const STEALTH_DURATION = 480;
+const STEALTH_BTN_X = CANVAS_W - 210;
+const STEALTH_BTN_Y = CANVAS_H - 195;
+const STEALTH_BTN_R = 36;
 
 function drawVirtualControls(
   ctx: CanvasRenderingContext2D,
@@ -1806,6 +1813,8 @@ function drawVirtualControls(
   ultimaActive: number,
   laserCharge: number,
   laserActive: number,
+  stealthCharge: number,
+  stealthActive: number,
 ) {
   ctx.save();
   ctx.globalAlpha = 0.45;
@@ -1908,6 +1917,30 @@ function drawVirtualControls(
   ctx.font = `bold ${laserReady ? 11 : 9}px 'Inter', sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText(laserActive > 0 ? "LASER!" : "LASER", LASER_BTN_X, LASER_BTN_Y);
+
+  // ── STEALTH button ──
+  const stealthReady = stealthCharge >= STEALTH_MAX && stealthActive === 0;
+  const stealthGlow = stealthReady ? (0.55 + 0.45 * Math.sin(Date.now() / 160)) : 0.45;
+  ctx.globalAlpha = stealthGlow;
+  ctx.beginPath();
+  ctx.arc(STEALTH_BTN_X, STEALTH_BTN_Y, STEALTH_BTN_R, 0, Math.PI * 2);
+  ctx.fillStyle   = stealthActive > 0 ? "#00ffff33" : stealthReady ? "#00ddcc44" : "#00222222";
+  ctx.strokeStyle = stealthActive > 0 ? "#00ffffcc" : stealthReady ? "#00ddcccc" : "#00888866";
+  ctx.lineWidth = 2.5;
+  ctx.fill(); ctx.stroke();
+
+  if (stealthActive === 0 && stealthCharge < STEALTH_MAX) {
+    const sp = stealthCharge / STEALTH_MAX;
+    ctx.beginPath();
+    ctx.arc(STEALTH_BTN_X, STEALTH_BTN_Y, STEALTH_BTN_R - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * sp);
+    ctx.strokeStyle = "#00ccbb"; ctx.lineWidth = 4; ctx.stroke();
+  }
+
+  ctx.globalAlpha = stealthReady ? 0.95 : 0.55;
+  ctx.fillStyle = stealthActive > 0 ? "#00ffff" : stealthReady ? "#00ddcc" : "#339988";
+  ctx.font = `bold ${stealthReady ? 10 : 9}px 'Inter', sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(stealthActive > 0 ? "STEALTH!" : "STEALTH", STEALTH_BTN_X, STEALTH_BTN_Y);
 
   ctx.restore();
 }
