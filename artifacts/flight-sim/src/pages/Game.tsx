@@ -1585,12 +1585,12 @@ function HangarOverlay({
           ⚙️ EINSTELLUNGEN
         </button>
       </div>
-      {/* Admin button (tiny, bottom-right) */}
+      {/* Admin button (bottom-right) */}
       <div className="w-full flex justify-end mt-1">
         <button onClick={() => setShowAdmin(v => !v)}
           className="text-xs rounded px-2 py-0.5"
-          style={{ color: "#223", background: "transparent" }}>
-          ···
+          style={{ color: "#556688", background: "rgba(255,255,255,0.04)", border: "1px solid #223344" }}>
+          ⚙ Admin
         </button>
       </div>
       {/* Admin panel */}
