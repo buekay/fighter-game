@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -29,6 +29,8 @@ interface Bullet {
   isMissile?: boolean;
   missileTarget?: Enemy | null;
   trackPlayer?: boolean;
+  lifetime?: number;
+  color?: string;
 }
 
 interface Enemy {
@@ -36,7 +38,7 @@ interface Enemy {
   vx: number; vy: number;
   hp: number; maxHp: number;
   width: number; height: number;
-  type: "scout" | "fighter" | "bomber" | "boss";
+  type: "scout" | "fighter" | "bomber" | "boss" | "interceptor" | "gunship";
   shootCooldown: number;
   points: number;
   color: string;
@@ -139,32 +141,46 @@ const COINS_KEY   = "fighter-command-coins";
 const UNLOCKS_KEY = "fighter-command-unlocks";
 
 const JET_SKINS = [
-  { id: "steel",   name: "Steel",     body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0     },
-  { id: "fire",    name: "Feuer",     body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 25000 },
-  { id: "jade",    name: "Jade",      body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 25000 },
-  { id: "gold",    name: "Gold",      body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 25000 },
-  { id: "shadow",  name: "Schatten",  body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 25000 },
-  { id: "crimson", name: "Scharlach", body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 25000 },
+  { id: "steel",   name: "Steel",    body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0     },
+  { id: "fire",    name: "Feuer",    body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 25000 },
+  { id: "jade",    name: "Jade",     body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 25000 },
+  { id: "gold",    name: "Gold",     body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 25000 },
+  { id: "shadow",  name: "Schatten", body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 25000 },
+  { id: "crimson", name: "Scharlach",body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 25000 },
+  { id: "galaxy",  name: "Galaxy",   body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 30000 },
+  { id: "neon",    name: "Neon",     body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 30000 },
+  { id: "arctic",  name: "Arktis",   body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 30000 },
+  { id: "lava",    name: "Lava",     body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 30000 },
+  { id: "xwing",   name: "X-Wing",   body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 40000 },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
 const SHOP_ITEMS = [
-  { id: "ulti_boost",     name: "Ulti-Boost",       desc: "Ultis laden 50% schneller",                    cost: 25000 },
-  { id: "extra_life",     name: "+1 Leben",          desc: "Starte mit 4 statt 3 Leben",                   cost: 25000 },
-  { id: "weapon_head",    name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                      cost: 25000 },
-  { id: "clone_upgrade",  name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",    cost: 25000 },
-  { id: "laser_upgrade",  name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",     cost: 25000 },
+  { id: "ulti_boost",    name: "Ulti-Boost",     desc: "Ultis laden 50% schneller",                   cost: 25000 },
+  { id: "extra_life",    name: "+1 Leben",        desc: "Starte mit 4 statt 3 Leben",                  cost: 25000 },
+  { id: "weapon_head",   name: "Waffen-Vorstart", desc: "Starte auf Waffentier 2",                     cost: 25000 },
+  { id: "clone_upgrade", name: "Clone-Ulti ⬆",   desc: "Clone feuert Raketen & lädt 25% schneller",   cost: 25000 },
+  { id: "laser_upgrade", name: "Laser-Ulti ⬆",   desc: "Laser macht 2× Schaden & hält 25% länger",    cost: 25000 },
+  { id: "stealth_ulti",  name: "Stealth-Ulti 👁", desc: "8 Sek. unsichtbar & unverwundbar  [Taste R]", cost: 40000 },
 ] as const;
 
+const NAME_KEY         = "fighter-command-name";
+const BULLET_COLOR_KEY = "fighter-command-bcolor";
 function saveHighScore(s: number) { try { if (s > loadHighScore()) localStorage.setItem(HS_KEY, String(s)); } catch {} }
 function loadHighScore(): number  { try { return parseInt(localStorage.getItem(HS_KEY) ?? "0", 10) || 0; } catch { return 0; } }
 function addCoins(n: number)      { try { localStorage.setItem(COINS_KEY, String(loadCoins() + n)); } catch {} }
+function setCoinsAbsolute(n: number) { try { localStorage.setItem(COINS_KEY, String(n)); } catch {} }
 function spendCoins(n: number)    { try { const c = loadCoins(); if (c >= n) localStorage.setItem(COINS_KEY, String(c - n)); } catch {} }
 function loadCoins(): number      { try { return parseInt(localStorage.getItem(COINS_KEY) ?? "0", 10) || 0; } catch { return 0; } }
 function saveSkin(id: string)     { try { localStorage.setItem(SKIN_KEY, id); } catch {} }
 function loadSkin(): string       { try { return localStorage.getItem(SKIN_KEY) ?? "steel"; } catch { return "steel"; } }
 function addUnlock(id: string)    { try { const u = loadUnlocks(); if (!u.includes(id)) localStorage.setItem(UNLOCKS_KEY, JSON.stringify([...u, id])); } catch {} }
 function loadUnlocks(): string[]  { try { return JSON.parse(localStorage.getItem(UNLOCKS_KEY) ?? "[]") as string[]; } catch { return []; } }
+function unlockAll()              { try { const all = [...JET_SKINS.map(s => s.id), ...SHOP_ITEMS.map(i => i.id)]; localStorage.setItem(UNLOCKS_KEY, JSON.stringify(all)); } catch {} }
+function saveName(n: string)      { try { localStorage.setItem(NAME_KEY, n); } catch {} }
+function loadName(): string       { try { return localStorage.getItem(NAME_KEY) ?? "Pilot"; } catch { return "Pilot"; } }
+function saveBulletColor(c: string) { try { localStorage.setItem(BULLET_COLOR_KEY, c); } catch {} }
+function loadBulletColor(): string  { try { return localStorage.getItem(BULLET_COLOR_KEY) ?? "#00ffff"; } catch { return "#00ffff"; } }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -182,6 +198,38 @@ function rectHit(ax: number, ay: number, aw: number, ah: number,
 function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier: number, shieldActive: boolean, skin?: JetSkin) {
   ctx.save();
   ctx.translate(x + PLAYER_W / 2, y + PLAYER_H / 2);
+
+  // ── X-Wing special skin ──
+  if (skin?.id === "xwing") {
+    ctx.beginPath();
+    ctx.moveTo(28,0); ctx.lineTo(-22,-8); ctx.lineTo(-28,-3); ctx.lineTo(-20,0); ctx.lineTo(-28,3); ctx.lineTo(-22,8);
+    ctx.closePath(); ctx.fillStyle = "#303035"; ctx.fill(); ctx.strokeStyle = "#606070"; ctx.lineWidth = 1.5; ctx.stroke();
+    const wingParts: [number,number,number,number,number,number,number,number][] = [
+      [-4,-4, -24,-36, -30,-24, -18,-8],
+      [-4, 4, -24, 36, -30, 24, -18, 8],
+      [ 4,-4,  -6,-26, -16,-18,  -4,-6],
+      [ 4, 4,  -6, 26, -16, 18,  -4, 6],
+    ];
+    wingParts.forEach(([x1,y1,x2,y2,x3,y3,x4,y4]) => {
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x3,y3); ctx.lineTo(x4,y4);
+      ctx.closePath(); ctx.fillStyle = "#22222a"; ctx.fill(); ctx.strokeStyle = "#505060"; ctx.lineWidth = 1.5; ctx.stroke();
+    });
+    ctx.strokeStyle = "#cc2200"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(-6,-18); ctx.lineTo(-18,-30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-6, 18); ctx.lineTo(-18, 30); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(8, 0, 9, 5, 0, 0, Math.PI*2);
+    ctx.fillStyle = "#77aacc88"; ctx.fill(); ctx.strokeStyle = "#aaddff"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = "#888898";
+    [[-26,-1.5],[-26,1.5],[-12,-1.5],[-12,1.5]].forEach(([gy]) => { ctx.fillRect(28, gy, 14, 2); });
+    const rg = ctx.createRadialGradient(0,0,2,0,0,28);
+    rg.addColorStop(0,"#ff220033"); rg.addColorStop(1,"transparent");
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(0,0,28,0,Math.PI*2); ctx.fill();
+    if (shieldActive) {
+      ctx.beginPath(); ctx.arc(0,0,34,0,Math.PI*2);
+      ctx.strokeStyle="#00ffff88"; ctx.lineWidth=2; ctx.stroke(); ctx.fillStyle="#00ffff11"; ctx.fill();
+    }
+    ctx.restore(); return;
+  }
 
   // Engine glow
   const glowColors = ["#00cfff", "#00cfff", "#00ff88", "#ff9900", "#ff4444", "#ff00ff"];
@@ -324,6 +372,27 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       ctx.fillRect(-barW / 2, -e.height / 2 - 16, barW * (e.hp / e.maxHp), barH);
       break;
     }
+    case "interceptor": {
+      ctx.beginPath();
+      ctx.moveTo(18,0); ctx.lineTo(-10,-6); ctx.lineTo(-16,-2); ctx.lineTo(-8,0); ctx.lineTo(-16,2); ctx.lineTo(-10,6);
+      ctx.closePath(); ctx.fillStyle="#001a1a"; ctx.fill(); ctx.strokeStyle=e.color; ctx.lineWidth=1.5; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-2,0); ctx.lineTo(-10,-14); ctx.lineTo(-14,-6); ctx.closePath();
+      ctx.fillStyle="#001010"; ctx.fill(); ctx.strokeStyle=e.color; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-2,0); ctx.lineTo(-10,14); ctx.lineTo(-14,6); ctx.closePath();
+      ctx.fillStyle="#001010"; ctx.fill(); ctx.strokeStyle=e.color; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(2,0,5,3,0,0,Math.PI*2); ctx.fillStyle=e.color+"99"; ctx.fill();
+      break;
+    }
+    case "gunship": {
+      ctx.beginPath();
+      ctx.moveTo(22,0); ctx.lineTo(-14,-20); ctx.lineTo(-32,-12); ctx.lineTo(-22,0); ctx.lineTo(-32,12); ctx.lineTo(-14,20);
+      ctx.closePath(); ctx.fillStyle="#1a0a00"; ctx.fill(); ctx.strokeStyle=e.color; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(4,0,8,5,0,0,Math.PI*2); ctx.fillStyle=e.color+"99"; ctx.fill();
+      const bW=e.width*0.8,bH=4;
+      ctx.fillStyle="#333"; ctx.fillRect(-bW/2,-e.height/2-8,bW,bH);
+      ctx.fillStyle=e.color; ctx.fillRect(-bW/2,-e.height/2-8,bW*(e.hp/e.maxHp),bH);
+      break;
+    }
   }
 
   ctx.restore();
@@ -353,10 +422,11 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
     ctx.beginPath(); ctx.arc(-8, 0, 4, 0, Math.PI * 2);
     ctx.fillStyle = "#ff330088"; ctx.fill();
   } else if (b.fromPlayer) {
+    const bc = b.color ?? "#00ffff";
     ctx.beginPath();
     ctx.rect(b.x - 2, b.y - 2, 14, 4);
-    ctx.fillStyle = "#00ffff";
-    ctx.shadowColor = "#00ffff"; ctx.shadowBlur = 8;
+    ctx.fillStyle = bc;
+    ctx.shadowColor = bc; ctx.shadowBlur = 8;
     ctx.fill();
   } else {
     ctx.beginPath();
@@ -444,6 +514,10 @@ export default function Game() {
   const gameOverCountdownRef = useRef(0);
   const activeSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadSkin()) ?? JET_SKINS[0]);
   const activeUnlocksRef = useRef<string[]>([]);
+  const stealthChargeRef = useRef(0);
+  const stealthActiveRef = useRef(0);
+  const activeBulletColorRef = useRef(loadBulletColor());
+  const playerNameRef = useRef(loadName());
   const [selectedSkin, setSelectedSkin] = useState(() => loadSkin());
   const [coins, setCoins] = useState(() => loadCoins());
   const [highScore, setHighScore] = useState(() => loadHighScore());
@@ -491,10 +565,14 @@ export default function Game() {
     const isBossLevel = level >= 3 && timeRef.current % bossInterval < 5;
 
     if (isBossLevel && enemiesRef.current.filter(e => e.type === "boss").length === 0) {
-      type = "boss"; hp = 25 + level * 6; w = 90; h = 68; vx = -rand(0.6, 1.2); pts = 50; color = "#cc00ff";
-    } else if (level >= 4 && roll < 0.15) {
+      type = "boss"; hp = 25 + level * 6; w = 90; h = 68; vx = -rand(0.6, 1.2); pts = 100; color = "#cc00ff";
+    } else if (level >= 7 && roll < 0.10) {
+      type = "gunship"; hp = 8 + level * 2; w = 64; h = 46; vx = -rand(0.5, 1.0); pts = 80; color = "#ff6600";
+    } else if (level >= 5 && roll < 0.22) {
+      type = "interceptor"; hp = 1; w = 36; h = 22; vx = -rand(3.5, 5.5); pts = 20; color = "#00ffcc";
+    } else if (level >= 4 && roll < 0.36) {
       type = "bomber"; hp = 4 + level; w = 56; h = 40; vx = -rand(0.8, 1.5); pts = 60; color = "#44ff44";
-    } else if (level >= 2 && roll < 0.4) {
+    } else if (level >= 2 && roll < 0.55) {
       type = "fighter"; hp = 2 + Math.floor(level / 2); w = 48; h = 28; vx = -rand(1.8, 3.2); pts = 30; color = "#ffcc00";
     }
 
@@ -539,6 +617,7 @@ export default function Game() {
         vx, vy,
         fromPlayer: true,
         damage: tier.bulletDmg,
+        color: activeBulletColorRef.current,
       });
     });
 
@@ -552,7 +631,7 @@ export default function Game() {
           const spread = (i - (offsets.length - 1) / 2) * 0.12;
           cvy = spread * BASE_BULLET_SPEED;
         }
-        bulletsRef.current.push({ x: px, y: cloneY + oy, vx: cvx, vy: cvy, fromPlayer: true, damage: tier.bulletDmg });
+        bulletsRef.current.push({ x: px, y: cloneY + oy, vx: cvx, vy: cvy, fromPlayer: true, damage: tier.bulletDmg, color: activeBulletColorRef.current });
       });
     }
 
@@ -573,6 +652,10 @@ export default function Game() {
     const save = fromSave ? loadSave() : null;
     const unlocks = loadUnlocks();
     activeUnlocksRef.current = unlocks;
+    activeBulletColorRef.current = loadBulletColor();
+    playerNameRef.current = loadName();
+    stealthChargeRef.current = 0;
+    stealthActiveRef.current = 0;
     stateRef.current = {
       score:      save?.score  ?? 0,
       level:      save?.level  ?? 1,
@@ -628,6 +711,14 @@ export default function Game() {
         if (stateRef.current.started && !stateRef.current.gameOver) {
           stateRef.current.paused = !stateRef.current.paused;
           syncDisplay();
+        }
+      }
+      if ((e.key === "r" || e.key === "R") && down && stateRef.current.started &&
+          !stateRef.current.gameOver && !stateRef.current.paused) {
+        if (stealthChargeRef.current >= STEALTH_MAX && stealthActiveRef.current === 0
+            && activeUnlocksRef.current.includes("stealth_ulti")) {
+          stealthActiveRef.current = STEALTH_DURATION;
+          stealthChargeRef.current = 0;
         }
       }
       if ((e.key === "q" || e.key === "Q") && down && stateRef.current.started &&
@@ -898,7 +989,7 @@ export default function Game() {
           width: 115, height: 88,
           type: "boss",
           shootCooldown: 12,
-          points: 50,
+          points: 100,
           color: "#ff2200",
           angle: 0,
           oscillate: 0,
@@ -915,6 +1006,15 @@ export default function Game() {
 
       // ── Update bullets ──
       bulletsRef.current = bulletsRef.current.filter(b => {
+        // Lifetime expiry (boss missiles)
+        if (b.lifetime !== undefined) {
+          b.lifetime--;
+          if (b.lifetime <= 0) return false;
+        }
+        // Red bullet wave (level 8+)
+        if (b.fromPlayer && b.color === "#ff3333" && gs.level >= 8) {
+          b.vy = Math.sin(timeRef.current * 0.08 + b.x * 0.03) * 3;
+        }
         if (b.isMissile && b.missileTarget && !b.missileTarget.dead) {
           const tx = b.missileTarget.x + b.missileTarget.width / 2;
           const ty = b.missileTarget.y + b.missileTarget.height / 2;
@@ -961,6 +1061,12 @@ export default function Game() {
         const laserBonus = activeUnlocksRef.current.includes("laser_upgrade") ? 1.25 : 1;
         laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + 0.10 * laserMult * laserBonus);
       }
+      // ── Stealth charge & countdown ──
+      if (stealthActiveRef.current > 0) {
+        stealthActiveRef.current--;
+      } else if (stealthChargeRef.current < STEALTH_MAX && activeUnlocksRef.current.includes("stealth_ulti")) {
+        stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + 0.10);
+      }
 
       enemiesRef.current = enemiesRef.current.filter(e => {
         if (e.dead) return false;
@@ -998,6 +1104,7 @@ export default function Game() {
                 damage: 2,
                 isMissile: true,
                 trackPlayer: true,
+                lifetime: 720,
               });
             }
           }
@@ -1026,7 +1133,7 @@ export default function Game() {
         drawEnemy(ctx, e);
 
         // Enemy-player collision
-        if (invincibleRef.current <= 0 && shieldTimerRef.current <= 0 &&
+        if (invincibleRef.current <= 0 && stealthActiveRef.current <= 0 && shieldTimerRef.current <= 0 &&
           rectHit(playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H, e.x, e.y, e.width, e.height)) {
           gs.hp = Math.max(0, gs.hp - 1);
           invincibleRef.current = 140;
@@ -1055,6 +1162,11 @@ export default function Game() {
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current +
               (e.type === "boss" ? 60 : e.type === "bomber" ? 28 : e.type === "fighter" ? 14 : 8));
             e.dead = true;
+            // Boss always drops health
+            if (e.type === "boss") {
+              powerUpsRef.current.push({ x: e.x + e.width / 2, y: e.y + e.height / 2, type: "health", vy: 1.2 });
+              stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + 50);
+            }
             // Power-up chance
             if (Math.random() < 0.18) {
               const types: PowerUp["type"][] = ["health", "shield", "speed"];
@@ -1082,6 +1194,7 @@ export default function Game() {
           return false;
         }
         if (invincibleRef.current > 0) return false;
+        if (stealthActiveRef.current > 0) return false;
         gs.hp = Math.max(0, gs.hp - b.damage);
         invincibleRef.current = 100;
         spawnExplosion(particlesRef.current, b.x, b.y, false);
@@ -1158,6 +1271,7 @@ export default function Game() {
             gs.score += e.points;
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (e.type === "boss" ? 50 : 8));
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + (e.type === "boss" ? 30 : 5));
+            stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + (e.type === "boss" ? 30 : 4));
             e.dead = true;
             syncDisplay();
           }
@@ -1165,7 +1279,13 @@ export default function Game() {
       }
 
       // ── Draw player (+ clone when ultima active) ──
-      if (invincibleRef.current <= 0 || Math.floor(timeRef.current / 5) % 2 === 0) {
+      if (stealthActiveRef.current > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.15 + 0.1 * Math.sin(timeRef.current * 0.25);
+        ctx.shadowColor = "#00ffee"; ctx.shadowBlur = 20;
+        drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, activeSkinRef.current);
+        ctx.restore();
+      } else if (invincibleRef.current <= 0 || Math.floor(timeRef.current / 5) % 2 === 0) {
         drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current);
         if (ultimaActiveRef.current > 0) {
           const cloneY = clamp(playerRef.current.y + 56, 0, CANVAS_H - PLAYER_H);
@@ -1194,7 +1314,7 @@ export default function Game() {
       }
 
       // ── HUD ──
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current);
 
       // ── Virtual controls overlay ──
       drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current);
@@ -1216,16 +1336,20 @@ export default function Game() {
   };
 
   const handleBuy = (itemId: string) => {
-    if (loadCoins() < 25000) return;
-    spendCoins(25000);
+    const item = SHOP_ITEMS.find(i => i.id === itemId);
+    if (!item) return;
+    if (loadCoins() < item.cost) return;
+    spendCoins(item.cost);
     addUnlock(itemId);
     setCoins(loadCoins());
     setUnlockedItems(loadUnlocks());
   };
 
   const handleUnlockSkin = (skinId: string) => {
-    if (loadCoins() < 25000) return;
-    spendCoins(25000);
+    const sk = JET_SKINS.find(s => s.id === skinId);
+    if (!sk || sk.cost === 0) return;
+    if (loadCoins() < sk.cost) return;
+    spendCoins(sk.cost);
     addUnlock(skinId);
     setCoins(loadCoins());
     setUnlockedItems(loadUnlocks());
@@ -1247,6 +1371,15 @@ export default function Game() {
           style={{ maxWidth: "100%", maxHeight: "100vh", objectFit: "contain", touchAction: "none" }}
           tabIndex={0}
         />
+        {displayState.started && !displayState.gameOver && (
+          <button
+            onClick={() => { stateRef.current.paused = !stateRef.current.paused; syncDisplay(); }}
+            className="absolute top-2 right-2 z-10 font-bold rounded px-2 py-1 text-sm"
+            style={{ background: "rgba(4,10,24,0.85)", border: "1px solid #334466", color: "#7799bb" }}
+          >
+            {displayState.paused ? "▶ WEITER" : "⏸"}
+          </button>
+        )}
         {!displayState.started && (
           <HangarOverlay
             selectedSkin={selectedSkin}
@@ -1260,12 +1393,18 @@ export default function Game() {
             onSkinSelect={handleSkinSelect}
             onBuy={handleBuy}
             onUnlockSkin={handleUnlockSkin}
+            onAdminActivate={() => {
+              setCoinsAbsolute(99999999);
+              unlockAll();
+              setCoins(loadCoins());
+              setUnlockedItems(loadUnlocks());
+            }}
           />
         )}
       </div>
       {displayState.started && !displayState.gameOver && (
         <div className="mt-2 text-xs text-gray-600 tracking-wider hidden sm:block">
-          WASD — Bewegen &nbsp;·&nbsp; SPACE — Schießen &nbsp;·&nbsp; Q — Clone &nbsp;·&nbsp; E — Laser &nbsp;·&nbsp; P — Pause
+          WASD · SPACE — Schuss · Q — Clone · E — Laser · R — Stealth · P — Pause
         </div>
       )}
     </div>
@@ -1276,15 +1415,21 @@ export default function Game() {
 
 function HangarOverlay({
   selectedSkin, coins, highScore, unlockedItems, hasSave, saveData,
-  onStart, onNewGame, onSkinSelect, onBuy, onUnlockSkin,
+  onStart, onNewGame, onSkinSelect, onBuy, onUnlockSkin, onAdminActivate,
 }: {
   selectedSkin: string; coins: number; highScore: number;
   unlockedItems: string[]; hasSave: boolean; saveData: { level: number; score: number; weaponTier: number } | null;
   onStart: () => void; onNewGame: () => void;
   onSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void;
+  onAdminActivate: () => void;
 }) {
   const [view, setView] = useState<"main" | "upgrades" | "settings">("main");
   const [hoverSkin, setHoverSkin] = useState<string | null>(null);
+  const [playerName, setPlayerName] = useState(() => loadName());
+  const [bulletColor, setBulletColor] = useState(() => loadBulletColor());
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [adminCode, setAdminCode] = useState("");
+  const [adminMsg, setAdminMsg] = useState("");
   const previewRef = useRef<HTMLCanvasElement>(null);
   const activeSkinId = hoverSkin ?? selectedSkin;
   const skin = JET_SKINS.find(s => s.id === activeSkinId) ?? JET_SKINS[0];
@@ -1337,6 +1482,19 @@ function HangarOverlay({
         </div>
       </div>
 
+      {/* ── Pilot name ── */}
+      <div className="w-full flex items-center gap-2 px-1">
+        <span className="text-slate-400 text-xs whitespace-nowrap">🧑‍✈️ Name:</span>
+        <input
+          value={playerName}
+          onChange={e => { setPlayerName(e.target.value); saveName(e.target.value); }}
+          maxLength={20}
+          placeholder="Pilot"
+          className="flex-1 px-2 py-1 rounded-lg text-sm font-bold text-white outline-none"
+          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid #334466", color: "#00cfff" }}
+        />
+      </div>
+
       {/* ── Jet preview ── */}
       <div className="flex flex-col items-center gap-2">
         <div className="text-xs text-slate-500 uppercase tracking-widest">Dein Jet</div>
@@ -1368,6 +1526,21 @@ function HangarOverlay({
               />
             );
           })}
+        </div>
+        {/* Bullet color picker */}
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-slate-500 text-xs">Schussfarbe:</span>
+          {[{ color: "#00ffff", label: "Blau" }, { color: "#ff3333", label: "Rot" }, { color: "#00ff88", label: "Grün" }].map(opt => (
+            <button key={opt.color} onClick={() => { setBulletColor(opt.color); saveBulletColor(opt.color); }}
+              title={opt.label}
+              style={{
+                width: 20, height: 20, borderRadius: "50%", background: opt.color,
+                border: bulletColor === opt.color ? "3px solid #fff" : "2px solid transparent",
+                boxShadow: bulletColor === opt.color ? `0 0 10px ${opt.color}` : "none",
+                transform: bulletColor === opt.color ? "scale(1.2)" : "scale(1)",
+                transition: "all 0.12s",
+              }} />
+          ))}
         </div>
         {/* Continue hint */}
         {hasSave && saveData && (
@@ -1412,11 +1585,77 @@ function HangarOverlay({
           ⚙️ EINSTELLUNGEN
         </button>
       </div>
+      {/* Admin button (tiny, bottom-right) */}
+      <div className="w-full flex justify-end mt-1">
+        <button onClick={() => setShowAdmin(v => !v)}
+          className="text-xs rounded px-2 py-0.5"
+          style={{ color: "#223", background: "transparent" }}>
+          ···
+        </button>
+      </div>
+      {/* Admin panel */}
+      {showAdmin && (
+        <div className="absolute inset-0 flex items-center justify-center z-50"
+          style={{ background: "rgba(0,0,0,0.88)" }}>
+          <div className="flex flex-col gap-4 rounded-2xl p-6 w-72"
+            style={{ background: "#0a0f20", border: "1.5px solid #2244aa" }}>
+            <div className="font-black text-lg tracking-wide" style={{ color: "#00cfff" }}>ADMIN PANEL</div>
+            <div className="text-slate-400 text-sm">Pilot: <span className="text-white font-bold">{playerName || "Pilot"}</span></div>
+            <div className="text-slate-400 text-sm">Spieler aktiv: <span className="text-emerald-400 font-bold">1 (lokal)</span></div>
+            <div className="text-slate-500 text-xs">Admin-Code eingeben:</div>
+            <input
+              value={adminCode}
+              onChange={e => setAdminCode(e.target.value)}
+              placeholder="Code..."
+              className="px-3 py-2 rounded-lg text-sm font-mono outline-none"
+              style={{ background: "rgba(255,255,255,0.07)", border: "1px solid #334466", color: "#fff" }}
+            />
+            {adminMsg && <div className="text-emerald-400 text-sm font-bold">{adminMsg}</div>}
+            <div className="flex gap-2">
+              <button onClick={() => {
+                if (adminCode === "buelli-best 1") {
+                  onAdminActivate();
+                  setAdminMsg("✓ Admin-Modus aktiv! Alle Inhalte freigeschaltet.");
+                  setAdminCode("");
+                } else {
+                  setAdminMsg("✗ Falscher Code.");
+                }
+              }}
+                className="flex-1 py-2 rounded-xl font-bold text-sm transition-all active:scale-95"
+                style={{ background: "rgba(0,80,200,0.5)", border: "1px solid #0066ff", color: "#66aaff" }}>
+                Aktivieren
+              </button>
+              <button onClick={() => { setShowAdmin(false); setAdminMsg(""); setAdminCode(""); }}
+                className="flex-1 py-2 rounded-xl font-bold text-sm transition-all active:scale-95"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #334", color: "#667799" }}>
+                Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── Shop Screen ──────────────────────────────────────────────────────────────
+
+function ShopStarfield() {
+  const stars = useMemo(() => Array.from({ length: 90 }, (_: unknown, i: number) => ({
+    cx: ((i * 37 + 13) % 100), cy: ((i * 53 + 7) % 100),
+    r: 0.5 + (i % 3) * 0.5, op: 0.3 + (i % 5) * 0.14,
+  })), []);
+  return (
+    <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(170deg,#000012 0%,#02020e 55%,#050518 100%)" }}>
+      <svg width="100%" height="100%" style={{ position: "absolute", inset: 0 }}>
+        {stars.map((s, i) => <circle key={i} cx={`${s.cx}%`} cy={`${s.cy}%`} r={s.r} fill="#fff" opacity={s.op} />)}
+        <text x="50%" y="8%" textAnchor="middle" style={{ fontFamily: "'Courier New', monospace", fontSize: 11, fill: "#ffcc00", opacity: 0.6, fontWeight: "bold", letterSpacing: 2 }}>
+          ✦ A LONG TIME AGO IN A GALAXY FAR, FAR AWAY ✦
+        </text>
+      </svg>
+    </div>
+  );
+}
 
 function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnlockSkin, onSkinSelect }: {
   coins: number; unlockedItems: string[]; selectedSkin: string;
@@ -1424,15 +1663,16 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnloc
   onUnlockSkin: (id: string) => void; onSkinSelect: (id: string) => void;
 }) {
   return (
-    <div className="flex flex-col h-full p-4 gap-3 overflow-y-auto select-none text-white">
-      <div className="flex items-center gap-3 shrink-0">
+    <div className="relative flex flex-col h-full p-4 gap-3 overflow-y-auto select-none text-white">
+      <ShopStarfield />
+      <div className="relative z-10 flex items-center gap-3 shrink-0">
         <button onClick={onBack} className="text-slate-400 hover:text-white text-xl font-bold px-2">←</button>
-        <h2 className="font-bold text-xl tracking-wide">AUFRÜSTEN</h2>
+        <h2 className="font-bold text-xl tracking-wide" style={{ textShadow: "0 0 12px #00cfff88" }}>AUFRÜSTEN</h2>
         <span className="ml-auto text-amber-300 font-bold text-sm">💰 {coins.toLocaleString("de-DE")}</span>
       </div>
 
-      <div className="text-slate-500 text-xs uppercase tracking-widest">Jet-Skins · 25.000 Punkte</div>
-      <div className="grid grid-cols-3 gap-2 shrink-0">
+      <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest">Jet-Skins</div>
+      <div className="relative z-10 grid grid-cols-3 gap-2 shrink-0">
         {JET_SKINS.map(s => {
           const owned = s.cost === 0 || unlockedItems.includes(s.id);
           const active = s.id === selectedSkin;
@@ -1442,7 +1682,7 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnloc
               onClick={() => owned ? onSkinSelect(s.id) : canAfford ? onUnlockSkin(s.id) : undefined}
               className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all active:scale-95"
               style={{
-                background: active ? s.glow + "22" : "rgba(255,255,255,0.04)",
+                background: active ? s.glow + "22" : "rgba(255,255,255,0.05)",
                 border: active ? `2px solid ${s.glow}` : `1px solid ${s.glow}33`,
                 opacity: !owned && !canAfford ? 0.45 : 1,
               }}>
@@ -1451,7 +1691,7 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnloc
               {owned
                 ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div>
                 : <div className={`text-xs font-bold ${canAfford ? "text-amber-300" : "text-slate-500"}`}>
-                    {canAfford ? "💰 Kaufen" : "🔒"}
+                    {canAfford ? `💰 ${(s.cost/1000).toFixed(0)}k` : "🔒"}
                   </div>
               }
             </button>
@@ -1459,14 +1699,14 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnloc
         })}
       </div>
 
-      <div className="text-slate-500 text-xs uppercase tracking-widest mt-1">Upgrades · je 25.000 Punkte</div>
-      <div className="flex flex-col gap-2">
+      <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest mt-1">Upgrades</div>
+      <div className="relative z-10 flex flex-col gap-2">
         {SHOP_ITEMS.map(item => {
           const owned = unlockedItems.includes(item.id);
           const canAfford = coins >= item.cost;
           return (
             <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl"
-              style={{ background: owned ? "rgba(0,180,80,0.10)" : "rgba(255,255,255,0.04)", border: `1px solid ${owned ? "#00aa4444" : "#333"}` }}>
+              style={{ background: owned ? "rgba(0,180,80,0.10)" : "rgba(255,255,255,0.05)", border: `1px solid ${owned ? "#00aa4444" : "#334"}` }}>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-sm">{item.name}</div>
                 <div className="text-slate-400 text-xs">{item.desc}</div>
@@ -1490,11 +1730,13 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnloc
 // ─── Settings Screen ──────────────────────────────────────────────────────────
 
 function SettingsScreen({ onBack }: { onBack: () => void }) {
+  const [name, setName] = useState(() => loadName());
   const controls = [
     ["WASD / Pfeiltasten", "Bewegen"],
     ["LEERTASTE", "Schießen"],
     ["Q", "Clone-Ulti"],
     ["E", "Laser-Ulti"],
+    ["R", "Stealth-Ulti"],
     ["P", "Pause"],
   ];
   return (
@@ -1519,8 +1761,19 @@ function SettingsScreen({ onBack }: { onBack: () => void }) {
         <div>CLONE → Clone-Ulti (Q)</div>
         <div>LASER → Laser-Ulti (E)</div>
       </div>
+      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Piloten-Name</div>
+      <div className="flex items-center gap-2">
+        <input
+          value={name}
+          onChange={e => { setName(e.target.value); saveName(e.target.value); }}
+          maxLength={20}
+          placeholder="Pilot"
+          className="flex-1 px-2 py-1.5 rounded-lg text-sm font-bold outline-none"
+          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid #334466", color: "#00cfff" }}
+        />
+      </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Shop</div>
-      <div className="text-slate-300 text-sm">Sammle Punkte beim Spielen — sie bleiben als Währung erhalten.<br />Jedes Item im Shop kostet <span className="text-amber-300 font-bold">25.000 Punkte</span>.</div>
+      <div className="text-slate-300 text-sm">Sammle Punkte beim Spielen — sie bleiben als Währung erhalten. Skins ab 25k, spezielle ab 30–40k.</div>
     </div>
   );
 }
@@ -1542,6 +1795,8 @@ const LASER_DURATION = 480;
 const LASER_BTN_X = CANVAS_W - 80;
 const LASER_BTN_Y = CANVAS_H - 195;
 const LASER_BTN_R = 36;
+const STEALTH_MAX = 520;
+const STEALTH_DURATION = 480;
 
 function drawVirtualControls(
   ctx: CanvasRenderingContext2D,
@@ -1657,13 +1912,13 @@ function drawVirtualControls(
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number) {
   ctx.save();
   ctx.textBaseline = "top";
 
-  // Top bar background (taller to fit both ult bars)
+  // Top bar background
   ctx.fillStyle = "rgba(4,10,24,0.72)";
-  ctx.fillRect(0, 0, CANVAS_W, 56);
+  ctx.fillRect(0, 0, CANVAS_W, 70);
 
   // Score
   ctx.fillStyle = "#00cfff";
@@ -1751,10 +2006,12 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     }
   };
 
-  drawUltBar("CLONE", "Q", ultimaCharge, ULTI_MAX, ultimaActive, ULTI_DURATION,
-    16, 42, 120, 5, ["#ff00ff","#8800ff"], ["#6600bb","#cc00ff"], "#ff44ff");
-  drawUltBar("LASER", "E", laserCharge, LASER_MAX, laserActive, LASER_DURATION,
-    16, 52, 120, 5, ["#ff8800","#ffdd00"], ["#cc4400","#ff8800"], "#ffaa22");
+  drawUltBar("CLONE",   "Q", ultimaCharge,  ULTI_MAX,    ultimaActive,  ULTI_DURATION,
+    16, 43, 120, 5, ["#ff00ff","#8800ff"],  ["#6600bb","#cc00ff"], "#ff44ff");
+  drawUltBar("LASER",   "E", laserCharge,   LASER_MAX,   laserActive,   LASER_DURATION,
+    16, 53, 120, 5, ["#ff8800","#ffdd00"],  ["#cc4400","#ff8800"], "#ffaa22");
+  drawUltBar("STEALTH", "R", stealthCharge, STEALTH_MAX, stealthActive, STEALTH_DURATION,
+    16, 63, 120, 5, ["#00ffee","#0088ff"],  ["#004488","#00aacc"], "#00ddcc");
 
   ctx.restore();
 }

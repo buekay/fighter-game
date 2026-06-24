@@ -1,0 +1,1 @@
+- [Fighter Jet game architecture](flight-sim-arch.md) — single 2000+ line Game.tsx; all logic/drawing in one file; careful with edit batching.
