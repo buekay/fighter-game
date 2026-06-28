@@ -231,7 +231,7 @@ function rectHit(ax: number, ay: number, aw: number, ah: number,
 
 // ─── Drawing helpers ─────────────────────────────────────────────────────────
 
-function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier: number, shieldActive: boolean, skin?: JetSkin) {
+function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier: number, shieldActive: boolean, skin?: JetSkin, shieldColor?: string) {
   ctx.save();
   ctx.translate(x + PLAYER_W / 2, y + PLAYER_H / 2);
 
@@ -280,13 +280,13 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
     ctx.beginPath();
     ctx.moveTo(30, 0); ctx.lineTo(10, -5); ctx.lineTo(-22, -6);
     ctx.lineTo(-30, -2); ctx.lineTo(-30, 2); ctx.lineTo(-22, 6); ctx.lineTo(10, 5); ctx.closePath();
-    ctx.fillStyle = "#c8b800"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = "#ffe830"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(4, -7); ctx.lineTo(-24, -11); ctx.lineTo(-30, -8); ctx.lineTo(-24, -5); ctx.lineTo(4, -7); ctx.closePath();
-    ctx.fillStyle = "#2a2600"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = "#4a4600"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1; ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(4, 7); ctx.lineTo(-24, 11); ctx.lineTo(-30, 8); ctx.lineTo(-24, 5); ctx.lineTo(4, 7); ctx.closePath();
-    ctx.fillStyle = "#2a2600"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = "#4a4600"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1; ctx.stroke();
     ctx.beginPath(); ctx.ellipse(12, 0, 9, 6, 0, 0, Math.PI * 2);
     ctx.fillStyle = "#77ddcc99"; ctx.fill(); ctx.strokeStyle = "#aaffee"; ctx.lineWidth = 1; ctx.stroke();
     ctx.strokeStyle = glow; ctx.lineWidth = 2;
@@ -297,8 +297,9 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
     ctx.beginPath(); ctx.arc(-6, -9, 2, 0, Math.PI * 2); ctx.fillStyle = "#aabbff44"; ctx.fill();
     ctx.fillStyle = "#888870"; ctx.fillRect(28, -1.5, 12, 3);
     if (shieldActive) {
+      const sc = shieldColor ?? "#ffdd00";
       ctx.beginPath(); ctx.arc(0, 0, 38, 0, Math.PI * 2);
-      ctx.strokeStyle = "#ffdd0099"; ctx.lineWidth = 2.5; ctx.stroke(); ctx.fillStyle = "#ffdd0011"; ctx.fill();
+      ctx.strokeStyle = sc + "99"; ctx.lineWidth = 2.5; ctx.stroke(); ctx.fillStyle = sc + "11"; ctx.fill();
     }
     ctx.restore(); return;
   }
@@ -648,6 +649,7 @@ export default function Game() {
   const healActiveRef = useRef(0);
   const speedBoostRef = useRef(0);
   const n1ShieldTimerRef = useRef(0);
+  const n1ShieldHpRef   = useRef(5);
   const bestScoreRef = useRef(loadHighScore());
   const activeBulletColorRef = useRef(loadBulletColor());
   const playerNameRef = useRef(loadName());
@@ -696,14 +698,22 @@ export default function Game() {
     let hp = 1, w = 40, h = 20, vx = -rand(1.5, 3), pts = 10, color = "#ff4444";
     const bossInterval = Math.max(220, 1200 - level * 60);
     const isBossLevel = level >= 3 && timeRef.current % bossInterval < 5;
+    const bossHpBase = (25 + level * 6) * (level >= 8 ? 5 : level >= 5 ? 3 : 1);
 
     if (isBossLevel && enemiesRef.current.filter(e => e.type === "boss").length === 0) {
-      type = "boss"; hp = 25 + level * 6; w = 90; h = 68; vx = -rand(0.6, 1.2); pts = 100; color = "#cc00ff";
+      const isSuperBoss = level >= 12 && timeRef.current % (bossInterval * 4) < 5;
+      type = "boss";
+      hp   = isSuperBoss ? bossHpBase * 3 : bossHpBase;
+      w    = isSuperBoss ? 130 : 90;
+      h    = isSuperBoss ? 102 : 68;
+      vx   = isSuperBoss ? -rand(0.4, 0.9) : -rand(0.6, 1.2);
+      pts  = isSuperBoss ? 600 : 100;
+      color = isSuperBoss ? "#ff00cc" : "#cc00ff";
     } else if (level >= 7 && roll < 0.10) {
       type = "gunship"; hp = 8 + level * 2; w = 64; h = 46; vx = -rand(0.5, 1.0); pts = 80; color = "#ff6600";
-    } else if (level >= 10 && roll < 0.17) {
-      type = "tiefighter"; hp = 2; w = 40; h = 36; vx = -rand(4.0, 6.5); pts = 40; color = "#0099ff";
-    } else if (level >= 5 && roll < 0.28) {
+    } else if (level >= 10 && roll < 0.28) {
+      type = "tiefighter"; hp = 3; w = 42; h = 38; vx = -rand(2.0, 3.2); pts = 45; color = "#0099ff";
+    } else if (level >= 5 && roll < 0.38) {
       type = "interceptor"; hp = 1; w = 36; h = 22; vx = -rand(3.5, 5.5); pts = 20; color = "#00ffcc";
     } else if (level >= 4 && roll < 0.36) {
       type = "bomber"; hp = 4 + level; w = 56; h = 40; vx = -rand(0.8, 1.5); pts = 60; color = "#44ff44";
@@ -796,6 +806,7 @@ export default function Game() {
     healActiveRef.current = 0;
     speedBoostRef.current = 0;
     n1ShieldTimerRef.current = 0;
+    n1ShieldHpRef.current = 5;
     bestScoreRef.current = loadHighScore();
     const baseMaxHp = unlocks.includes("max_hp") ? 15 : 10;
     const baseSpeed = 3.2 + (unlocks.includes("speed_item") ? 0.5 : 0);
@@ -868,7 +879,7 @@ export default function Game() {
           !stateRef.current.gameOver && !stateRef.current.paused) {
         if (healChargeRef.current >= HEAL_MAX && healActiveRef.current === 0
             && activeUnlocksRef.current.includes("heal_ulti")) {
-          stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 8);
+          stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
           healActiveRef.current = HEAL_DURATION;
           healChargeRef.current = 0;
           syncDisplay();
@@ -928,7 +939,7 @@ export default function Game() {
           const dh = Math.hypot(x - HEAL_BTN_X, y - HEAL_BTN_Y);
           if (dh <= HEAL_BTN_R + 12 && healChargeRef.current >= HEAL_MAX && healActiveRef.current === 0
               && activeUnlocksRef.current.includes("heal_ulti")) {
-            stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 8);
+            stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
             healActiveRef.current = HEAL_DURATION;
             healChargeRef.current = 0;
             syncDisplay();
@@ -1081,6 +1092,8 @@ export default function Game() {
         ctx.fillText(`Score: ${gs.score.toLocaleString("de-DE")}`, CANVAS_W/2, CANVAS_H/2+10);
         ctx.fillStyle = "#aaa"; ctx.font = "15px 'Inter', sans-serif";
         ctx.fillText(`Level ${gs.level}  ·  ${WEAPON_TIERS[gs.weaponTier].name}`, CANVAS_W/2, CANVAS_H/2+40);
+        ctx.fillStyle = "#ffcc44"; ctx.font = "13px 'Inter', sans-serif";
+        ctx.fillText("🏆 Score gespeichert — Rangliste im Hangar!", CANVAS_W/2, CANVAS_H/2+62);
         const sLeft = Math.max(0, Math.ceil((200 - gameOverCountdownRef.current) / 60));
         ctx.fillStyle = sLeft > 0 ? "#666" : "#ffcc00";
         ctx.font = "13px 'Inter', sans-serif";
@@ -1162,7 +1175,7 @@ export default function Game() {
       }
 
       // ── Spawn enemies ──
-      const spawnRate = Math.max(55, 145 - gs.level * 12);
+      const spawnRate = Math.max(32, 110 - gs.level * 10);
       enemySpawnTimerRef.current++;
       if (enemySpawnTimerRef.current >= spawnRate) {
         enemySpawnTimerRef.current = 0;
@@ -1247,6 +1260,7 @@ export default function Game() {
         if (n1ShieldTimerRef.current >= 1200 && shieldTimerRef.current <= 0) {
           n1ShieldTimerRef.current = 0;
           shieldTimerRef.current = 180;
+          n1ShieldHpRef.current = 5;
         }
       }
 
@@ -1292,14 +1306,14 @@ export default function Game() {
           }
         }
 
-        // Fighter dodge (level 8+, every 8s = 480 frames)
+        // Fighter dodge (level 8+, every 5s = 300 frames)
         if (e.type === "fighter" && gs.level >= 8) {
           e.fighterDodgeTimer = (e.fighterDodgeTimer ?? 0) + 1;
-          if (e.fighterDodgeTimer >= 480) {
+          if (e.fighterDodgeTimer >= 300) {
             e.fighterDodgeTimer = 0;
             e.fighterDodgeDir = Math.random() > 0.5 ? 1 : -1;
           }
-          const fDecay = Math.max(0, 1 - (e.fighterDodgeTimer % 480) / 90);
+          const fDecay = Math.max(0, 1 - (e.fighterDodgeTimer % 300) / 90);
           e.vy = (e.fighterDodgeDir ?? 0) * 2.5 * fDecay;
         }
         // TIE Fighter dodge (every 3s = 180 frames, level 10+)
@@ -1319,16 +1333,26 @@ export default function Game() {
         // Enemy shooting
         e.shootCooldown--;
         if (e.shootCooldown <= 0) {
-          e.shootCooldown = e.type === "boss" ? 25 : e.type === "bomber" ? 55 : rand(70, 120);
-          const shotCount = e.type === "boss" ? 3 : e.type === "bomber" ? 2 : 1;
-          for (let s = 0; s < shotCount; s++) {
-            const spread = (s - (shotCount - 1) / 2) * 0.25;
-            bulletsRef.current.push({
-              x: e.x, y: e.y + e.height / 2,
-              vx: -ENEMY_BULLET_SPEED + (e.type === "boss" ? -1 : 0),
-              vy: spread * ENEMY_BULLET_SPEED,
-              fromPlayer: false, damage: e.type === "boss" ? 3 : 1,
-            });
+          e.shootCooldown = e.type === "boss" ? 25 : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
+          if (e.type === "tiefighter") {
+            // TIE Fighter: aimed shot toward player
+            const px = playerRef.current.x + PLAYER_W / 2;
+            const py = playerRef.current.y + PLAYER_H / 2;
+            const dx = px - e.x; const dy = py - (e.y + e.height / 2);
+            const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+            const spd2 = ENEMY_BULLET_SPEED * 1.4;
+            bulletsRef.current.push({ x: e.x, y: e.y + e.height / 2, vx: dx / d * spd2, vy: dy / d * spd2, fromPlayer: false, damage: 2 });
+          } else {
+            const shotCount = e.type === "boss" ? 3 : e.type === "bomber" ? 2 : 1;
+            for (let s = 0; s < shotCount; s++) {
+              const spread = (s - (shotCount - 1) / 2) * 0.25;
+              bulletsRef.current.push({
+                x: e.x, y: e.y + e.height / 2,
+                vx: -ENEMY_BULLET_SPEED + (e.type === "boss" ? -1 : 0),
+                vy: spread * ENEMY_BULLET_SPEED,
+                fromPlayer: false, damage: e.type === "boss" ? 3 : 2,
+              });
+            }
           }
         }
 
@@ -1336,8 +1360,17 @@ export default function Game() {
         drawEnemy(ctx, e);
 
         // Enemy-player collision
-        if (invincibleRef.current <= 0 && stealthActiveRef.current <= 0 && shieldTimerRef.current <= 0 &&
+        if (invincibleRef.current <= 0 && stealthActiveRef.current <= 0 &&
           rectHit(playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H, e.x, e.y, e.width, e.height)) {
+          if (shieldTimerRef.current > 0) {
+            // Shield absorbs the hit
+            if (activeSkinRef.current?.id === "n1") {
+              n1ShieldHpRef.current = Math.max(0, n1ShieldHpRef.current - 1);
+              if (n1ShieldHpRef.current <= 0) shieldTimerRef.current = 0;
+            }
+            spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
+            e.dead = true; return false;
+          }
           const collDmg = activeUnlocksRef.current.includes("armor") ? 0.5 : 1;
           gs.hp = Math.max(0, gs.hp - collDmg);
           invincibleRef.current = 140;
@@ -1397,6 +1430,10 @@ export default function Game() {
         const bw = 8, bh = 8;
         if (!rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh, playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H)) return true;
         if (shieldTimerRef.current > 0) {
+          if (activeSkinRef.current?.id === "n1") {
+            n1ShieldHpRef.current = Math.max(0, n1ShieldHpRef.current - 1);
+            if (n1ShieldHpRef.current <= 0) shieldTimerRef.current = 0;
+          }
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           return false;
         }
@@ -1495,7 +1532,12 @@ export default function Game() {
         drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, activeSkinRef.current);
         ctx.restore();
       } else if (invincibleRef.current <= 0 || Math.floor(timeRef.current / 5) % 2 === 0) {
-        drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current);
+        {
+          const n1ShHp = n1ShieldHpRef.current;
+          const _sc = (activeSkinRef.current?.id === "n1" && shieldTimerRef.current > 0)
+            ? (n1ShHp <= 1 ? "#ff2200" : n1ShHp <= 3 ? "#ff9900" : "#ffdd00") : undefined;
+          drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current, _sc);
+        }
         if (ultimaActiveRef.current > 0) {
           const cloneY = clamp(playerRef.current.y + 56, 0, CANVAS_H - PLAYER_H);
           ctx.save();
