@@ -38,7 +38,7 @@ interface Enemy {
   vx: number; vy: number;
   hp: number; maxHp: number;
   width: number; height: number;
-  type: "scout" | "fighter" | "bomber" | "boss" | "interceptor" | "gunship";
+  type: "scout" | "fighter" | "bomber" | "boss" | "interceptor" | "gunship" | "tiefighter";
   shootCooldown: number;
   points: number;
   color: string;
@@ -48,11 +48,15 @@ interface Enemy {
   missileTimer?: number;
   bossVyTimer?: number;
   bossVyDir?: number;
+  fighterDodgeTimer?: number;
+  fighterDodgeDir?: number;
+  tieDodgeTimer?: number;
+  tieDodgeDir?: number;
 }
 
 interface PowerUp {
   x: number; y: number;
-  type: "health" | "shield" | "speed";
+  type: "health" | "shield" | "speed" | "speedboost";
   vy: number;
 }
 
@@ -90,9 +94,19 @@ const LEVEL_THRESHOLDS = [
   90400, 99000, 108000, 117500, 127500, 138000, 149000, 160500, 172500, 185000,
   // 41-50
   198000, 212000, 226500, 241500, 257000, 273000, 289500, 306500, 324000, 342000,
+  // 51-60
+  365000, 390000, 417000, 446000, 477000, 510000, 546000, 584000, 624000, 667000,
+  // 61-70
+  713000, 762000, 814000, 870000, 930000, 994000, 1062000, 1136000, 1215000, 1300000,
+  // 71-80
+  1390000, 1487000, 1590000, 1700000, 1817000, 1942000, 2076000, 2218000, 2370000, 2530000,
+  // 81-90
+  2705000, 2892000, 3090000, 3305000, 3535000, 3782000, 4047000, 4330000, 4630000, 4955000,
+  // 91-100
+  5300000, 5672000, 6069000, 6494000, 6949000, 7435000, 7955000, 8512000, 9108000, 9748000,
   9999999,
 ];
-const MILESTONE_LEVELS = new Set([3, 5, 8, 10, 12, 15, 18, 20, 25, 30, 35, 40, 45, 50]);
+const MILESTONE_LEVELS = new Set([3, 5, 8, 10, 12, 15, 18, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]);
 const WEAPON_TIERS = [
   { name: "Single Cannon",    guns: 1, spread: false, missile: false, fireRate: 280, bulletDmg: 1 },
   { name: "Twin Cannons",     guns: 2, spread: false, missile: false, fireRate: 250, bulletDmg: 1 },
@@ -100,6 +114,8 @@ const WEAPON_TIERS = [
   { name: "Quad Cannons",     guns: 4, spread: true,  missile: false, fireRate: 190, bulletDmg: 1 },
   { name: "Missile Lock",     guns: 3, spread: true,  missile: true,  fireRate: 170, bulletDmg: 2 },
   { name: "Superweapon",      guns: 5, spread: true,  missile: true,  fireRate: 140, bulletDmg: 2 },
+  { name: "Plasma Array",     guns: 6, spread: true,  missile: true,  fireRate: 115, bulletDmg: 3 },
+  { name: "Devastator",       guns: 7, spread: true,  missile: true,  fireRate: 90,  bulletDmg: 4 },
 ];
 
 // ─── Save / load ─────────────────────────────────────────────────────────────
@@ -151,17 +167,23 @@ const JET_SKINS = [
   { id: "neon",    name: "Neon",     body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 30000 },
   { id: "arctic",  name: "Arktis",   body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 30000 },
   { id: "lava",    name: "Lava",     body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 30000 },
-  { id: "xwing",   name: "X-Wing",   body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 40000 },
+  { id: "xwing",      name: "X-Wing",       body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 40000 },
+  { id: "tiefighter", name: "TIE Fighter",  body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 40000 },
+  { id: "n1",         name: "N-1 Jäger",    body: "#1a1600", stroke: "#5a4a00", glow: "#ffdd00", cost: 80000 },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
 const SHOP_ITEMS = [
-  { id: "ulti_boost",    name: "Ulti-Boost",     desc: "Ultis laden 50% schneller",                   cost: 25000 },
-  { id: "extra_life",    name: "+1 Leben",        desc: "Starte mit 4 statt 3 Leben",                  cost: 25000 },
-  { id: "weapon_head",   name: "Waffen-Vorstart", desc: "Starte auf Waffentier 2",                     cost: 25000 },
-  { id: "clone_upgrade", name: "Clone-Ulti ⬆",   desc: "Clone feuert Raketen & lädt 25% schneller",   cost: 25000 },
-  { id: "laser_upgrade", name: "Laser-Ulti ⬆",   desc: "Laser macht 2× Schaden & hält 25% länger",    cost: 25000 },
-  { id: "stealth_ulti",  name: "Stealth-Ulti 👁", desc: "8 Sek. unsichtbar & unverwundbar  [Taste R]", cost: 40000 },
+  { id: "ulti_boost",    name: "Ulti-Boost",       desc: "Ultis laden 50% schneller",                      cost: 25000 },
+  { id: "extra_life",    name: "+1 Leben",          desc: "Starte mit 4 statt 3 Leben",                     cost: 25000 },
+  { id: "weapon_head",   name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                        cost: 25000 },
+  { id: "clone_upgrade", name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",      cost: 25000 },
+  { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 25000 },
+  { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 40000 },
+  { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 8 HP sofort [Taste H]",                    cost: 30000 },
+  { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 25000 },
+  { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 25000 },
+  { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 35000 },
 ] as const;
 
 const NAME_KEY         = "fighter-command-name";
@@ -182,6 +204,20 @@ function loadName(): string       { try { return localStorage.getItem(NAME_KEY) 
 function saveBulletColor(c: string) { try { localStorage.setItem(BULLET_COLOR_KEY, c); } catch {} }
 function loadBulletColor(): string  { try { return localStorage.getItem(BULLET_COLOR_KEY) ?? "#00ffff"; } catch { return "#00ffff"; } }
 
+const LEADERBOARD_KEY = "fighter-command-lb";
+interface LeaderEntry { name: string; score: number; ts: number }
+function addLeaderboardEntry(name: string, score: number) {
+  try {
+    const entries: LeaderEntry[] = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) ?? "[]");
+    entries.push({ name: name || "Pilot", score, ts: Date.now() });
+    entries.sort((a, b) => b.score - a.score);
+    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries.slice(0, 50)));
+  } catch {}
+}
+function loadLeaderboard(): LeaderEntry[] {
+  try { return JSON.parse(localStorage.getItem(LEADERBOARD_KEY) ?? "[]") as LeaderEntry[]; } catch { return []; }
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function rand(min: number, max: number) { return Math.random() * (max - min) + min; }
@@ -198,6 +234,74 @@ function rectHit(ax: number, ay: number, aw: number, ah: number,
 function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier: number, shieldActive: boolean, skin?: JetSkin) {
   ctx.save();
   ctx.translate(x + PLAYER_W / 2, y + PLAYER_H / 2);
+
+  // ── TIE Fighter special skin ──
+  if (skin?.id === "tiefighter") {
+    const glow = skin.glow;
+    const drawTieHex = (cy: number) => {
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (i * 60 - 90) * Math.PI / 180;
+        const px = -2 + 14 * Math.cos(a), py = cy + 14 * Math.sin(a);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = skin.body; ctx.fill();
+      ctx.strokeStyle = skin.stroke; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.save(); ctx.globalAlpha = 0.35; ctx.strokeStyle = glow; ctx.lineWidth = 0.8;
+      [-7, 0, 7].forEach(dy => { ctx.beginPath(); ctx.moveTo(-2 - 12, cy + dy); ctx.lineTo(-2 + 12, cy + dy); ctx.stroke(); });
+      ctx.restore();
+    };
+    drawTieHex(-20); drawTieHex(20);
+    ctx.strokeStyle = "#505060"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(-2, -9); ctx.lineTo(-2, -6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-2, 9); ctx.lineTo(-2, 6); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-2, 0, 9, 0, Math.PI * 2);
+    ctx.fillStyle = "#18181e"; ctx.fill(); ctx.strokeStyle = "#404450"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(-3, -1, 5, 0, Math.PI * 2);
+    ctx.fillStyle = glow + "99"; ctx.fill();
+    ctx.fillStyle = "#555566"; ctx.fillRect(8, -1.5, 14, 3);
+    const rgTie = ctx.createRadialGradient(-2, 0, 1, -2, 0, 18);
+    rgTie.addColorStop(0, glow + "66"); rgTie.addColorStop(1, "transparent");
+    ctx.fillStyle = rgTie; ctx.beginPath(); ctx.arc(-2, 0, 18, 0, Math.PI * 2); ctx.fill();
+    if (shieldActive) {
+      ctx.beginPath(); ctx.arc(-2, 0, 32, 0, Math.PI * 2);
+      ctx.strokeStyle = "#00ffff88"; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = "#00ffff11"; ctx.fill();
+    }
+    ctx.restore(); return;
+  }
+
+  // ── N-1 Starfighter (Mandalorian) special skin ──
+  if (skin?.id === "n1") {
+    const glow = skin.glow;
+    const rgN1 = ctx.createRadialGradient(0, 0, 2, 0, 0, 34);
+    rgN1.addColorStop(0, glow + "44"); rgN1.addColorStop(1, "transparent");
+    ctx.fillStyle = rgN1; ctx.beginPath(); ctx.arc(0, 0, 34, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(30, 0); ctx.lineTo(10, -5); ctx.lineTo(-22, -6);
+    ctx.lineTo(-30, -2); ctx.lineTo(-30, 2); ctx.lineTo(-22, 6); ctx.lineTo(10, 5); ctx.closePath();
+    ctx.fillStyle = "#c8b800"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(4, -7); ctx.lineTo(-24, -11); ctx.lineTo(-30, -8); ctx.lineTo(-24, -5); ctx.lineTo(4, -7); ctx.closePath();
+    ctx.fillStyle = "#2a2600"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(4, 7); ctx.lineTo(-24, 11); ctx.lineTo(-30, 8); ctx.lineTo(-24, 5); ctx.lineTo(4, 7); ctx.closePath();
+    ctx.fillStyle = "#2a2600"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(12, 0, 9, 6, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#77ddcc99"; ctx.fill(); ctx.strokeStyle = "#aaffee"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = glow; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(24, -4); ctx.lineTo(2, -4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(24, 4); ctx.lineTo(2, 4); ctx.stroke();
+    ctx.beginPath(); ctx.arc(-6, -9, 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#3355aa"; ctx.fill(); ctx.strokeStyle = "#aabbff"; ctx.lineWidth = 0.8; ctx.stroke();
+    ctx.beginPath(); ctx.arc(-6, -9, 2, 0, Math.PI * 2); ctx.fillStyle = "#aabbff44"; ctx.fill();
+    ctx.fillStyle = "#888870"; ctx.fillRect(28, -1.5, 12, 3);
+    if (shieldActive) {
+      ctx.beginPath(); ctx.arc(0, 0, 38, 0, Math.PI * 2);
+      ctx.strokeStyle = "#ffdd0099"; ctx.lineWidth = 2.5; ctx.stroke(); ctx.fillStyle = "#ffdd0011"; ctx.fill();
+    }
+    ctx.restore(); return;
+  }
 
   // ── X-Wing special skin ──
   if (skin?.id === "xwing") {
@@ -277,6 +381,8 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
     [-12, 0, 12],
     [-14, -5, 5, 14],
     [-14, -7, 0, 7, 14],
+    [-15, -9, -3, 3, 9, 15],
+    [-16, -10, -4, 0, 4, 10, 16],
   ];
   const offsets = gunOffsets[Math.min(tier, gunOffsets.length - 1)];
   offsets.forEach(oy => {
@@ -391,6 +497,28 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       const bW=e.width*0.8,bH=4;
       ctx.fillStyle="#333"; ctx.fillRect(-bW/2,-e.height/2-8,bW,bH);
       ctx.fillStyle=e.color; ctx.fillRect(-bW/2,-e.height/2-8,bW*(e.hp/e.maxHp),bH);
+      break;
+    }
+    case "tiefighter": {
+      const tg = e.color;
+      const drawEnemyHex = (cy: number) => {
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const a = (i * 60 - 90) * Math.PI / 180;
+          const px = -2 + 12 * Math.cos(a), py = cy + 12 * Math.sin(a);
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fillStyle = "#0a0a12"; ctx.fill(); ctx.strokeStyle = tg; ctx.lineWidth = 1.5; ctx.stroke();
+      };
+      drawEnemyHex(-16); drawEnemyHex(16);
+      ctx.strokeStyle = tg; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-2, -7); ctx.lineTo(-2, -4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-2, 7); ctx.lineTo(-2, 4); ctx.stroke();
+      ctx.beginPath(); ctx.arc(-2, 0, 8, 0, Math.PI * 2);
+      ctx.fillStyle = "#12121a"; ctx.fill(); ctx.strokeStyle = tg; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(-3, -1, 4, 0, Math.PI * 2);
+      ctx.fillStyle = tg + "88"; ctx.fill();
       break;
     }
   }
@@ -516,6 +644,11 @@ export default function Game() {
   const activeUnlocksRef = useRef<string[]>([]);
   const stealthChargeRef = useRef(0);
   const stealthActiveRef = useRef(0);
+  const healChargeRef = useRef(0);
+  const healActiveRef = useRef(0);
+  const speedBoostRef = useRef(0);
+  const n1ShieldTimerRef = useRef(0);
+  const bestScoreRef = useRef(loadHighScore());
   const activeBulletColorRef = useRef(loadBulletColor());
   const playerNameRef = useRef(loadName());
   const [selectedSkin, setSelectedSkin] = useState(() => loadSkin());
@@ -568,7 +701,9 @@ export default function Game() {
       type = "boss"; hp = 25 + level * 6; w = 90; h = 68; vx = -rand(0.6, 1.2); pts = 100; color = "#cc00ff";
     } else if (level >= 7 && roll < 0.10) {
       type = "gunship"; hp = 8 + level * 2; w = 64; h = 46; vx = -rand(0.5, 1.0); pts = 80; color = "#ff6600";
-    } else if (level >= 5 && roll < 0.22) {
+    } else if (level >= 10 && roll < 0.17) {
+      type = "tiefighter"; hp = 2; w = 40; h = 36; vx = -rand(4.0, 6.5); pts = 40; color = "#0099ff";
+    } else if (level >= 5 && roll < 0.28) {
       type = "interceptor"; hp = 1; w = 36; h = 22; vx = -rand(3.5, 5.5); pts = 20; color = "#00ffcc";
     } else if (level >= 4 && roll < 0.36) {
       type = "bomber"; hp = 4 + level; w = 56; h = 40; vx = -rand(0.8, 1.5); pts = 60; color = "#44ff44";
@@ -602,6 +737,7 @@ export default function Game() {
 
     const gunOffsets: number[][] = [
       [0], [-8, 8], [-12, 0, 12], [-14, -5, 5, 14], [-14, -7, 0, 7, 14],
+      [-15, -9, -3, 3, 9, 15], [-16, -10, -4, 0, 4, 10, 16],
     ];
     const offsets = gunOffsets[Math.min(tier.guns - 1, gunOffsets.length - 1)];
 
@@ -656,13 +792,20 @@ export default function Game() {
     playerNameRef.current = loadName();
     stealthChargeRef.current = 0;
     stealthActiveRef.current = 0;
+    healChargeRef.current = 0;
+    healActiveRef.current = 0;
+    speedBoostRef.current = 0;
+    n1ShieldTimerRef.current = 0;
+    bestScoreRef.current = loadHighScore();
+    const baseMaxHp = unlocks.includes("max_hp") ? 15 : 10;
+    const baseSpeed = 3.2 + (unlocks.includes("speed_item") ? 0.5 : 0);
     stateRef.current = {
       score:      save?.score  ?? 0,
       level:      save?.level  ?? 1,
-      hp:         save?.hp     ?? 10,
-      maxHp:      save?.maxHp  ?? 10,
+      hp:         save?.hp     ?? baseMaxHp,
+      maxHp:      save?.maxHp  ?? baseMaxHp,
       shield:     0,
-      speed:      save?.speed  ?? 3.2,
+      speed:      save?.speed  ?? baseSpeed,
       weaponTier: fromSave ? (save?.weaponTier ?? 0) : (unlocks.includes("weapon_head") ? 2 : 0),
       lives:      save?.lives  ?? (unlocks.includes("extra_life") ? 4 : 3),
       gameOver: false, started: true, paused: false,
@@ -721,6 +864,16 @@ export default function Game() {
           stealthChargeRef.current = 0;
         }
       }
+      if ((e.key === "h" || e.key === "H") && down && stateRef.current.started &&
+          !stateRef.current.gameOver && !stateRef.current.paused) {
+        if (healChargeRef.current >= HEAL_MAX && healActiveRef.current === 0
+            && activeUnlocksRef.current.includes("heal_ulti")) {
+          stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 8);
+          healActiveRef.current = HEAL_DURATION;
+          healChargeRef.current = 0;
+          syncDisplay();
+        }
+      }
       if ((e.key === "q" || e.key === "Q") && down && stateRef.current.started &&
           !stateRef.current.gameOver && !stateRef.current.paused) {
         if (ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0) {
@@ -772,7 +925,14 @@ export default function Game() {
           const du = Math.hypot(x - ULTI_BTN_X, y - ULTI_BTN_Y);
           const dl = Math.hypot(x - LASER_BTN_X, y - LASER_BTN_Y);
           const ds = Math.hypot(x - STEALTH_BTN_X, y - STEALTH_BTN_Y);
-          if (ds <= STEALTH_BTN_R + 12 && stealthChargeRef.current >= STEALTH_MAX && stealthActiveRef.current === 0) {
+          const dh = Math.hypot(x - HEAL_BTN_X, y - HEAL_BTN_Y);
+          if (dh <= HEAL_BTN_R + 12 && healChargeRef.current >= HEAL_MAX && healActiveRef.current === 0
+              && activeUnlocksRef.current.includes("heal_ulti")) {
+            stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 8);
+            healActiveRef.current = HEAL_DURATION;
+            healChargeRef.current = 0;
+            syncDisplay();
+          } else if (ds <= STEALTH_BTN_R + 12 && stealthChargeRef.current >= STEALTH_MAX && stealthActiveRef.current === 0) {
             stealthActiveRef.current = STEALTH_DURATION;
             stealthChargeRef.current = 0;
           } else if (dl <= LASER_BTN_R + 12 && laserChargeRef.current >= LASER_MAX && laserActiveRef.current === 0) {
@@ -935,7 +1095,8 @@ export default function Game() {
       }
 
       // ── Input & Player Movement ──
-      const spd = gs.speed;
+      const speedMult = (activeSkinRef.current?.id === "n1" ? 1.15 : 1) * (speedBoostRef.current > 0 ? 2 : 1);
+      const spd = gs.speed * speedMult;
       const js = joystickRef.current;
       const JOY_RADIUS = 70;
 
@@ -1071,6 +1232,23 @@ export default function Game() {
       } else if (stealthChargeRef.current < STEALTH_MAX && activeUnlocksRef.current.includes("stealth_ulti")) {
         stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + 0.10);
       }
+      // ── Heal charge & countdown ──
+      if (healActiveRef.current > 0) {
+        healActiveRef.current--;
+      } else if (healChargeRef.current < HEAL_MAX && activeUnlocksRef.current.includes("heal_ulti")) {
+        const healMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
+        healChargeRef.current = Math.min(HEAL_MAX, healChargeRef.current + 0.10 * healMult);
+      }
+      // ── Speed boost countdown ──
+      if (speedBoostRef.current > 0) speedBoostRef.current--;
+      // ── N-1 Starfighter passive: auto-shield every 20s for 3s ──
+      if (activeSkinRef.current?.id === "n1") {
+        n1ShieldTimerRef.current++;
+        if (n1ShieldTimerRef.current >= 1200 && shieldTimerRef.current <= 0) {
+          n1ShieldTimerRef.current = 0;
+          shieldTimerRef.current = 180;
+        }
+      }
 
       enemiesRef.current = enemiesRef.current.filter(e => {
         if (e.dead) return false;
@@ -1114,6 +1292,27 @@ export default function Game() {
           }
         }
 
+        // Fighter dodge (level 8+, every 8s = 480 frames)
+        if (e.type === "fighter" && gs.level >= 8) {
+          e.fighterDodgeTimer = (e.fighterDodgeTimer ?? 0) + 1;
+          if (e.fighterDodgeTimer >= 480) {
+            e.fighterDodgeTimer = 0;
+            e.fighterDodgeDir = Math.random() > 0.5 ? 1 : -1;
+          }
+          const fDecay = Math.max(0, 1 - (e.fighterDodgeTimer % 480) / 90);
+          e.vy = (e.fighterDodgeDir ?? 0) * 2.5 * fDecay;
+        }
+        // TIE Fighter dodge (every 3s = 180 frames, level 10+)
+        if (e.type === "tiefighter") {
+          e.tieDodgeTimer = (e.tieDodgeTimer ?? 0) + 1;
+          if (e.tieDodgeTimer >= 180) {
+            e.tieDodgeTimer = 0;
+            e.tieDodgeDir = Math.random() > 0.5 ? 1 : -1;
+          }
+          const tDecay = Math.max(0, 1 - (e.tieDodgeTimer % 180) / 60);
+          e.vy = (e.tieDodgeDir ?? 0) * 3.5 * tDecay;
+        }
+
         // Off screen left
         if (e.x + e.width < -20) return false;
 
@@ -1139,11 +1338,12 @@ export default function Game() {
         // Enemy-player collision
         if (invincibleRef.current <= 0 && stealthActiveRef.current <= 0 && shieldTimerRef.current <= 0 &&
           rectHit(playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H, e.x, e.y, e.width, e.height)) {
-          gs.hp = Math.max(0, gs.hp - 1);
+          const collDmg = activeUnlocksRef.current.includes("armor") ? 0.5 : 1;
+          gs.hp = Math.max(0, gs.hp - collDmg);
           invincibleRef.current = 140;
           spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, true);
           e.dead = true;
-          if (gs.hp <= 0) { gs.gameOver = true; clearSave(); saveHighScore(gs.score); addCoins(gs.score); saveExistsRef.current = false; syncDisplay(); }
+          if (gs.hp <= 0) { gs.gameOver = true; clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(gs.score); saveExistsRef.current = false; syncDisplay(); }
           syncDisplay();
           return false;
         }
@@ -1171,12 +1371,15 @@ export default function Game() {
               powerUpsRef.current.push({ x: e.x + e.width / 2, y: e.y + e.height / 2, type: "health", vy: 1.2 });
               stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + 50);
             }
+            healChargeRef.current = Math.min(HEAL_MAX, healChargeRef.current +
+              (e.type === "boss" ? 60 : e.type === "bomber" ? 28 : e.type === "fighter" ? 14 : 8));
             // Power-up chance
-            if (Math.random() < 0.18) {
-              const types: PowerUp["type"][] = ["health", "shield", "speed"];
+            if (Math.random() < 0.20) {
+              const roll2 = Math.random();
+              const pType: PowerUp["type"] = roll2 < 0.12 ? "speedboost" : roll2 < 0.45 ? "health" : roll2 < 0.72 ? "shield" : "speed";
               powerUpsRef.current.push({
                 x: e.x + e.width / 2, y: e.y + e.height / 2,
-                type: types[Math.floor(Math.random() * types.length)],
+                type: pType,
                 vy: 1.2,
               });
             }
@@ -1199,10 +1402,11 @@ export default function Game() {
         }
         if (invincibleRef.current > 0) return false;
         if (stealthActiveRef.current > 0) return false;
-        gs.hp = Math.max(0, gs.hp - b.damage);
+        const bulletDmg = activeUnlocksRef.current.includes("armor") ? Math.max(0.5, b.damage * 0.5) : b.damage;
+        gs.hp = Math.max(0, gs.hp - bulletDmg);
         invincibleRef.current = 100;
         spawnExplosion(particlesRef.current, b.x, b.y, false);
-        if (gs.hp <= 0) { gs.gameOver = true; clearSave(); saveHighScore(gs.score); addCoins(gs.score); saveExistsRef.current = false; }
+        if (gs.hp <= 0) { gs.gameOver = true; clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(gs.score); saveExistsRef.current = false; }
         syncDisplay();
         return false;
       });
@@ -1212,8 +1416,8 @@ export default function Game() {
         p.y += p.vy;
         if (p.y > CANVAS_H + 20) return false;
         // Draw
-        const colors: Record<PowerUp["type"], string> = { health: "#00ff88", shield: "#00ccff", speed: "#ffcc00" };
-        const labels: Record<PowerUp["type"], string> = { health: "+HP", shield: "SHD", speed: "SPD" };
+        const colors: Record<PowerUp["type"], string> = { health: "#00ff88", shield: "#00ccff", speed: "#ffcc00", speedboost: "#ff9900" };
+        const labels: Record<PowerUp["type"], string> = { health: "+HP", shield: "SHD", speed: "SPD", speedboost: "2×SPD" };
         const c = colors[p.type];
         ctx.save();
         ctx.beginPath();
@@ -1233,6 +1437,7 @@ export default function Game() {
           if (p.type === "health") gs.hp = Math.min(gs.maxHp, gs.hp + 3);
           if (p.type === "shield") shieldTimerRef.current = 300;
           if (p.type === "speed") gs.speed = Math.min(6, gs.speed + 0.5);
+          if (p.type === "speedboost") speedBoostRef.current = 480;
           syncDisplay();
           return false;
         }
@@ -1317,11 +1522,14 @@ export default function Game() {
         void tier;
       }
 
+      // ── Max score tracking ──
+      if (gs.score > bestScoreRef.current) { bestScoreRef.current = gs.score; saveHighScore(gs.score); }
+
       // ── HUD ──
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, bestScoreRef.current);
 
       // ── Virtual controls overlay ──
-      drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current);
+      drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current);
 
       // Sync display once per ~30 frames for React state
       if (timeRef.current % 30 === 0) syncDisplay();
@@ -1408,7 +1616,7 @@ export default function Game() {
       </div>
       {displayState.started && !displayState.gameOver && (
         <div className="mt-2 text-xs text-gray-600 tracking-wider hidden sm:block">
-          WASD · SPACE — Schuss · Q — Clone · E — Laser · R — Stealth · P — Pause
+          WASD · SPACE — Schuss · Q — Clone · E — Laser · R — Stealth · H — Heil · P — Pause
         </div>
       )}
     </div>
@@ -1427,7 +1635,7 @@ function HangarOverlay({
   onSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void;
   onAdminActivate: () => void;
 }) {
-  const [view, setView] = useState<"main" | "upgrades" | "settings">("main");
+  const [view, setView] = useState<"main" | "upgrades" | "settings" | "leaderboard">("main");
   const [hoverSkin, setHoverSkin] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState(() => loadName());
   const [bulletColor, setBulletColor] = useState(() => loadBulletColor());
@@ -1468,6 +1676,13 @@ function HangarOverlay({
       </div>
     );
   }
+  if (view === "leaderboard") {
+    return (
+      <div className="absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
+        <LeaderboardScreen onBack={() => setView("main")} />
+      </div>
+    );
+  }
 
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-between px-6 py-4"
@@ -1480,9 +1695,14 @@ function HangarOverlay({
           </div>
           <div className="text-xs text-slate-400 mt-0.5">2D Kampfjet-Simulator</div>
         </div>
-        <div className="text-right">
+        <div className="text-right flex flex-col items-end gap-1">
           <div className="text-yellow-300 font-bold text-sm">⭐ {highScore.toLocaleString("de-DE")}</div>
           <div className="text-amber-400 font-bold text-sm">💰 {coins.toLocaleString("de-DE")}</div>
+          <button onClick={() => setView("leaderboard")}
+            className="text-xs font-bold px-2 py-0.5 rounded"
+            style={{ background: "rgba(0,180,255,0.12)", border: "1px solid #1a4466", color: "#44aadd" }}>
+            🏆 RANGLISTE
+          </button>
         </div>
       </div>
 
@@ -1534,7 +1754,7 @@ function HangarOverlay({
         {/* Bullet color picker */}
         <div className="flex items-center gap-2 mt-1">
           <span className="text-slate-500 text-xs">Schussfarbe:</span>
-          {[{ color: "#00ffff", label: "Blau" }, { color: "#ff3333", label: "Rot" }, { color: "#00ff88", label: "Grün" }].map(opt => (
+          {[{ color: "#00ffff", label: "Blau" }, { color: "#ff3333", label: "Rot" }, { color: "#00ff88", label: "Grün" }, { color: "#ffff00", label: "Gelb" }, { color: "#ff00ff", label: "Lila" }].map(opt => (
             <button key={opt.color} onClick={() => { setBulletColor(opt.color); saveBulletColor(opt.color); }}
               title={opt.label}
               style={{
@@ -1731,6 +1951,51 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnloc
   );
 }
 
+// ─── Leaderboard Screen ───────────────────────────────────────────────────────
+
+function LeaderboardScreen({ onBack }: { onBack: () => void }) {
+  const entries = loadLeaderboard();
+  return (
+    <div className="flex flex-col h-full px-4 py-4" style={{ color: "#c8d8f0" }}>
+      <div className="flex items-center gap-3 mb-4">
+        <button onClick={onBack} className="text-xs px-3 py-1 rounded font-bold"
+          style={{ background: "rgba(255,255,255,0.07)", border: "1px solid #334466", color: "#7799bb" }}>
+          ← ZURÜCK
+        </button>
+        <div className="font-black text-lg tracking-widest" style={{ color: "#ffcc00", textShadow: "0 0 12px #ffcc0099" }}>
+          🏆 RANGLISTE
+        </div>
+        <div className="text-xs text-slate-500 ml-auto">(lokal – dieses Gerät)</div>
+      </div>
+      {entries.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
+          Noch keine Einträge. Spiel beenden um deinen Score zu speichern!
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto space-y-1 pr-1" style={{ maxHeight: "calc(100% - 60px)" }}>
+          {entries.slice(0, 30).map((e, i) => (
+            <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+              style={{
+                background: i === 0 ? "rgba(255,204,0,0.12)" : i === 1 ? "rgba(180,180,180,0.10)" : i === 2 ? "rgba(180,90,0,0.10)" : "rgba(255,255,255,0.04)",
+                border: `1px solid ${i === 0 ? "#ffcc0040" : i < 3 ? "#33445540" : "#1a2a3a"}`,
+              }}>
+              <span className="text-xs font-black w-6 text-center" style={{ color: i === 0 ? "#ffcc00" : i === 1 ? "#aabbcc" : i === 2 ? "#cc8844" : "#446677" }}>
+                {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
+              </span>
+              <span className="flex-1 text-sm font-bold truncate" style={{ color: i < 3 ? "#e0f0ff" : "#8899bb" }}>
+                {e.name}
+              </span>
+              <span className="text-sm font-black tabular-nums" style={{ color: i === 0 ? "#ffcc00" : "#00cfff" }}>
+                {e.score.toLocaleString("de-DE")}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Settings Screen ──────────────────────────────────────────────────────────
 
 function SettingsScreen({ onBack }: { onBack: () => void }) {
@@ -1793,17 +2058,22 @@ const ULTI_BTN_X = CANVAS_W - 210;
 const ULTI_BTN_Y = CANVAS_H - 90;
 const ULTI_BTN_R = 36;
 const ULTI_MAX = 300;
-const ULTI_DURATION = 480;
+const ULTI_DURATION = 600;
 const LASER_MAX = 520;
-const LASER_DURATION = 480;
+const LASER_DURATION = 600;
 const LASER_BTN_X = CANVAS_W - 80;
 const LASER_BTN_Y = CANVAS_H - 195;
 const LASER_BTN_R = 36;
 const STEALTH_MAX = 520;
-const STEALTH_DURATION = 480;
+const STEALTH_DURATION = 600;
 const STEALTH_BTN_X = CANVAS_W - 210;
 const STEALTH_BTN_Y = CANVAS_H - 195;
 const STEALTH_BTN_R = 36;
+const HEAL_MAX = 520;
+const HEAL_DURATION = 120;
+const HEAL_BTN_X = CANVAS_W - 340;
+const HEAL_BTN_Y = CANVAS_H - 195;
+const HEAL_BTN_R = 36;
 
 function drawVirtualControls(
   ctx: CanvasRenderingContext2D,
@@ -1815,6 +2085,8 @@ function drawVirtualControls(
   laserActive: number,
   stealthCharge: number,
   stealthActive: number,
+  healCharge: number,
+  healActive: number,
 ) {
   ctx.save();
   ctx.globalAlpha = 0.45;
@@ -1942,16 +2214,40 @@ function drawVirtualControls(
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText(stealthActive > 0 ? "STEALTH!" : "STEALTH", STEALTH_BTN_X, STEALTH_BTN_Y);
 
+  // ── HEAL button ──
+  const healReady = healCharge >= HEAL_MAX && healActive === 0;
+  const healGlowA = healReady ? (0.55 + 0.45 * Math.sin(Date.now() / 160)) : 0.45;
+  ctx.globalAlpha = healGlowA;
+  ctx.beginPath();
+  ctx.arc(HEAL_BTN_X, HEAL_BTN_Y, HEAL_BTN_R, 0, Math.PI * 2);
+  ctx.fillStyle   = healActive > 0 ? "#ff006633" : healReady ? "#ff224444" : "#220a0a22";
+  ctx.strokeStyle = healActive > 0 ? "#ff0066cc" : healReady ? "#ff2244cc" : "#88222266";
+  ctx.lineWidth = 2.5;
+  ctx.fill(); ctx.stroke();
+
+  if (healActive === 0 && healCharge < HEAL_MAX) {
+    const hp2 = healCharge / HEAL_MAX;
+    ctx.beginPath();
+    ctx.arc(HEAL_BTN_X, HEAL_BTN_Y, HEAL_BTN_R - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * hp2);
+    ctx.strokeStyle = "#ff4466"; ctx.lineWidth = 4; ctx.stroke();
+  }
+
+  ctx.globalAlpha = healReady ? 0.95 : 0.55;
+  ctx.fillStyle = healActive > 0 ? "#ff6699" : healReady ? "#ff4466" : "#884455";
+  ctx.font = `bold ${healReady ? 10 : 9}px 'Inter', sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(healActive > 0 ? "HEAL! ❤" : "HEAL ❤", HEAL_BTN_X, HEAL_BTN_Y);
+
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, bestScore: number) {
   ctx.save();
   ctx.textBaseline = "top";
 
   // Top bar background
   ctx.fillStyle = "rgba(4,10,24,0.72)";
-  ctx.fillRect(0, 0, CANVAS_W, 70);
+  ctx.fillRect(0, 0, CANVAS_W, 82);
 
   // Score
   ctx.fillStyle = "#00cfff";
@@ -2005,6 +2301,14 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ctx.font = "13px 'Inter', sans-serif";
   ctx.fillText(`LIVES: ${"★".repeat(Math.max(0, gs.lives))}`, CANVAS_W - 8, 24);
 
+  // Best score
+  if (bestScore > 0) {
+    ctx.fillStyle = "#ffaa00";
+    ctx.font = "10px 'Inter', sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(`BEST: ${bestScore.toLocaleString("de-DE")}`, CANVAS_W - 8, 39);
+  }
+
   const drawUltBar = (
     label: string, key: string,
     charge: number, maxCharge: number, active: number, duration: number,
@@ -2045,6 +2349,8 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     16, 53, 120, 5, ["#ff8800","#ffdd00"],  ["#cc4400","#ff8800"], "#ffaa22");
   drawUltBar("STEALTH", "R", stealthCharge, STEALTH_MAX, stealthActive, STEALTH_DURATION,
     16, 63, 120, 5, ["#00ffee","#0088ff"],  ["#004488","#00aacc"], "#00ddcc");
+  drawUltBar("HEAL",    "H", healCharge,    HEAL_MAX,    healActive,    HEAL_DURATION,
+    16, 73, 120, 5, ["#ff6699","#ff0044"],  ["#aa2233","#ff3366"], "#ff4466");
 
   ctx.restore();
 }

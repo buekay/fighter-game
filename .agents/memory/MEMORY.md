@@ -1,1 +1,2 @@
-- [Fighter Jet game architecture](flight-sim-arch.md) — single 2000+ line Game.tsx; all logic/drawing in one file; careful with edit batching.
+- [Fighter Jet game architecture](flight-sim-arch.md) — single 2300+ line Game.tsx; all logic/drawing in one file; careful with edit batching.
+- [Fighter Jet feature set](flight-sim-features.md) — large feature batch completed: skins, ultis, enemies, upgrades, leaderboard.
