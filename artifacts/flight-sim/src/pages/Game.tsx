@@ -52,6 +52,7 @@ interface Enemy {
   fighterDodgeDir?: number;
   tieDodgeTimer?: number;
   tieDodgeDir?: number;
+  shieldHp?: number;
 }
 
 interface PowerUp {
