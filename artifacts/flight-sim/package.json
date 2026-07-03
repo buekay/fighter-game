@@ -7,7 +7,8 @@
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
     "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx src/game-rules.test.ts"
   },
   "devDependencies": {
     "@tailwindcss/vite": "catalog:",
@@ -18,6 +19,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "tailwindcss": "catalog:",
+    "tsx": "catalog:",
     "vite": "catalog:",
     "wouter": "^3.3.5"
   }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { applyPlayerDamage } from "../game-rules";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1380,11 +1381,14 @@ export default function Game() {
             e.dead = true; return false;
           }
           const collDmg = activeUnlocksRef.current.includes("armor") ? 0.5 : 1;
-          gs.hp = Math.max(0, gs.hp - collDmg);
+          const nextLifeState = applyPlayerDamage(gs, collDmg);
+          gs.hp = nextLifeState.hp;
+          gs.lives = nextLifeState.lives;
+          gs.gameOver = nextLifeState.gameOver;
           invincibleRef.current = 140;
           spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, true);
           e.dead = true;
-          if (gs.hp <= 0) { gs.gameOver = true; clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(gs.score); saveExistsRef.current = false; syncDisplay(); }
+          if (gs.gameOver) { clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(gs.score); saveExistsRef.current = false; syncDisplay(); }
           syncDisplay();
           return false;
         }
@@ -1448,10 +1452,13 @@ export default function Game() {
         if (invincibleRef.current > 0) return false;
         if (stealthActiveRef.current > 0) return false;
         const bulletDmg = activeUnlocksRef.current.includes("armor") ? Math.max(0.5, b.damage * 0.5) : b.damage;
-        gs.hp = Math.max(0, gs.hp - bulletDmg);
+        const nextLifeState = applyPlayerDamage(gs, bulletDmg);
+        gs.hp = nextLifeState.hp;
+        gs.lives = nextLifeState.lives;
+        gs.gameOver = nextLifeState.gameOver;
         invincibleRef.current = 100;
         spawnExplosion(particlesRef.current, b.x, b.y, false);
-        if (gs.hp <= 0) { gs.gameOver = true; clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(gs.score); saveExistsRef.current = false; }
+        if (gs.gameOver) { clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(gs.score); saveExistsRef.current = false; }
         syncDisplay();
         return false;
       });
