@@ -8,6 +8,9 @@ This repo was downloaded from Replit and adjusted so it can be developed and dep
 - Removed Replit project metadata files: `.replit` and `replit.md`.
 - Removed Replit package catalog entries from `pnpm-workspace.yaml`.
 - Removed Linux/Replit-only native package exclusions so macOS can install the correct Rollup, esbuild, Tailwind, and related native packages.
+- Trimmed the `flight-sim` app by removing unused shadcn/Radix UI scaffold files, hooks, utility helpers, and unused frontend dependencies.
+- Updated the `flight-sim` game loop to scale movement and timers from elapsed frame time, keeping gameplay speed consistent across display refresh rates.
+- Fixed `flight-sim` keyboard listener cleanup so global handlers are removed correctly.
 - Added local defaults for required environment values:
   - `@workspace/flight-sim`: `PORT=5173`, `BASE_PATH=/`
   - `@workspace/mockup-sandbox`: `PORT=5174`, `BASE_PATH=/`

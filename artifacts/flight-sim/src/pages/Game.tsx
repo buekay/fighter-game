@@ -79,6 +79,7 @@ interface GameState {
 
 const CANVAS_W = 900;
 const CANVAS_H = 600;
+const FRAME_MS = 1000 / 60;
 const PLAYER_W = 52;
 const PLAYER_H = 28;
 const BASE_BULLET_SPEED = 10;
@@ -620,13 +621,13 @@ export default function Game() {
   const powerUpsRef = useRef<PowerUp[]>([]);
   const enemySpawnTimerRef = useRef(0);
   const timeRef = useRef(0);
+  const displaySyncTimerRef = useRef(0);
   const shieldTimerRef = useRef(0);
   const invincibleRef = useRef(0);
 
   // ── Touch / virtual controls ──
   const joystickRef = useRef({ active: false, id: -1, centerX: 0, centerY: 0, curX: 0, curY: 0 });
   const touchFireRef = useRef({ active: false, id: -1 });
-  const touchUltiRef = useRef({ triggered: false });
 
   // ── Ultima ──
   const ultimaChargeRef = useRef(0);
@@ -656,7 +657,7 @@ export default function Game() {
   const playerNameRef = useRef(loadName());
   const [selectedSkin, setSelectedSkin] = useState(() => loadSkin());
   const [coins, setCoins] = useState(() => loadCoins());
-  const [highScore, setHighScore] = useState(() => loadHighScore());
+  const [highScore] = useState(() => loadHighScore());
   const [unlockedItems, setUnlockedItems] = useState<string[]>(() => loadUnlocks());
 
   const syncDisplay = useCallback(() => {
@@ -901,11 +902,14 @@ export default function Game() {
         }
       }
     };
-    window.addEventListener("keydown", e => onKey(e, true));
-    window.addEventListener("keyup", e => onKey(e, false));
+    const onKeyDown = (e: KeyboardEvent) => onKey(e, true);
+    const onKeyUp = (e: KeyboardEvent) => onKey(e, false);
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
     return () => {
-      window.removeEventListener("keydown", e => onKey(e, true));
-      window.removeEventListener("keyup", e => onKey(e, false));
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
     };
   }, [initCity, initStars, startGame, syncDisplay]);
 
@@ -1009,11 +1013,12 @@ export default function Game() {
 
     const loop = (timestamp: number) => {
       rafRef.current = requestAnimationFrame(loop);
-      const dt = Math.min(timestamp - lastTime, 50);
+      const dt = lastTime === 0 ? FRAME_MS : Math.min(timestamp - lastTime, 50);
+      const dtScale = dt / FRAME_MS;
       lastTime = timestamp;
 
       const gs = stateRef.current;
-      timeRef.current += 1;
+      timeRef.current += dtScale;
 
       // ── Clear (daytime sky) ──
       const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
@@ -1080,7 +1085,7 @@ export default function Game() {
       }
 
       if (gs.gameOver) {
-        gameOverCountdownRef.current++;
+        gameOverCountdownRef.current += dtScale;
         ctx.save();
         ctx.fillStyle = "rgba(4,12,28,0.84)";
         ctx.beginPath(); ctx.roundRect(CANVAS_W/2-260, CANVAS_H/2-78, 520, 195, 14); ctx.fill();
@@ -1120,21 +1125,21 @@ export default function Game() {
         const d = Math.hypot(dx, dy);
         const norm = Math.min(d, JOY_RADIUS) / JOY_RADIUS;
         if (d > 8) {
-          playerRef.current.x = clamp(playerRef.current.x + (dx / d) * norm * spd * 0.8, 0, CANVAS_W * 0.75);
-          playerRef.current.y = clamp(playerRef.current.y + (dy / d) * norm * spd,        0, CANVAS_H - PLAYER_H);
+          playerRef.current.x = clamp(playerRef.current.x + (dx / d) * norm * spd * 0.8 * dtScale, 0, CANVAS_W * 0.75);
+          playerRef.current.y = clamp(playerRef.current.y + (dy / d) * norm * spd * dtScale,       0, CANVAS_H - PLAYER_H);
         }
       } else {
         if (keysRef.current.has("ArrowUp") || keysRef.current.has("w") || keysRef.current.has("W")) {
-          playerRef.current.y = clamp(playerRef.current.y - spd, 0, CANVAS_H - PLAYER_H);
+          playerRef.current.y = clamp(playerRef.current.y - spd * dtScale, 0, CANVAS_H - PLAYER_H);
         }
         if (keysRef.current.has("ArrowDown") || keysRef.current.has("s") || keysRef.current.has("S")) {
-          playerRef.current.y = clamp(playerRef.current.y + spd, 0, CANVAS_H - PLAYER_H);
+          playerRef.current.y = clamp(playerRef.current.y + spd * dtScale, 0, CANVAS_H - PLAYER_H);
         }
         if (keysRef.current.has("ArrowLeft") || keysRef.current.has("a") || keysRef.current.has("A")) {
-          playerRef.current.x = clamp(playerRef.current.x - spd * 0.8, 0, CANVAS_W - PLAYER_W);
+          playerRef.current.x = clamp(playerRef.current.x - spd * 0.8 * dtScale, 0, CANVAS_W - PLAYER_W);
         }
         if (keysRef.current.has("ArrowRight") || keysRef.current.has("d") || keysRef.current.has("D")) {
-          playerRef.current.x = clamp(playerRef.current.x + spd * 0.8, 0, CANVAS_W * 0.75);
+          playerRef.current.x = clamp(playerRef.current.x + spd * 0.8 * dtScale, 0, CANVAS_W * 0.75);
         }
       }
 
@@ -1177,7 +1182,7 @@ export default function Game() {
 
       // ── Spawn enemies ──
       const spawnRate = Math.max(32, 110 - gs.level * 10);
-      enemySpawnTimerRef.current++;
+      enemySpawnTimerRef.current += dtScale;
       if (enemySpawnTimerRef.current >= spawnRate) {
         enemySpawnTimerRef.current = 0;
         spawnEnemy(gs.level);
@@ -1187,7 +1192,7 @@ export default function Game() {
       bulletsRef.current = bulletsRef.current.filter(b => {
         // Lifetime expiry (boss missiles)
         if (b.lifetime !== undefined) {
-          b.lifetime--;
+          b.lifetime -= dtScale;
           if (b.lifetime <= 0) return false;
         }
         // Red bullet wave (level 8+)
@@ -1198,8 +1203,9 @@ export default function Game() {
           const tx = b.missileTarget.x + b.missileTarget.width / 2;
           const ty = b.missileTarget.y + b.missileTarget.height / 2;
           const ang = Math.atan2(ty - b.y, tx - b.x);
-          b.vx += (Math.cos(ang) * 0.6 - b.vx) * 0.08;
-          b.vy += (Math.sin(ang) * 0.6 - b.vy) * 0.08;
+          const steer = 1 - Math.pow(1 - 0.08, dtScale);
+          b.vx += (Math.cos(ang) * 0.6 - b.vx) * steer;
+          b.vy += (Math.sin(ang) * 0.6 - b.vy) * steer;
           const spd2 = Math.hypot(b.vx, b.vy);
           const ms = 7;
           if (spd2 > ms) { b.vx = b.vx / spd2 * ms; b.vy = b.vy / spd2 * ms; }
@@ -1209,55 +1215,56 @@ export default function Game() {
           const tx = playerRef.current.x + PLAYER_W / 2;
           const ty = playerRef.current.y + PLAYER_H / 2;
           const ang = Math.atan2(ty - b.y, tx - b.x);
-          b.vx += (Math.cos(ang) * 0.5 - b.vx) * 0.06;
-          b.vy += (Math.sin(ang) * 0.5 - b.vy) * 0.06;
+          const steer = 1 - Math.pow(1 - 0.06, dtScale);
+          b.vx += (Math.cos(ang) * 0.5 - b.vx) * steer;
+          b.vy += (Math.sin(ang) * 0.5 - b.vy) * steer;
           const sp = Math.hypot(b.vx, b.vy);
           if (sp > 5) { b.vx = b.vx / sp * 5; b.vy = b.vy / sp * 5; }
         }
-        b.x += b.vx;
-        b.y += b.vy;
+        b.x += b.vx * dtScale;
+        b.y += b.vy * dtScale;
         drawBullet(ctx, b);
         return b.x > -20 && b.x < CANVAS_W + 20 && b.y > -20 && b.y < CANVAS_H + 20;
       });
 
       // ── Update enemies ──
-      if (invincibleRef.current > 0) invincibleRef.current--;
-      if (shieldTimerRef.current > 0) shieldTimerRef.current--;
+      if (invincibleRef.current > 0) invincibleRef.current = Math.max(0, invincibleRef.current - dtScale);
+      if (shieldTimerRef.current > 0) shieldTimerRef.current = Math.max(0, shieldTimerRef.current - dtScale);
 
       // ── Ultima charge & countdown ──
       if (ultimaActiveRef.current > 0) {
-        ultimaActiveRef.current--;
+        ultimaActiveRef.current = Math.max(0, ultimaActiveRef.current - dtScale);
       } else if (ultimaChargeRef.current < ULTI_MAX) {
         const cloneMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
         const cloneBonus = activeUnlocksRef.current.includes("clone_upgrade") ? 1.25 : 1;
-        ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + 0.18 * cloneMult * cloneBonus);
+        ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + 0.18 * cloneMult * cloneBonus * dtScale);
       }
       // ── Laser charge & countdown ──
       if (laserActiveRef.current > 0) {
-        laserActiveRef.current--;
+        laserActiveRef.current = Math.max(0, laserActiveRef.current - dtScale);
       } else if (laserChargeRef.current < LASER_MAX) {
         const laserMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
         const laserBonus = activeUnlocksRef.current.includes("laser_upgrade") ? 1.25 : 1;
-        laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + 0.10 * laserMult * laserBonus);
+        laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + 0.10 * laserMult * laserBonus * dtScale);
       }
       // ── Stealth charge & countdown ──
       if (stealthActiveRef.current > 0) {
-        stealthActiveRef.current--;
+        stealthActiveRef.current = Math.max(0, stealthActiveRef.current - dtScale);
       } else if (stealthChargeRef.current < STEALTH_MAX && activeUnlocksRef.current.includes("stealth_ulti")) {
-        stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + 0.10);
+        stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + 0.10 * dtScale);
       }
       // ── Heal charge & countdown ──
       if (healActiveRef.current > 0) {
-        healActiveRef.current--;
+        healActiveRef.current = Math.max(0, healActiveRef.current - dtScale);
       } else if (healChargeRef.current < HEAL_MAX && activeUnlocksRef.current.includes("heal_ulti")) {
         const healMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
-        healChargeRef.current = Math.min(HEAL_MAX, healChargeRef.current + 0.10 * healMult);
+        healChargeRef.current = Math.min(HEAL_MAX, healChargeRef.current + 0.10 * healMult * dtScale);
       }
       // ── Speed boost countdown ──
-      if (speedBoostRef.current > 0) speedBoostRef.current--;
+      if (speedBoostRef.current > 0) speedBoostRef.current = Math.max(0, speedBoostRef.current - dtScale);
       // ── N-1 Starfighter passive: auto-shield every 20s for 3s ──
       if (activeSkinRef.current?.id === "n1") {
-        n1ShieldTimerRef.current++;
+        n1ShieldTimerRef.current += dtScale;
         if (n1ShieldTimerRef.current >= 1200 && shieldTimerRef.current <= 0) {
           n1ShieldTimerRef.current = 0;
           shieldTimerRef.current = 180;
@@ -1267,9 +1274,9 @@ export default function Game() {
 
       enemiesRef.current = enemiesRef.current.filter(e => {
         if (e.dead) return false;
-        e.x += e.vx;
-        e.y += e.vy;
-        if (e.oscillate) e.y += Math.sin(timeRef.current * 0.04) * Math.abs(e.oscillate) * 0.8;
+        e.x += e.vx * dtScale;
+        e.y += e.vy * dtScale;
+        if (e.oscillate) e.y += Math.sin(timeRef.current * 0.04) * Math.abs(e.oscillate) * 0.8 * dtScale;
         e.y = clamp(e.y, 0, CANVAS_H - e.height);
 
         // Boss movement
@@ -1280,7 +1287,7 @@ export default function Game() {
 
           // Vertical dodge every 4 s (level 10+)
           if (gs.level >= 10) {
-            e.bossVyTimer = (e.bossVyTimer ?? 0) + 1;
+            e.bossVyTimer = (e.bossVyTimer ?? 0) + dtScale;
             if (e.bossVyTimer >= 240) {
               e.bossVyTimer = 0;
               e.bossVyDir = Math.random() > 0.5 ? 1 : -1;
@@ -1291,7 +1298,7 @@ export default function Game() {
 
           // Homing missile every 4 s (level 10+)
           if (gs.level >= 10) {
-            e.missileTimer = (e.missileTimer ?? 240) - 1;
+            e.missileTimer = (e.missileTimer ?? 240) - dtScale;
             if (e.missileTimer <= 0) {
               e.missileTimer = 240;
               bulletsRef.current.push({
@@ -1309,7 +1316,7 @@ export default function Game() {
 
         // Fighter dodge (level 8+, every 5s = 300 frames)
         if (e.type === "fighter" && gs.level >= 8) {
-          e.fighterDodgeTimer = (e.fighterDodgeTimer ?? 0) + 1;
+          e.fighterDodgeTimer = (e.fighterDodgeTimer ?? 0) + dtScale;
           if (e.fighterDodgeTimer >= 300) {
             e.fighterDodgeTimer = 0;
             e.fighterDodgeDir = Math.random() > 0.5 ? 1 : -1;
@@ -1319,7 +1326,7 @@ export default function Game() {
         }
         // TIE Fighter dodge (every 3s = 180 frames, level 10+)
         if (e.type === "tiefighter") {
-          e.tieDodgeTimer = (e.tieDodgeTimer ?? 0) + 1;
+          e.tieDodgeTimer = (e.tieDodgeTimer ?? 0) + dtScale;
           if (e.tieDodgeTimer >= 180) {
             e.tieDodgeTimer = 0;
             e.tieDodgeDir = Math.random() > 0.5 ? 1 : -1;
@@ -1332,7 +1339,7 @@ export default function Game() {
         if (e.x + e.width < -20) return false;
 
         // Enemy shooting
-        e.shootCooldown--;
+        e.shootCooldown -= dtScale;
         if (e.shootCooldown <= 0) {
           e.shootCooldown = e.type === "boss" ? 25 : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
           if (e.type === "tiefighter") {
@@ -1451,7 +1458,7 @@ export default function Game() {
 
       // ── Power-ups ──
       powerUpsRef.current = powerUpsRef.current.filter(p => {
-        p.y += p.vy;
+        p.y += p.vy * dtScale;
         if (p.y > CANVAS_H + 20) return false;
         // Draw
         const colors: Record<PowerUp["type"], string> = { health: "#00ff88", shield: "#00ccff", speed: "#ffcc00", speedboost: "#ff9900" };
@@ -1484,8 +1491,8 @@ export default function Game() {
 
       // ── Particles ──
       particlesRef.current = particlesRef.current.filter(p => {
-        p.x += p.vx; p.y += p.vy;
-        p.life--;
+        p.x += p.vx * dtScale; p.y += p.vy * dtScale;
+        p.life -= dtScale;
         drawParticle(ctx, p);
         return p.life > 0;
       });
@@ -1512,7 +1519,7 @@ export default function Game() {
           if (e.dead) continue;
           if (e.x + e.width < lx) continue;
           if (e.y + e.height < ly - 18 || e.y > ly + 18) continue;
-          e.hp -= 0.38;
+          e.hp -= 0.38 * dtScale;
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, e.type === "boss");
             gs.score += e.points;
@@ -1552,7 +1559,7 @@ export default function Game() {
       }
 
       // ── Engine exhaust ──
-      if (Math.random() < 0.4) {
+      if (Math.random() < 1 - Math.pow(0.6, dtScale)) {
         const tier = WEAPON_TIERS[gs.weaponTier];
         const glowColors = ["#00cfff", "#00cfff", "#00ff88", "#ff9900", "#ff4444", "#ff00ff"];
         particlesRef.current.push({
@@ -1575,7 +1582,11 @@ export default function Game() {
       drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current);
 
       // Sync display once per ~30 frames for React state
-      if (timeRef.current % 30 === 0) syncDisplay();
+      displaySyncTimerRef.current += dtScale;
+      if (displaySyncTimerRef.current >= 30) {
+        displaySyncTimerRef.current = 0;
+        syncDisplay();
+      }
     };
 
     rafRef.current = requestAnimationFrame(loop);
