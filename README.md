@@ -21,7 +21,7 @@ Dependencies are installed in this workspace. The local pnpm store is ignored by
 Run the game frontend:
 
 ```bash
-pnpm --filter @workspace/flight-sim run dev
+./start-app.sh
 ```
 
 Open:
@@ -29,6 +29,9 @@ Open:
 ```text
 http://localhost:5173/
 ```
+
+The root `start` and `dev` package scripts call the same helper.
+The helper runs `pnpm --filter @workspace/flight-sim run dev`.
 
 Run the API server:
 
