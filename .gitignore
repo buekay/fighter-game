@@ -47,3 +47,7 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# frontend
+node_modules/
+.pnpm-store/
