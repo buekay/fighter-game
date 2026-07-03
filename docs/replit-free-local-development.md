@@ -5,6 +5,7 @@ This repo was downloaded from Replit and adjusted so it can be developed and dep
 ## What Changed
 
 - Removed Replit Vite plugins from the frontend apps.
+- Removed Replit project metadata files: `.replit` and `replit.md`.
 - Removed Replit package catalog entries from `pnpm-workspace.yaml`.
 - Removed Linux/Replit-only native package exclusions so macOS can install the correct Rollup, esbuild, Tailwind, and related native packages.
 - Added local defaults for required environment values:
