@@ -11,6 +11,7 @@ This repo was downloaded from Replit and adjusted so it can be developed and dep
 - Trimmed the `flight-sim` app by removing unused shadcn/Radix UI scaffold files, hooks, utility helpers, and unused frontend dependencies.
 - Updated the `flight-sim` game loop to scale movement and timers from elapsed frame time, keeping gameplay speed consistent across display refresh rates.
 - Fixed `flight-sim` keyboard listener cleanup so global handlers are removed correctly.
+- Removed unused Drizzle/Postgres database scaffolding (`lib/db`) and related workspace references.
 - Added local defaults for required environment values:
   - `@workspace/flight-sim`: `PORT=5173`, `BASE_PATH=/`
   - `@workspace/mockup-sandbox`: `PORT=5174`, `BASE_PATH=/`
@@ -60,6 +61,6 @@ rm -rf /Users/stba/Developer/buelli/fighter-game/.pnpm-store
 
 ## Last Verified
 
-- `pnpm install` succeeded.
-- `pnpm run build` succeeded.
-- `http://localhost:5173/` returned HTTP 200.
+- `./node_modules/.bin/tsc --build` succeeded.
+- `./node_modules/.bin/tsc -p artifacts/api-server/tsconfig.json --noEmit` succeeded.
+- `pnpm-lock.yaml` parsed as YAML after removing the stale database entries.

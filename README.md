@@ -1,12 +1,11 @@
 # Fighter Game
 
-Replit-free local development baseline for a pnpm workspace containing a 2D fighter game, a small Express API, shared API/client libraries, and database tooling.
+Local development baseline for a pnpm workspace containing a 2D fighter game, a small Express API, and shared API/client libraries.
 
 ## Requirements
 
 - Node.js 24
 - pnpm 11
-- PostgreSQL only if you run database-backed API code
 
 ## Install
 
@@ -45,12 +44,6 @@ The API defaults to port `5000` and exposes:
 GET /api/healthz
 ```
 
-If API routes use the database, set:
-
-```bash
-DATABASE_URL=postgres://user:password@host:5432/database
-```
-
 ## Verify
 
 Run type checking:
@@ -73,7 +66,6 @@ pnpm run build
 - `lib/api-spec` - OpenAPI spec and Orval codegen
 - `lib/api-client-react` - generated React Query API client
 - `lib/api-zod` - generated Zod API schemas
-- `lib/db` - Drizzle/Postgres schema and database exports
 - `scripts` - workspace utility scripts
 - `docs/replit-free-local-development.md` - notes on the Replit-free migration
 
@@ -83,12 +75,6 @@ Regenerate API clients and schemas from the OpenAPI spec:
 
 ```bash
 pnpm --filter @workspace/api-spec run codegen
-```
-
-Push database schema changes in development:
-
-```bash
-pnpm --filter @workspace/db run push
 ```
 
 ## Deployment Notes
