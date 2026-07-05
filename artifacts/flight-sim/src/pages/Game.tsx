@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { applyPlayerDamage } from "../game-rules";
+import {
+  MAX_LEVEL,
+  PLAYER_SHIELD_HP,
+  applyEnemyDamage,
+  applyPlayerHitProtection,
+  applyPlayerDamage,
+  getLevelForScore,
+  getLevelThreshold,
+  isBossEligibleLevel,
+  isMilestoneBossLevel,
+} from "../game-rules";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -86,30 +96,7 @@ const PLAYER_H = 28;
 const BASE_BULLET_SPEED = 10;
 const ENEMY_BULLET_SPEED = 3;
 
-const LEVEL_THRESHOLDS = [
-  // 1-10
-  0, 150, 350, 600, 900, 1300, 1800, 2400, 3100, 4000,
-  // 11-20
-  5100, 6400, 7900, 9600, 11500, 13700, 16200, 19000, 22200, 25800,
-  // 21-30
-  29800, 34200, 38900, 43900, 49300, 55100, 61300, 67900, 74900, 82400,
-  // 31-40
-  90400, 99000, 108000, 117500, 127500, 138000, 149000, 160500, 172500, 185000,
-  // 41-50
-  198000, 212000, 226500, 241500, 257000, 273000, 289500, 306500, 324000, 342000,
-  // 51-60
-  365000, 390000, 417000, 446000, 477000, 510000, 546000, 584000, 624000, 667000,
-  // 61-70
-  713000, 762000, 814000, 870000, 930000, 994000, 1062000, 1136000, 1215000, 1300000,
-  // 71-80
-  1390000, 1487000, 1590000, 1700000, 1817000, 1942000, 2076000, 2218000, 2370000, 2530000,
-  // 81-90
-  2705000, 2892000, 3090000, 3305000, 3535000, 3782000, 4047000, 4330000, 4630000, 4955000,
-  // 91-100
-  5300000, 5672000, 6069000, 6494000, 6949000, 7435000, 7955000, 8512000, 9108000, 9748000,
-  9999999,
-];
-const MILESTONE_LEVELS = new Set([3, 5, 8, 10, 12, 15, 18, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]);
+const LEVEL_THRESHOLDS = Array.from({ length: MAX_LEVEL }, (_, i) => getLevelThreshold(i + 1));
 const WEAPON_TIERS = [
   { name: "Single Cannon",    guns: 1, spread: false, missile: false, fireRate: 280, bulletDmg: 1 },
   { name: "Twin Cannons",     guns: 2, spread: false, missile: false, fireRate: 250, bulletDmg: 1 },
@@ -172,7 +159,7 @@ const JET_SKINS = [
   { id: "lava",    name: "Lava",     body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 30000 },
   { id: "xwing",      name: "X-Wing",       body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 40000 },
   { id: "tiefighter", name: "TIE Fighter",  body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 40000 },
-  { id: "n1",         name: "N-1 Jäger",    body: "#1a1600", stroke: "#5a4a00", glow: "#ffdd00", cost: 80000 },
+  { id: "n1",         name: "N-1 Jäger",    body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 80000 },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
@@ -283,13 +270,13 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
     ctx.beginPath();
     ctx.moveTo(30, 0); ctx.lineTo(10, -5); ctx.lineTo(-22, -6);
     ctx.lineTo(-30, -2); ctx.lineTo(-30, 2); ctx.lineTo(-22, 6); ctx.lineTo(10, 5); ctx.closePath();
-    ctx.fillStyle = "#ffe830"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = skin.body; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(4, -7); ctx.lineTo(-24, -11); ctx.lineTo(-30, -8); ctx.lineTo(-24, -5); ctx.lineTo(4, -7); ctx.closePath();
-    ctx.fillStyle = "#4a4600"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = "#262a2e"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1; ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(4, 7); ctx.lineTo(-24, 11); ctx.lineTo(-30, 8); ctx.lineTo(-24, 5); ctx.lineTo(4, 7); ctx.closePath();
-    ctx.fillStyle = "#4a4600"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = "#262a2e"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1; ctx.stroke();
     ctx.beginPath(); ctx.ellipse(12, 0, 9, 6, 0, 0, Math.PI * 2);
     ctx.fillStyle = "#77ddcc99"; ctx.fill(); ctx.strokeStyle = "#aaffee"; ctx.lineWidth = 1; ctx.stroke();
     ctx.strokeStyle = glow; ctx.lineWidth = 2;
@@ -298,9 +285,9 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
     ctx.beginPath(); ctx.arc(-6, -9, 4, 0, Math.PI * 2);
     ctx.fillStyle = "#3355aa"; ctx.fill(); ctx.strokeStyle = "#aabbff"; ctx.lineWidth = 0.8; ctx.stroke();
     ctx.beginPath(); ctx.arc(-6, -9, 2, 0, Math.PI * 2); ctx.fillStyle = "#aabbff44"; ctx.fill();
-    ctx.fillStyle = "#888870"; ctx.fillRect(28, -1.5, 12, 3);
+    ctx.fillStyle = "#9aa2a9"; ctx.fillRect(28, -1.5, 12, 3);
     if (shieldActive) {
-      const sc = shieldColor ?? "#ffdd00";
+      const sc = shieldColor ?? "#cfd6dc";
       ctx.beginPath(); ctx.arc(0, 0, 38, 0, Math.PI * 2);
       ctx.strokeStyle = sc + "99"; ctx.lineWidth = 2.5; ctx.stroke(); ctx.fillStyle = sc + "11"; ctx.fill();
     }
@@ -523,6 +510,15 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       ctx.fillStyle = "#12121a"; ctx.fill(); ctx.strokeStyle = tg; ctx.lineWidth = 1.5; ctx.stroke();
       ctx.beginPath(); ctx.arc(-3, -1, 4, 0, Math.PI * 2);
       ctx.fillStyle = tg + "88"; ctx.fill();
+      if ((e.shieldHp ?? 0) > 0) {
+        ctx.beginPath();
+        ctx.arc(-2, 0, 27, 0, Math.PI * 2);
+        ctx.strokeStyle = "#88ddff99";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = "#88ddff12";
+        ctx.fill();
+      }
       break;
     }
   }
@@ -652,7 +648,7 @@ export default function Game() {
   const healActiveRef = useRef(0);
   const speedBoostRef = useRef(0);
   const n1ShieldTimerRef = useRef(0);
-  const n1ShieldHpRef   = useRef(5);
+  const playerShieldHpRef = useRef(0);
   const bestScoreRef = useRef(loadHighScore());
   const activeBulletColorRef = useRef(loadBulletColor());
   const playerNameRef = useRef(loadName());
@@ -700,7 +696,7 @@ export default function Game() {
     let type: Enemy["type"] = "scout";
     let hp = 1, w = 40, h = 20, vx = -rand(1.5, 3), pts = 10, color = "#ff4444";
     const bossInterval = Math.max(220, 1200 - level * 60);
-    const isBossLevel = level >= 3 && timeRef.current % bossInterval < 5;
+    const isBossLevel = level >= 3 && isBossEligibleLevel(level) && timeRef.current % bossInterval < 5;
     const bossHpBase = (25 + level * 6) * (level >= 8 ? 5 : level >= 5 ? 3 : 1);
 
     if (isBossLevel && enemiesRef.current.filter(e => e.type === "boss").length === 0) {
@@ -737,6 +733,7 @@ export default function Game() {
       points: pts, color,
       angle: 0,
       oscillate: type === "scout" ? rand(-0.4, 0.4) : 0,
+      shieldHp: type === "tiefighter" ? 2 : 0,
     });
   }, []);
 
@@ -809,7 +806,7 @@ export default function Game() {
     healActiveRef.current = 0;
     speedBoostRef.current = 0;
     n1ShieldTimerRef.current = 0;
-    n1ShieldHpRef.current = 5;
+    playerShieldHpRef.current = 0;
     bestScoreRef.current = loadHighScore();
     const baseMaxHp = unlocks.includes("max_hp") ? 15 : 10;
     const baseSpeed = 3.2 + (unlocks.includes("speed_item") ? 0.5 : 0);
@@ -1148,19 +1145,18 @@ export default function Game() {
       if (firing) fireBullets(timestamp);
 
       // ── Level / Weapon tier ──
-      const newLevel = LEVEL_THRESHOLDS.findIndex((t, i) =>
-        gs.score >= t && gs.score < (LEVEL_THRESHOLDS[i + 1] ?? Infinity)
-      );
-      if (newLevel > 0 && newLevel !== gs.level - 1) {
-        gs.level = newLevel + 1;
-        gs.weaponTier = Math.min(newLevel, WEAPON_TIERS.length - 1);
-        gs.speed = 3.2 + newLevel * 0.25;
+      const nextLevel = getLevelForScore(gs.score);
+      if (nextLevel !== gs.level) {
+        gs.level = nextLevel;
+        const tierIndex = Math.min(nextLevel - 1, WEAPON_TIERS.length - 1);
+        gs.weaponTier = tierIndex;
+        gs.speed = 3.2 + (nextLevel - 1) * 0.25;
         saveGame(gs);
         saveExistsRef.current = true;
       }
 
       // ── Milestone boss: spawn a mega-boss when entering key levels ──
-      if (MILESTONE_LEVELS.has(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
+      if (isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
           enemiesRef.current.filter(e => e.type === "boss").length === 0) {
         milestoneBossFiredRef.current.add(gs.level);
         const ml = gs.level;
@@ -1230,7 +1226,10 @@ export default function Game() {
 
       // ── Update enemies ──
       if (invincibleRef.current > 0) invincibleRef.current = Math.max(0, invincibleRef.current - dtScale);
-      if (shieldTimerRef.current > 0) shieldTimerRef.current = Math.max(0, shieldTimerRef.current - dtScale);
+      if (shieldTimerRef.current > 0) {
+        shieldTimerRef.current = Math.max(0, shieldTimerRef.current - dtScale);
+        if (shieldTimerRef.current <= 0) playerShieldHpRef.current = 0;
+      }
 
       // ── Ultima charge & countdown ──
       if (ultimaActiveRef.current > 0) {
@@ -1269,7 +1268,7 @@ export default function Game() {
         if (n1ShieldTimerRef.current >= 1200 && shieldTimerRef.current <= 0) {
           n1ShieldTimerRef.current = 0;
           shieldTimerRef.current = 180;
-          n1ShieldHpRef.current = 5;
+          playerShieldHpRef.current = PLAYER_SHIELD_HP;
         }
       }
 
@@ -1371,12 +1370,15 @@ export default function Game() {
         // Enemy-player collision
         if (invincibleRef.current <= 0 && stealthActiveRef.current <= 0 &&
           rectHit(playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H, e.x, e.y, e.width, e.height)) {
-          if (shieldTimerRef.current > 0) {
-            // Shield absorbs the hit
-            if (activeSkinRef.current?.id === "n1") {
-              n1ShieldHpRef.current = Math.max(0, n1ShieldHpRef.current - 1);
-              if (n1ShieldHpRef.current <= 0) shieldTimerRef.current = 0;
-            }
+          const protection = applyPlayerHitProtection({
+            shieldTimer: shieldTimerRef.current,
+            shieldHp: playerShieldHpRef.current,
+            invincibleTimer: 0,
+            stealthTimer: 0,
+          });
+          shieldTimerRef.current = protection.shieldTimer;
+          playerShieldHpRef.current = protection.shieldHp;
+          if (protection.protected) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
             e.dead = true; return false;
           }
@@ -1400,10 +1402,12 @@ export default function Game() {
           const bw = b.isMissile ? 14 : 14;
           const bh = b.isMissile ? 8 : 4;
           if (!rectHit(b.x, b.y - bh / 2, bw, bh, e.x, e.y, e.width, e.height)) return true;
-          e.hp -= b.damage;
+          const damageResult = applyEnemyDamage(e, b.damage);
+          e.hp = damageResult.hp;
+          e.shieldHp = damageResult.shieldHp;
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           hit = true;
-          if (e.hp <= 0) {
+          if (damageResult.destroyed) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, e.type === "boss");
             gs.score += e.points;
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current +
@@ -1441,16 +1445,18 @@ export default function Game() {
         if (b.fromPlayer) return true;
         const bw = 8, bh = 8;
         if (!rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh, playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H)) return true;
-        if (shieldTimerRef.current > 0) {
-          if (activeSkinRef.current?.id === "n1") {
-            n1ShieldHpRef.current = Math.max(0, n1ShieldHpRef.current - 1);
-            if (n1ShieldHpRef.current <= 0) shieldTimerRef.current = 0;
-          }
+        const protection = applyPlayerHitProtection({
+          shieldTimer: shieldTimerRef.current,
+          shieldHp: playerShieldHpRef.current,
+          invincibleTimer: invincibleRef.current,
+          stealthTimer: stealthActiveRef.current,
+        });
+        shieldTimerRef.current = protection.shieldTimer;
+        playerShieldHpRef.current = protection.shieldHp;
+        if (protection.protected) {
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           return false;
         }
-        if (invincibleRef.current > 0) return false;
-        if (stealthActiveRef.current > 0) return false;
         const bulletDmg = activeUnlocksRef.current.includes("armor") ? Math.max(0.5, b.damage * 0.5) : b.damage;
         const nextLifeState = applyPlayerDamage(gs, bulletDmg);
         gs.hp = nextLifeState.hp;
@@ -1487,7 +1493,10 @@ export default function Game() {
         // Pickup
         if (dist(playerRef.current, p) < 24) {
           if (p.type === "health") gs.hp = Math.min(gs.maxHp, gs.hp + 3);
-          if (p.type === "shield") shieldTimerRef.current = 300;
+          if (p.type === "shield") {
+            shieldTimerRef.current = 300;
+            playerShieldHpRef.current = PLAYER_SHIELD_HP;
+          }
           if (p.type === "speed") gs.speed = Math.min(6, gs.speed + 0.5);
           if (p.type === "speedboost") speedBoostRef.current = 480;
           syncDisplay();
@@ -1548,9 +1557,9 @@ export default function Game() {
         ctx.restore();
       } else if (invincibleRef.current <= 0 || Math.floor(timeRef.current / 5) % 2 === 0) {
         {
-          const n1ShHp = n1ShieldHpRef.current;
+          const shieldHp = playerShieldHpRef.current;
           const _sc = (activeSkinRef.current?.id === "n1" && shieldTimerRef.current > 0)
-            ? (n1ShHp <= 1 ? "#ff2200" : n1ShHp <= 3 ? "#ff9900" : "#ffdd00") : undefined;
+            ? (shieldHp <= 1 ? "#ff2200" : shieldHp <= 3 ? "#ff9900" : "#cfd6dc") : undefined;
           drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current, _sc);
         }
         if (ultimaActiveRef.current > 0) {
@@ -2332,7 +2341,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   const thresholds = LEVEL_THRESHOLDS;
   const lo = thresholds[gs.level - 1] ?? 0;
   const hi = thresholds[gs.level] ?? lo + 999;
-  const pct = Math.min(1, (gs.score - lo) / (hi - lo));
+  const pct = gs.level >= MAX_LEVEL ? 1 : Math.min(1, (gs.score - lo) / (hi - lo));
   const barX = CANVAS_W / 2 - 80, barY = 36, barW = 160, barH = 5;
   ctx.fillStyle = "#222";
   ctx.fillRect(barX, barY, barW, barH);
