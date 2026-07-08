@@ -1677,7 +1677,7 @@ export default function Game() {
         {displayState.started && !displayState.gameOver && (
           <button
             onClick={() => { stateRef.current.paused = !stateRef.current.paused; syncDisplay(); }}
-            className="absolute top-2 right-2 z-10 font-bold rounded px-2 py-1 text-sm"
+            className="absolute top-[54px] right-2 z-10 font-bold rounded px-2 py-1 text-sm"
             style={{ background: "rgba(4,10,24,0.85)", border: "1px solid #334466", color: "#7799bb" }}
           >
             {displayState.paused ? "▶ WEITER" : "⏸"}
