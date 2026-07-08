@@ -30,6 +30,25 @@ export interface PlayerHitProtectionResult {
 
 export const MAX_LEVEL = 500;
 export const PLAYER_SHIELD_HP = 5;
+export const COIN_REWARD_MULTIPLIER = 5;
+export const HEAL_ULTI_RESTORE = 5;
+export const KEYBOARD_CONTROL_HELP = [
+  ["WASD / Pfeiltasten", "Bewegen"],
+  ["LEERTASTE", "Schießen"],
+  ["Q", "Clone-Ulti"],
+  ["E", "Laser-Ulti"],
+  ["R", "Stealth-Ulti"],
+  ["H", "Heil-Ulti"],
+  ["P", "Pause"],
+] as const;
+export const MOBILE_CONTROL_HELP = [
+  "Linke Seite -> Joystick (Bewegen)",
+  "FIRE -> Schießen",
+  "CLONE -> Clone-Ulti (Q)",
+  "LASER -> Laser-Ulti (E)",
+  "STEALTH -> Stealth-Ulti (R)",
+  "HEAL -> Heil-Ulti (H)",
+] as const;
 const EARLY_MILESTONE_BOSS_LEVELS = new Set([3, 5, 8, 10, 12, 15, 18]);
 const BASE_LEVEL_THRESHOLDS = [
   0, 150, 350, 600, 900, 1300, 1800, 2400, 3100, 4000,
@@ -73,6 +92,18 @@ export function isBossEligibleLevel(level: number): boolean {
 
 export function isMilestoneBossLevel(level: number): boolean {
   return EARLY_MILESTONE_BOSS_LEVELS.has(level) || (level >= 20 && level % 5 === 0);
+}
+
+export function calculateCoinReward(score: number): number {
+  return Math.max(0, Math.floor(score * COIN_REWARD_MULTIPLIER));
+}
+
+export function formatLockedSkinPrice(cost: number): string {
+  return `${Math.round(cost / 1000)}k`;
+}
+
+export function shouldShowVirtualControls(hasTouch: boolean, hasCoarsePointer: boolean): boolean {
+  return hasTouch || hasCoarsePointer;
 }
 
 export function applyEnemyDamage(state: EnemyDamageState, damage: number): EnemyDamageResult {

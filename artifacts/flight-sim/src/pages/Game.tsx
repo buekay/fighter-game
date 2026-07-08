@@ -5,10 +5,16 @@ import {
   applyEnemyDamage,
   applyPlayerHitProtection,
   applyPlayerDamage,
+  calculateCoinReward,
+  formatLockedSkinPrice,
   getLevelForScore,
   getLevelThreshold,
+  HEAL_ULTI_RESTORE,
+  KEYBOARD_CONTROL_HELP,
   isBossEligibleLevel,
   isMilestoneBossLevel,
+  MOBILE_CONTROL_HELP,
+  shouldShowVirtualControls,
 } from "../game-rules";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -170,7 +176,7 @@ const SHOP_ITEMS = [
   { id: "clone_upgrade", name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",      cost: 25000 },
   { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 25000 },
   { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 40000 },
-  { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 8 HP sofort [Taste H]",                    cost: 30000 },
+  { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 30000 },
   { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 25000 },
   { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 25000 },
   { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 35000 },
@@ -625,6 +631,7 @@ export default function Game() {
   // ── Touch / virtual controls ──
   const joystickRef = useRef({ active: false, id: -1, centerX: 0, centerY: 0, curX: 0, curY: 0 });
   const touchFireRef = useRef({ active: false, id: -1 });
+  const showVirtualControlsRef = useRef(false);
 
   // ── Ultima ──
   const ultimaChargeRef = useRef(0);
@@ -879,7 +886,7 @@ export default function Game() {
           !stateRef.current.gameOver && !stateRef.current.paused) {
         if (healChargeRef.current >= HEAL_MAX && healActiveRef.current === 0
             && activeUnlocksRef.current.includes("heal_ulti")) {
-          stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
+          stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + HEAL_ULTI_RESTORE);
           healActiveRef.current = HEAL_DURATION;
           healChargeRef.current = 0;
           syncDisplay();
@@ -910,6 +917,18 @@ export default function Game() {
       window.removeEventListener("keyup", onKeyUp);
     };
   }, [initCity, initStars, startGame, syncDisplay]);
+
+  useEffect(() => {
+    const pointerQuery = window.matchMedia?.("(pointer: coarse)");
+    const updateVirtualControlVisibility = () => {
+      const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+      showVirtualControlsRef.current = shouldShowVirtualControls(hasTouch, pointerQuery?.matches ?? false);
+    };
+
+    updateVirtualControlVisibility();
+    pointerQuery?.addEventListener?.("change", updateVirtualControlVisibility);
+    return () => pointerQuery?.removeEventListener?.("change", updateVirtualControlVisibility);
+  }, []);
 
   // Touch event setup
   useEffect(() => {
@@ -942,7 +961,7 @@ export default function Game() {
           const dh = Math.hypot(x - HEAL_BTN_X, y - HEAL_BTN_Y);
           if (dh <= HEAL_BTN_R + 12 && healChargeRef.current >= HEAL_MAX && healActiveRef.current === 0
               && activeUnlocksRef.current.includes("heal_ulti")) {
-            stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
+            stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + HEAL_ULTI_RESTORE);
             healActiveRef.current = HEAL_DURATION;
             healChargeRef.current = 0;
             syncDisplay();
@@ -1390,7 +1409,7 @@ export default function Game() {
           invincibleRef.current = 140;
           spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, true);
           e.dead = true;
-          if (gs.gameOver) { clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(gs.score); saveExistsRef.current = false; syncDisplay(); }
+          if (gs.gameOver) { clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(calculateCoinReward(gs.score)); saveExistsRef.current = false; syncDisplay(); }
           syncDisplay();
           return false;
         }
@@ -1464,7 +1483,7 @@ export default function Game() {
         gs.gameOver = nextLifeState.gameOver;
         invincibleRef.current = 100;
         spawnExplosion(particlesRef.current, b.x, b.y, false);
-        if (gs.gameOver) { clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(gs.score); saveExistsRef.current = false; }
+        if (gs.gameOver) { clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(calculateCoinReward(gs.score)); saveExistsRef.current = false; }
         syncDisplay();
         return false;
       });
@@ -1595,7 +1614,9 @@ export default function Game() {
       drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, bestScoreRef.current);
 
       // ── Virtual controls overlay ──
-      drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current);
+      if (showVirtualControlsRef.current) {
+        drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current);
+      }
 
       // Sync display once per ~30 frames for React state
       displaySyncTimerRef.current += dtScale;
@@ -1985,7 +2006,7 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnloc
               {owned
                 ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div>
                 : <div className={`text-xs font-bold ${canAfford ? "text-amber-300" : "text-slate-500"}`}>
-                    {canAfford ? `💰 ${(s.cost/1000).toFixed(0)}k` : "🔒"}
+                    {canAfford ? `💰 ${formatLockedSkinPrice(s.cost)}` : `🔒 ${formatLockedSkinPrice(s.cost)}`}
                   </div>
               }
             </button>
@@ -2070,14 +2091,6 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
 
 function SettingsScreen({ onBack }: { onBack: () => void }) {
   const [name, setName] = useState(() => loadName());
-  const controls = [
-    ["WASD / Pfeiltasten", "Bewegen"],
-    ["LEERTASTE", "Schießen"],
-    ["Q", "Clone-Ulti"],
-    ["E", "Laser-Ulti"],
-    ["R", "Stealth-Ulti"],
-    ["P", "Pause"],
-  ];
   return (
     <div className="flex flex-col h-full p-4 gap-4 text-white select-none">
       <div className="flex items-center gap-3">
@@ -2086,7 +2099,7 @@ function SettingsScreen({ onBack }: { onBack: () => void }) {
       </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest">Tastatur</div>
       <div className="flex flex-col gap-2">
-        {controls.map(([key, desc]) => (
+        {KEYBOARD_CONTROL_HELP.map(([key, desc]) => (
           <div key={key} className="flex items-center gap-3">
             <kbd className="px-2 py-1 rounded-md bg-slate-800 text-slate-200 text-xs font-mono min-w-[120px] text-center border border-slate-600">{key}</kbd>
             <span className="text-slate-300 text-sm">{desc}</span>
@@ -2095,10 +2108,9 @@ function SettingsScreen({ onBack }: { onBack: () => void }) {
       </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Mobil / Touch</div>
       <div className="flex flex-col gap-1 text-slate-300 text-sm">
-        <div>Linke Seite → Joystick (Bewegen)</div>
-        <div>FIRE → Schießen</div>
-        <div>CLONE → Clone-Ulti (Q)</div>
-        <div>LASER → Laser-Ulti (E)</div>
+        {MOBILE_CONTROL_HELP.map((line) => (
+          <div key={line}>{line.replaceAll("->", "→")}</div>
+        ))}
       </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Piloten-Name</div>
       <div className="flex items-center gap-2">
@@ -2112,7 +2124,7 @@ function SettingsScreen({ onBack }: { onBack: () => void }) {
         />
       </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Shop</div>
-      <div className="text-slate-300 text-sm">Sammle Punkte beim Spielen — sie bleiben als Währung erhalten. Skins ab 25k, spezielle ab 30–40k.</div>
+      <div className="text-slate-300 text-sm">Sammle Credits beim Spielen — dein Score wird am Ende mit ×5 in Shop-Währung umgerechnet.</div>
     </div>
   );
 }

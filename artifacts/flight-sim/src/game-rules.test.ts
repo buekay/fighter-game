@@ -3,11 +3,17 @@ import {
   applyEnemyDamage,
   applyPlayerHitProtection,
   applyPlayerDamage,
+  calculateCoinReward,
+  formatLockedSkinPrice,
   getLevelForScore,
   getLevelThreshold,
+  HEAL_ULTI_RESTORE,
+  KEYBOARD_CONTROL_HELP,
   isBossEligibleLevel,
   isMilestoneBossLevel,
+  MOBILE_CONTROL_HELP,
   PLAYER_SHIELD_HP,
+  shouldShowVirtualControls,
   type EnemyDamageState,
   type LifeState,
 } from "./game-rules";
@@ -103,3 +109,20 @@ assert.deepEqual(applyPlayerHitProtection(playerProtection), {
   shieldTimer: 0,
   shieldHp: 0,
 });
+
+assert.equal(KEYBOARD_CONTROL_HELP.some(([key, desc]) => key === "H" && desc === "Heil-Ulti"), true);
+assert.equal(MOBILE_CONTROL_HELP.some((line) => line.includes("STEALTH")), true);
+assert.equal(MOBILE_CONTROL_HELP.some((line) => line.includes("HEAL")), true);
+
+assert.equal(formatLockedSkinPrice(25000), "25k");
+assert.equal(formatLockedSkinPrice(80000), "80k");
+
+assert.equal(calculateCoinReward(0), 0);
+assert.equal(calculateCoinReward(500), 2500);
+assert.equal(calculateCoinReward(1234), 6170);
+
+assert.equal(shouldShowVirtualControls(false, false), false);
+assert.equal(shouldShowVirtualControls(false, true), true);
+assert.equal(shouldShowVirtualControls(true, false), true);
+
+assert.equal(HEAL_ULTI_RESTORE, 5);
