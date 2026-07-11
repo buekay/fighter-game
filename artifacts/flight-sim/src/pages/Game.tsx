@@ -154,32 +154,32 @@ const UNLOCKS_KEY = "fighter-command-unlocks";
 
 const JET_SKINS = [
   { id: "steel",   name: "Steel",    body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0     },
-  { id: "fire",    name: "Feuer",    body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 25000 },
-  { id: "jade",    name: "Jade",     body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 25000 },
-  { id: "gold",    name: "Gold",     body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 25000 },
-  { id: "shadow",  name: "Schatten", body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 25000 },
-  { id: "crimson", name: "Scharlach",body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 25000 },
-  { id: "galaxy",  name: "Galaxy",   body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 30000 },
-  { id: "neon",    name: "Neon",     body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 30000 },
-  { id: "arctic",  name: "Arktis",   body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 30000 },
-  { id: "lava",    name: "Lava",     body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 30000 },
-  { id: "xwing",      name: "X-Wing",       body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 40000 },
-  { id: "tiefighter", name: "TIE Fighter",  body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 40000 },
-  { id: "n1",         name: "N-1 Jäger",    body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 80000 },
+  { id: "fire",    name: "Feuer",    body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 45000 },
+  { id: "jade",    name: "Jade",     body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 45000 },
+  { id: "gold",    name: "Gold",     body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 45000 },
+  { id: "shadow",  name: "Schatten", body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 45000 },
+  { id: "crimson", name: "Scharlach",body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 45000 },
+  { id: "galaxy",  name: "Galaxy",   body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 50000 },
+  { id: "neon",    name: "Neon",     body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 50000 },
+  { id: "arctic",  name: "Arktis",   body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 50000 },
+  { id: "lava",    name: "Lava",     body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 50000 },
+  { id: "xwing",      name: "X-Wing",       body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 60000 },
+  { id: "tiefighter", name: "TIE Fighter",  body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 60000 },
+  { id: "n1",         name: "N-1 Jäger",    body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 100000 },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
 const SHOP_ITEMS = [
-  { id: "ulti_boost",    name: "Ulti-Boost",       desc: "Ultis laden 50% schneller",                      cost: 25000 },
-  { id: "extra_life",    name: "+1 Leben",          desc: "Starte mit 4 statt 3 Leben",                     cost: 25000 },
-  { id: "weapon_head",   name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                        cost: 25000 },
-  { id: "clone_upgrade", name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",      cost: 25000 },
-  { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 25000 },
-  { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 40000 },
-  { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 30000 },
-  { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 25000 },
-  { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 25000 },
-  { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 35000 },
+  { id: "ulti_boost",    name: "Ulti-Boost",       desc: "Ultis laden 50% schneller",                      cost: 45000 },
+  { id: "extra_life",    name: "+1 Leben",          desc: "Starte mit 4 statt 3 Leben",                     cost: 45000 },
+  { id: "weapon_head",   name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                        cost: 45000 },
+  { id: "clone_upgrade", name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",      cost: 45000 },
+  { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 45000 },
+  { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 60000 },
+  { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 50000 },
+  { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 45000 },
+  { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 45000 },
+  { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 55000 },
 ] as const;
 
 const NAME_KEY         = "fighter-command-name";
@@ -718,7 +718,7 @@ export default function Game() {
     } else if (level >= 7 && roll < 0.10) {
       type = "gunship"; hp = 8 + level * 2; w = 64; h = 46; vx = -rand(0.5, 1.0); pts = 80; color = "#ff6600";
     } else if (level >= 10 && roll < 0.28) {
-      type = "tiefighter"; hp = 3; w = 42; h = 38; vx = -rand(2.0, 3.2); pts = 45; color = "#0099ff";
+      type = "tiefighter"; hp = 5; w = 42; h = 38; vx = -rand(2.0, 3.2); pts = 45; color = "#0099ff";
     } else if (level >= 5 && roll < 0.38) {
       type = "interceptor"; hp = 1; w = 36; h = 22; vx = -rand(3.5, 5.5); pts = 20; color = "#00ffcc";
     } else if (level >= 4 && roll < 0.36) {
