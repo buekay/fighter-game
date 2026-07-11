@@ -21,6 +21,15 @@ import {
 
 interface Vec2 { x: number; y: number }
 
+type FullscreenDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void> | void;
+};
+
+type FullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+};
+
 interface Particle {
   x: number; y: number;
   vx: number; vy: number;
@@ -605,6 +614,7 @@ function spawnExplosion(particles: Particle[], x: number, y: number, big: boolea
 // ─── Main Game Component ──────────────────────────────────────────────────────
 
 export default function Game() {
+  const shellRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef<GameState>({
     score: 0, level: 1, hp: 10, maxHp: 10,
@@ -663,9 +673,47 @@ export default function Game() {
   const [coins, setCoins] = useState(() => loadCoins());
   const [highScore] = useState(() => loadHighScore());
   const [unlockedItems, setUnlockedItems] = useState<string[]>(() => loadUnlocks());
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenSupported] = useState(() => {
+    const root = document.documentElement as FullscreenElement;
+    return Boolean(root.requestFullscreen || root.webkitRequestFullscreen);
+  });
 
   const syncDisplay = useCallback(() => {
     setDisplayState({ ...stateRef.current });
+  }, []);
+
+  useEffect(() => {
+    const fullscreenDocument = document as FullscreenDocument;
+    const syncFullscreen = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement || fullscreenDocument.webkitFullscreenElement));
+    };
+
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    document.addEventListener("webkitfullscreenchange", syncFullscreen);
+    syncFullscreen();
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFullscreen);
+      document.removeEventListener("webkitfullscreenchange", syncFullscreen);
+    };
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    const fullscreenDocument = document as FullscreenDocument;
+    const active = document.fullscreenElement || fullscreenDocument.webkitFullscreenElement;
+
+    try {
+      if (active) {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else await fullscreenDocument.webkitExitFullscreen?.();
+      } else {
+        const shell = shellRef.current as FullscreenElement | null;
+        if (shell?.requestFullscreen) await shell.requestFullscreen();
+        else await shell?.webkitRequestFullscreen?.();
+      }
+    } catch {
+      // Browsers may reject fullscreen when device or embedding policy forbids it.
+    }
   }, []);
 
   const initStars = useCallback(() => {
@@ -1661,6 +1709,7 @@ export default function Game() {
 
   return (
     <div
+      ref={shellRef}
       className="game-shell flex flex-col items-center justify-center w-full bg-[#08080e] select-none"
       style={{ touchAction: "none" }}
     >
@@ -1675,13 +1724,26 @@ export default function Game() {
           tabIndex={0}
         />
         {displayState.started && !displayState.gameOver && (
-          <button
-            onClick={() => { stateRef.current.paused = !stateRef.current.paused; syncDisplay(); }}
-            className="absolute top-[54px] right-2 z-10 font-bold rounded px-2 py-1 text-sm"
-            style={{ background: "rgba(4,10,24,0.85)", border: "1px solid #334466", color: "#7799bb" }}
-          >
-            {displayState.paused ? "▶ WEITER" : "⏸"}
-          </button>
+          <div className="absolute top-[54px] right-2 z-10 flex gap-1.5">
+            {fullscreenSupported && (
+              <button
+                onClick={toggleFullscreen}
+                aria-label={isFullscreen ? "Vollbild beenden" : "Vollbild öffnen"}
+                title={isFullscreen ? "Vollbild beenden" : "Vollbild"}
+                className="font-bold rounded px-2 py-1 text-sm"
+                style={{ background: "rgba(4,10,24,0.85)", border: "1px solid #334466", color: "#7799bb" }}
+              >
+                {isFullscreen ? "↙" : "⛶"}
+              </button>
+            )}
+            <button
+              onClick={() => { stateRef.current.paused = !stateRef.current.paused; syncDisplay(); }}
+              className="font-bold rounded px-2 py-1 text-sm"
+              style={{ background: "rgba(4,10,24,0.85)", border: "1px solid #334466", color: "#7799bb" }}
+            >
+              {displayState.paused ? "▶ WEITER" : "⏸"}
+            </button>
+          </div>
         )}
         {!displayState.started && (
           <HangarOverlay
@@ -1696,6 +1758,9 @@ export default function Game() {
             onSkinSelect={handleSkinSelect}
             onBuy={handleBuy}
             onUnlockSkin={handleUnlockSkin}
+            fullscreenSupported={fullscreenSupported}
+            isFullscreen={isFullscreen}
+            onFullscreenToggle={toggleFullscreen}
             onAdminActivate={() => {
               setCoinsAbsolute(99999999);
               unlockAll();
@@ -1719,12 +1784,14 @@ export default function Game() {
 function HangarOverlay({
   selectedSkin, coins, highScore, unlockedItems, hasSave, saveData,
   onStart, onNewGame, onSkinSelect, onBuy, onUnlockSkin, onAdminActivate,
+  fullscreenSupported, isFullscreen, onFullscreenToggle,
 }: {
   selectedSkin: string; coins: number; highScore: number;
   unlockedItems: string[]; hasSave: boolean; saveData: { level: number; score: number; weaponTier: number } | null;
   onStart: () => void; onNewGame: () => void;
   onSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void;
   onAdminActivate: () => void;
+  fullscreenSupported: boolean; isFullscreen: boolean; onFullscreenToggle: () => void;
 }) {
   const [view, setView] = useState<"main" | "upgrades" | "settings" | "leaderboard">("main");
   const [hoverSkin, setHoverSkin] = useState<string | null>(null);
@@ -1901,7 +1968,15 @@ function HangarOverlay({
         </button>
       </div>
       {/* Admin button (bottom-right) */}
-      <div className="w-full flex justify-end mt-1">
+      <div className="w-full flex justify-end gap-2 mt-1">
+        {fullscreenSupported && (
+          <button onClick={onFullscreenToggle}
+            aria-label={isFullscreen ? "Vollbild beenden" : "Vollbild öffnen"}
+            className="text-xs rounded px-2 py-0.5"
+            style={{ color: "#7799bb", background: "rgba(0,180,255,0.08)", border: "1px solid #1a4466" }}>
+            {isFullscreen ? "↙ Vollbild beenden" : "⛶ Vollbild"}
+          </button>
+        )}
         <button onClick={() => setShowAdmin(v => !v)}
           className="text-xs rounded px-2 py-0.5"
           style={{ color: "#556688", background: "rgba(255,255,255,0.04)", border: "1px solid #223344" }}>
