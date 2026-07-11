@@ -1661,17 +1661,17 @@ export default function Game() {
 
   return (
     <div
-      className="flex flex-col items-center justify-center w-full h-screen bg-[#08080e] select-none"
+      className="game-shell flex flex-col items-center justify-center w-full bg-[#08080e] select-none"
       style={{ touchAction: "none" }}
     >
-      <div className="relative rounded overflow-hidden shadow-[0_0_40px_#00cfff22]"
-        style={{ maxWidth: "100%", maxHeight: "100vh", border: "1px solid rgba(0,207,255,0.15)" }}>
+      <div className="game-frame relative rounded overflow-hidden shadow-[0_0_40px_#00cfff22]"
+        style={{ border: "1px solid rgba(0,207,255,0.15)" }}>
         <canvas
           ref={canvasRef}
           width={CANVAS_W}
           height={CANVAS_H}
-          className="block"
-          style={{ maxWidth: "100%", maxHeight: "100vh", objectFit: "contain", touchAction: "none" }}
+          className="game-canvas block"
+          style={{ objectFit: "contain", touchAction: "none" }}
           tabIndex={0}
         />
         {displayState.started && !displayState.gameOver && (
@@ -1754,7 +1754,7 @@ function HangarOverlay({
 
   if (view === "upgrades") {
     return (
-      <div className="absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
+      <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
         <ShopScreen coins={coins} unlockedItems={unlockedItems} selectedSkin={selectedSkin}
           onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect} />
       </div>
@@ -1762,21 +1762,21 @@ function HangarOverlay({
   }
   if (view === "settings") {
     return (
-      <div className="absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
+      <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
         <SettingsScreen onBack={() => setView("main")} />
       </div>
     );
   }
   if (view === "leaderboard") {
     return (
-      <div className="absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
+      <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
         <LeaderboardScreen onBack={() => setView("main")} />
       </div>
     );
   }
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-between px-6 py-4"
+    <div className="hangar-layer hangar-main absolute inset-0 flex flex-col items-center justify-between px-6 py-4 overflow-y-auto"
       style={{ background: "rgba(4,12,28,0.90)" }}>
       {/* ── Top bar ── */}
       <div className="w-full flex items-start justify-between">
@@ -1811,15 +1811,15 @@ function HangarOverlay({
       </div>
 
       {/* ── Jet preview ── */}
-      <div className="flex flex-col items-center gap-2">
+      <div className="hangar-preview flex flex-col items-center gap-2">
         <div className="text-xs text-slate-500 uppercase tracking-widest">Dein Jet</div>
-        <div className="rounded-2xl overflow-hidden"
+        <div className="hangar-preview-canvas rounded-2xl overflow-hidden"
           style={{ border: `1.5px solid ${skin.glow}55`, boxShadow: `0 0 24px ${skin.glow}33` }}>
           <canvas ref={previewRef} width={240} height={140} className="block" />
         </div>
         <div className="font-bold text-white text-sm tracking-wide">{skin.name}</div>
         {/* Colour picker dots */}
-        <div className="flex gap-2.5 mt-0.5">
+        <div className="hangar-skins flex gap-2.5 mt-0.5">
           {JET_SKINS.map(s => {
             const owned = s.cost === 0 || unlockedItems.includes(s.id);
             const active = s.id === selectedSkin;
@@ -1866,7 +1866,7 @@ function HangarOverlay({
       </div>
 
       {/* ── Bottom buttons ── */}
-      <div className="w-full flex gap-2">
+      <div className="hangar-actions w-full flex gap-2">
         <button onClick={() => setView("upgrades")}
           className="flex-1 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-95"
           style={{ background: "rgba(50,15,90,0.75)", border: "1.5px solid #7733bb", color: "#cc88ff" }}>
@@ -2092,7 +2092,7 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
 function SettingsScreen({ onBack }: { onBack: () => void }) {
   const [name, setName] = useState(() => loadName());
   return (
-    <div className="flex flex-col h-full p-4 gap-4 text-white select-none">
+    <div className="flex flex-col h-full p-4 gap-4 overflow-y-auto text-white select-none">
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="text-slate-400 hover:text-white text-xl font-bold px-2">←</button>
         <h2 className="font-bold text-xl tracking-wide">EINSTELLUNGEN</h2>

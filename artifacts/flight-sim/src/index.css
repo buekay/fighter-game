@@ -32,3 +32,91 @@
     overflow: hidden;
   }
 }
+
+.game-shell {
+  height: 100vh;
+  height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.game-frame {
+  max-width: 100%;
+  max-height: 100vh;
+  max-height: 100dvh;
+}
+
+.game-canvas {
+  max-width: 100%;
+  max-height: 100vh;
+  max-height: 100dvh;
+}
+
+/* On phones, menus use the whole safe viewport instead of inheriting the
+   letterboxed canvas height. Gameplay remains on the fixed 900x600 canvas. */
+@media (max-width: 600px), (max-height: 500px) {
+  .hangar-layer {
+    position: fixed;
+    z-index: 20;
+    inset: env(safe-area-inset-top) env(safe-area-inset-right)
+      env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  .hangar-main {
+    min-height: 0;
+    padding: 10px 14px;
+    gap: 8px;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .hangar-main {
+    display: grid;
+    grid-template-columns: minmax(190px, 0.8fr) minmax(300px, 1.4fr);
+    grid-template-rows: auto auto 1fr auto;
+    column-gap: 16px;
+    align-items: center;
+  }
+
+  .hangar-main > :nth-child(1),
+  .hangar-main > :nth-child(2),
+  .hangar-main > :nth-child(4),
+  .hangar-main > :nth-child(5) {
+    grid-column: 2;
+  }
+
+  .hangar-main > :nth-child(1) { grid-row: 1; }
+  .hangar-main > :nth-child(2) { grid-row: 2; }
+  .hangar-main > :nth-child(4) { grid-row: 3; }
+  .hangar-main > :nth-child(5) { grid-row: 4; }
+
+  .hangar-preview {
+    grid-column: 1;
+    grid-row: 1 / span 4;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .hangar-preview-canvas canvas {
+    width: 150px;
+    height: auto;
+  }
+
+  .hangar-skins {
+    max-width: 220px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px;
+  }
+
+  .hangar-skins button {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .hangar-actions button {
+    padding-top: 7px;
+    padding-bottom: 7px;
+    font-size: 12px;
+  }
+}
