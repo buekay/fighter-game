@@ -29,6 +29,7 @@ export interface PlayerHitProtectionResult {
 }
 
 export const MAX_LEVEL = 500;
+export const SPACE_BACKGROUND_LEVEL = 50;
 export const PLAYER_SHIELD_HP = 5;
 export const COIN_REWARD_MULTIPLIER = 5;
 export const HEAL_ULTI_RESTORE = 5;
@@ -92,6 +93,10 @@ export function isBossEligibleLevel(level: number): boolean {
 
 export function isMilestoneBossLevel(level: number): boolean {
   return EARLY_MILESTONE_BOSS_LEVELS.has(level) || (level >= 20 && level % 5 === 0);
+}
+
+export function shouldUseSpaceBackground(level: number): boolean {
+  return level >= SPACE_BACKGROUND_LEVEL;
 }
 
 export function calculateCoinReward(score: number): number {
