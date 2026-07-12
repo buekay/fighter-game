@@ -2395,7 +2395,7 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
         />
       </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Shop</div>
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-slate-200"><strong className="text-amber-300">Punkte → Credits:</strong> Am Ende einer Mission erhältst du für jeden Punkt fünf Credits. Beispiel: 1.000 Punkte = 5.000 Credits.</div>
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-slate-200"><strong className="text-amber-300">Punkte → Credits:</strong> Am Ende einer Mission erhältst du für jeden Punkt einen Credit. Beispiel: 1.000 Punkte = 1.000 Credits.</div>
     </div>
   );
 }

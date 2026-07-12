@@ -123,8 +123,8 @@ assert.equal(formatLockedSkinPrice(25000), "25k");
 assert.equal(formatLockedSkinPrice(80000), "80k");
 
 assert.equal(calculateCoinReward(0), 0);
-assert.equal(calculateCoinReward(500), 2500);
-assert.equal(calculateCoinReward(1234), 6170);
+assert.equal(calculateCoinReward(500), 500);
+assert.equal(calculateCoinReward(1234), 1234);
 
 assert.equal(shouldShowVirtualControls(false, false), false);
 assert.equal(shouldShowVirtualControls(false, true), true);
