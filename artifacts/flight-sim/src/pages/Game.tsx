@@ -1334,7 +1334,7 @@ export default function Game() {
       if (nextLevel !== gs.level) {
         gs.level = nextLevel;
         const tierIndex = Math.min(nextLevel - 1, WEAPON_TIERS.length - 1);
-        gs.weaponTier = tierIndex;
+        gs.weaponTier = Math.max(gs.weaponTier, tierIndex);
         gs.speed = 3.2 + (nextLevel - 1) * 0.25;
         saveGame(gs);
         saveExistsRef.current = true;
