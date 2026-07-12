@@ -29,7 +29,8 @@ export interface PlayerHitProtectionResult {
 }
 
 export const MAX_LEVEL = 500;
-export const ABOVE_CLOUDS_BACKGROUND_LEVEL = 15;
+export const CITY_BACKGROUND_MAX_LEVEL = 10;
+export const ABOVE_CLOUDS_BACKGROUND_LEVEL = 20;
 export const SPACE_BACKGROUND_LEVEL = 50;
 export const PLAYER_SHIELD_HP = 5;
 export const COIN_REWARD_MULTIPLIER = 1;
@@ -102,6 +103,10 @@ export function shouldUseSpaceBackground(level: number): boolean {
 
 export function shouldUseAboveCloudsBackground(level: number): boolean {
   return level >= ABOVE_CLOUDS_BACKGROUND_LEVEL && level < SPACE_BACKGROUND_LEVEL;
+}
+
+export function shouldUseCityBackground(level: number): boolean {
+  return level <= CITY_BACKGROUND_MAX_LEVEL;
 }
 
 export function calculateCoinReward(score: number): number {

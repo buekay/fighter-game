@@ -15,6 +15,7 @@ import {
   isMilestoneBossLevel,
   MOBILE_CONTROL_HELP,
   shouldUseAboveCloudsBackground,
+  shouldUseCityBackground,
   shouldUseSpaceBackground,
   shouldShowVirtualControls,
 } from "../game-rules";
@@ -1174,39 +1175,19 @@ export default function Game() {
 
       const spaceBackground = shouldUseSpaceBackground(gs.level);
       const aboveCloudsBackground = shouldUseAboveCloudsBackground(gs.level);
+      const cityBackground = shouldUseCityBackground(gs.level);
 
       if (spaceBackground) {
-        const spaceGrad = ctx.createLinearGradient(0, 0, CANVAS_W, CANVAS_H);
-        spaceGrad.addColorStop(0, "#01020d");
-        spaceGrad.addColorStop(0.55, "#080b28");
-        spaceGrad.addColorStop(1, "#170629");
-        ctx.fillStyle = spaceGrad;
+        ctx.fillStyle = "#000006";
         ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-        const nebula = ctx.createRadialGradient(CANVAS_W * 0.7, CANVAS_H * 0.35, 10, CANVAS_W * 0.7, CANVAS_H * 0.35, 310);
-        nebula.addColorStop(0, "#7b2cff30");
-        nebula.addColorStop(0.45, "#164dc822");
-        nebula.addColorStop(1, "#00000000");
-        ctx.fillStyle = nebula;
-        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-        ctx.save();
-        const planet = ctx.createRadialGradient(CANVAS_W - 105, 78, 8, CANVAS_W - 85, 92, 76);
-        planet.addColorStop(0, "#d7e8ff");
-        planet.addColorStop(0.35, "#5378b8");
-        planet.addColorStop(1, "#11152f");
-        ctx.fillStyle = planet;
-        ctx.shadowColor = "#608cff";
-        ctx.shadowBlur = 24;
-        ctx.beginPath(); ctx.arc(CANVAS_W - 85, 92, 58, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
 
         starsRef.current.forEach(s => {
-          if (!settingsRef.current.reducedMotion) s.x -= s.speed * 0.7;
-          if (s.x < -4) { s.x = CANVAS_W + 4; s.y = rand(0, CANVAS_H); }
+          if (!settingsRef.current.reducedMotion) s.x -= s.speed * 1.8;
+          if (s.x < -12) { s.x = CANVAS_W + 12; s.y = rand(0, CANVAS_H); }
           ctx.globalAlpha = 0.35 + s.brightness * 0.65;
-          ctx.fillStyle = s.size > 1.6 ? "#a9c8ff" : "#ffffff";
-          ctx.fillRect(s.x, s.y, Math.max(1, s.size), Math.max(1, s.size));
+          ctx.fillStyle = s.size > 1.6 ? "#c9dcff" : "#ffffff";
+          const streak = settingsRef.current.reducedMotion ? s.size : 2 + s.speed * 4;
+          ctx.fillRect(s.x, s.y, streak, Math.max(1, s.size));
         });
         ctx.globalAlpha = 1;
       } else {
@@ -1271,7 +1252,7 @@ export default function Game() {
           }
         }
       };
-      if (!spaceBackground && !aboveCloudsBackground) {
+      if (cityBackground) {
         drawCityLayer(cityFarRef.current,  0.3, "#2c3f62");
         drawCityLayer(cityNearRef.current, 0.9, "#1a2840");
       }

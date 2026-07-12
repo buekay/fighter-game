@@ -14,6 +14,7 @@ import {
   MOBILE_CONTROL_HELP,
   PLAYER_SHIELD_HP,
   shouldUseAboveCloudsBackground,
+  shouldUseCityBackground,
   shouldUseSpaceBackground,
   shouldShowVirtualControls,
   type EnemyDamageState,
@@ -71,10 +72,13 @@ assert.equal(shouldUseSpaceBackground(49), false);
 assert.equal(shouldUseSpaceBackground(50), true);
 assert.equal(shouldUseSpaceBackground(500), true);
 
-assert.equal(shouldUseAboveCloudsBackground(14), false);
-assert.equal(shouldUseAboveCloudsBackground(15), true);
+assert.equal(shouldUseAboveCloudsBackground(19), false);
+assert.equal(shouldUseAboveCloudsBackground(20), true);
 assert.equal(shouldUseAboveCloudsBackground(49), true);
 assert.equal(shouldUseAboveCloudsBackground(50), false);
+
+assert.equal(shouldUseCityBackground(10), true);
+assert.equal(shouldUseCityBackground(11), false);
 
 const shieldedTie: EnemyDamageState = { hp: 3, shieldHp: 2 };
 assert.deepEqual(applyEnemyDamage(shieldedTie, 4), {
