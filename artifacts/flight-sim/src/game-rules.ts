@@ -29,6 +29,7 @@ export interface PlayerHitProtectionResult {
 }
 
 export const MAX_LEVEL = 500;
+export const ABOVE_CLOUDS_BACKGROUND_LEVEL = 15;
 export const SPACE_BACKGROUND_LEVEL = 50;
 export const PLAYER_SHIELD_HP = 5;
 export const COIN_REWARD_MULTIPLIER = 1;
@@ -97,6 +98,10 @@ export function isMilestoneBossLevel(level: number): boolean {
 
 export function shouldUseSpaceBackground(level: number): boolean {
   return level >= SPACE_BACKGROUND_LEVEL;
+}
+
+export function shouldUseAboveCloudsBackground(level: number): boolean {
+  return level >= ABOVE_CLOUDS_BACKGROUND_LEVEL && level < SPACE_BACKGROUND_LEVEL;
 }
 
 export function calculateCoinReward(score: number): number {

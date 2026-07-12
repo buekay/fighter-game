@@ -13,6 +13,7 @@ import {
   isMilestoneBossLevel,
   MOBILE_CONTROL_HELP,
   PLAYER_SHIELD_HP,
+  shouldUseAboveCloudsBackground,
   shouldUseSpaceBackground,
   shouldShowVirtualControls,
   type EnemyDamageState,
@@ -69,6 +70,11 @@ assert.equal(isMilestoneBossLevel(500), true);
 assert.equal(shouldUseSpaceBackground(49), false);
 assert.equal(shouldUseSpaceBackground(50), true);
 assert.equal(shouldUseSpaceBackground(500), true);
+
+assert.equal(shouldUseAboveCloudsBackground(14), false);
+assert.equal(shouldUseAboveCloudsBackground(15), true);
+assert.equal(shouldUseAboveCloudsBackground(49), true);
+assert.equal(shouldUseAboveCloudsBackground(50), false);
 
 const shieldedTie: EnemyDamageState = { hp: 3, shieldHp: 2 };
 assert.deepEqual(applyEnemyDamage(shieldedTie, 4), {

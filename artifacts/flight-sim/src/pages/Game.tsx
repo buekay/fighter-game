@@ -14,6 +14,7 @@ import {
   isBossEligibleLevel,
   isMilestoneBossLevel,
   MOBILE_CONTROL_HELP,
+  shouldUseAboveCloudsBackground,
   shouldUseSpaceBackground,
   shouldShowVirtualControls,
 } from "../game-rules";
@@ -1172,6 +1173,7 @@ export default function Game() {
       timeRef.current += dtScale;
 
       const spaceBackground = shouldUseSpaceBackground(gs.level);
+      const aboveCloudsBackground = shouldUseAboveCloudsBackground(gs.level);
 
       if (spaceBackground) {
         const spaceGrad = ctx.createLinearGradient(0, 0, CANVAS_W, CANVAS_H);
@@ -1209,9 +1211,9 @@ export default function Game() {
         ctx.globalAlpha = 1;
       } else {
         const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
-        skyGrad.addColorStop(0,   "#1a70c4");
-        skyGrad.addColorStop(0.5, "#5ab2e8");
-        skyGrad.addColorStop(1,   "#b0ddf5");
+        skyGrad.addColorStop(0, aboveCloudsBackground ? "#126ed0" : "#1a70c4");
+        skyGrad.addColorStop(0.5, aboveCloudsBackground ? "#61bdf4" : "#5ab2e8");
+        skyGrad.addColorStop(1, aboveCloudsBackground ? "#d8f2ff" : "#b0ddf5");
         ctx.fillStyle = skyGrad;
         ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
@@ -1228,6 +1230,27 @@ export default function Game() {
           ctx.restore();
         });
         ctx.globalAlpha = 1;
+
+        if (aboveCloudsBackground) {
+          const cloudTop = CANVAS_H * 0.73;
+          const cloudGrad = ctx.createLinearGradient(0, cloudTop, 0, CANVAS_H);
+          cloudGrad.addColorStop(0, "#ffffffee");
+          cloudGrad.addColorStop(0.45, "#ddecf8f2");
+          cloudGrad.addColorStop(1, "#a9c8e2");
+          ctx.fillStyle = cloudGrad;
+          ctx.fillRect(0, cloudTop + 26, CANVAS_W, CANVAS_H - cloudTop);
+
+          const drift = settingsRef.current.reducedMotion ? 0 : (timeRef.current * 0.16) % 150;
+          for (let x = -110 - drift; x < CANVAS_W + 130; x += 105) {
+            const y = cloudTop + Math.sin((x + drift) * 0.025) * 10;
+            ctx.fillStyle = "#f8fdffff";
+            ctx.beginPath();
+            ctx.ellipse(x, y + 28, 78, 34, 0, 0, Math.PI * 2);
+            ctx.ellipse(x + 34, y + 5, 48, 36, 0, 0, Math.PI * 2);
+            ctx.ellipse(x - 30, y + 12, 44, 29, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
       }
 
       const drawCityLayer = (buildings: Building[], speed: number, fillColor: string) => {
@@ -1248,7 +1271,7 @@ export default function Game() {
           }
         }
       };
-      if (!spaceBackground) {
+      if (!spaceBackground && !aboveCloudsBackground) {
         drawCityLayer(cityFarRef.current,  0.3, "#2c3f62");
         drawCityLayer(cityNearRef.current, 0.9, "#1a2840");
       }
