@@ -52,9 +52,36 @@
   max-height: 100dvh;
 }
 
+.pause-primary {
+  color: #03101d;
+  background: #35d7ff;
+  border: 2px solid #8beaff;
+}
+
+.pause-secondary {
+  color: #d7e8ff;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid #36516d;
+}
+
+.pause-primary:focus-visible,
+.pause-secondary:focus-visible,
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid #ffdd55;
+  outline-offset: 2px;
+}
+
+.high-contrast .text-slate-500,
+.high-contrast .text-slate-400 { color: #d2e3f5 !important; }
+.high-contrast button { border-color: #76cfff !important; }
+
 /* On phones, menus use the whole safe viewport instead of inheriting the
    letterboxed canvas height. Gameplay remains on the fixed 900x600 canvas. */
 @media (max-width: 600px), (max-height: 500px) {
+  .game-frame { overflow: visible; }
+
   .hangar-layer {
     position: fixed;
     z-index: 20;
@@ -66,6 +93,38 @@
     min-height: 0;
     padding: 10px 14px;
     gap: 8px;
+    overflow-x: hidden;
+  }
+
+  .hangar-preview { width: 100%; }
+
+  .hangar-skins {
+    width: calc(100vw - 28px);
+    justify-content: flex-start;
+    scrollbar-width: thin;
+  }
+
+  .hangar-skins button { flex: 0 0 26px; width: 26px !important; height: 26px !important; }
+
+  .hangar-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hangar-actions > div {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .hangar-actions > button { min-height: 48px; }
+  .hangar-progress { padding-inline: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

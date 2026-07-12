@@ -101,6 +101,13 @@ interface GameState {
   paused: boolean;
 }
 
+interface GameSettings {
+  tutorial: boolean;
+  reducedMotion: boolean;
+  highContrast: boolean;
+  touchControls: "auto" | "always" | "never";
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const CANVAS_W = 900;
@@ -193,6 +200,14 @@ const SHOP_ITEMS = [
 
 const NAME_KEY         = "fighter-command-name";
 const BULLET_COLOR_KEY = "fighter-command-bcolor";
+const SETTINGS_KEY     = "fighter-command-settings";
+const TUTORIAL_KEY     = "fighter-command-tutorial-seen";
+const DEFAULT_SETTINGS: GameSettings = {
+  tutorial: true,
+  reducedMotion: false,
+  highContrast: false,
+  touchControls: "auto",
+};
 function saveHighScore(s: number) { try { if (s > loadHighScore()) localStorage.setItem(HS_KEY, String(s)); } catch {} }
 function loadHighScore(): number  { try { return parseInt(localStorage.getItem(HS_KEY) ?? "0", 10) || 0; } catch { return 0; } }
 function addCoins(n: number)      { try { localStorage.setItem(COINS_KEY, String(loadCoins() + n)); } catch {} }
@@ -208,6 +223,13 @@ function saveName(n: string)      { try { localStorage.setItem(NAME_KEY, n); } c
 function loadName(): string       { try { return localStorage.getItem(NAME_KEY) ?? "Pilot"; } catch { return "Pilot"; } }
 function saveBulletColor(c: string) { try { localStorage.setItem(BULLET_COLOR_KEY, c); } catch {} }
 function loadBulletColor(): string  { try { return localStorage.getItem(BULLET_COLOR_KEY) ?? "#00ffff"; } catch { return "#00ffff"; } }
+function loadSettings(): GameSettings {
+  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Partial<GameSettings> }; }
+  catch { return DEFAULT_SETTINGS; }
+}
+function saveSettings(settings: GameSettings) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} }
+function tutorialSeen(): boolean { try { return localStorage.getItem(TUTORIAL_KEY) === "1"; } catch { return false; } }
+function markTutorialSeen() { try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch {} }
 
 const LEADERBOARD_KEY = "fighter-command-lb";
 interface LeaderEntry { name: string; score: number; ts: number }
@@ -674,6 +696,11 @@ export default function Game() {
   const [highScore] = useState(() => loadHighScore());
   const [unlockedItems, setUnlockedItems] = useState<string[]>(() => loadUnlocks());
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [settings, setSettings] = useState<GameSettings>(() => loadSettings());
+  const settingsRef = useRef(settings);
+  const [pauseView, setPauseView] = useState<"menu" | "settings">("menu");
+  const [tutorialStage, setTutorialStage] = useState(-1);
+  const tutorialStageRef = useRef(-1);
   const [fullscreenSupported] = useState(() => {
     const root = document.documentElement as FullscreenElement;
     return Boolean(root.requestFullscreen || root.webkitRequestFullscreen);
@@ -681,6 +708,18 @@ export default function Game() {
 
   const syncDisplay = useCallback(() => {
     setDisplayState({ ...stateRef.current });
+  }, []);
+
+  const updateSettings = useCallback((next: GameSettings) => {
+    settingsRef.current = next;
+    setSettings(next);
+    saveSettings(next);
+  }, []);
+
+  const finishTutorial = useCallback(() => {
+    tutorialStageRef.current = -1;
+    setTutorialStage(-1);
+    markTutorialSeen();
   }, []);
 
   useEffect(() => {
@@ -893,6 +932,24 @@ export default function Game() {
     laserActiveRef.current = 0;
     milestoneBossFiredRef.current = new Set();
     saveExistsRef.current = !!loadSave();
+    setPauseView("menu");
+    const shouldTeach = settingsRef.current.tutorial && !tutorialSeen() && !fromSave;
+    tutorialStageRef.current = shouldTeach ? 0 : -1;
+    setTutorialStage(shouldTeach ? 0 : -1);
+    syncDisplay();
+  }, [syncDisplay]);
+
+  const returnToHangar = useCallback(() => {
+    const gs = stateRef.current;
+    if (gs.score > 0) saveGame(gs);
+    gs.started = false;
+    gs.paused = false;
+    keysRef.current.clear();
+    setPauseView("menu");
+    tutorialStageRef.current = -1;
+    setTutorialStage(-1);
+    saveExistsRef.current = !!loadSave();
+    setCoins(loadCoins());
     syncDisplay();
   }, [syncDisplay]);
 
@@ -912,6 +969,13 @@ export default function Game() {
     initCity();
     const onKey = (e: KeyboardEvent, down: boolean) => {
       keysRef.current[down ? "add" : "delete"](e.key);
+      if (down && tutorialStageRef.current === 0 && ["w", "a", "s", "d", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+        tutorialStageRef.current = 1; setTutorialStage(1);
+      }
+      if (down && tutorialStageRef.current === 1 && e.key === " ") {
+        tutorialStageRef.current = 2; setTutorialStage(2);
+        window.setTimeout(finishTutorial, 1400);
+      }
       if (e.key === " " && !stateRef.current.started) startGame(saveExistsRef.current);
       if ((e.key === "n" || e.key === "N") && !stateRef.current.started && down) {
         clearSave(); saveExistsRef.current = false; startGame(false);
@@ -964,13 +1028,14 @@ export default function Game() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [initCity, initStars, startGame, syncDisplay]);
+  }, [finishTutorial, initCity, initStars, startGame, syncDisplay]);
 
   useEffect(() => {
     const pointerQuery = window.matchMedia?.("(pointer: coarse)");
     const updateVirtualControlVisibility = () => {
       const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-      showVirtualControlsRef.current = shouldShowVirtualControls(hasTouch, pointerQuery?.matches ?? false);
+      const preference = settingsRef.current.touchControls;
+      showVirtualControlsRef.current = preference === "always" || (preference === "auto" && shouldShowVirtualControls(hasTouch, pointerQuery?.matches ?? false));
     };
 
     updateVirtualControlVisibility();
@@ -997,6 +1062,7 @@ export default function Game() {
         const t = e.changedTouches[i];
         const { x, y } = toCanvas(t.clientX, t.clientY);
         if (x < CANVAS_W / 2) {
+          if (tutorialStageRef.current === 0) { tutorialStageRef.current = 1; setTutorialStage(1); }
           // Left half → joystick
           if (!joystickRef.current.active) {
             joystickRef.current = { active: true, id: t.identifier, centerX: x, centerY: y, curX: x, curY: y };
@@ -1023,6 +1089,9 @@ export default function Game() {
             ultimaActiveRef.current = ULTI_DURATION;
             ultimaChargeRef.current = 0;
           } else if (!touchFireRef.current.active) {
+            if (tutorialStageRef.current === 1) {
+              tutorialStageRef.current = 2; setTutorialStage(2); window.setTimeout(finishTutorial, 1400);
+            }
             touchFireRef.current = { active: true, id: t.identifier };
           }
         }
@@ -1067,7 +1136,7 @@ export default function Game() {
       canvas.removeEventListener("touchend",    onTouchEnd);
       canvas.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, [startGame, syncDisplay, toCanvas]);
+  }, [finishTutorial, startGame, syncDisplay, toCanvas]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1095,7 +1164,7 @@ export default function Game() {
 
       // ── Clouds ──
       starsRef.current.slice(0, 14).forEach(s => {
-        s.x -= s.speed * 0.18;
+        if (!settingsRef.current.reducedMotion) s.x -= s.speed * 0.18;
         if (s.x < -120) { s.x = CANVAS_W + 120; s.y = rand(18, CANVAS_H * 0.38); }
         const cw = 50 + s.size * 28, ch = 18 + s.size * 7;
         ctx.save();
@@ -1112,7 +1181,7 @@ export default function Game() {
       const drawCityLayer = (buildings: Building[], speed: number, fillColor: string) => {
         const totalW = buildings.reduce((s, b) => s + b.width + 10, 0);
         if (totalW === 0) return;
-        const offset = (timeRef.current * speed) % totalW;
+        const offset = settingsRef.current.reducedMotion ? 0 : (timeRef.current * speed) % totalW;
         for (const b of buildings) {
           let rx = b.x - offset;
           if (rx + b.width < 0) rx += totalW;
@@ -1135,17 +1204,6 @@ export default function Game() {
       }
 
       if (gs.paused) {
-        ctx.save();
-        ctx.fillStyle = "rgba(4,12,28,0.72)";
-        ctx.fillRect(CANVAS_W / 2 - 200, CANVAS_H / 2 - 55, 400, 110);
-        ctx.textAlign = "center";
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 40px 'Inter', sans-serif";
-        ctx.fillText("PAUSED", CANVAS_W / 2, CANVAS_H / 2);
-        ctx.font = "18px 'Inter', sans-serif";
-        ctx.fillStyle = "#ccddff";
-        ctx.fillText("Press P or Tap to continue", CANVAS_W / 2, CANVAS_H / 2 + 40);
-        ctx.restore();
         return;
       }
 
@@ -1165,6 +1223,8 @@ export default function Game() {
         ctx.fillText(`Level ${gs.level}  ·  ${WEAPON_TIERS[gs.weaponTier].name}`, CANVAS_W/2, CANVAS_H/2+40);
         ctx.fillStyle = "#ffcc44"; ctx.font = "13px 'Inter', sans-serif";
         ctx.fillText("🏆 Score gespeichert — Rangliste im Hangar!", CANVAS_W/2, CANVAS_H/2+62);
+        ctx.fillStyle = "#ffd966"; ctx.font = "bold 16px 'Inter', sans-serif";
+        ctx.fillText(`Belohnung: +${calculateCoinReward(gs.score).toLocaleString("de-DE")} Credits`, CANVAS_W/2, CANVAS_H/2+86);
         const sLeft = Math.max(0, Math.ceil((200 - gameOverCountdownRef.current) / 60));
         ctx.fillStyle = sLeft > 0 ? "#666" : "#ffcc00";
         ctx.font = "13px 'Inter', sans-serif";
@@ -1710,7 +1770,7 @@ export default function Game() {
   return (
     <div
       ref={shellRef}
-      className="game-shell flex flex-col items-center justify-center w-full bg-[#08080e] select-none"
+      className={`game-shell flex flex-col items-center justify-center w-full bg-[#08080e] select-none ${settings.highContrast ? "high-contrast" : ""}`}
       style={{ touchAction: "none" }}
     >
       <div className="game-frame relative rounded overflow-hidden shadow-[0_0_40px_#00cfff22]"
@@ -1737,7 +1797,8 @@ export default function Game() {
               </button>
             )}
             <button
-              onClick={() => { stateRef.current.paused = !stateRef.current.paused; syncDisplay(); }}
+              onClick={() => { stateRef.current.paused = !stateRef.current.paused; setPauseView("menu"); syncDisplay(); }}
+              aria-label={displayState.paused ? "Spiel fortsetzen" : "Spiel pausieren"}
               className="font-bold rounded px-2 py-1 text-sm"
               style={{ background: "rgba(4,10,24,0.85)", border: "1px solid #334466", color: "#7799bb" }}
             >
@@ -1767,7 +1828,38 @@ export default function Game() {
               setCoins(loadCoins());
               setUnlockedItems(loadUnlocks());
             }}
+            settings={settings}
+            onSettingsChange={updateSettings}
           />
+        )}
+        {displayState.started && displayState.paused && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center p-4" style={{ background: "rgba(2,8,20,0.86)" }}>
+            {pauseView === "settings" ? (
+              <div className="pause-panel h-full w-full max-w-2xl overflow-hidden rounded-2xl" style={{ background: "#071126", border: "1px solid #285078" }}>
+                <SettingsScreen settings={settings} onChange={updateSettings} onBack={() => setPauseView("menu")} />
+              </div>
+            ) : (
+              <div className="pause-panel w-full max-w-sm rounded-2xl p-5 text-center" style={{ background: "#071126", border: "1px solid #285078", boxShadow: "0 0 40px #00cfff22" }}>
+                <div className="text-xs uppercase tracking-[0.3em] text-cyan-400">Mission unterbrochen</div>
+                <h2 className="mt-2 text-3xl font-black text-white">PAUSE</h2>
+                <div className="mt-5 flex flex-col gap-2">
+                  <button autoFocus onClick={() => { stateRef.current.paused = false; setPauseView("menu"); syncDisplay(); }} className="pause-primary rounded-xl py-3 font-black tracking-widest">▶ WEITERSPIELEN</button>
+                  <button onClick={() => startGame(false)} className="pause-secondary rounded-xl py-3 font-bold">↻ NEU STARTEN</button>
+                  <button onClick={() => setPauseView("settings")} className="pause-secondary rounded-xl py-3 font-bold">⚙ EINSTELLUNGEN</button>
+                  <button onClick={returnToHangar} className="pause-secondary rounded-xl py-3 font-bold">⌂ ZUM HANGAR</button>
+                </div>
+                <div className="mt-4 text-xs text-slate-500">P drücken, um weiterzuspielen</div>
+              </div>
+            )}
+          </div>
+        )}
+        {displayState.started && !displayState.paused && tutorialStage >= 0 && (
+          <div className="tutorial-card absolute bottom-5 left-1/2 z-20 w-[min(92%,430px)] -translate-x-1/2 rounded-2xl px-5 py-4 text-center" style={{ background: "rgba(4,12,28,0.94)", border: "1px solid #00cfff", boxShadow: "0 0 30px #00cfff33" }}>
+            <div className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-400">Training {tutorialStage + 1}/3</div>
+            <div className="mt-1 text-lg font-black text-white">{tutorialStage === 0 ? "Bewege deinen Jet" : tutorialStage === 1 ? "Eröffne das Feuer" : "Bereit für die Mission!"}</div>
+            <div className="mt-1 text-sm text-slate-300">{tutorialStage === 0 ? "WASD / Pfeiltasten · auf Touch links ziehen" : tutorialStage === 1 ? "LEERTASTE halten · auf Touch rechts halten" : "Ultimates werden erklärt, sobald sie bereit sind."}</div>
+            {tutorialStage < 2 && <button onClick={finishTutorial} className="mt-2 text-xs font-bold text-slate-400 underline underline-offset-4">Training überspringen</button>}
+          </div>
         )}
       </div>
       {displayState.started && !displayState.gameOver && (
@@ -1784,7 +1876,7 @@ export default function Game() {
 function HangarOverlay({
   selectedSkin, coins, highScore, unlockedItems, hasSave, saveData,
   onStart, onNewGame, onSkinSelect, onBuy, onUnlockSkin, onAdminActivate,
-  fullscreenSupported, isFullscreen, onFullscreenToggle,
+  fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange,
 }: {
   selectedSkin: string; coins: number; highScore: number;
   unlockedItems: string[]; hasSave: boolean; saveData: { level: number; score: number; weaponTier: number } | null;
@@ -1792,6 +1884,7 @@ function HangarOverlay({
   onSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void;
   onAdminActivate: () => void;
   fullscreenSupported: boolean; isFullscreen: boolean; onFullscreenToggle: () => void;
+  settings: GameSettings; onSettingsChange: (settings: GameSettings) => void;
 }) {
   const [view, setView] = useState<"main" | "upgrades" | "settings" | "leaderboard">("main");
   const [hoverSkin, setHoverSkin] = useState<string | null>(null);
@@ -1803,6 +1896,8 @@ function HangarOverlay({
   const previewRef = useRef<HTMLCanvasElement>(null);
   const activeSkinId = hoverSkin ?? selectedSkin;
   const skin = JET_SKINS.find(s => s.id === activeSkinId) ?? JET_SKINS[0];
+  const nextPurchase = [...JET_SKINS.filter(s => s.cost > 0 && !unlockedItems.includes(s.id)), ...SHOP_ITEMS.filter(i => !unlockedItems.includes(i.id))]
+    .sort((a, b) => a.cost - b.cost)[0];
 
   useEffect(() => {
     const c = previewRef.current;
@@ -1830,7 +1925,7 @@ function HangarOverlay({
   if (view === "settings") {
     return (
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
-        <SettingsScreen onBack={() => setView("main")} />
+        <SettingsScreen settings={settings} onChange={onSettingsChange} onBack={() => setView("main")} />
       </div>
     );
   }
@@ -1855,7 +1950,7 @@ function HangarOverlay({
         </div>
         <div className="text-right flex flex-col items-end gap-1">
           <div className="text-yellow-300 font-bold text-sm">⭐ {highScore.toLocaleString("de-DE")}</div>
-          <div className="text-amber-400 font-bold text-sm">💰 {coins.toLocaleString("de-DE")}</div>
+          <div className="text-amber-400 font-bold text-sm" title="Verfügbare Credits">💰 {coins.toLocaleString("de-DE")} Credits</div>
           <button onClick={() => setView("leaderboard")}
             className="text-xs font-bold px-2 py-0.5 rounded"
             style={{ background: "rgba(0,180,255,0.12)", border: "1px solid #1a4466", color: "#44aadd" }}>
@@ -1886,7 +1981,7 @@ function HangarOverlay({
         </div>
         <div className="font-bold text-white text-sm tracking-wide">{skin.name}</div>
         {/* Colour picker dots */}
-        <div className="hangar-skins flex gap-2.5 mt-0.5">
+        <div className="hangar-skins flex max-w-full gap-2.5 mt-0.5 overflow-x-auto px-2 py-2">
           {JET_SKINS.map(s => {
             const owned = s.cost === 0 || unlockedItems.includes(s.id);
             const active = s.id === selectedSkin;
@@ -1896,7 +1991,8 @@ function HangarOverlay({
                 onClick={() => owned ? onSkinSelect(s.id) : setView("upgrades")}
                 onMouseEnter={() => setHoverSkin(s.id)}
                 onMouseLeave={() => setHoverSkin(null)}
-                title={owned ? s.name : `${s.name} — 🔒 ${s.cost.toLocaleString("de-DE")} Punkte`}
+                aria-label={owned ? `${s.name} auswählen` : `${s.name}, gesperrt, ${s.cost.toLocaleString("de-DE")} Credits`}
+                title={owned ? s.name : `${s.name} — 🔒 ${s.cost.toLocaleString("de-DE")} Credits`}
                 style={{
                   width: 22, height: 22, borderRadius: "50%", background: s.glow,
                   border: previewing ? `3px solid #fff` : active ? "3px solid #fff" : `2px solid ${s.glow}66`,
@@ -1930,6 +2026,15 @@ function HangarOverlay({
             Gespeichert: Level {saveData.level} · {saveData.score.toLocaleString("de-DE")} Punkte · {WEAPON_TIERS[saveData.weaponTier]?.name}
           </div>
         )}
+        {nextPurchase && (
+          <div className="hangar-progress w-full max-w-md mt-1">
+            <div className="flex justify-between text-[11px] text-slate-400">
+              <span>Nächstes Ziel: {nextPurchase.name}</span>
+              <span>{Math.min(coins, nextPurchase.cost).toLocaleString("de-DE")} / {nextPurchase.cost.toLocaleString("de-DE")} Credits</span>
+            </div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-amber-400" style={{ width: `${Math.min(100, coins / nextPurchase.cost * 100)}%` }} /></div>
+          </div>
+        )}
       </div>
 
       {/* ── Bottom buttons ── */}
@@ -1937,7 +2042,7 @@ function HangarOverlay({
         <button onClick={() => setView("upgrades")}
           className="flex-1 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-95"
           style={{ background: "rgba(50,15,90,0.75)", border: "1.5px solid #7733bb", color: "#cc88ff" }}>
-          ⚔️ AUFRÜSTEN
+          <span aria-hidden="true">⚔️</span> <span className="hangar-action-label">AUFRÜSTEN</span>
         </button>
         <div className="flex-[1.6] flex flex-col gap-1.5">
           {hasSave ? (
@@ -1964,7 +2069,7 @@ function HangarOverlay({
         <button onClick={() => setView("settings")}
           className="flex-1 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-95"
           style={{ background: "rgba(15,30,45,0.75)", border: "1.5px solid #335566", color: "#7799bb" }}>
-          ⚙️ EINSTELLUNGEN
+          <span aria-hidden="true">⚙️</span> <span className="hangar-action-label">EINSTELLUNGEN</span>
         </button>
       </div>
       {/* Admin button (bottom-right) */}
@@ -2164,13 +2269,26 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
 
 // ─── Settings Screen ──────────────────────────────────────────────────────────
 
-function SettingsScreen({ onBack }: { onBack: () => void }) {
+function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings; onChange: (settings: GameSettings) => void; onBack: () => void }) {
   const [name, setName] = useState(() => loadName());
+  const toggle = (key: "tutorial" | "reducedMotion" | "highContrast") => onChange({ ...settings, [key]: !settings[key] });
   return (
     <div className="flex flex-col h-full p-4 gap-4 overflow-y-auto text-white select-none">
       <div className="flex items-center gap-3">
-        <button onClick={onBack} className="text-slate-400 hover:text-white text-xl font-bold px-2">←</button>
+        <button onClick={onBack} aria-label="Zurück" className="min-h-11 min-w-11 text-slate-300 hover:text-white text-xl font-bold px-2">←</button>
         <h2 className="font-bold text-xl tracking-wide">EINSTELLUNGEN</h2>
+      </div>
+      <div className="settings-grid grid gap-2 sm:grid-cols-2">
+        <SettingToggle label="Einführung anzeigen" description="Erklärt Bewegung und Schießen beim ersten Start." checked={settings.tutorial} onClick={() => toggle("tutorial")} />
+        <SettingToggle label="Bewegung reduzieren" description="Reduziert dekorative Effekte und Animationen." checked={settings.reducedMotion} onClick={() => toggle("reducedMotion")} />
+        <SettingToggle label="Hoher Kontrast" description="Verstärkt Texte, Rahmen und Bedienelemente." checked={settings.highContrast} onClick={() => toggle("highContrast")} />
+        <label className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
+          <span className="block text-sm font-bold">Touch-Steuerung</span>
+          <span className="mb-2 block text-xs text-slate-400">Virtuelle Steuerung im Spielfeld.</span>
+          <select value={settings.touchControls} onChange={e => onChange({ ...settings, touchControls: e.target.value as GameSettings["touchControls"] })} className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white">
+            <option value="auto">Automatisch</option><option value="always">Immer anzeigen</option><option value="never">Nie anzeigen</option>
+          </select>
+        </label>
       </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest">Tastatur</div>
       <div className="flex flex-col gap-2">
@@ -2199,8 +2317,17 @@ function SettingsScreen({ onBack }: { onBack: () => void }) {
         />
       </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Shop</div>
-      <div className="text-slate-300 text-sm">Sammle Credits beim Spielen — dein Score wird am Ende mit ×5 in Shop-Währung umgerechnet.</div>
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-slate-200"><strong className="text-amber-300">Punkte → Credits:</strong> Am Ende einer Mission erhältst du für jeden Punkt fünf Credits. Beispiel: 1.000 Punkte = 5.000 Credits.</div>
     </div>
+  );
+}
+
+function SettingToggle({ label, description, checked, onClick }: { label: string; description: string; checked: boolean; onClick: () => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={checked} onClick={onClick} className="flex min-h-20 items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-left">
+      <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? "bg-cyan-500" : "bg-slate-700"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${checked ? "translate-x-6" : "translate-x-1"}`} /></span>
+      <span><span className="block text-sm font-bold text-white">{label}</span><span className="block text-xs text-slate-400">{description}</span></span>
+    </button>
   );
 }
 
