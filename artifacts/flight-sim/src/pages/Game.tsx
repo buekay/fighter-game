@@ -125,6 +125,11 @@ const SHOP_RARITIES: Record<ShopRarity, { label: string; color: string; glow: st
   epic:      { label: "EPISCH",    color: "#b44cff", glow: "#b44cff88" },
   legendary: { label: "LEGENDÄR", color: "#ffe600", glow: "#ffe600cc" },
 } as const;
+const SHOP_RARITY_ORDER: Record<ShopRarity, number> = {
+  rare: 0,
+  epic: 1,
+  legendary: 2,
+};
 
 const LEVEL_THRESHOLDS = Array.from({ length: MAX_LEVEL }, (_, i) => getLevelThreshold(i + 1));
 const WEAPON_TIERS = [
@@ -199,12 +204,15 @@ const SHOP_ITEMS = [
   { id: "weapon_head",   name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                        cost: 45000, rarity: "rare" },
   { id: "clone_upgrade", name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",      cost: 45000, rarity: "rare" },
   { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 45000, rarity: "rare" },
-  { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 60000, rarity: "legendary" },
+  { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 80000, rarity: "legendary" },
   { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 50000, rarity: "epic" },
   { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 45000, rarity: "rare" },
   { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 45000, rarity: "rare" },
-  { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 55000, rarity: "epic" },
+  { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 50000, rarity: "epic" },
 ] as const;
+const SORTED_SHOP_ITEMS = [...SHOP_ITEMS].sort(
+  (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity],
+);
 
 const NAME_KEY         = "fighter-command-name";
 const BULLET_COLOR_KEY = "fighter-command-bcolor";
@@ -2217,7 +2225,7 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnloc
 
       <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest mt-1">Upgrades</div>
       <div className="relative z-10 flex flex-col gap-2">
-        {SHOP_ITEMS.map(item => {
+        {SORTED_SHOP_ITEMS.map(item => {
           const owned = unlockedItems.includes(item.id);
           const canAfford = coins >= item.cost;
           const rarity = SHOP_RARITIES[item.rarity];
