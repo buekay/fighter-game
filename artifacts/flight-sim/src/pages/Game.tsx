@@ -87,6 +87,8 @@ interface PowerUp {
   vy: number;
 }
 
+type ShopRarity = "rare" | "epic" | "legendary";
+
 interface GameState {
   score: number;
   level: number;
@@ -117,6 +119,12 @@ const PLAYER_W = 52;
 const PLAYER_H = 28;
 const BASE_BULLET_SPEED = 10;
 const ENEMY_BULLET_SPEED = 3;
+
+const SHOP_RARITIES: Record<ShopRarity, { label: string; color: string; glow: string }> = {
+  rare:      { label: "SELTEN",    color: "#a8b0ba", glow: "#d6dbe166" },
+  epic:      { label: "EPISCH",    color: "#b44cff", glow: "#b44cff88" },
+  legendary: { label: "LEGENDÄR", color: "#ffe600", glow: "#ffe600cc" },
+} as const;
 
 const LEVEL_THRESHOLDS = Array.from({ length: MAX_LEVEL }, (_, i) => getLevelThreshold(i + 1));
 const WEAPON_TIERS = [
@@ -169,33 +177,33 @@ const COINS_KEY   = "fighter-command-coins";
 const UNLOCKS_KEY = "fighter-command-unlocks";
 
 const JET_SKINS = [
-  { id: "steel",   name: "Steel",    body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0     },
-  { id: "fire",    name: "Feuer",    body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 45000 },
-  { id: "jade",    name: "Jade",     body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 45000 },
-  { id: "gold",    name: "Gold",     body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 45000 },
-  { id: "shadow",  name: "Schatten", body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 45000 },
-  { id: "crimson", name: "Scharlach",body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 45000 },
-  { id: "galaxy",  name: "Galaxy",   body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 50000 },
-  { id: "neon",    name: "Neon",     body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 50000 },
-  { id: "arctic",  name: "Arktis",   body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 50000 },
-  { id: "lava",    name: "Lava",     body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 50000 },
-  { id: "xwing",      name: "X-Wing",       body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 60000 },
-  { id: "tiefighter", name: "TIE Fighter",  body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 60000 },
-  { id: "n1",         name: "N-1 Jäger",    body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 100000 },
+  { id: "steel",   name: "Steel",    body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0,      rarity: "rare" },
+  { id: "fire",    name: "Feuer",    body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 45000,  rarity: "rare" },
+  { id: "jade",    name: "Jade",     body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 45000,  rarity: "rare" },
+  { id: "gold",    name: "Gold",     body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 45000,  rarity: "rare" },
+  { id: "shadow",  name: "Schatten", body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 45000,  rarity: "rare" },
+  { id: "crimson", name: "Scharlach",body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 45000,  rarity: "rare" },
+  { id: "galaxy",  name: "Galaxy",   body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 50000,  rarity: "epic" },
+  { id: "neon",    name: "Neon",     body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 50000,  rarity: "epic" },
+  { id: "arctic",  name: "Arktis",   body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 50000,  rarity: "epic" },
+  { id: "lava",    name: "Lava",     body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 50000,  rarity: "epic" },
+  { id: "xwing",      name: "X-Wing",       body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 60000,  rarity: "legendary" },
+  { id: "tiefighter", name: "TIE Fighter",  body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 60000,  rarity: "legendary" },
+  { id: "n1",         name: "N-1 Jäger",    body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 100000, rarity: "legendary" },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
 const SHOP_ITEMS = [
-  { id: "ulti_boost",    name: "Ulti-Boost",       desc: "Ultis laden 50% schneller",                      cost: 45000 },
-  { id: "extra_life",    name: "+1 Leben",          desc: "Starte mit 4 statt 3 Leben",                     cost: 45000 },
-  { id: "weapon_head",   name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                        cost: 45000 },
-  { id: "clone_upgrade", name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",      cost: 45000 },
-  { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 45000 },
-  { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 60000 },
-  { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 50000 },
-  { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 45000 },
-  { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 45000 },
-  { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 55000 },
+  { id: "ulti_boost",    name: "Ulti-Boost",       desc: "Ultis laden 50% schneller",                      cost: 45000, rarity: "rare" },
+  { id: "extra_life",    name: "+1 Leben",          desc: "Starte mit 4 statt 3 Leben",                     cost: 45000, rarity: "rare" },
+  { id: "weapon_head",   name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                        cost: 45000, rarity: "rare" },
+  { id: "clone_upgrade", name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",      cost: 45000, rarity: "rare" },
+  { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 45000, rarity: "rare" },
+  { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 60000, rarity: "legendary" },
+  { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 50000, rarity: "epic" },
+  { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 45000, rarity: "rare" },
+  { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 45000, rarity: "rare" },
+  { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 55000, rarity: "epic" },
 ] as const;
 
 const NAME_KEY         = "fighter-command-name";
@@ -1451,14 +1459,14 @@ export default function Game() {
           const fDecay = Math.max(0, 1 - (e.fighterDodgeTimer % 300) / 90);
           e.vy = (e.fighterDodgeDir ?? 0) * 2.5 * fDecay;
         }
-        // TIE Fighter dodge (every 3s = 180 frames, level 10+)
+        // TIE Fighter dodge (every 1.5s = 90 frames)
         if (e.type === "tiefighter") {
           e.tieDodgeTimer = (e.tieDodgeTimer ?? 0) + dtScale;
-          if (e.tieDodgeTimer >= 180) {
+          if (e.tieDodgeTimer >= 90) {
             e.tieDodgeTimer = 0;
             e.tieDodgeDir = Math.random() > 0.5 ? 1 : -1;
           }
-          const tDecay = Math.max(0, 1 - (e.tieDodgeTimer % 180) / 60);
+          const tDecay = Math.max(0, 1 - (e.tieDodgeTimer % 90) / 45);
           e.vy = (e.tieDodgeDir ?? 0) * 3.5 * tDecay;
         }
 
@@ -2166,23 +2174,36 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnloc
         <span className="ml-auto text-amber-300 font-bold text-sm">💰 {coins.toLocaleString("de-DE")}</span>
       </div>
 
+      <div className="relative z-10 flex flex-wrap gap-2 text-[10px] font-black tracking-wider">
+        {(Object.keys(SHOP_RARITIES) as ShopRarity[]).map(key => {
+          const rarity = SHOP_RARITIES[key];
+          return <span key={key} className="rounded px-2 py-0.5" style={{ color: rarity.color, border: `1px solid ${rarity.color}`, boxShadow: `0 0 7px ${rarity.glow}` }}>{rarity.label}</span>;
+        })}
+      </div>
+
       <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest">Jet-Skins</div>
       <div className="relative z-10 grid grid-cols-3 gap-2 shrink-0">
         {JET_SKINS.map(s => {
           const owned = s.cost === 0 || unlockedItems.includes(s.id);
           const active = s.id === selectedSkin;
           const canAfford = coins >= s.cost;
+          const rarity = SHOP_RARITIES[s.rarity];
           return (
             <button key={s.id}
               onClick={() => owned ? onSkinSelect(s.id) : canAfford ? onUnlockSkin(s.id) : undefined}
               className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all active:scale-95"
               style={{
                 background: active ? s.glow + "22" : "rgba(255,255,255,0.05)",
-                border: active ? `2px solid ${s.glow}` : `1px solid ${s.glow}33`,
+                borderTop: active ? `2px solid ${s.glow}` : `1px solid ${s.glow}33`,
+                borderBottom: active ? `2px solid ${s.glow}` : `1px solid ${s.glow}33`,
+                borderLeft: `4px solid ${rarity.color}`,
+                borderRight: `4px solid ${rarity.color}`,
+                boxShadow: s.rarity === "legendary" ? `0 0 12px ${rarity.glow}` : undefined,
                 opacity: !owned && !canAfford ? 0.45 : 1,
               }}>
               <div className="w-5 h-5 rounded-full" style={{ background: s.glow, boxShadow: `0 0 8px ${s.glow}88` }} />
               <div className="text-xs font-bold">{s.name}</div>
+              <div className="text-[9px] font-black tracking-wider" style={{ color: rarity.color, textShadow: `0 0 6px ${rarity.glow}` }}>{rarity.label}</div>
               {owned
                 ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div>
                 : <div className={`text-xs font-bold ${canAfford ? "text-amber-300" : "text-slate-500"}`}>
@@ -2199,11 +2220,22 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnloc
         {SHOP_ITEMS.map(item => {
           const owned = unlockedItems.includes(item.id);
           const canAfford = coins >= item.cost;
+          const rarity = SHOP_RARITIES[item.rarity];
           return (
             <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl"
-              style={{ background: owned ? "rgba(0,180,80,0.10)" : "rgba(255,255,255,0.05)", border: `1px solid ${owned ? "#00aa4444" : "#334"}` }}>
+              style={{
+                background: owned ? "rgba(0,180,80,0.10)" : "rgba(255,255,255,0.05)",
+                borderTop: `1px solid ${owned ? "#00aa4444" : "#334"}`,
+                borderBottom: `1px solid ${owned ? "#00aa4444" : "#334"}`,
+                borderLeft: `5px solid ${rarity.color}`,
+                borderRight: `5px solid ${rarity.color}`,
+                boxShadow: item.rarity === "legendary" ? `0 0 14px ${rarity.glow}` : undefined,
+              }}>
               <div className="flex-1 min-w-0">
-                <div className="font-bold text-sm">{item.name}</div>
+                <div className="flex items-center gap-2">
+                  <div className="font-bold text-sm">{item.name}</div>
+                  <span className="text-[9px] font-black tracking-wider" style={{ color: rarity.color, textShadow: `0 0 6px ${rarity.glow}` }}>{rarity.label}</span>
+                </div>
                 <div className="text-slate-400 text-xs">{item.desc}</div>
               </div>
               {owned
