@@ -1110,7 +1110,8 @@ export default function Game() {
             healActiveRef.current = HEAL_DURATION;
             healChargeRef.current = 0;
             syncDisplay();
-          } else if (ds <= STEALTH_BTN_R + 12 && stealthChargeRef.current >= STEALTH_MAX && stealthActiveRef.current === 0) {
+          } else if (ds <= STEALTH_BTN_R + 12 && stealthChargeRef.current >= STEALTH_MAX && stealthActiveRef.current === 0
+              && activeUnlocksRef.current.includes("stealth_ulti")) {
             stealthActiveRef.current = STEALTH_DURATION;
             stealthChargeRef.current = 0;
           } else if (dl <= LASER_BTN_R + 12 && laserChargeRef.current >= LASER_MAX && laserActiveRef.current === 0) {
@@ -1807,11 +1808,11 @@ export default function Game() {
       if (gs.score > bestScoreRef.current) { bestScoreRef.current = gs.score; saveHighScore(gs.score); }
 
       // ── HUD ──
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, bestScoreRef.current);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, bestScoreRef.current, activeUnlocksRef.current);
 
       // ── Virtual controls overlay ──
       if (showVirtualControlsRef.current) {
-        drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current);
+        drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, activeUnlocksRef.current);
       }
 
       // Sync display once per ~30 frames for React state
@@ -2483,6 +2484,7 @@ function drawVirtualControls(
   stealthActive: number,
   healCharge: number,
   healActive: number,
+  unlocks: string[],
 ) {
   ctx.save();
   ctx.globalAlpha = 0.45;
@@ -2587,15 +2589,16 @@ function drawVirtualControls(
   ctx.fillText(laserActive > 0 ? "LASER!" : "LASER", LASER_BTN_X, LASER_BTN_Y);
 
   // ── STEALTH button ──
-  const stealthReady = stealthCharge >= STEALTH_MAX && stealthActive === 0;
-  const stealthGlow = stealthReady ? (0.55 + 0.45 * Math.sin(Date.now() / 160)) : 0.45;
-  ctx.globalAlpha = stealthGlow;
-  ctx.beginPath();
-  ctx.arc(STEALTH_BTN_X, STEALTH_BTN_Y, STEALTH_BTN_R, 0, Math.PI * 2);
-  ctx.fillStyle   = stealthActive > 0 ? "#00ffff33" : stealthReady ? "#00ddcc44" : "#00222222";
-  ctx.strokeStyle = stealthActive > 0 ? "#00ffffcc" : stealthReady ? "#00ddcccc" : "#00888866";
-  ctx.lineWidth = 2.5;
-  ctx.fill(); ctx.stroke();
+  if (unlocks.includes("stealth_ulti")) {
+    const stealthReady = stealthCharge >= STEALTH_MAX && stealthActive === 0;
+    const stealthGlow = stealthReady ? (0.55 + 0.45 * Math.sin(Date.now() / 160)) : 0.45;
+    ctx.globalAlpha = stealthGlow;
+    ctx.beginPath();
+    ctx.arc(STEALTH_BTN_X, STEALTH_BTN_Y, STEALTH_BTN_R, 0, Math.PI * 2);
+    ctx.fillStyle   = stealthActive > 0 ? "#00ffff33" : stealthReady ? "#00ddcc44" : "#00222222";
+    ctx.strokeStyle = stealthActive > 0 ? "#00ffffcc" : stealthReady ? "#00ddcccc" : "#00888866";
+    ctx.lineWidth = 2.5;
+    ctx.fill(); ctx.stroke();
 
   if (stealthActive === 0 && stealthCharge < STEALTH_MAX) {
     const sp = stealthCharge / STEALTH_MAX;
@@ -2609,17 +2612,19 @@ function drawVirtualControls(
   ctx.font = `bold ${stealthReady ? 10 : 9}px 'Inter', sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText(stealthActive > 0 ? "STEALTH!" : "STEALTH", STEALTH_BTN_X, STEALTH_BTN_Y);
+  }
 
   // ── HEAL button ──
-  const healReady = healCharge >= HEAL_MAX && healActive === 0;
-  const healGlowA = healReady ? (0.55 + 0.45 * Math.sin(Date.now() / 160)) : 0.45;
-  ctx.globalAlpha = healGlowA;
-  ctx.beginPath();
-  ctx.arc(HEAL_BTN_X, HEAL_BTN_Y, HEAL_BTN_R, 0, Math.PI * 2);
-  ctx.fillStyle   = healActive > 0 ? "#ff006633" : healReady ? "#ff224444" : "#220a0a22";
-  ctx.strokeStyle = healActive > 0 ? "#ff0066cc" : healReady ? "#ff2244cc" : "#88222266";
-  ctx.lineWidth = 2.5;
-  ctx.fill(); ctx.stroke();
+  if (unlocks.includes("heal_ulti")) {
+    const healReady = healCharge >= HEAL_MAX && healActive === 0;
+    const healGlowA = healReady ? (0.55 + 0.45 * Math.sin(Date.now() / 160)) : 0.45;
+    ctx.globalAlpha = healGlowA;
+    ctx.beginPath();
+    ctx.arc(HEAL_BTN_X, HEAL_BTN_Y, HEAL_BTN_R, 0, Math.PI * 2);
+    ctx.fillStyle   = healActive > 0 ? "#ff006633" : healReady ? "#ff224444" : "#220a0a22";
+    ctx.strokeStyle = healActive > 0 ? "#ff0066cc" : healReady ? "#ff2244cc" : "#88222266";
+    ctx.lineWidth = 2.5;
+    ctx.fill(); ctx.stroke();
 
   if (healActive === 0 && healCharge < HEAL_MAX) {
     const hp2 = healCharge / HEAL_MAX;
@@ -2633,11 +2638,12 @@ function drawVirtualControls(
   ctx.font = `bold ${healReady ? 10 : 9}px 'Inter', sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText(healActive > 0 ? "HEAL! ❤" : "HEAL ❤", HEAL_BTN_X, HEAL_BTN_Y);
+  }
 
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, bestScore: number) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, bestScore: number, unlocks: string[]) {
   ctx.save();
   ctx.textBaseline = "top";
 
@@ -2743,10 +2749,14 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     16, 43, 120, 5, ["#ff00ff","#8800ff"],  ["#6600bb","#cc00ff"], "#ff44ff");
   drawUltBar("LASER",   "E", laserCharge,   LASER_MAX,   laserActive,   LASER_DURATION,
     16, 53, 120, 5, ["#ff8800","#ffdd00"],  ["#cc4400","#ff8800"], "#ffaa22");
-  drawUltBar("STEALTH", "R", stealthCharge, STEALTH_MAX, stealthActive, STEALTH_DURATION,
-    16, 63, 120, 5, ["#00ffee","#0088ff"],  ["#004488","#00aacc"], "#00ddcc");
-  drawUltBar("HEAL",    "H", healCharge,    HEAL_MAX,    healActive,    HEAL_DURATION,
-    16, 73, 120, 5, ["#ff6699","#ff0044"],  ["#aa2233","#ff3366"], "#ff4466");
+  if (unlocks.includes("stealth_ulti")) {
+    drawUltBar("STEALTH", "R", stealthCharge, STEALTH_MAX, stealthActive, STEALTH_DURATION,
+      16, 63, 120, 5, ["#00ffee","#0088ff"], ["#004488","#00aacc"], "#00ddcc");
+  }
+  if (unlocks.includes("heal_ulti")) {
+    drawUltBar("HEAL", "H", healCharge, HEAL_MAX, healActive, HEAL_DURATION,
+      16, 73, 120, 5, ["#ff6699","#ff0044"], ["#aa2233","#ff3366"], "#ff4466");
+  }
 
   ctx.restore();
 }
