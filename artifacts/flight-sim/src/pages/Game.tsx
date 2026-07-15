@@ -60,6 +60,7 @@ interface Bullet {
   trackPlayer?: boolean;
   lifetime?: number;
   color?: string;
+  stunFrames?: number;
 }
 
 interface Enemy {
@@ -67,7 +68,7 @@ interface Enemy {
   vx: number; vy: number;
   hp: number; maxHp: number;
   width: number; height: number;
-  type: "scout" | "fighter" | "bomber" | "boss" | "interceptor" | "gunship" | "tiefighter";
+  type: "scout" | "fighter" | "bomber" | "boss" | "interceptor" | "gunship" | "tiefighter" | "emeraldtiefighter";
   shootCooldown: number;
   points: number;
   color: string;
@@ -546,8 +547,13 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       ctx.fillStyle=e.color; ctx.fillRect(-bW/2,-e.height/2-8,bW*(e.hp/e.maxHp),bH);
       break;
     }
-    case "tiefighter": {
+    case "tiefighter":
+    case "emeraldtiefighter": {
       const tg = e.color;
+      if (e.type === "emeraldtiefighter") {
+        ctx.shadowColor = tg;
+        ctx.shadowBlur = 12 + Math.sin(performance.now() * 0.006) * 5;
+      }
       const drawEnemyHex = (cy: number) => {
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
@@ -613,10 +619,11 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
     ctx.shadowColor = bc; ctx.shadowBlur = 8;
     ctx.fill();
   } else {
+    const bc = b.color ?? "#ff4444";
     ctx.beginPath();
     ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = "#ff4444";
-    ctx.shadowColor = "#ff4444"; ctx.shadowBlur = 6;
+    ctx.fillStyle = bc;
+    ctx.shadowColor = bc; ctx.shadowBlur = 6;
     ctx.fill();
   }
   ctx.restore();
@@ -678,6 +685,7 @@ export default function Game() {
   const displaySyncTimerRef = useRef(0);
   const shieldTimerRef = useRef(0);
   const invincibleRef = useRef(0);
+  const movementStunRef = useRef(0);
 
   // ── Touch / virtual controls ──
   const joystickRef = useRef({ active: false, id: -1, centerX: 0, centerY: 0, curX: 0, curY: 0 });
@@ -823,7 +831,9 @@ export default function Game() {
       color = isSuperBoss ? "#ff00cc" : "#cc00ff";
     } else if (level >= 7 && roll < 0.10) {
       type = "gunship"; hp = 8 + level * 2; w = 64; h = 46; vx = -rand(0.5, 1.0); pts = 80; color = "#ff6600";
-    } else if (level >= 10 && roll < 0.28) {
+    } else if (level >= 12 && roll < 0.118) {
+      type = "emeraldtiefighter"; hp = 8; w = 48; h = 44; vx = -rand(2.0, 3.2); pts = 90; color = "#39ff88";
+    } else if (level >= 10 && roll < (level >= 12 ? 0.298 : 0.28)) {
       type = "tiefighter"; hp = 5; w = 42; h = 38; vx = -rand(2.0, 3.2); pts = 45; color = "#0099ff";
     } else if (level >= 5 && roll < 0.38) {
       type = "interceptor"; hp = 1; w = 36; h = 22; vx = -rand(3.5, 5.5); pts = 20; color = "#00ffcc";
@@ -842,7 +852,8 @@ export default function Game() {
       vx, vy: 0,
       hp, maxHp: hp,
       width: w, height: h,
-      type, shootCooldown: rand(60, 120),
+      type,
+      shootCooldown: type === "emeraldtiefighter" ? rand(80, 120) : type === "tiefighter" ? rand(40, 60) : rand(60, 120),
       points: pts, color,
       angle: 0,
       oscillate: type === "scout" ? rand(-0.4, 0.4) : 0,
@@ -945,6 +956,7 @@ export default function Game() {
     lastMissileRef.current = 0;
     shieldTimerRef.current = 0;
     invincibleRef.current = 0;
+    movementStunRef.current = 0;
     ultimaChargeRef.current = 0;
     ultimaActiveRef.current = 0;
     laserChargeRef.current = 0;
@@ -1302,7 +1314,8 @@ export default function Game() {
       const js = joystickRef.current;
       const JOY_RADIUS = 70;
 
-      if (js.active) {
+      movementStunRef.current = Math.max(0, movementStunRef.current - dtScale);
+      if (movementStunRef.current <= 0 && js.active) {
         const dx = js.curX - js.centerX;
         const dy = js.curY - js.centerY;
         const d = Math.hypot(dx, dy);
@@ -1311,7 +1324,7 @@ export default function Game() {
           playerRef.current.x = clamp(playerRef.current.x + (dx / d) * norm * spd * 0.8 * dtScale, 0, CANVAS_W * 0.75);
           playerRef.current.y = clamp(playerRef.current.y + (dy / d) * norm * spd * dtScale,       0, CANVAS_H - PLAYER_H);
         }
-      } else {
+      } else if (movementStunRef.current <= 0) {
         if (keysRef.current.has("ArrowUp") || keysRef.current.has("w") || keysRef.current.has("W")) {
           playerRef.current.y = clamp(playerRef.current.y - spd * dtScale, 0, CANVAS_H - PLAYER_H);
         }
@@ -1510,7 +1523,7 @@ export default function Game() {
           e.vy = (e.fighterDodgeDir ?? 0) * 2.5 * fDecay;
         }
         // TIE Fighter dodge (every 1.5s = 90 frames)
-        if (e.type === "tiefighter") {
+        if (e.type === "tiefighter" || e.type === "emeraldtiefighter") {
           e.tieDodgeTimer = (e.tieDodgeTimer ?? 0) + dtScale;
           if (e.tieDodgeTimer >= 90) {
             e.tieDodgeTimer = 0;
@@ -1526,15 +1539,21 @@ export default function Game() {
         // Enemy shooting
         e.shootCooldown -= dtScale;
         if (e.shootCooldown <= 0) {
-          e.shootCooldown = e.type === "boss" ? 25 : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
-          if (e.type === "tiefighter") {
+          e.shootCooldown = e.type === "boss" ? 25 : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
+          if (e.type === "tiefighter" || e.type === "emeraldtiefighter") {
             // TIE Fighter: aimed shot toward player
             const px = playerRef.current.x + PLAYER_W / 2;
             const py = playerRef.current.y + PLAYER_H / 2;
             const dx = px - e.x; const dy = py - (e.y + e.height / 2);
             const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
             const spd2 = ENEMY_BULLET_SPEED * 1.4;
-            bulletsRef.current.push({ x: e.x, y: e.y + e.height / 2, vx: dx / d * spd2, vy: dy / d * spd2, fromPlayer: false, damage: 2 });
+            bulletsRef.current.push({
+              x: e.x, y: e.y + e.height / 2,
+              vx: dx / d * spd2, vy: dy / d * spd2,
+              fromPlayer: false, damage: 2,
+              color: e.type === "emeraldtiefighter" ? "#ff8fda" : undefined,
+              stunFrames: e.type === "emeraldtiefighter" ? 120 : undefined,
+            });
           } else {
             const shotCount = e.type === "boss" ? 3 : e.type === "bomber" ? 2 : 1;
             for (let s = 0; s < shotCount; s++) {
@@ -1647,6 +1666,7 @@ export default function Game() {
         gs.hp = nextLifeState.hp;
         gs.lives = nextLifeState.lives;
         gs.gameOver = nextLifeState.gameOver;
+        if (b.stunFrames) movementStunRef.current = b.stunFrames;
         invincibleRef.current = 100;
         spawnExplosion(particlesRef.current, b.x, b.y, false);
         if (gs.gameOver) { clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(calculateCoinReward(gs.score)); saveExistsRef.current = false; }
@@ -1734,6 +1754,16 @@ export default function Game() {
       }
 
       // ── Draw player (+ clone when ultima active) ──
+      if (movementStunRef.current > 0) {
+        ctx.save();
+        ctx.fillStyle = "#ff8fda";
+        ctx.font = "bold 14px sans-serif";
+        ctx.textAlign = "center";
+        ctx.shadowColor = "#ff8fda";
+        ctx.shadowBlur = 8;
+        ctx.fillText("BEWEGUNG BLOCKIERT", playerRef.current.x + PLAYER_W / 2, playerRef.current.y - 10);
+        ctx.restore();
+      }
       if (stealthActiveRef.current > 0) {
         ctx.save();
         ctx.globalAlpha = 0.15 + 0.1 * Math.sin(timeRef.current * 0.25);
