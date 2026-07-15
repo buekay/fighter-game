@@ -209,7 +209,7 @@ const SHOP_ITEMS = [
   { id: "clone_upgrade", name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",      cost: 45000, rarity: "rare" },
   { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 45000, rarity: "rare" },
   { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 80000, rarity: "legendary" },
-  { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 50000, rarity: "epic" },
+  { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 50000, rarity: "legendary" },
   { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 45000, rarity: "rare" },
   { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 45000, rarity: "rare" },
   { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 50000, rarity: "epic" },
