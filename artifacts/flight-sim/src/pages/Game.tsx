@@ -108,6 +108,7 @@ interface GameState {
 }
 
 interface GameSettings {
+  language: "de" | "en";
   tutorial: boolean;
   reducedMotion: boolean;
   highContrast: boolean;
@@ -187,32 +188,32 @@ const UNLOCKS_KEY = "fighter-command-unlocks";
 
 const JET_SKINS = [
   { id: "steel",   name: "Steel",    body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0,      rarity: "rare" },
-  { id: "fire",    name: "Feuer",    body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 45000,  rarity: "rare" },
-  { id: "jade",    name: "Jade",     body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 45000,  rarity: "rare" },
-  { id: "gold",    name: "Gold",     body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 45000,  rarity: "rare" },
-  { id: "shadow",  name: "Schatten", body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 45000,  rarity: "rare" },
-  { id: "crimson", name: "Scharlach",body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 45000,  rarity: "rare" },
-  { id: "galaxy",  name: "Galaxy",   body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 50000,  rarity: "epic" },
-  { id: "neon",    name: "Neon",     body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 50000,  rarity: "epic" },
-  { id: "arctic",  name: "Arktis",   body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 50000,  rarity: "epic" },
-  { id: "lava",    name: "Lava",     body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 50000,  rarity: "epic" },
-  { id: "xwing",      name: "X-Wing",       body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 60000,  rarity: "legendary" },
-  { id: "tiefighter", name: "TIE Fighter",  body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 60000,  rarity: "legendary" },
-  { id: "n1",         name: "N-1 Jäger",    body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 100000, rarity: "legendary" },
+  { id: "fire",    name: "Feuer",    body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 50000,  rarity: "rare" },
+  { id: "jade",    name: "Jade",     body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 50000,  rarity: "rare" },
+  { id: "gold",    name: "Gold",     body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 50000,  rarity: "rare" },
+  { id: "shadow",  name: "Schatten", body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 50000,  rarity: "rare" },
+  { id: "crimson", name: "Scharlach",body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 50000,  rarity: "rare" },
+  { id: "galaxy",  name: "Galaxy",   body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 80000,  rarity: "epic" },
+  { id: "neon",    name: "Neon",     body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 80000,  rarity: "epic" },
+  { id: "arctic",  name: "Arktis",   body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 80000,  rarity: "epic" },
+  { id: "lava",    name: "Lava",     body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 80000,  rarity: "epic" },
+  { id: "xwing",      name: "X-Wing",       body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 120000, rarity: "legendary" },
+  { id: "tiefighter", name: "TIE Fighter",  body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 120000, rarity: "legendary" },
+  { id: "n1",         name: "N-1 Jäger",    body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 120000, rarity: "legendary" },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
 const SHOP_ITEMS = [
-  { id: "ulti_boost",    name: "Ulti-Boost",       desc: "Ultis laden 50% schneller",                      cost: 45000, rarity: "rare" },
-  { id: "extra_life",    name: "+1 Leben",          desc: "Starte mit 4 statt 3 Leben",                     cost: 45000, rarity: "rare" },
-  { id: "weapon_head",   name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                        cost: 45000, rarity: "rare" },
-  { id: "clone_upgrade", name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",      cost: 45000, rarity: "rare" },
-  { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 45000, rarity: "rare" },
-  { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 80000, rarity: "legendary" },
-  { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 50000, rarity: "legendary" },
-  { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 45000, rarity: "rare" },
-  { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 45000, rarity: "rare" },
-  { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 50000, rarity: "epic" },
+  { id: "ulti_boost",    name: "Ulti-Boost",       desc: "Ultis laden 50% schneller",                      cost: 50000,  rarity: "rare" },
+  { id: "extra_life",    name: "+1 Leben",          desc: "Starte mit 4 statt 3 Leben",                     cost: 50000,  rarity: "rare" },
+  { id: "weapon_head",   name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                        cost: 50000,  rarity: "rare" },
+  { id: "clone_upgrade", name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",      cost: 50000,  rarity: "rare" },
+  { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 50000,  rarity: "rare" },
+  { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 120000, rarity: "legendary" },
+  { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 120000, rarity: "legendary" },
+  { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 50000,  rarity: "rare" },
+  { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 50000,  rarity: "rare" },
+  { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 80000,  rarity: "epic" },
 ] as const;
 const SORTED_SHOP_ITEMS = [...SHOP_ITEMS].sort(
   (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity],
@@ -223,6 +224,7 @@ const BULLET_COLOR_KEY = "fighter-command-bcolor";
 const SETTINGS_KEY     = "fighter-command-settings";
 const TUTORIAL_KEY     = "fighter-command-tutorial-seen";
 const DEFAULT_SETTINGS: GameSettings = {
+  language: "de",
   tutorial: true,
   reducedMotion: false,
   highContrast: false,
@@ -248,6 +250,10 @@ function loadSettings(): GameSettings {
   catch { return DEFAULT_SETTINGS; }
 }
 function saveSettings(settings: GameSettings) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} }
+
+function translated(language: GameSettings["language"], german: string, english: string) {
+  return language === "de" ? german : english;
+}
 function tutorialSeen(): boolean { try { return localStorage.getItem(TUTORIAL_KEY) === "1"; } catch { return false; } }
 function markTutorialSeen() { try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch {} }
 
@@ -725,6 +731,7 @@ export default function Game() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [settings, setSettings] = useState<GameSettings>(() => loadSettings());
   const settingsRef = useRef(settings);
+  const language = settings.language;
   const [pauseView, setPauseView] = useState<"menu" | "settings">("menu");
   const [tutorialStage, setTutorialStage] = useState(-1);
   const tutorialStageRef = useRef(-1);
@@ -742,6 +749,11 @@ export default function Game() {
     setSettings(next);
     saveSettings(next);
   }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.title = translated(language, "Fighter Command", "Fighter Command");
+  }, [language]);
 
   const finishTutorial = useCallback(() => {
     tutorialStageRef.current = -1;
@@ -1877,8 +1889,8 @@ export default function Game() {
             {fullscreenSupported && (
               <button
                 onClick={toggleFullscreen}
-                aria-label={isFullscreen ? "Vollbild beenden" : "Vollbild öffnen"}
-                title={isFullscreen ? "Vollbild beenden" : "Vollbild"}
+                aria-label={isFullscreen ? translated(language, "Vollbild beenden", "Exit fullscreen") : translated(language, "Vollbild öffnen", "Enter fullscreen")}
+                title={isFullscreen ? translated(language, "Vollbild beenden", "Exit fullscreen") : translated(language, "Vollbild", "Fullscreen")}
                 className="font-bold rounded px-2 py-1 text-sm"
                 style={{ background: "rgba(4,10,24,0.85)", border: "1px solid #334466", color: "#7799bb" }}
               >
@@ -1887,11 +1899,11 @@ export default function Game() {
             )}
             <button
               onClick={() => { stateRef.current.paused = !stateRef.current.paused; setPauseView("menu"); syncDisplay(); }}
-              aria-label={displayState.paused ? "Spiel fortsetzen" : "Spiel pausieren"}
+              aria-label={displayState.paused ? translated(language, "Spiel fortsetzen", "Resume game") : translated(language, "Spiel pausieren", "Pause game")}
               className="font-bold rounded px-2 py-1 text-sm"
               style={{ background: "rgba(4,10,24,0.85)", border: "1px solid #334466", color: "#7799bb" }}
             >
-              {displayState.paused ? "▶ WEITER" : "⏸"}
+              {displayState.paused ? translated(language, "▶ WEITER", "▶ RESUME") : "⏸"}
             </button>
           </div>
         )}
@@ -1929,15 +1941,15 @@ export default function Game() {
               </div>
             ) : (
               <div className="pause-panel w-full max-w-sm rounded-2xl p-5 text-center" style={{ background: "#071126", border: "1px solid #285078", boxShadow: "0 0 40px #00cfff22" }}>
-                <div className="text-xs uppercase tracking-[0.3em] text-cyan-400">Mission unterbrochen</div>
-                <h2 className="mt-2 text-3xl font-black text-white">PAUSE</h2>
+                <div className="text-xs uppercase tracking-[0.3em] text-cyan-400">{translated(language, "Mission unterbrochen", "Mission paused")}</div>
+                <h2 className="mt-2 text-3xl font-black text-white">{translated(language, "PAUSE", "PAUSED")}</h2>
                 <div className="mt-5 flex flex-col gap-2">
-                  <button autoFocus onClick={() => { stateRef.current.paused = false; setPauseView("menu"); syncDisplay(); }} className="pause-primary rounded-xl py-3 font-black tracking-widest">▶ WEITERSPIELEN</button>
-                  <button onClick={() => startGame(false)} className="pause-secondary rounded-xl py-3 font-bold">↻ NEU STARTEN</button>
-                  <button onClick={() => setPauseView("settings")} className="pause-secondary rounded-xl py-3 font-bold">⚙ EINSTELLUNGEN</button>
-                  <button onClick={returnToHangar} className="pause-secondary rounded-xl py-3 font-bold">⌂ ZUM HANGAR</button>
+                  <button autoFocus onClick={() => { stateRef.current.paused = false; setPauseView("menu"); syncDisplay(); }} className="pause-primary rounded-xl py-3 font-black tracking-widest">{translated(language, "▶ WEITERSPIELEN", "▶ RESUME")}</button>
+                  <button onClick={() => startGame(false)} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "↻ NEU STARTEN", "↻ RESTART")}</button>
+                  <button onClick={() => setPauseView("settings")} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⚙ EINSTELLUNGEN", "⚙ SETTINGS")}</button>
+                  <button onClick={returnToHangar} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⌂ ZUM HANGAR", "⌂ RETURN TO HANGAR")}</button>
                 </div>
-                <div className="mt-4 text-xs text-slate-500">P drücken, um weiterzuspielen</div>
+                <div className="mt-4 text-xs text-slate-500">{translated(language, "P drücken, um weiterzuspielen", "Press P to resume")}</div>
               </div>
             )}
           </div>
@@ -1945,9 +1957,9 @@ export default function Game() {
         {displayState.started && !displayState.paused && tutorialStage >= 0 && (
           <div className="tutorial-card absolute bottom-5 left-1/2 z-20 w-[min(92%,430px)] -translate-x-1/2 rounded-2xl px-5 py-4 text-center" style={{ background: "rgba(4,12,28,0.94)", border: "1px solid #00cfff", boxShadow: "0 0 30px #00cfff33" }}>
             <div className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-400">Training {tutorialStage + 1}/3</div>
-            <div className="mt-1 text-lg font-black text-white">{tutorialStage === 0 ? "Bewege deinen Jet" : tutorialStage === 1 ? "Eröffne das Feuer" : "Bereit für die Mission!"}</div>
-            <div className="mt-1 text-sm text-slate-300">{tutorialStage === 0 ? "WASD / Pfeiltasten · auf Touch links ziehen" : tutorialStage === 1 ? "LEERTASTE halten · auf Touch rechts halten" : "Ultimates werden erklärt, sobald sie bereit sind."}</div>
-            {tutorialStage < 2 && <button onClick={finishTutorial} className="mt-2 text-xs font-bold text-slate-400 underline underline-offset-4">Training überspringen</button>}
+            <div className="mt-1 text-lg font-black text-white">{tutorialStage === 0 ? translated(language, "Bewege deinen Jet", "Move your jet") : tutorialStage === 1 ? translated(language, "Eröffne das Feuer", "Open fire") : translated(language, "Bereit für die Mission!", "Ready for the mission!")}</div>
+            <div className="mt-1 text-sm text-slate-300">{tutorialStage === 0 ? translated(language, "WASD / Pfeiltasten · auf Touch links ziehen", "WASD / arrow keys · drag left on touch") : tutorialStage === 1 ? translated(language, "LEERTASTE halten · auf Touch rechts halten", "Hold SPACE · hold right on touch") : translated(language, "Ultimates werden erklärt, sobald sie bereit sind.", "Ultimates are explained when they are ready.")}</div>
+            {tutorialStage < 2 && <button onClick={finishTutorial} className="mt-2 text-xs font-bold text-slate-400 underline underline-offset-4">{translated(language, "Training überspringen", "Skip training")}</button>}
           </div>
         )}
       </div>
@@ -1975,6 +1987,7 @@ function HangarOverlay({
   fullscreenSupported: boolean; isFullscreen: boolean; onFullscreenToggle: () => void;
   settings: GameSettings; onSettingsChange: (settings: GameSettings) => void;
 }) {
+  const language = settings.language;
   const [view, setView] = useState<"main" | "upgrades" | "settings" | "leaderboard">("main");
   const [hoverSkin, setHoverSkin] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState(() => loadName());
@@ -2035,15 +2048,15 @@ function HangarOverlay({
           <div className="font-black text-2xl tracking-widest" style={{ color: "#00cfff", textShadow: "0 0 14px #00cfff99" }}>
             FIGHTER COMMAND
           </div>
-          <div className="text-xs text-slate-400 mt-0.5">2D Kampfjet-Simulator</div>
+          <div className="text-xs text-slate-400 mt-0.5">{translated(language, "2D Kampfjet-Simulator", "2D fighter jet simulator")}</div>
         </div>
         <div className="text-right flex flex-col items-end gap-1">
           <div className="text-yellow-300 font-bold text-sm">⭐ {highScore.toLocaleString("de-DE")}</div>
-          <div className="text-amber-400 font-bold text-sm" title="Verfügbare Credits">💰 {coins.toLocaleString("de-DE")} Credits</div>
+          <div className="text-amber-400 font-bold text-sm" title={translated(language, "Verfügbare Credits", "Available credits")}>💰 {coins.toLocaleString(language === "de" ? "de-DE" : "en-US")} Credits</div>
           <button onClick={() => setView("leaderboard")}
             className="text-xs font-bold px-2 py-0.5 rounded"
             style={{ background: "rgba(0,180,255,0.12)", border: "1px solid #1a4466", color: "#44aadd" }}>
-            🏆 RANGLISTE
+            {translated(language, "🏆 RANGLISTE", "🏆 LEADERBOARD")}
           </button>
         </div>
       </div>
@@ -2063,7 +2076,7 @@ function HangarOverlay({
 
       {/* ── Jet preview ── */}
       <div className="hangar-preview flex flex-col items-center gap-2">
-        <div className="text-xs text-slate-500 uppercase tracking-widest">Dein Jet</div>
+        <div className="text-xs text-slate-500 uppercase tracking-widest">{translated(language, "Dein Jet", "Your jet")}</div>
         <div className="hangar-preview-canvas rounded-2xl overflow-hidden"
           style={{ border: `1.5px solid ${skin.glow}55`, boxShadow: `0 0 24px ${skin.glow}33` }}>
           <canvas ref={previewRef} width={240} height={140} className="block" />
@@ -2096,7 +2109,7 @@ function HangarOverlay({
         </div>
         {/* Bullet color picker */}
         <div className="flex items-center gap-2 mt-1">
-          <span className="text-slate-500 text-xs">Schussfarbe:</span>
+          <span className="text-slate-500 text-xs">{translated(language, "Schussfarbe:", "Shot color:")}</span>
           {[{ color: "#00ffff", label: "Blau" }, { color: "#ff3333", label: "Rot" }, { color: "#00ff88", label: "Grün" }, { color: "#ffff00", label: "Gelb" }, { color: "#ff00ff", label: "Lila" }].map(opt => (
             <button key={opt.color} onClick={() => { setBulletColor(opt.color); saveBulletColor(opt.color); }}
               title={opt.label}
@@ -2112,13 +2125,13 @@ function HangarOverlay({
         {/* Continue hint */}
         {hasSave && saveData && (
           <div className="text-xs text-emerald-400/80 mt-1">
-            Gespeichert: Level {saveData.level} · {saveData.score.toLocaleString("de-DE")} Punkte · {WEAPON_TIERS[saveData.weaponTier]?.name}
+            {translated(language, "Gespeichert", "Saved")}: {translated(language, "Level", "Level")} {saveData.level} · {saveData.score.toLocaleString(language === "de" ? "de-DE" : "en-US")} {translated(language, "Punkte", "points")} · {WEAPON_TIERS[saveData.weaponTier]?.name}
           </div>
         )}
         {nextPurchase && (
           <div className="hangar-progress w-full max-w-md mt-1">
             <div className="flex justify-between text-[11px] text-slate-400">
-              <span>Nächstes Ziel: {nextPurchase.name}</span>
+              <span>{translated(language, "Nächstes Ziel", "Next goal")}: {nextPurchase.name}</span>
               <span>{Math.min(coins, nextPurchase.cost).toLocaleString("de-DE")} / {nextPurchase.cost.toLocaleString("de-DE")} Credits</span>
             </div>
             <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-amber-400" style={{ width: `${Math.min(100, coins / nextPurchase.cost * 100)}%` }} /></div>
@@ -2131,7 +2144,7 @@ function HangarOverlay({
         <button onClick={() => setView("upgrades")}
           className="flex-1 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-95"
           style={{ background: "rgba(50,15,90,0.75)", border: "1.5px solid #7733bb", color: "#cc88ff" }}>
-          <span aria-hidden="true">⚔️</span> <span className="hangar-action-label">AUFRÜSTEN</span>
+          <span aria-hidden="true">⚔️</span> <span className="hangar-action-label">SHOP</span>
         </button>
         <div className="flex-[1.6] flex flex-col gap-1.5">
           {hasSave ? (
@@ -2139,36 +2152,36 @@ function HangarOverlay({
               <button onClick={onStart}
                 className="w-full py-2.5 rounded-xl font-bold text-base tracking-widest transition-all active:scale-95"
                 style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #00cfff", color: "#00cfff", textShadow: "0 0 10px #00cfff88" }}>
-                ▶ WEITERSPIELEN
+                {translated(language, "▶ WEITERSPIELEN", "▶ CONTINUE")}
               </button>
               <button onClick={onNewGame}
                 className="w-full py-1.5 rounded-xl font-bold text-xs tracking-wider transition-all active:scale-95"
                 style={{ background: "rgba(20,20,30,0.7)", border: "1px solid #334466", color: "#667799" }}>
-                NEU STARTEN
+                {translated(language, "NEU STARTEN", "NEW GAME")}
               </button>
             </>
           ) : (
             <button onClick={onStart}
               className="w-full py-3 rounded-xl font-bold text-lg tracking-widest transition-all active:scale-95"
               style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #00cfff", color: "#00cfff", textShadow: "0 0 10px #00cfff88" }}>
-              ▶ STARTEN
+              {translated(language, "▶ STARTEN", "▶ START")}
             </button>
           )}
         </div>
         <button onClick={() => setView("settings")}
           className="flex-1 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-95"
           style={{ background: "rgba(15,30,45,0.75)", border: "1.5px solid #335566", color: "#7799bb" }}>
-          <span aria-hidden="true">⚙️</span> <span className="hangar-action-label">EINSTELLUNGEN</span>
+          <span aria-hidden="true">⚙️</span> <span className="hangar-action-label">{translated(language, "EINSTELLUNGEN", "SETTINGS")}</span>
         </button>
       </div>
       {/* Admin button (bottom-right) */}
       <div className="w-full flex justify-end gap-2 mt-1">
         {fullscreenSupported && (
           <button onClick={onFullscreenToggle}
-            aria-label={isFullscreen ? "Vollbild beenden" : "Vollbild öffnen"}
+            aria-label={isFullscreen ? translated(language, "Vollbild beenden", "Exit fullscreen") : translated(language, "Vollbild öffnen", "Enter fullscreen")}
             className="text-xs rounded px-2 py-0.5"
             style={{ color: "#7799bb", background: "rgba(0,180,255,0.08)", border: "1px solid #1a4466" }}>
-            {isFullscreen ? "↙ Vollbild beenden" : "⛶ Vollbild"}
+            {isFullscreen ? translated(language, "↙ Vollbild beenden", "↙ Exit fullscreen") : translated(language, "⛶ Vollbild", "⛶ Fullscreen")}
           </button>
         )}
         <button onClick={() => setShowAdmin(v => !v)}
@@ -2251,7 +2264,7 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnloc
       <ShopStarfield />
       <div className="relative z-10 flex items-center gap-3 shrink-0">
         <button onClick={onBack} className="text-slate-400 hover:text-white text-xl font-bold px-2">←</button>
-        <h2 className="font-bold text-xl tracking-wide" style={{ textShadow: "0 0 12px #00cfff88" }}>AUFRÜSTEN</h2>
+        <h2 className="font-bold text-xl tracking-wide" style={{ textShadow: "0 0 12px #00cfff88" }}>SHOP</h2>
         <span className="ml-auto text-amber-300 font-bold text-sm">💰 {coins.toLocaleString("de-DE")}</span>
       </div>
 
@@ -2384,41 +2397,57 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
 
 function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings; onChange: (settings: GameSettings) => void; onBack: () => void }) {
   const [name, setName] = useState(() => loadName());
+  const language = settings.language;
+  const keyboardHelp = language === "de" ? KEYBOARD_CONTROL_HELP : [
+    ["WASD / Arrow keys", "Move"], ["SPACE", "Shoot"], ["Q", "Clone ultimate"],
+    ["E", "Laser ultimate"], ["R", "Stealth ultimate"], ["H", "Healing ultimate"], ["P", "Pause"],
+  ] as const;
+  const mobileHelp = language === "de" ? MOBILE_CONTROL_HELP : [
+    "Left side -> Joystick (move)", "FIRE -> Shoot", "CLONE -> Clone ultimate (Q)",
+    "LASER -> Laser ultimate (E)", "STEALTH -> Stealth ultimate (R)", "HEAL -> Healing ultimate (H)",
+  ] as const;
   const toggle = (key: "tutorial" | "reducedMotion" | "highContrast") => onChange({ ...settings, [key]: !settings[key] });
   return (
     <div className="flex flex-col h-full p-4 gap-4 overflow-y-auto text-white select-none">
       <div className="flex items-center gap-3">
-        <button onClick={onBack} aria-label="Zurück" className="min-h-11 min-w-11 text-slate-300 hover:text-white text-xl font-bold px-2">←</button>
-        <h2 className="font-bold text-xl tracking-wide">EINSTELLUNGEN</h2>
+        <button onClick={onBack} aria-label={translated(language, "Zurück", "Back")} className="min-h-11 min-w-11 text-slate-300 hover:text-white text-xl font-bold px-2">←</button>
+        <h2 className="font-bold text-xl tracking-wide">{translated(language, "EINSTELLUNGEN", "SETTINGS")}</h2>
       </div>
       <div className="settings-grid grid gap-2 sm:grid-cols-2">
-        <SettingToggle label="Einführung anzeigen" description="Erklärt Bewegung und Schießen beim ersten Start." checked={settings.tutorial} onClick={() => toggle("tutorial")} />
-        <SettingToggle label="Bewegung reduzieren" description="Reduziert dekorative Effekte und Animationen." checked={settings.reducedMotion} onClick={() => toggle("reducedMotion")} />
-        <SettingToggle label="Hoher Kontrast" description="Verstärkt Texte, Rahmen und Bedienelemente." checked={settings.highContrast} onClick={() => toggle("highContrast")} />
+        <label className="rounded-xl border border-cyan-700/70 bg-cyan-950/30 p-3">
+          <span className="block text-sm font-bold">{translated(language, "Sprache", "Language")}</span>
+          <span className="mb-2 block text-xs text-slate-400">{translated(language, "Sprache der Menüs und Hinweise.", "Language used for menus and hints.")}</span>
+          <select aria-label={translated(language, "Sprache auswählen", "Select language")} value={language} onChange={e => onChange({ ...settings, language: e.target.value as GameSettings["language"] })} className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white">
+            <option value="de">Deutsch</option><option value="en">English</option>
+          </select>
+        </label>
+        <SettingToggle label={translated(language, "Einführung anzeigen", "Show tutorial")} description={translated(language, "Erklärt Bewegung und Schießen beim ersten Start.", "Explains movement and shooting on the first start.")} checked={settings.tutorial} onClick={() => toggle("tutorial")} />
+        <SettingToggle label={translated(language, "Bewegung reduzieren", "Reduce motion")} description={translated(language, "Reduziert dekorative Effekte und Animationen.", "Reduces decorative effects and animations.")} checked={settings.reducedMotion} onClick={() => toggle("reducedMotion")} />
+        <SettingToggle label={translated(language, "Hoher Kontrast", "High contrast")} description={translated(language, "Verstärkt Texte, Rahmen und Bedienelemente.", "Strengthens text, borders and controls.")} checked={settings.highContrast} onClick={() => toggle("highContrast")} />
         <label className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
-          <span className="block text-sm font-bold">Touch-Steuerung</span>
-          <span className="mb-2 block text-xs text-slate-400">Virtuelle Steuerung im Spielfeld.</span>
+          <span className="block text-sm font-bold">{translated(language, "Touch-Steuerung", "Touch controls")}</span>
+          <span className="mb-2 block text-xs text-slate-400">{translated(language, "Virtuelle Steuerung im Spielfeld.", "Virtual controls in the play area.")}</span>
           <select value={settings.touchControls} onChange={e => onChange({ ...settings, touchControls: e.target.value as GameSettings["touchControls"] })} className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white">
-            <option value="auto">Automatisch</option><option value="always">Immer anzeigen</option><option value="never">Nie anzeigen</option>
+            <option value="auto">{translated(language, "Automatisch", "Automatic")}</option><option value="always">{translated(language, "Immer anzeigen", "Always show")}</option><option value="never">{translated(language, "Nie anzeigen", "Never show")}</option>
           </select>
         </label>
       </div>
-      <div className="text-slate-500 text-xs uppercase tracking-widest">Tastatur</div>
+      <div className="text-slate-500 text-xs uppercase tracking-widest">{translated(language, "Tastatur", "Keyboard")}</div>
       <div className="flex flex-col gap-2">
-        {KEYBOARD_CONTROL_HELP.map(([key, desc]) => (
+        {keyboardHelp.map(([key, desc]) => (
           <div key={key} className="flex items-center gap-3">
             <kbd className="px-2 py-1 rounded-md bg-slate-800 text-slate-200 text-xs font-mono min-w-[120px] text-center border border-slate-600">{key}</kbd>
             <span className="text-slate-300 text-sm">{desc}</span>
           </div>
         ))}
       </div>
-      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Mobil / Touch</div>
+      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">{translated(language, "Mobil / Touch", "Mobile / Touch")}</div>
       <div className="flex flex-col gap-1 text-slate-300 text-sm">
-        {MOBILE_CONTROL_HELP.map((line) => (
+        {mobileHelp.map((line) => (
           <div key={line}>{line.replaceAll("->", "→")}</div>
         ))}
       </div>
-      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Piloten-Name</div>
+      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">{translated(language, "Piloten-Name", "Pilot name")}</div>
       <div className="flex items-center gap-2">
         <input
           value={name}
@@ -2430,7 +2459,7 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
         />
       </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Shop</div>
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-slate-200"><strong className="text-amber-300">Punkte → Credits:</strong> Am Ende einer Mission erhältst du für jeden Punkt einen Credit. Beispiel: 1.000 Punkte = 1.000 Credits.</div>
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-slate-200"><strong className="text-amber-300">{translated(language, "Punkte → Credits:", "Points → credits:")}</strong> {translated(language, "Am Ende einer Mission erhältst du für jeden Punkt einen Credit. Beispiel: 1.000 Punkte = 1.000 Credits.", "At the end of a mission, you receive one credit for every point. Example: 1,000 points = 1,000 credits.")}</div>
     </div>
   );
 }

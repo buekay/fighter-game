@@ -62,7 +62,7 @@ pnpm run build
 - TIE fighters perform an evasive vertical dodge roughly every 1.5 seconds.
 - At the end of a mission, the score is converted to credits at a 1:1 rate (for example, 1,000 points award 1,000 credits).
 - Shop skins and upgrades are displayed in rarity order: rare, epic, then legendary. Legendary items receive an additional visual glow.
-- Upgrade prices currently range from 45,000 credits for rare upgrades to 80,000 credits for the legendary Stealth Ultimate. Jet skins range from free to 100,000 credits.
+- Purchasable shop items cost 50,000 credits for rare, 80,000 credits for epic, and 120,000 credits for legendary rarity. The default Steel skin remains free.
 
 ## Deployment Notes
 
