@@ -1060,7 +1060,7 @@ export default function Game() {
       color = isSuperBoss ? "#ff00cc" : "#cc00ff";
     } else if (level >= 7 && roll < 0.10) {
       type = "gunship"; hp = 8 + level * 2; w = 64; h = 46; vx = -rand(0.5, 1.0); pts = 80; color = "#ff6600";
-    } else if (level >= 12 && roll < 0.13) {
+    } else if (level >= 12 && roll < 0.15) {
       type = "emeraldtiefighter"; hp = 12; w = 48; h = 44; vx = -rand(2.0, 3.2); pts = 90; color = "#39ff88";
     } else if (level >= 8 && roll < 0.20) {
       type = "sentinel"; hp = 10 + level; w = 58; h = 42; vx = -rand(0.7, 1.2); pts = 75; color = "#55bbff";
@@ -1080,7 +1080,7 @@ export default function Game() {
     if (level > 5) pts = Math.round(pts * (1 + (level - 5) * 0.18));
 
     const y = rand(20, CANVAS_H - h - 20);
-    enemiesRef.current.push({
+    const enemy: Enemy = {
       x: CANVAS_W + 20, y,
       vx, vy: 0,
       hp, maxHp: hp,
@@ -1091,7 +1091,18 @@ export default function Game() {
       angle: 0,
       oscillate: type === "plasmawing" ? 1.6 : type === "scout" ? rand(-0.4, 0.4) : 0,
       shieldHp: type === "sentinel" ? 6 : type === "emeraldtiefighter" ? 4 : type === "tiefighter" ? 2 : 0,
-    });
+    };
+    enemiesRef.current.push(enemy);
+
+    if (type === "emeraldtiefighter") {
+      const pairOffset = y < CANVAS_H / 2 ? 58 : -58;
+      enemiesRef.current.push({
+        ...enemy,
+        x: enemy.x + 64,
+        y: clamp(enemy.y + pairOffset, 20, CANVAS_H - h - 20),
+        shootCooldown: rand(80, 120),
+      });
+    }
   }, []);
 
   const fireBullets = useCallback((now: number) => {
