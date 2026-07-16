@@ -237,6 +237,7 @@ const NAME_KEY         = "fighter-command-name";
 const BULLET_COLOR_KEY = "fighter-command-bcolor";
 const SETTINGS_KEY     = "fighter-command-settings";
 const TUTORIAL_KEY     = "fighter-command-tutorial-seen";
+const BRIEFING_KEY     = "fighter-command-briefing-seen";
 const DEFAULT_SETTINGS: GameSettings = {
   language: "de",
   tutorial: true,
@@ -302,6 +303,8 @@ function translated(language: GameSettings["language"], german: string, english:
 }
 function tutorialSeen(): boolean { try { return localStorage.getItem(TUTORIAL_KEY) === "1"; } catch { return false; } }
 function markTutorialSeen() { try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch {} }
+function briefingSeen(): boolean { try { return localStorage.getItem(BRIEFING_KEY) === "1"; } catch { return false; } }
+function markBriefingSeen() { try { localStorage.setItem(BRIEFING_KEY, "1"); } catch {} }
 
 const LEADERBOARD_KEY = "fighter-command-lb";
 interface LeaderEntry { name: string; score: number; ts: number }
@@ -731,26 +734,30 @@ class GameAudio {
   context: AudioContext | null = null;
   musicTimer = 0;
   musicStep = 0;
-  unlock() {
-    this.context ??= new AudioContext();
-    if (this.context.state === "suspended") {
-      void this.context.resume().catch(() => {
-        // A later click/key press will retry if the browser still blocks audio.
-      });
+  unlock(): Promise<boolean> {
+    try {
+      this.context ??= new AudioContext();
+    } catch {
+      return Promise.resolve(false);
     }
+    if (this.context.state === "running") return Promise.resolve(true);
+    if (this.context.state === "closed") return Promise.resolve(false);
+    return this.context.resume().then(() => this.context?.state === "running").catch(() => false);
   }
-  ensure() {
-    this.unlock();
-    return this.context!;
-  }
-  tone(frequency: number, duration: number, volume: number, type: OscillatorType = "square", slide = 0) {
-    if (volume <= 0) return;
-    const ac = this.ensure(); const osc = ac.createOscillator(); const gain = ac.createGain();
+  private playTone(ac: AudioContext, frequency: number, duration: number, volume: number, type: OscillatorType, slide: number) {
+    const osc = ac.createOscillator(); const gain = ac.createGain();
     osc.type = type; osc.frequency.setValueAtTime(frequency, ac.currentTime);
     if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(30, frequency + slide), ac.currentTime + duration);
     gain.gain.setValueAtTime(Math.max(0.0001, volume), ac.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + duration);
     osc.connect(gain); gain.connect(ac.destination); osc.start(); osc.stop(ac.currentTime + duration);
+  }
+  tone(frequency: number, duration: number, volume: number, type: OscillatorType = "square", slide = 0) {
+    if (volume <= 0) return;
+    void this.unlock().then(ready => {
+      const ac = this.context;
+      if (ready && ac) this.playTone(ac, frequency, duration, volume, type, slide);
+    });
   }
   effect(kind: "shoot" | "hit" | "explosion" | "pickup" | "boss" | "upgrade", volume: number) {
     const map = { shoot: [720, .04, "square", -180], hit: [150, .07, "sawtooth", -70], explosion: [90, .28, "sawtooth", -50], pickup: [620, .16, "sine", 500], boss: [55, .7, "sawtooth", -20], upgrade: [440, .35, "triangle", 440] } as const;
@@ -853,9 +860,17 @@ export default function Game() {
   }, []);
 
   const updateSettings = useCallback((next: GameSettings) => {
+    const previous = settingsRef.current;
     settingsRef.current = next;
     setSettings(next);
     saveSettings(next);
+    // Range input events are trusted gestures, so they are also a reliable way
+    // to unlock Web Audio and give immediate feedback for both volume controls.
+    if (next.musicVolume !== previous.musicVolume && next.musicVolume > 0) {
+      audioRef.current.tone(147, .3, next.musicVolume * .3, "triangle");
+    } else if (next.soundVolume !== previous.soundVolume && next.soundVolume > 0) {
+      audioRef.current.effect("pickup", next.soundVolume);
+    }
   }, []);
 
   const checkAchievements = useCallback(() => {
@@ -2200,7 +2215,9 @@ function HangarOverlay({
   achievements: string[];
 }) {
   const language = settings.language;
-  const [view, setView] = useState<"main" | "upgrades" | "settings" | "leaderboard" | "achievements">("main");
+  const [view, setView] = useState<"main" | "briefing" | "upgrades" | "settings" | "leaderboard" | "achievements">(
+    () => settings.tutorial && !briefingSeen() ? "briefing" : "main",
+  );
   const [hoverSkin, setHoverSkin] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState(() => loadName());
   const [bulletColor, setBulletColor] = useState(() => loadBulletColor());
@@ -2227,6 +2244,17 @@ function HangarOverlay({
     ctx.fillStyle = gg; ctx.fillRect(0, 0, 240, 140);
     drawPlayerJet(ctx, 90, 56, 5, false, skin);
   }, [activeSkinId, skin]);
+
+  if (view === "briefing") {
+    return (
+      <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.98)" }}>
+        <BriefingScreen
+          language={language}
+          onDone={() => { markBriefingSeen(); setView("main"); }}
+        />
+      </div>
+    );
+  }
 
   if (view === "upgrades") {
     return (
@@ -2392,6 +2420,11 @@ function HangarOverlay({
       </div>
       {/* Admin button (bottom-right) */}
       <div className="w-full flex justify-end gap-2 mt-1">
+        <button onClick={() => setView("briefing")}
+          className="text-xs rounded px-2 py-0.5"
+          style={{ color: "#8bdfff", background: "rgba(0,180,255,0.08)", border: "1px solid #1a4466" }}>
+          {translated(language, "? ANLEITUNG", "? HOW TO PLAY")}
+        </button>
         {fullscreenSupported && (
           <button onClick={onFullscreenToggle}
             aria-label={isFullscreen ? translated(language, "Vollbild beenden", "Exit fullscreen") : translated(language, "Vollbild öffnen", "Enter fullscreen")}
@@ -2617,6 +2650,75 @@ function AchievementsScreen({ unlocked, onBack }: { unlocked: string[]; onBack: 
       <div className="flex items-start gap-3"><div className={`text-3xl ${done ? "" : "grayscale opacity-40"}`}>{a.icon}</div><div><div className="font-black">{a.name} {done && "✓"}</div><div className="text-sm text-slate-400">{a.description}</div><div className="mt-2 text-xs font-bold text-amber-300">Belohnung: {a.reward.toLocaleString("de-DE")} Credits</div></div></div>
     </div>})}</div>
   </div>;
+}
+
+// ─── First-mission briefing ───────────────────────────────────────────────────
+
+function BriefingScreen({ language, onDone }: { language: GameSettings["language"]; onDone: () => void }) {
+  const sections = language === "de" ? [
+    { icon: "🎯", title: "Dein Auftrag", text: "Fliege nach rechts durch immer schwierigere Sektoren, besiege Gegner und sammle Punkte. Dein Level steigt automatisch mit deiner Punktzahl; Bosskämpfe markieren wichtige Etappen." },
+    { icon: "❤", title: "Überleben", text: "Treffer kosten HP. Sind deine HP leer, verlierst du ein Leben und startest mit voller Energie neu. Nach dem letzten Leben endet die Mission. Schilde fangen Treffer ab." },
+    { icon: "📦", title: "Power-ups", text: "Abgeschossene Gegner können Heilung, Schilde und Geschwindigkeits-Boosts fallen lassen. Fliege durch ein Power-up, um es sofort einzusammeln." },
+    { icon: "⚡", title: "Waffen & Ultimates", text: "Halte Feuer gedrückt. Neue Waffenstufen machen deine Salven stärker. Clone, Laser, Stealth und Heilung laden sich im Kampf auf; ihre Anzeige zeigt, wann sie bereit sind." },
+    { icon: "⬆", title: "Fortschritt", text: "Nach geschafften Sektoren wählst du eines von drei Run-Upgrades. Checkpoints speichern deinen Lauf. Ein gespeicherter Einsatz kann später im Hangar fortgesetzt werden." },
+    { icon: "💰", title: "Credits & Hangar", text: "Am Missionsende wird jeder Punkt zu einem Credit. Im Shop kaufst du damit dauerhafte Verbesserungen und Jet-Skins. Erfolge geben zusätzliche Credits." },
+  ] : [
+    { icon: "🎯", title: "Your mission", text: "Fly right through increasingly difficult sectors, defeat enemies, and score points. Your level rises automatically with your score; boss fights mark major milestones." },
+    { icon: "❤", title: "Survival", text: "Hits cost HP. When HP reaches zero, you lose a life and return at full health. The mission ends after your last life. Shields absorb hits." },
+    { icon: "📦", title: "Power-ups", text: "Defeated enemies may drop health, shields, and speed boosts. Fly through a power-up to collect it immediately." },
+    { icon: "⚡", title: "Weapons & ultimates", text: "Hold fire to shoot continuously. New weapon tiers improve your volleys. Clone, laser, stealth, and healing charge during combat; their meters show when they are ready." },
+    { icon: "⬆", title: "Progress", text: "After clearing sectors, choose one of three run upgrades. Checkpoints save your run, which you can continue later from the hangar." },
+    { icon: "💰", title: "Credits & hangar", text: "At mission end, every point becomes one credit. Spend credits on permanent upgrades and jet skins. Achievements award extra credits." },
+  ];
+  const keyboardHelp = language === "de" ? KEYBOARD_CONTROL_HELP : [
+    ["WASD / Arrow keys", "Move"], ["SPACE", "Shoot"], ["Q", "Clone ultimate"],
+    ["E", "Laser ultimate"], ["R", "Stealth ultimate"], ["H", "Healing ultimate"], ["P", "Pause"],
+  ] as const;
+
+  return (
+    <div className="flex h-full flex-col overflow-y-auto px-4 py-5 text-white sm:px-7">
+      <div className="mx-auto w-full max-w-4xl">
+        <div className="text-center">
+          <div className="text-xs font-black uppercase tracking-[.3em] text-cyan-400">{translated(language, "Einsatzbriefing", "Mission briefing")}</div>
+          <h2 className="mt-1 text-2xl font-black sm:text-3xl">{translated(language, "SO FUNKTIONIERT FIGHTER COMMAND", "HOW FIGHTER COMMAND WORKS")}</h2>
+          <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-300">{translated(language, "Lies das Briefing einmal durch – danach übst du Bewegung und Schießen direkt im ersten Einsatz.", "Read this briefing once—then practice movement and shooting during your first mission.")}</p>
+        </div>
+
+        <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {sections.map(section => (
+            <div key={section.title} className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
+              <div className="flex items-center gap-2 font-black text-cyan-100"><span className="text-xl" aria-hidden="true">{section.icon}</span>{section.title}</div>
+              <p className="mt-1 text-xs leading-relaxed text-slate-300">{section.text}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="rounded-xl border border-cyan-700/60 bg-cyan-950/25 p-4">
+            <h3 className="text-xs font-black uppercase tracking-[.2em] text-cyan-300">{translated(language, "Tastatur", "Keyboard")}</h3>
+            <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+              {keyboardHelp.map(([key, desc]) => <div key={key} className="flex items-center gap-2 text-xs"><kbd className="min-w-[82px] rounded border border-slate-600 bg-slate-800 px-2 py-1 text-center font-mono text-white">{key}</kbd><span className="text-slate-300">{desc}</span></div>)}
+            </div>
+          </div>
+          <div className="rounded-xl border border-violet-700/60 bg-violet-950/25 p-4">
+            <h3 className="text-xs font-black uppercase tracking-[.2em] text-violet-300">{translated(language, "Touch-Steuerung", "Touch controls")}</h3>
+            <div className="mt-3 space-y-2 text-xs text-slate-300">
+              <p><strong className="text-white">{translated(language, "Links ziehen:", "Drag left:")}</strong> {translated(language, "Jet mit dem virtuellen Joystick bewegen.", "Move the jet with the virtual joystick.")}</p>
+              <p><strong className="text-white">FIRE:</strong> {translated(language, "gedrückt halten, um dauerhaft zu schießen.", "hold to keep firing.")}</p>
+              <p><strong className="text-white">CLONE · LASER · STEALTH · HEAL:</strong> {translated(language, "antippen, sobald die jeweilige Fähigkeit bereit ist.", "tap once the corresponding ability is ready.")}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="sticky bottom-0 mt-5 bg-gradient-to-t from-[#040c1c] via-[#040c1c] to-transparent pt-4 pb-1 text-center">
+          <button autoFocus onClick={onDone} className="pause-primary min-h-12 w-full max-w-md rounded-xl px-6 py-3 font-black tracking-widest">
+            {translated(language, "VERSTANDEN – ZUM HANGAR", "GOT IT — GO TO HANGAR")}
+          </button>
+          <div className="mt-2 text-[11px] text-slate-500">{translated(language, "Die Anleitung ist im Hangar jederzeit wieder erreichbar.", "You can reopen this guide from the hangar at any time.")}</div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── Settings Screen ──────────────────────────────────────────────────────────
