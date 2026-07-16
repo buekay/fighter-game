@@ -7,6 +7,7 @@ import {
   applyPlayerDamage,
   calculateCoinReward,
   formatLockedSkinPrice,
+  getDroneStats,
   getLevelForScore,
   getLevelThreshold,
   HEAL_ULTI_RESTORE,
@@ -217,12 +218,25 @@ const JET_SKINS = [
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
-const SHOP_ITEMS = [
+interface ShopItem {
+  id: string;
+  name: string;
+  desc: string;
+  cost: number;
+  rarity: ShopRarity;
+  requires?: string;
+}
+
+const SHOP_ITEMS: readonly ShopItem[] = [
+  { id: "drone_mk2",     name: "Drohne MK II",      desc: "+1 Drohnenschaden und 12% schnelleres Feuer",      cost: 50000,  rarity: "rare" },
+  { id: "drone_mk3",     name: "Drohne MK III",     desc: "Zwei Kanonen und nochmals 12% schnelleres Feuer", cost: 80000,  rarity: "epic", requires: "drone_mk2" },
+  { id: "drone_mk4",     name: "Drohne MK IV",      desc: "+1 Drohnenschaden und nochmals 12% schneller",    cost: 120000, rarity: "legendary", requires: "drone_mk3" },
   { id: "ulti_boost",    name: "Ulti-Boost",       desc: "Ultis laden 50% schneller",                      cost: 50000,  rarity: "rare" },
   { id: "extra_life",    name: "+1 Leben",          desc: "Starte mit 4 statt 3 Leben",                     cost: 50000,  rarity: "rare" },
   { id: "weapon_head",   name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                        cost: 50000,  rarity: "rare" },
   { id: "clone_upgrade", name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",      cost: 50000,  rarity: "rare" },
   { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 50000,  rarity: "rare" },
+  { id: "clone_laser",   name: "Clone-Laser",      desc: "Clone feuert während seiner Ulti einen Laser",          cost: 80000,  rarity: "epic", requires: "clone_upgrade" },
   { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 120000, rarity: "legendary" },
   { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 120000, rarity: "legendary" },
   { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 50000,  rarity: "rare" },
@@ -252,7 +266,7 @@ const RUN_UPGRADES: RunUpgrade[] = [
   { id: "rapid_fire", icon: "⚡", name: "Overdrive", description: "20% schneller feuern (stapelbar)" },
   { id: "damage", icon: "💥", name: "Schwere Munition", description: "+1 Schaden für alle Geschosse" },
   { id: "max_hp", icon: "❤", name: "Nanopanzerung", description: "+3 maximale HP und sofort heilen" },
-  { id: "drone", icon: "🛸", name: "Kampfdrohne", description: "Eine Drohne feuert automatisch mit" },
+  { id: "drone", icon: "🛸", name: "Drohnen-Overclock", description: "Drohne wird für diesen Einsatz eine Stufe stärker" },
   { id: "critical", icon: "🎯", name: "Zielcomputer", description: "15% Chance auf dreifachen Schaden" },
   { id: "shield", icon: "🛡", name: "Notfallschild", description: "Sofort ein Schild; lädt nach Bossen neu" },
 ];
@@ -767,9 +781,22 @@ class GameAudio {
     if (volume <= 0) return;
     this.musicTimer -= dtScale;
     if (this.musicTimer > 0) return;
-    this.musicTimer = level >= 50 ? 22 : level >= 20 ? 28 : 34;
-    const notes = level >= 50 ? [110, 165, 220, 196, 165, 247] : level >= 20 ? [130, 164, 196, 220] : [98, 123, 147, 123];
-    this.tone(notes[this.musicStep++ % notes.length], .22, volume * .12, "triangle");
+    this.musicTimer = level >= 50 ? 18 : level >= 20 ? 23 : 28;
+
+    // Minor, open intervals make the procedural soundtrack feel spacious
+    // instead of resembling a conventional arcade pulse.
+    const sequences = level >= 50
+      ? [110, 164.81, 220, 261.63, 329.63, 261.63, 220, 164.81]
+      : level >= 20
+        ? [98, 146.83, 196, 246.94, 293.66, 246.94, 196, 146.83]
+        : [82.41, 123.47, 164.81, 220, 246.94, 220, 164.81, 123.47];
+    const step = this.musicStep++;
+    const note = sequences[step % sequences.length];
+
+    // Soft arpeggio, slow sub-space drone and a sparse stellar shimmer.
+    this.tone(note, .55, volume * .22, "triangle", note * .015);
+    if (step % 4 === 0) this.tone(sequences[0] / 2, 2.2, volume * .12, "sine", -2);
+    if (step % 8 === 6) this.tone(note * 4, .7, volume * .055, "sine", note * .3);
   }
 }
 
@@ -787,6 +814,7 @@ export default function Game() {
   const keysRef = useRef<Set<string>>(new Set());
   const rafRef = useRef<number>(0);
   const lastFireRef = useRef(0);
+  const lastDroneFireRef = useRef(0);
   const lastMissileRef = useRef(0);
   const playerRef = useRef({ x: 60, y: CANVAS_H / 2 - PLAYER_H / 2 });
   const bulletsRef = useRef<Bullet[]>([]);
@@ -1030,6 +1058,27 @@ export default function Game() {
   const fireBullets = useCallback((now: number) => {
     const gs = stateRef.current;
     const tier = WEAPON_TIERS[gs.weaponTier];
+    const persistentDroneUpgrades = ["drone_mk2", "drone_mk3", "drone_mk4"]
+      .filter(id => activeUnlocksRef.current.includes(id)).length;
+    const drone = getDroneStats(persistentDroneUpgrades, runUpgradesRef.current.drone);
+    const droneFireRate = 280 * drone.fireRateMultiplier;
+
+    if (now - lastDroneFireRef.current >= droneFireRate) {
+      lastDroneFireRef.current = now;
+      const droneX = playerRef.current.x + PLAYER_W / 2;
+      const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22) + Math.sin(timeRef.current * 0.08) * 4;
+      const offsets = drone.guns === 2 ? [-4, 4] : [0];
+      offsets.forEach(offset => bulletsRef.current.push({
+        x: droneX + 22,
+        y: droneY + offset,
+        vx: BASE_BULLET_SPEED,
+        vy: 0,
+        fromPlayer: true,
+        damage: drone.damage + runUpgradesRef.current.damage,
+        color: "#b86cff",
+      }));
+    }
+
     const fireRate = tier.fireRate * Math.pow(0.8, runUpgradesRef.current.rapid_fire);
     if (now - lastFireRef.current < fireRate) return;
     lastFireRef.current = now;
@@ -1058,12 +1107,6 @@ export default function Game() {
       });
     });
     audioRef.current.effect("shoot", settingsRef.current.soundVolume);
-
-    if (runUpgradesRef.current.drone > 0) {
-      const droneX = playerRef.current.x + PLAYER_W / 2;
-      const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22) + Math.sin(timeRef.current * 0.08) * 4;
-      bulletsRef.current.push({ x: droneX + 22, y: droneY, vx: BASE_BULLET_SPEED, vy: 0, fromPlayer: true, damage: 1 + runUpgradesRef.current.damage, color: "#b86cff" });
-    }
 
     // Clone fires when ultima active
     if (ultimaActiveRef.current > 0) {
@@ -1134,6 +1177,7 @@ export default function Game() {
     enemySpawnTimerRef.current = 0;
     timeRef.current = 0;
     lastFireRef.current = 0;
+    lastDroneFireRef.current = 0;
     lastMissileRef.current = 0;
     shieldTimerRef.current = 0;
     invincibleRef.current = 0;
@@ -1924,29 +1968,37 @@ export default function Game() {
         return p.life > 0;
       });
 
-      // ── Laser beam ──
-      if (laserActiveRef.current > 0) {
-        const ly = playerRef.current.y + PLAYER_H / 2;
+      // ── Laser beams ──
+      const laserBeams: number[] = [];
+      if (laserActiveRef.current > 0) laserBeams.push(playerRef.current.y + PLAYER_H / 2);
+      if (ultimaActiveRef.current > 0 && activeUnlocksRef.current.includes("clone_laser")) {
+        const cloneY = clamp(playerRef.current.y + 56, 0, CANVAS_H - PLAYER_H);
+        laserBeams.push(cloneY + PLAYER_H / 2);
+      }
+      if (laserBeams.length > 0) {
         const lx = playerRef.current.x + PLAYER_W + 4;
         const beamW = CANVAS_W - lx;
         const flicker = 0.75 + 0.25 * Math.sin(timeRef.current * 0.6);
-        ctx.save();
-        ctx.globalAlpha = 0.28 * flicker;
-        ctx.fillStyle = "#ff5500"; ctx.shadowColor = "#ff3300"; ctx.shadowBlur = 50;
-        ctx.fillRect(lx, ly - 18, beamW, 36);
-        ctx.globalAlpha = 0.55 * flicker;
-        ctx.fillStyle = "#ffaa00"; ctx.shadowBlur = 25;
-        ctx.fillRect(lx, ly - 7, beamW, 14);
-        ctx.globalAlpha = flicker;
-        ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 8;
-        ctx.fillRect(lx, ly - 2, beamW, 4);
-        ctx.restore();
+        for (const ly of laserBeams) {
+          ctx.save();
+          ctx.globalAlpha = 0.28 * flicker;
+          ctx.fillStyle = "#ff5500"; ctx.shadowColor = "#ff3300"; ctx.shadowBlur = 50;
+          ctx.fillRect(lx, ly - 18, beamW, 36);
+          ctx.globalAlpha = 0.55 * flicker;
+          ctx.fillStyle = "#ffaa00"; ctx.shadowBlur = 25;
+          ctx.fillRect(lx, ly - 7, beamW, 14);
+          ctx.globalAlpha = flicker;
+          ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 8;
+          ctx.fillRect(lx, ly - 2, beamW, 4);
+          ctx.restore();
+        }
         // Damage enemies in laser path
         for (const e of enemiesRef.current) {
           if (e.dead) continue;
           if (e.x + e.width < lx) continue;
-          if (e.y + e.height < ly - 18 || e.y > ly + 18) continue;
-          e.hp -= 0.38 * dtScale;
+          const beamHits = laserBeams.filter(ly => e.y + e.height >= ly - 18 && e.y <= ly + 18).length;
+          if (beamHits === 0) continue;
+          e.hp -= 0.38 * beamHits * dtScale;
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, e.type === "boss");
             gs.score += e.points;
@@ -1997,11 +2049,9 @@ export default function Game() {
           ctx.restore();
         }
       }
-      if (runUpgradesRef.current.drone > 0) {
-        const droneX = playerRef.current.x + PLAYER_W / 2;
-        const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22);
-        drawCombatDrone(ctx, droneX, droneY, timeRef.current);
-      }
+      const droneX = playerRef.current.x + PLAYER_W / 2;
+      const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22);
+      drawCombatDrone(ctx, droneX, droneY, timeRef.current);
 
       // ── Engine exhaust ──
       if (Math.random() < 1 - Math.pow(0.6, dtScale)) {
@@ -2051,6 +2101,7 @@ export default function Game() {
   const handleBuy = (itemId: string) => {
     const item = SHOP_ITEMS.find(i => i.id === itemId);
     if (!item) return;
+    if (item.requires && !loadUnlocks().includes(item.requires)) return;
     if (loadCoins() < item.cost) return;
     spendCoins(item.cost);
     addUnlock(itemId);
@@ -2562,7 +2613,8 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnloc
       <div className="relative z-10 flex flex-col gap-2">
         {SORTED_SHOP_ITEMS.map(item => {
           const owned = unlockedItems.includes(item.id);
-          const canAfford = coins >= item.cost;
+          const prerequisiteMet = !item.requires || unlockedItems.includes(item.requires);
+          const canAfford = coins >= item.cost && prerequisiteMet;
           const rarity = SHOP_RARITIES[item.rarity];
           return (
             <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl"
@@ -2583,6 +2635,8 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnloc
               </div>
               {owned
                 ? <span className="text-green-400 font-bold text-lg shrink-0">✓</span>
+                : !prerequisiteMet
+                  ? <span className="text-slate-500 text-xs font-bold shrink-0">🔒 Vorstufe</span>
                 : <button onClick={() => canAfford && onBuy(item.id)} disabled={!canAfford}
                     className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-40"
                     style={{ background: "rgba(80,50,0,0.6)", border: "1px solid #aa8800", color: "#ffcc44" }}>

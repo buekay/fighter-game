@@ -35,6 +35,23 @@ export const SPACE_BACKGROUND_LEVEL = 50;
 export const PLAYER_SHIELD_HP = 5;
 export const COIN_REWARD_MULTIPLIER = 1;
 export const HEAL_ULTI_RESTORE = 5;
+export interface DroneStats {
+  level: number;
+  guns: number;
+  damage: number;
+  fireRateMultiplier: number;
+}
+
+export function getDroneStats(persistentUpgrades: number, runUpgrades = 0): DroneStats {
+  const level = 1 + Math.max(0, Math.floor(persistentUpgrades)) + Math.max(0, Math.floor(runUpgrades));
+
+  return {
+    level,
+    guns: level >= 3 ? 2 : 1,
+    damage: 1 + Math.floor(level / 2),
+    fireRateMultiplier: Math.max(0.4, 1 - (level - 1) * 0.12),
+  };
+}
 export const KEYBOARD_CONTROL_HELP = [
   ["WASD / Pfeiltasten", "Bewegen"],
   ["LEERTASTE", "Schießen"],

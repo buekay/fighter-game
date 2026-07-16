@@ -7,6 +7,7 @@ import {
   formatLockedSkinPrice,
   getLevelForScore,
   getLevelThreshold,
+  getDroneStats,
   HEAL_ULTI_RESTORE,
   KEYBOARD_CONTROL_HELP,
   isBossEligibleLevel,
@@ -141,3 +142,7 @@ assert.equal(shouldShowVirtualControls(false, true), true);
 assert.equal(shouldShowVirtualControls(true, false), true);
 
 assert.equal(HEAL_ULTI_RESTORE, 5);
+
+assert.deepEqual(getDroneStats(0), { level: 1, guns: 1, damage: 1, fireRateMultiplier: 1 });
+assert.deepEqual(getDroneStats(2), { level: 3, guns: 2, damage: 2, fireRateMultiplier: 0.76 });
+assert.deepEqual(getDroneStats(3, 1), { level: 5, guns: 2, damage: 3, fireRateMultiplier: 0.52 });
