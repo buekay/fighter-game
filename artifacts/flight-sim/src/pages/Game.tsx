@@ -405,16 +405,44 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
     const rgN1 = ctx.createRadialGradient(0, 0, 2, 0, 0, 34);
     rgN1.addColorStop(0, glow + "44"); rgN1.addColorStop(1, "transparent");
     ctx.fillStyle = rgN1; ctx.beginPath(); ctx.arc(0, 0, 34, 0, Math.PI * 2); ctx.fill();
+
+    // Broad swept wings are drawn behind the fuselage so the N-1 silhouette
+    // remains readable at the small in-game scale.
+    const drawN1Wing = (side: -1 | 1) => {
+      ctx.beginPath();
+      ctx.moveTo(9, side * 4);
+      ctx.lineTo(-14, side * 22);
+      ctx.lineTo(-28, side * 19);
+      ctx.lineTo(-22, side * 8);
+      ctx.closePath();
+      ctx.fillStyle = "#596169";
+      ctx.fill();
+      ctx.strokeStyle = "#e2e7eb";
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(2, side * 7);
+      ctx.lineTo(-20, side * 17);
+      ctx.strokeStyle = glow + "bb";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.ellipse(-13, side * 19, 7, 3.5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "#30363b";
+      ctx.fill();
+      ctx.strokeStyle = "#b9c2c9";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    };
+    drawN1Wing(-1);
+    drawN1Wing(1);
+
     ctx.beginPath();
     ctx.moveTo(30, 0); ctx.lineTo(10, -5); ctx.lineTo(-22, -6);
     ctx.lineTo(-30, -2); ctx.lineTo(-30, 2); ctx.lineTo(-22, 6); ctx.lineTo(10, 5); ctx.closePath();
     ctx.fillStyle = skin.body; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(4, -7); ctx.lineTo(-24, -11); ctx.lineTo(-30, -8); ctx.lineTo(-24, -5); ctx.lineTo(4, -7); ctx.closePath();
-    ctx.fillStyle = "#262a2e"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1; ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(4, 7); ctx.lineTo(-24, 11); ctx.lineTo(-30, 8); ctx.lineTo(-24, 5); ctx.lineTo(4, 7); ctx.closePath();
-    ctx.fillStyle = "#262a2e"; ctx.fill(); ctx.strokeStyle = glow; ctx.lineWidth = 1; ctx.stroke();
     ctx.beginPath(); ctx.ellipse(12, 0, 9, 6, 0, 0, Math.PI * 2);
     ctx.fillStyle = "#77ddcc99"; ctx.fill(); ctx.strokeStyle = "#aaffee"; ctx.lineWidth = 1; ctx.stroke();
     ctx.strokeStyle = glow; ctx.lineWidth = 2;
