@@ -162,13 +162,20 @@ const SAVE_KEY = "fighter-command-save";
 interface SaveData {
   score: number; level: number; hp: number; maxHp: number;
   weaponTier: number; speed: number; lives: number; savedAt: number;
+  runUpgrades?: Record<RunUpgradeId, number>;
+  upgradeLevel?: number;
 }
 
-function saveGame(gs: GameState) {
+const EMPTY_RUN_UPGRADES: Record<RunUpgradeId, number> = {
+  rapid_fire: 0, damage: 0, max_hp: 0, drone: 0, critical: 0, shield: 0,
+};
+
+function saveGame(gs: GameState, runUpgrades: Record<RunUpgradeId, number>, upgradeLevel: number) {
   try {
     const data: SaveData = {
       score: gs.score, level: gs.level, hp: gs.hp, maxHp: gs.maxHp,
       weaponTier: gs.weaponTier, speed: gs.speed, lives: gs.lives,
+      runUpgrades: { ...runUpgrades }, upgradeLevel,
       savedAt: Date.now(),
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -724,14 +731,21 @@ class GameAudio {
   context: AudioContext | null = null;
   musicTimer = 0;
   musicStep = 0;
-  ensure() {
+  unlock() {
     this.context ??= new AudioContext();
-    if (this.context.state === "suspended") void this.context.resume();
+    if (this.context.state === "suspended") {
+      void this.context.resume().catch(() => {
+        // A later click/key press will retry if the browser still blocks audio.
+      });
+    }
+  }
+  ensure() {
+    this.unlock();
+    return this.context!;
   }
   tone(frequency: number, duration: number, volume: number, type: OscillatorType = "square", slide = 0) {
     if (volume <= 0) return;
-    this.ensure();
-    const ac = this.context!; const osc = ac.createOscillator(); const gain = ac.createGain();
+    const ac = this.ensure(); const osc = ac.createOscillator(); const gain = ac.createGain();
     osc.type = type; osc.frequency.setValueAtTime(frequency, ac.currentTime);
     if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(30, frequency + slide), ac.currentTime + duration);
     gain.gain.setValueAtTime(Math.max(0.0001, volume), ac.currentTime);
@@ -858,6 +872,8 @@ export default function Game() {
     runUpgradesRef.current[upgrade.id] += 1;
     if (upgrade.id === "max_hp") { stateRef.current.maxHp += 3; stateRef.current.hp = stateRef.current.maxHp; }
     if (upgrade.id === "shield") { shieldTimerRef.current = 600; playerShieldHpRef.current = PLAYER_SHIELD_HP; }
+    saveGame(stateRef.current, runUpgradesRef.current, upgradeLevelRef.current);
+    saveExistsRef.current = true;
     setRunUpgradeChoices([]); stateRef.current.paused = false; audioRef.current.effect("upgrade", settingsRef.current.soundVolume); syncDisplay();
   }, [syncDisplay]);
 
@@ -865,6 +881,18 @@ export default function Game() {
     document.documentElement.lang = language;
     document.title = translated(language, "Fighter Command", "Fighter Command");
   }, [language]);
+
+  useEffect(() => {
+    // Browsers only allow Web Audio to start during a trusted user gesture.
+    // Capture all supported controls so mouse, touch and keyboard starts work.
+    const unlockAudio = () => audioRef.current.unlock();
+    window.addEventListener("pointerdown", unlockAudio, { passive: true });
+    window.addEventListener("keydown", unlockAudio);
+    return () => {
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
+  }, []);
 
   const finishTutorial = useCallback(() => {
     tutorialStageRef.current = -1;
@@ -1050,6 +1078,7 @@ export default function Game() {
   }, []);
 
   const startGame = useCallback((fromSave = false) => {
+    audioRef.current.unlock();
     const save = fromSave ? loadSave() : null;
     const unlocks = loadUnlocks();
     activeUnlocksRef.current = unlocks;
@@ -1063,9 +1092,11 @@ export default function Game() {
     n1ShieldTimerRef.current = 0;
     playerShieldHpRef.current = 0;
     bestScoreRef.current = loadHighScore();
-    runUpgradesRef.current = { rapid_fire: 0, damage: 0, max_hp: 0, drone: 0, critical: 0, shield: 0 };
+    runUpgradesRef.current = save?.runUpgrades
+      ? { ...EMPTY_RUN_UPGRADES, ...save.runUpgrades }
+      : { ...EMPTY_RUN_UPGRADES };
     runStatsRef.current = { kills: 0, bosses: 0, damageTaken: 0, powerUps: 0 };
-    upgradeLevelRef.current = 0;
+    upgradeLevelRef.current = save?.upgradeLevel ?? 0;
     setRunUpgradeChoices([]);
     const baseMaxHp = unlocks.includes("max_hp") ? 15 : 10;
     const baseSpeed = 3.2 + (unlocks.includes("speed_item") ? 0.5 : 0);
@@ -1107,7 +1138,7 @@ export default function Game() {
 
   const returnToHangar = useCallback(() => {
     const gs = stateRef.current;
-    if (gs.score > 0) saveGame(gs);
+    if (gs.score > 0) saveGame(gs, runUpgradesRef.current, upgradeLevelRef.current);
     gs.started = false;
     gs.paused = false;
     keysRef.current.clear();
@@ -1487,7 +1518,7 @@ export default function Game() {
         const tierIndex = Math.min(nextLevel - 1, WEAPON_TIERS.length - 1);
         gs.weaponTier = Math.max(gs.weaponTier, tierIndex);
         gs.speed = 3.2 + (nextLevel - 1) * 0.25;
-        saveGame(gs);
+        saveGame(gs, runUpgradesRef.current, upgradeLevelRef.current);
         saveExistsRef.current = true;
         if (nextLevel >= 5 && nextLevel % 5 === 0 && upgradeLevelRef.current !== nextLevel) {
           upgradeLevelRef.current = nextLevel;
