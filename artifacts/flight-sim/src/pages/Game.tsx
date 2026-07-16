@@ -251,9 +251,21 @@ const RUN_UPGRADES: RunUpgrade[] = [
 const ACHIEVEMENT_KEY = "fighter-command-achievements";
 const ACHIEVEMENTS: Achievement[] = [
   { id: "first_sortie", icon: "✈", name: "Erster Einsatz", description: "Besiege 10 Gegner", target: 10, reward: 500, stat: "kills" },
+  { id: "on_a_roll", icon: "🔥", name: "Nicht zu stoppen", description: "Besiege 25 Gegner in einem Einsatz", target: 25, reward: 1000, stat: "kills" },
+  { id: "sky_sweeper", icon: "⚡", name: "Himmelsfeger", description: "Besiege 50 Gegner in einem Einsatz", target: 50, reward: 1800, stat: "kills" },
   { id: "ace", icon: "🎯", name: "Fliegerass", description: "Besiege 100 Gegner in einem Einsatz", target: 100, reward: 3000, stat: "kills" },
+  { id: "elite_ace", icon: "🦅", name: "Elite-Ass", description: "Besiege 250 Gegner in einem Einsatz", target: 250, reward: 7500, stat: "kills" },
+  { id: "legend_of_the_skies", icon: "🌌", name: "Legende der Lüfte", description: "Besiege 500 Gegner in einem Einsatz", target: 500, reward: 15000, stat: "kills" },
+  { id: "first_boss", icon: "💥", name: "David gegen Goliath", description: "Besiege einen Boss", target: 1, reward: 1500, stat: "bosses" },
   { id: "boss_hunter", icon: "☠", name: "Bossjäger", description: "Besiege 3 Bosse in einem Einsatz", target: 3, reward: 5000, stat: "bosses" },
+  { id: "boss_breaker", icon: "🔨", name: "Bossbrecher", description: "Besiege 5 Bosse in einem Einsatz", target: 5, reward: 8000, stat: "bosses" },
+  { id: "boss_nemesis", icon: "👹", name: "Erzfeind der Bosse", description: "Besiege 10 Bosse in einem Einsatz", target: 10, reward: 16000, stat: "bosses" },
+  { id: "boss_apocalypse", icon: "🌋", name: "Boss-Apokalypse", description: "Besiege 20 Bosse in einem Einsatz", target: 20, reward: 30000, stat: "bosses" },
+  { id: "scavenger", icon: "🧲", name: "Bergungsexperte", description: "Sammle 3 Power-ups in einem Einsatz", target: 3, reward: 750, stat: "powerUps" },
   { id: "collector", icon: "💎", name: "Sammler", description: "Sammle 10 Power-ups in einem Einsatz", target: 10, reward: 2000, stat: "powerUps" },
+  { id: "power_hungry", icon: "🔋", name: "Energiehungrig", description: "Sammle 20 Power-ups in einem Einsatz", target: 20, reward: 4500, stat: "powerUps" },
+  { id: "arsenal_master", icon: "🚀", name: "Arsenalmeister", description: "Sammle 35 Power-ups in einem Einsatz", target: 35, reward: 8000, stat: "powerUps" },
+  { id: "overcharged", icon: "✨", name: "Voll aufgeladen", description: "Sammle 50 Power-ups in einem Einsatz", target: 50, reward: 14000, stat: "powerUps" },
 ];
 function loadAchievements(): string[] { try { return JSON.parse(localStorage.getItem(ACHIEVEMENT_KEY) ?? "[]") as string[]; } catch { return []; } }
 function saveAchievements(ids: string[]) { try { localStorage.setItem(ACHIEVEMENT_KEY, JSON.stringify(ids)); } catch {} }
@@ -675,6 +687,21 @@ function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
   ctx.restore();
 }
 
+function drawCombatDrone(ctx: CanvasRenderingContext2D, x: number, y: number, time: number) {
+  ctx.save();
+  ctx.translate(x, y + Math.sin(time * 0.08) * 4);
+  ctx.shadowColor = "#b86cff"; ctx.shadowBlur = 16;
+  ctx.beginPath();
+  ctx.moveTo(16, 0); ctx.lineTo(2, -8); ctx.lineTo(-13, -5); ctx.lineTo(-18, 0); ctx.lineTo(-13, 5); ctx.lineTo(2, 8); ctx.closePath();
+  ctx.fillStyle = "#24153c"; ctx.fill(); ctx.strokeStyle = "#b86cff"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); ctx.arc(3, 0, 4, 0, Math.PI * 2); ctx.fillStyle = "#f0d5ff"; ctx.fill();
+  ctx.fillStyle = "#d5a0ff"; ctx.fillRect(13, -1.5, 10, 3);
+  const glow = ctx.createRadialGradient(-16, 0, 1, -16, 0, 12);
+  glow.addColorStop(0, "#b86cffaa"); glow.addColorStop(1, "transparent");
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(-16, 0, 12, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
 function spawnExplosion(particles: Particle[], x: number, y: number, big: boolean) {
   const count = big ? 40 : 16;
   const colors = ["#ff9900", "#ff4400", "#ffcc00", "#ffffff", "#ff6600"];
@@ -953,7 +980,7 @@ export default function Game() {
       points: pts, color,
       angle: 0,
       oscillate: type === "scout" ? rand(-0.4, 0.4) : 0,
-      shieldHp: type === "tiefighter" ? 2 : 0,
+      shieldHp: type === "emeraldtiefighter" ? 4 : type === "tiefighter" ? 2 : 0,
     });
   }, []);
 
@@ -990,7 +1017,9 @@ export default function Game() {
     audioRef.current.effect("shoot", settingsRef.current.soundVolume);
 
     if (runUpgradesRef.current.drone > 0) {
-      bulletsRef.current.push({ x: px - 10, y: py - 34, vx: BASE_BULLET_SPEED, vy: 0, fromPlayer: true, damage: 1 + runUpgradesRef.current.damage, color: "#b86cff" });
+      const droneX = playerRef.current.x + PLAYER_W / 2;
+      const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22) + Math.sin(timeRef.current * 0.08) * 4;
+      bulletsRef.current.push({ x: droneX + 22, y: droneY, vx: BASE_BULLET_SPEED, vy: 0, fromPlayer: true, damage: 1 + runUpgradesRef.current.damage, color: "#b86cff" });
     }
 
     // Clone fires when ultima active
@@ -1921,6 +1950,11 @@ export default function Game() {
           drawPlayerJet(ctx, playerRef.current.x, cloneY, gs.weaponTier, false, activeSkinRef.current);
           ctx.restore();
         }
+      }
+      if (runUpgradesRef.current.drone > 0) {
+        const droneX = playerRef.current.x + PLAYER_W / 2;
+        const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22);
+        drawCombatDrone(ctx, droneX, droneY, timeRef.current);
       }
 
       // ── Engine exhaust ──
