@@ -84,6 +84,9 @@ interface Enemy {
   tieDodgeTimer?: number;
   tieDodgeDir?: number;
   shieldHp?: number;
+  ultimateFreezeTimer?: number;
+  ultimateSlowTimer?: number;
+  ultimateDotTimer?: number;
 }
 
 interface PowerUp {
@@ -92,7 +95,7 @@ interface PowerUp {
   vy: number;
 }
 
-type ShopRarity = "rare" | "epic" | "legendary";
+type ShopRarity = "rare" | "epic" | "legendary" | "ultraLegendary";
 
 interface GameState {
   score: number;
@@ -137,11 +140,13 @@ const SHOP_RARITIES: Record<ShopRarity, { label: string; color: string; glow: st
   rare:      { label: "SELTEN",    color: "#a8b0ba", glow: "#d6dbe166" },
   epic:      { label: "EPISCH",    color: "#b44cff", glow: "#b44cff88" },
   legendary: { label: "LEGENDÄR", color: "#ffe600", glow: "#ffe600cc" },
+  ultraLegendary: { label: "ULTRA LEGENDÄR", color: "#53d8ff", glow: "#00aaffee" },
 } as const;
 const SHOP_RARITY_ORDER: Record<ShopRarity, number> = {
   rare: 0,
   epic: 1,
   legendary: 2,
+  ultraLegendary: 3,
 };
 
 const LEVEL_THRESHOLDS = Array.from({ length: MAX_LEVEL }, (_, i) => getLevelThreshold(i + 1));
@@ -249,6 +254,7 @@ const SHOP_ITEMS: readonly ShopItem[] = [
   { id: "clone_laser",   name: "Clone-Laser",      desc: "Clone kopiert den Laser bei gleichzeitig aktiven Ultis",   cost: 80000,  rarity: "epic" },
   { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 120000, rarity: "legendary" },
   { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 120000, rarity: "legendary" },
+  { id: "ultimate_ulti", name: "Ultimate Ulti ⚡", desc: "10 Sek. Titanenschild, 2× Schaden, Frost & Kettenblitze [Taste U]", cost: 200000, rarity: "ultraLegendary" },
   { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 50000,  rarity: "rare" },
   { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 50000,  rarity: "rare" },
   { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 80000,  rarity: "epic" },
@@ -916,6 +922,8 @@ export default function Game() {
   const stealthActiveRef = useRef(0);
   const healChargeRef = useRef(0);
   const healActiveRef = useRef(0);
+  const ultimateChargeRef = useRef(0);
+  const ultimateActiveRef = useRef(0);
   const speedBoostRef = useRef(0);
   const n1ShieldTimerRef = useRef(0);
   const playerShieldHpRef = useRef(0);
@@ -1222,6 +1230,8 @@ export default function Game() {
     stealthActiveRef.current = 0;
     healChargeRef.current = 0;
     healActiveRef.current = 0;
+    ultimateChargeRef.current = 0;
+    ultimateActiveRef.current = 0;
     speedBoostRef.current = 0;
     n1ShieldTimerRef.current = 0;
     playerShieldHpRef.current = 0;
@@ -1262,6 +1272,8 @@ export default function Game() {
     ultimaActiveRef.current = 0;
     laserChargeRef.current = 0;
     laserActiveRef.current = 0;
+    ultimateChargeRef.current = 0;
+    ultimateActiveRef.current = 0;
     milestoneBossFiredRef.current = new Set();
     saveExistsRef.current = !!loadSave();
     setPauseView("menu");
@@ -1336,6 +1348,15 @@ export default function Game() {
           syncDisplay();
         }
       }
+      if ((e.key === "u" || e.key === "U") && down && stateRef.current.started &&
+          !stateRef.current.gameOver && !stateRef.current.paused &&
+          ultimateChargeRef.current >= ULTIMATE_MAX && ultimateActiveRef.current === 0 &&
+          activeUnlocksRef.current.includes("ultimate_ulti")) {
+        ultimateActiveRef.current = ULTIMATE_DURATION;
+        ultimateChargeRef.current = 0;
+        stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + ULTIMATE_HEAL);
+        syncDisplay();
+      }
       if ((e.key === "q" || e.key === "Q") && down && stateRef.current.started &&
           !stateRef.current.gameOver && !stateRef.current.paused) {
         if (ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0) {
@@ -1405,7 +1426,14 @@ export default function Game() {
           const dl = Math.hypot(x - LASER_BTN_X, y - LASER_BTN_Y);
           const ds = Math.hypot(x - STEALTH_BTN_X, y - STEALTH_BTN_Y);
           const dh = Math.hypot(x - HEAL_BTN_X, y - HEAL_BTN_Y);
-          if (dh <= HEAL_BTN_R + 12 && healChargeRef.current >= HEAL_MAX && healActiveRef.current === 0
+          const dx = Math.hypot(x - ULTIMATE_BTN_X, y - ULTIMATE_BTN_Y);
+          if (dx <= ULTIMATE_BTN_R + 12 && ultimateChargeRef.current >= ULTIMATE_MAX && ultimateActiveRef.current === 0
+              && activeUnlocksRef.current.includes("ultimate_ulti")) {
+            ultimateActiveRef.current = ULTIMATE_DURATION;
+            ultimateChargeRef.current = 0;
+            stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + ULTIMATE_HEAL);
+            syncDisplay();
+          } else if (dh <= HEAL_BTN_R + 12 && healChargeRef.current >= HEAL_MAX && healActiveRef.current === 0
               && activeUnlocksRef.current.includes("heal_ulti")) {
             stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + HEAL_ULTI_RESTORE);
             healActiveRef.current = HEAL_DURATION;
@@ -1761,6 +1789,12 @@ export default function Game() {
       } else if (stealthChargeRef.current < STEALTH_MAX && activeUnlocksRef.current.includes("stealth_ulti")) {
         stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + 0.10 * dtScale);
       }
+      // Lädt exakt achtmal langsamer als Stealth (0,0125 statt 0,10 pro Frame).
+      if (ultimateActiveRef.current > 0) {
+        ultimateActiveRef.current = Math.max(0, ultimateActiveRef.current - dtScale);
+      } else if (ultimateChargeRef.current < ULTIMATE_MAX && activeUnlocksRef.current.includes("ultimate_ulti")) {
+        ultimateChargeRef.current = Math.min(ULTIMATE_MAX, ultimateChargeRef.current + ULTIMATE_CHARGE_RATE * dtScale);
+      }
       // ── Heal charge & countdown ──
       if (healActiveRef.current > 0) {
         healActiveRef.current = Math.max(0, healActiveRef.current - dtScale);
@@ -1782,9 +1816,31 @@ export default function Game() {
 
       enemiesRef.current = enemiesRef.current.filter(e => {
         if (e.dead) return false;
-        e.x += e.vx * dtScale;
-        e.y += e.vy * dtScale;
-        if (e.oscillate) e.y += Math.sin(timeRef.current * 0.04) * Math.abs(e.oscillate) * 0.8 * dtScale;
+        if (ultimateActiveRef.current > 0) {
+          e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimateActiveRef.current);
+          e.ultimateDotTimer = (e.ultimateDotTimer ?? ULTIMATE_DOT_INTERVAL) - dtScale;
+          if (e.ultimateDotTimer <= 0) {
+            e.hp -= ULTIMATE_DOT_DAMAGE;
+            e.ultimateDotTimer += ULTIMATE_DOT_INTERVAL;
+            spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
+            if (e.hp <= 0) {
+              gs.score += e.points;
+              runStatsRef.current.kills += 1;
+              if (e.type === "boss") runStatsRef.current.bosses += 1;
+              e.dead = true;
+              checkAchievements();
+              audioRef.current.effect("explosion", settingsRef.current.soundVolume);
+              syncDisplay();
+              return false;
+            }
+          }
+        }
+        e.ultimateFreezeTimer = Math.max(0, (e.ultimateFreezeTimer ?? 0) - dtScale);
+        e.ultimateSlowTimer = Math.max(0, (e.ultimateSlowTimer ?? 0) - dtScale);
+        const statusSpeed = (e.ultimateFreezeTimer ?? 0) > 0 ? 0 : (e.ultimateSlowTimer ?? 0) > 0 ? ULTIMATE_SLOW_FACTOR : 1;
+        e.x += e.vx * dtScale * statusSpeed;
+        e.y += e.vy * dtScale * statusSpeed;
+        if (e.oscillate) e.y += Math.sin(timeRef.current * 0.04) * Math.abs(e.oscillate) * 0.8 * dtScale * statusSpeed;
         e.y = clamp(e.y, 0, CANVAS_H - e.height);
 
         // Boss movement
@@ -1851,8 +1907,8 @@ export default function Game() {
         if (e.x + e.width < -20) return false;
 
         // Enemy shooting
-        e.shootCooldown -= dtScale;
-        if (e.shootCooldown <= 0) {
+        if ((e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;
+        if (e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
           const bossPhase = e.type === "boss" ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
           e.shootCooldown = e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
           if (e.type === "tiefighter" || e.type === "emeraldtiefighter" || e.type === "plasmawing") {
@@ -1888,7 +1944,7 @@ export default function Game() {
         drawEnemy(ctx, e);
 
         // Enemy-player collision
-        if (invincibleRef.current <= 0 && stealthActiveRef.current <= 0 &&
+        if (invincibleRef.current <= 0 && stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0 &&
           rectHit(playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H, e.x, e.y, e.width, e.height)) {
           const protection = applyPlayerHitProtection({
             shieldTimer: shieldTimerRef.current,
@@ -1923,9 +1979,10 @@ export default function Game() {
           const bh = b.isMissile ? 8 : 4;
           if (!rectHit(b.x, b.y - bh / 2, bw, bh, e.x, e.y, e.width, e.height)) return true;
           const critical = runUpgradesRef.current.critical > 0 && Math.random() < Math.min(.45, .15 * runUpgradesRef.current.critical);
-          const damageResult = applyEnemyDamage(e, b.damage * (critical ? 3 : 1));
+          const damageResult = applyEnemyDamage(e, b.damage * (critical ? 3 : 1) * (ultimateActiveRef.current > 0 ? 2 : 1));
           e.hp = damageResult.hp;
           e.shieldHp = damageResult.shieldHp;
+          if (ultimateActiveRef.current > 0) e.ultimateFreezeTimer = ultimateActiveRef.current;
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           audioRef.current.effect("hit", settingsRef.current.soundVolume);
           hit = true;
@@ -1972,6 +2029,10 @@ export default function Game() {
         if (b.fromPlayer) return true;
         const bw = 8, bh = 8;
         if (!rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh, playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H)) return true;
+        if (ultimateActiveRef.current > 0) {
+          spawnExplosion(particlesRef.current, b.x, b.y, false);
+          return false;
+        }
         const protection = applyPlayerHitProtection({
           shieldTimer: shieldTimerRef.current,
           shieldHp: playerShieldHpRef.current,
@@ -2101,7 +2162,23 @@ export default function Game() {
         ctx.fillText("BEWEGUNG BLOCKIERT", playerRef.current.x + PLAYER_W / 2, playerRef.current.y - 10);
         ctx.restore();
       }
-      if (stealthActiveRef.current > 0) {
+      if (ultimateActiveRef.current > 0) {
+        const cx = playerRef.current.x + PLAYER_W / 2;
+        const cy = playerRef.current.y + PLAYER_H / 2;
+        ctx.save();
+        ctx.translate(cx, cy); ctx.scale(1.16, 1.16); ctx.translate(-cx, -cy);
+        drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, activeSkinRef.current, "#35bfff");
+        ctx.restore();
+        ctx.save();
+        ctx.strokeStyle = "#35bfff"; ctx.shadowColor = "#35bfff"; ctx.shadowBlur = 18; ctx.lineWidth = 2;
+        for (const e of enemiesRef.current) {
+          const ex = e.x + e.width / 2, ey = e.y + e.height / 2;
+          ctx.beginPath(); ctx.moveTo(cx, cy);
+          for (let i = 1; i < 6; i++) ctx.lineTo(cx + (ex - cx) * i / 6, cy + (ey - cy) * i / 6 + Math.sin(timeRef.current * .4 + i) * 7);
+          ctx.lineTo(ex, ey); ctx.stroke();
+        }
+        ctx.restore();
+      } else if (stealthActiveRef.current > 0) {
         ctx.save();
         ctx.globalAlpha = 0.15 + 0.1 * Math.sin(timeRef.current * 0.25);
         ctx.shadowColor = "#00ffee"; ctx.shadowBlur = 20;
@@ -2147,11 +2224,11 @@ export default function Game() {
       if (gs.score > bestScoreRef.current) { bestScoreRef.current = gs.score; saveHighScore(gs.score); }
 
       // ── HUD ──
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, bestScoreRef.current, activeUnlocksRef.current);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, ultimateChargeRef.current, ultimateActiveRef.current, bestScoreRef.current, activeUnlocksRef.current);
 
       // ── Virtual controls overlay ──
       if (showVirtualControlsRef.current) {
-        drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, activeUnlocksRef.current);
+        drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, ultimateChargeRef.current, ultimateActiveRef.current, activeUnlocksRef.current);
       }
 
       // Sync display once per ~30 frames for React state
@@ -2755,7 +2832,7 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, selectedDroneSkin, onB
                 borderBottom: `1px solid ${owned ? "#00aa4444" : "#334"}`,
                 borderLeft: `5px solid ${rarity.color}`,
                 borderRight: `5px solid ${rarity.color}`,
-                boxShadow: item.rarity === "legendary" ? `0 0 14px ${rarity.glow}` : undefined,
+                boxShadow: item.rarity === "legendary" || item.rarity === "ultraLegendary" ? `0 0 14px ${rarity.glow}` : undefined,
               }}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -2857,7 +2934,7 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
   ];
   const keyboardHelp = language === "de" ? KEYBOARD_CONTROL_HELP : [
     ["WASD / Arrow keys", "Move"], ["SPACE", "Shoot"], ["Q", "Clone ultimate"],
-    ["E", "Laser ultimate"], ["R", "Stealth ultimate"], ["H", "Healing ultimate"], ["P", "Pause"],
+    ["E", "Laser ultimate"], ["R", "Stealth ultimate"], ["H", "Healing ultimate"], ["U", "Ultimate Ulti"], ["P", "Pause"],
   ] as const;
 
   return (
@@ -2913,7 +2990,7 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
   const language = settings.language;
   const keyboardHelp = language === "de" ? KEYBOARD_CONTROL_HELP : [
     ["WASD / Arrow keys", "Move"], ["SPACE", "Shoot"], ["Q", "Clone ultimate"],
-    ["E", "Laser ultimate"], ["R", "Stealth ultimate"], ["H", "Healing ultimate"], ["P", "Pause"],
+    ["E", "Laser ultimate"], ["R", "Stealth ultimate"], ["H", "Healing ultimate"], ["U", "Ultimate Ulti"], ["P", "Pause"],
   ] as const;
   const mobileHelp = language === "de" ? MOBILE_CONTROL_HELP : [
     "Left side -> Joystick (move)", "FIRE -> Shoot", "CLONE -> Clone ultimate (Q)",
@@ -3019,6 +3096,16 @@ const HEAL_DURATION = 120;
 const HEAL_BTN_X = CANVAS_W - 340;
 const HEAL_BTN_Y = CANVAS_H - 195;
 const HEAL_BTN_R = 36;
+const ULTIMATE_MAX = STEALTH_MAX;
+const ULTIMATE_DURATION = 600;
+const ULTIMATE_CHARGE_RATE = 0.0125;
+const ULTIMATE_DOT_INTERVAL = 180;
+const ULTIMATE_DOT_DAMAGE = 5;
+const ULTIMATE_HEAL = 3;
+const ULTIMATE_SLOW_FACTOR = 0.45;
+const ULTIMATE_BTN_X = CANVAS_W - 340;
+const ULTIMATE_BTN_Y = CANVAS_H - 300;
+const ULTIMATE_BTN_R = 38;
 
 function drawVirtualControls(
   ctx: CanvasRenderingContext2D,
@@ -3032,6 +3119,8 @@ function drawVirtualControls(
   stealthActive: number,
   healCharge: number,
   healActive: number,
+  ultimateCharge: number,
+  ultimateActive: number,
   unlocks: string[],
 ) {
   ctx.save();
@@ -3181,6 +3270,23 @@ function drawVirtualControls(
     ctx.strokeStyle = "#ff4466"; ctx.lineWidth = 4; ctx.stroke();
   }
 
+  if (unlocks.includes("ultimate_ulti")) {
+    const ready = ultimateCharge >= ULTIMATE_MAX && ultimateActive === 0;
+    ctx.globalAlpha = ready ? 0.9 : 0.5;
+    ctx.beginPath(); ctx.arc(ULTIMATE_BTN_X, ULTIMATE_BTN_Y, ULTIMATE_BTN_R, 0, Math.PI * 2);
+    ctx.fillStyle = ultimateActive > 0 ? "#0088ff88" : "#001b4433";
+    ctx.strokeStyle = ready || ultimateActive > 0 ? "#45d8ff" : "#17608a";
+    ctx.lineWidth = 3; ctx.fill(); ctx.stroke();
+    if (ultimateActive === 0 && ultimateCharge < ULTIMATE_MAX) {
+      ctx.beginPath();
+      ctx.arc(ULTIMATE_BTN_X, ULTIMATE_BTN_Y, ULTIMATE_BTN_R - 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ultimateCharge / ULTIMATE_MAX);
+      ctx.strokeStyle = "#22aaff"; ctx.lineWidth = 4; ctx.stroke();
+    }
+    ctx.globalAlpha = 1; ctx.fillStyle = "#8eeaff"; ctx.font = "bold 10px 'Inter', sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(ultimateActive > 0 ? "ULTIMATE!" : "ULTIMATE", ULTIMATE_BTN_X, ULTIMATE_BTN_Y);
+  }
+
   ctx.globalAlpha = healReady ? 0.95 : 0.55;
   ctx.fillStyle = healActive > 0 ? "#ff6699" : healReady ? "#ff4466" : "#884455";
   ctx.font = `bold ${healReady ? 10 : 9}px 'Inter', sans-serif`;
@@ -3191,7 +3297,7 @@ function drawVirtualControls(
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, bestScore: number, unlocks: string[]) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, ultimateCharge: number, ultimateActive: number, bestScore: number, unlocks: string[]) {
   ctx.save();
   ctx.textBaseline = "top";
 
@@ -3304,6 +3410,10 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   if (unlocks.includes("heal_ulti")) {
     drawUltBar("HEAL", "H", healCharge, HEAL_MAX, healActive, HEAL_DURATION,
       16, 73, 120, 5, ["#ff6699","#ff0044"], ["#aa2233","#ff3366"], "#ff4466");
+  }
+  if (unlocks.includes("ultimate_ulti")) {
+    drawUltBar("OMEGA", "U", ultimateCharge, ULTIMATE_MAX, ultimateActive, ULTIMATE_DURATION,
+      190, 63, 120, 5, ["#55e8ff", "#087cff"], ["#075080", "#28c8ff"], "#62ddff");
   }
 
   ctx.restore();
