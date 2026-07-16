@@ -113,7 +113,14 @@ interface GameSettings {
   reducedMotion: boolean;
   highContrast: boolean;
   touchControls: "auto" | "always" | "never";
+  soundVolume: number;
+  musicVolume: number;
 }
+
+type RunUpgradeId = "rapid_fire" | "damage" | "max_hp" | "drone" | "critical" | "shield";
+interface RunUpgrade { id: RunUpgradeId; icon: string; name: string; description: string }
+interface RunStats { kills: number; bosses: number; damageTaken: number; powerUps: number }
+interface Achievement { id: string; icon: string; name: string; description: string; target: number; reward: number; stat: keyof RunStats }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -229,7 +236,27 @@ const DEFAULT_SETTINGS: GameSettings = {
   reducedMotion: false,
   highContrast: false,
   touchControls: "auto",
+  soundVolume: 0.65,
+  musicVolume: 0.25,
 };
+
+const RUN_UPGRADES: RunUpgrade[] = [
+  { id: "rapid_fire", icon: "⚡", name: "Overdrive", description: "20% schneller feuern (stapelbar)" },
+  { id: "damage", icon: "💥", name: "Schwere Munition", description: "+1 Schaden für alle Geschosse" },
+  { id: "max_hp", icon: "❤", name: "Nanopanzerung", description: "+3 maximale HP und sofort heilen" },
+  { id: "drone", icon: "🛸", name: "Kampfdrohne", description: "Eine Drohne feuert automatisch mit" },
+  { id: "critical", icon: "🎯", name: "Zielcomputer", description: "15% Chance auf dreifachen Schaden" },
+  { id: "shield", icon: "🛡", name: "Notfallschild", description: "Sofort ein Schild; lädt nach Bossen neu" },
+];
+const ACHIEVEMENT_KEY = "fighter-command-achievements";
+const ACHIEVEMENTS: Achievement[] = [
+  { id: "first_sortie", icon: "✈", name: "Erster Einsatz", description: "Besiege 10 Gegner", target: 10, reward: 500, stat: "kills" },
+  { id: "ace", icon: "🎯", name: "Fliegerass", description: "Besiege 100 Gegner in einem Einsatz", target: 100, reward: 3000, stat: "kills" },
+  { id: "boss_hunter", icon: "☠", name: "Bossjäger", description: "Besiege 3 Bosse in einem Einsatz", target: 3, reward: 5000, stat: "bosses" },
+  { id: "collector", icon: "💎", name: "Sammler", description: "Sammle 10 Power-ups in einem Einsatz", target: 10, reward: 2000, stat: "powerUps" },
+];
+function loadAchievements(): string[] { try { return JSON.parse(localStorage.getItem(ACHIEVEMENT_KEY) ?? "[]") as string[]; } catch { return []; } }
+function saveAchievements(ids: string[]) { try { localStorage.setItem(ACHIEVEMENT_KEY, JSON.stringify(ids)); } catch {} }
 function saveHighScore(s: number) { try { if (s > loadHighScore()) localStorage.setItem(HS_KEY, String(s)); } catch {} }
 function loadHighScore(): number  { try { return parseInt(localStorage.getItem(HS_KEY) ?? "0", 10) || 0; } catch { return 0; } }
 function addCoins(n: number)      { try { localStorage.setItem(COINS_KEY, String(loadCoins() + n)); } catch {} }
@@ -665,6 +692,39 @@ function spawnExplosion(particles: Particle[], x: number, y: number, big: boolea
   }
 }
 
+// Small synthesizer: keeps the game self-contained without external audio files.
+class GameAudio {
+  context: AudioContext | null = null;
+  musicTimer = 0;
+  musicStep = 0;
+  ensure() {
+    this.context ??= new AudioContext();
+    if (this.context.state === "suspended") void this.context.resume();
+  }
+  tone(frequency: number, duration: number, volume: number, type: OscillatorType = "square", slide = 0) {
+    if (volume <= 0) return;
+    this.ensure();
+    const ac = this.context!; const osc = ac.createOscillator(); const gain = ac.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(frequency, ac.currentTime);
+    if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(30, frequency + slide), ac.currentTime + duration);
+    gain.gain.setValueAtTime(Math.max(0.0001, volume), ac.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + duration);
+    osc.connect(gain); gain.connect(ac.destination); osc.start(); osc.stop(ac.currentTime + duration);
+  }
+  effect(kind: "shoot" | "hit" | "explosion" | "pickup" | "boss" | "upgrade", volume: number) {
+    const map = { shoot: [720, .04, "square", -180], hit: [150, .07, "sawtooth", -70], explosion: [90, .28, "sawtooth", -50], pickup: [620, .16, "sine", 500], boss: [55, .7, "sawtooth", -20], upgrade: [440, .35, "triangle", 440] } as const;
+    const [f, d, t, s] = map[kind]; this.tone(f, d, volume * (kind === "shoot" ? .16 : .35), t, s);
+  }
+  updateMusic(level: number, volume: number, dtScale: number) {
+    if (volume <= 0) return;
+    this.musicTimer -= dtScale;
+    if (this.musicTimer > 0) return;
+    this.musicTimer = level >= 50 ? 22 : level >= 20 ? 28 : 34;
+    const notes = level >= 50 ? [110, 165, 220, 196, 165, 247] : level >= 20 ? [130, 164, 196, 220] : [98, 123, 147, 123];
+    this.tone(notes[this.musicStep++ % notes.length], .22, volume * .12, "triangle");
+  }
+}
+
 // ─── Main Game Component ──────────────────────────────────────────────────────
 
 export default function Game() {
@@ -734,6 +794,13 @@ export default function Game() {
   const language = settings.language;
   const [pauseView, setPauseView] = useState<"menu" | "settings">("menu");
   const [tutorialStage, setTutorialStage] = useState(-1);
+  const audioRef = useRef(new GameAudio());
+  const runUpgradesRef = useRef<Record<RunUpgradeId, number>>({ rapid_fire: 0, damage: 0, max_hp: 0, drone: 0, critical: 0, shield: 0 });
+  const runStatsRef = useRef<RunStats>({ kills: 0, bosses: 0, damageTaken: 0, powerUps: 0 });
+  const [runUpgradeChoices, setRunUpgradeChoices] = useState<RunUpgrade[]>([]);
+  const upgradeLevelRef = useRef(0);
+  const [achievementToast, setAchievementToast] = useState<Achievement | null>(null);
+  const [achievements, setAchievements] = useState<string[]>(() => loadAchievements());
   const tutorialStageRef = useRef(-1);
   const [fullscreenSupported] = useState(() => {
     const root = document.documentElement as FullscreenElement;
@@ -749,6 +816,23 @@ export default function Game() {
     setSettings(next);
     saveSettings(next);
   }, []);
+
+  const checkAchievements = useCallback(() => {
+    const owned = loadAchievements();
+    const unlocked = ACHIEVEMENTS.find(a => !owned.includes(a.id) && runStatsRef.current[a.stat] >= a.target);
+    if (!unlocked) return;
+    const next = [...owned, unlocked.id];
+    saveAchievements(next); addCoins(unlocked.reward); setAchievements(next); setCoins(loadCoins());
+    setAchievementToast(unlocked); audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
+    window.setTimeout(() => setAchievementToast(current => current?.id === unlocked.id ? null : current), 3500);
+  }, []);
+
+  const chooseRunUpgrade = useCallback((upgrade: RunUpgrade) => {
+    runUpgradesRef.current[upgrade.id] += 1;
+    if (upgrade.id === "max_hp") { stateRef.current.maxHp += 3; stateRef.current.hp = stateRef.current.maxHp; }
+    if (upgrade.id === "shield") { shieldTimerRef.current = 600; playerShieldHpRef.current = PLAYER_SHIELD_HP; }
+    setRunUpgradeChoices([]); stateRef.current.paused = false; audioRef.current.effect("upgrade", settingsRef.current.soundVolume); syncDisplay();
+  }, [syncDisplay]);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -844,7 +928,7 @@ export default function Game() {
     } else if (level >= 7 && roll < 0.10) {
       type = "gunship"; hp = 8 + level * 2; w = 64; h = 46; vx = -rand(0.5, 1.0); pts = 80; color = "#ff6600";
     } else if (level >= 12 && roll < 0.118) {
-      type = "emeraldtiefighter"; hp = 8; w = 48; h = 44; vx = -rand(2.0, 3.2); pts = 90; color = "#39ff88";
+      type = "emeraldtiefighter"; hp = 12; w = 48; h = 44; vx = -rand(2.0, 3.2); pts = 90; color = "#39ff88";
     } else if (level >= 10 && roll < (level >= 12 ? 0.298 : 0.28)) {
       type = "tiefighter"; hp = 5; w = 42; h = 38; vx = -rand(2.0, 3.2); pts = 45; color = "#0099ff";
     } else if (level >= 5 && roll < 0.38) {
@@ -876,7 +960,8 @@ export default function Game() {
   const fireBullets = useCallback((now: number) => {
     const gs = stateRef.current;
     const tier = WEAPON_TIERS[gs.weaponTier];
-    if (now - lastFireRef.current < tier.fireRate) return;
+    const fireRate = tier.fireRate * Math.pow(0.8, runUpgradesRef.current.rapid_fire);
+    if (now - lastFireRef.current < fireRate) return;
     lastFireRef.current = now;
     const px = playerRef.current.x + PLAYER_W;
     const py = playerRef.current.y + PLAYER_H / 2;
@@ -898,10 +983,15 @@ export default function Game() {
         x: px, y: py + oy,
         vx, vy,
         fromPlayer: true,
-        damage: tier.bulletDmg,
+        damage: tier.bulletDmg + runUpgradesRef.current.damage,
         color: activeBulletColorRef.current,
       });
     });
+    audioRef.current.effect("shoot", settingsRef.current.soundVolume);
+
+    if (runUpgradesRef.current.drone > 0) {
+      bulletsRef.current.push({ x: px - 10, y: py - 34, vx: BASE_BULLET_SPEED, vy: 0, fromPlayer: true, damage: 1 + runUpgradesRef.current.damage, color: "#b86cff" });
+    }
 
     // Clone fires when ultima active
     if (ultimaActiveRef.current > 0) {
@@ -944,6 +1034,10 @@ export default function Game() {
     n1ShieldTimerRef.current = 0;
     playerShieldHpRef.current = 0;
     bestScoreRef.current = loadHighScore();
+    runUpgradesRef.current = { rapid_fire: 0, damage: 0, max_hp: 0, drone: 0, critical: 0, shield: 0 };
+    runStatsRef.current = { kills: 0, bosses: 0, damageTaken: 0, powerUps: 0 };
+    upgradeLevelRef.current = 0;
+    setRunUpgradeChoices([]);
     const baseMaxHp = unlocks.includes("max_hp") ? 15 : 10;
     const baseSpeed = 3.2 + (unlocks.includes("speed_item") ? 0.5 : 0);
     stateRef.current = {
@@ -1321,6 +1415,8 @@ export default function Game() {
         return;
       }
 
+      audioRef.current.updateMusic(gs.level, settingsRef.current.musicVolume, dtScale);
+
       // ── Input & Player Movement ──
       const speedMult = (activeSkinRef.current?.id === "n1" ? 1.15 : 1) * (speedBoostRef.current > 0 ? 2 : 1);
       const spd = gs.speed * speedMult;
@@ -1364,6 +1460,11 @@ export default function Game() {
         gs.speed = 3.2 + (nextLevel - 1) * 0.25;
         saveGame(gs);
         saveExistsRef.current = true;
+        if (nextLevel >= 5 && nextLevel % 5 === 0 && upgradeLevelRef.current !== nextLevel) {
+          upgradeLevelRef.current = nextLevel;
+          const choices = [...RUN_UPGRADES].sort(() => Math.random() - 0.5).slice(0, 3);
+          setRunUpgradeChoices(choices); gs.paused = true; syncDisplay();
+        }
       }
 
       // ── Milestone boss: spawn a mega-boss when entering key levels ──
@@ -1386,6 +1487,7 @@ export default function Game() {
           angle: 0,
           oscillate: 0,
         });
+        audioRef.current.effect("boss", settingsRef.current.soundVolume);
       }
 
       // ── Spawn enemies ──
@@ -1506,6 +1608,10 @@ export default function Game() {
             const dodgeDecay = Math.max(0, 1 - e.bossVyTimer / 90);
             e.vy = (e.bossVyDir ?? 0) * 2.2 * dodgeDecay;
           }
+          // Three phases: movement and attacks intensify below 60% and 30% HP.
+          const phase = e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1;
+          e.color = phase === 3 ? "#ff3300" : phase === 2 ? "#ff00aa" : e.color;
+          if (phase >= 2) e.vy += Math.sin(timeRef.current * .055) * (phase === 3 ? 1.7 : .9);
 
           // Homing missile every 4 s (level 10+)
           if (gs.level >= 10) {
@@ -1552,7 +1658,8 @@ export default function Game() {
         // Enemy shooting
         e.shootCooldown -= dtScale;
         if (e.shootCooldown <= 0) {
-          e.shootCooldown = e.type === "boss" ? 25 : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
+          const bossPhase = e.type === "boss" ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
+          e.shootCooldown = e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
           if (e.type === "tiefighter" || e.type === "emeraldtiefighter") {
             // TIE Fighter: aimed shot toward player
             const px = playerRef.current.x + PLAYER_W / 2;
@@ -1568,7 +1675,7 @@ export default function Game() {
               stunFrames: e.type === "emeraldtiefighter" ? 120 : undefined,
             });
           } else {
-            const shotCount = e.type === "boss" ? 3 : e.type === "bomber" ? 2 : 1;
+            const shotCount = e.type === "boss" ? (bossPhase === 3 ? 7 : bossPhase === 2 ? 5 : 3) : e.type === "bomber" ? 2 : 1;
             for (let s = 0; s < shotCount; s++) {
               const spread = (s - (shotCount - 1) / 2) * 0.25;
               bulletsRef.current.push({
@@ -1576,6 +1683,7 @@ export default function Game() {
                 vx: -ENEMY_BULLET_SPEED + (e.type === "boss" ? -1 : 0),
                 vy: spread * ENEMY_BULLET_SPEED,
                 fromPlayer: false, damage: e.type === "boss" ? 3 : 2,
+                color: e.type === "boss" && bossPhase === 3 ? "#ff3300" : undefined,
               });
             }
           }
@@ -1619,14 +1727,20 @@ export default function Game() {
           const bw = b.isMissile ? 14 : 14;
           const bh = b.isMissile ? 8 : 4;
           if (!rectHit(b.x, b.y - bh / 2, bw, bh, e.x, e.y, e.width, e.height)) return true;
-          const damageResult = applyEnemyDamage(e, b.damage);
+          const critical = runUpgradesRef.current.critical > 0 && Math.random() < Math.min(.45, .15 * runUpgradesRef.current.critical);
+          const damageResult = applyEnemyDamage(e, b.damage * (critical ? 3 : 1));
           e.hp = damageResult.hp;
           e.shieldHp = damageResult.shieldHp;
           spawnExplosion(particlesRef.current, b.x, b.y, false);
+          audioRef.current.effect("hit", settingsRef.current.soundVolume);
           hit = true;
           if (damageResult.destroyed) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, e.type === "boss");
             gs.score += e.points;
+            runStatsRef.current.kills += 1;
+            if (e.type === "boss") runStatsRef.current.bosses += 1;
+            checkAchievements();
+            audioRef.current.effect("explosion", settingsRef.current.soundVolume);
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current +
               (e.type === "boss" ? 90 : e.type === "bomber" ? 40 : e.type === "fighter" ? 22 : 12));
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current +
@@ -1636,6 +1750,7 @@ export default function Game() {
             if (e.type === "boss") {
               powerUpsRef.current.push({ x: e.x + e.width / 2, y: e.y + e.height / 2, type: "health", vy: 1.2 });
               stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + 50);
+              if (runUpgradesRef.current.shield > 0) { shieldTimerRef.current = 600; playerShieldHpRef.current = PLAYER_SHIELD_HP; }
             }
             healChargeRef.current = Math.min(HEAL_MAX, healChargeRef.current +
               (e.type === "boss" ? 60 : e.type === "bomber" ? 28 : e.type === "fighter" ? 14 : 8));
@@ -1675,6 +1790,7 @@ export default function Game() {
           return false;
         }
         const bulletDmg = activeUnlocksRef.current.includes("armor") ? Math.max(0.5, b.damage * 0.5) : b.damage;
+        runStatsRef.current.damageTaken += bulletDmg;
         const nextLifeState = applyPlayerDamage(gs, bulletDmg);
         gs.hp = nextLifeState.hp;
         gs.lives = nextLifeState.lives;
@@ -1710,6 +1826,8 @@ export default function Game() {
         ctx.restore();
         // Pickup
         if (dist(playerRef.current, p) < 24) {
+          runStatsRef.current.powerUps += 1; checkAchievements();
+          audioRef.current.effect("pickup", settingsRef.current.soundVolume);
           if (p.type === "health") gs.hp = Math.min(gs.maxHp, gs.hp + 3);
           if (p.type === "shield") {
             shieldTimerRef.current = 300;
@@ -1757,6 +1875,9 @@ export default function Game() {
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, e.type === "boss");
             gs.score += e.points;
+            runStatsRef.current.kills += 1;
+            if (e.type === "boss") runStatsRef.current.bosses += 1;
+            checkAchievements(); audioRef.current.effect("explosion", settingsRef.current.soundVolume);
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (e.type === "boss" ? 50 : 8));
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + (e.type === "boss" ? 30 : 5));
             stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + (e.type === "boss" ? 30 : 4));
@@ -1837,7 +1958,7 @@ export default function Game() {
 
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [fireBullets, spawnEnemy, startGame, syncDisplay]);
+  }, [checkAchievements, fireBullets, spawnEnemy, startGame, syncDisplay]);
 
   const handleSkinSelect = (id: string) => {
     const skin = JET_SKINS.find(s => s.id === id);
@@ -1884,6 +2005,30 @@ export default function Game() {
           style={{ objectFit: "contain", touchAction: "none" }}
           tabIndex={0}
         />
+        {achievementToast && (
+          <div className="absolute left-1/2 top-4 z-50 w-[min(90%,390px)] -translate-x-1/2 rounded-xl border border-amber-300 bg-slate-950/95 p-3 text-center shadow-[0_0_30px_#ffcc0066]">
+            <div className="text-xs font-black uppercase tracking-[.25em] text-amber-300">Erfolg freigeschaltet</div>
+            <div className="mt-1 text-lg font-black text-white">{achievementToast.icon} {achievementToast.name}</div>
+            <div className="text-sm text-slate-300">+{achievementToast.reward.toLocaleString("de-DE")} Credits</div>
+          </div>
+        )}
+        {runUpgradeChoices.length > 0 && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/90 p-4">
+            <div className="w-full max-w-2xl text-center">
+              <div className="text-xs font-black uppercase tracking-[.3em] text-violet-300">Sektor geschafft</div>
+              <h2 className="mt-2 text-3xl font-black text-white">WÄHLE EIN UPGRADE</h2>
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                {runUpgradeChoices.map(upgrade => (
+                  <button key={upgrade.id} onClick={() => chooseRunUpgrade(upgrade)} className="rounded-2xl border border-violet-400/60 bg-violet-950/60 p-5 text-left transition hover:-translate-y-1 hover:border-violet-200 hover:bg-violet-900/70">
+                    <div className="text-4xl">{upgrade.icon}</div><div className="mt-3 font-black text-white">{upgrade.name}</div>
+                    <div className="mt-1 text-sm text-slate-300">{upgrade.description}</div>
+                    {runUpgradesRef.current[upgrade.id] > 0 && <div className="mt-3 text-xs font-bold text-violet-300">Aktuell: Stufe {runUpgradesRef.current[upgrade.id]}</div>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         {displayState.started && !displayState.gameOver && (
           <div className="absolute top-[54px] right-2 z-10 flex gap-1.5">
             {fullscreenSupported && (
@@ -1931,6 +2076,7 @@ export default function Game() {
             }}
             settings={settings}
             onSettingsChange={updateSettings}
+            achievements={achievements}
           />
         )}
         {displayState.started && displayState.paused && (
@@ -1977,7 +2123,7 @@ export default function Game() {
 function HangarOverlay({
   selectedSkin, coins, highScore, unlockedItems, hasSave, saveData,
   onStart, onNewGame, onSkinSelect, onBuy, onUnlockSkin, onAdminActivate,
-  fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange,
+  fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
   selectedSkin: string; coins: number; highScore: number;
   unlockedItems: string[]; hasSave: boolean; saveData: { level: number; score: number; weaponTier: number } | null;
@@ -1986,9 +2132,10 @@ function HangarOverlay({
   onAdminActivate: () => void;
   fullscreenSupported: boolean; isFullscreen: boolean; onFullscreenToggle: () => void;
   settings: GameSettings; onSettingsChange: (settings: GameSettings) => void;
+  achievements: string[];
 }) {
   const language = settings.language;
-  const [view, setView] = useState<"main" | "upgrades" | "settings" | "leaderboard">("main");
+  const [view, setView] = useState<"main" | "upgrades" | "settings" | "leaderboard" | "achievements">("main");
   const [hoverSkin, setHoverSkin] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState(() => loadName());
   const [bulletColor, setBulletColor] = useState(() => loadBulletColor());
@@ -2038,6 +2185,9 @@ function HangarOverlay({
       </div>
     );
   }
+  if (view === "achievements") {
+    return <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}><AchievementsScreen unlocked={achievements} onBack={() => setView("main")} /></div>;
+  }
 
   return (
     <div className="hangar-layer hangar-main absolute inset-0 flex flex-col items-center justify-between px-6 py-4 overflow-y-auto"
@@ -2058,6 +2208,7 @@ function HangarOverlay({
             style={{ background: "rgba(0,180,255,0.12)", border: "1px solid #1a4466", color: "#44aadd" }}>
             {translated(language, "🏆 RANGLISTE", "🏆 LEADERBOARD")}
           </button>
+          <button onClick={() => setView("achievements")} className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: "rgba(255,190,0,.12)", border: "1px solid #665018", color: "#ffcc44" }}>🏅 ERFOLGE {achievements.length}/{ACHIEVEMENTS.length}</button>
         </div>
       </div>
 
@@ -2393,6 +2544,16 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
+function AchievementsScreen({ unlocked, onBack }: { unlocked: string[]; onBack: () => void }) {
+  return <div className="flex h-full flex-col gap-4 overflow-y-auto p-4 text-white">
+    <div className="flex items-center gap-3"><button onClick={onBack} className="min-h-11 min-w-11 text-xl text-slate-300">←</button><h2 className="text-xl font-black tracking-wide">MISSIONEN & ERFOLGE</h2><span className="ml-auto text-amber-300">{unlocked.length}/{ACHIEVEMENTS.length}</span></div>
+    <p className="text-sm text-slate-400">Erfülle diese Ziele innerhalb eines Einsatzes. Belohnungen werden sofort gutgeschrieben.</p>
+    <div className="grid gap-3 sm:grid-cols-2">{ACHIEVEMENTS.map(a => { const done = unlocked.includes(a.id); return <div key={a.id} className="rounded-2xl border p-4" style={{ borderColor: done ? "#facc15" : "#334155", background: done ? "rgba(120,85,0,.2)" : "rgba(15,23,42,.7)" }}>
+      <div className="flex items-start gap-3"><div className={`text-3xl ${done ? "" : "grayscale opacity-40"}`}>{a.icon}</div><div><div className="font-black">{a.name} {done && "✓"}</div><div className="text-sm text-slate-400">{a.description}</div><div className="mt-2 text-xs font-bold text-amber-300">Belohnung: {a.reward.toLocaleString("de-DE")} Credits</div></div></div>
+    </div>})}</div>
+  </div>;
+}
+
 // ─── Settings Screen ──────────────────────────────────────────────────────────
 
 function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings; onChange: (settings: GameSettings) => void; onBack: () => void }) {
@@ -2424,6 +2585,8 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
         <SettingToggle label={translated(language, "Einführung anzeigen", "Show tutorial")} description={translated(language, "Erklärt Bewegung und Schießen beim ersten Start.", "Explains movement and shooting on the first start.")} checked={settings.tutorial} onClick={() => toggle("tutorial")} />
         <SettingToggle label={translated(language, "Bewegung reduzieren", "Reduce motion")} description={translated(language, "Reduziert dekorative Effekte und Animationen.", "Reduces decorative effects and animations.")} checked={settings.reducedMotion} onClick={() => toggle("reducedMotion")} />
         <SettingToggle label={translated(language, "Hoher Kontrast", "High contrast")} description={translated(language, "Verstärkt Texte, Rahmen und Bedienelemente.", "Strengthens text, borders and controls.")} checked={settings.highContrast} onClick={() => toggle("highContrast")} />
+        <VolumeSetting label={translated(language, "Soundeffekte", "Sound effects")} value={settings.soundVolume} onChange={value => onChange({ ...settings, soundVolume: value })} />
+        <VolumeSetting label={translated(language, "Musik", "Music")} value={settings.musicVolume} onChange={value => onChange({ ...settings, musicVolume: value })} />
         <label className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
           <span className="block text-sm font-bold">{translated(language, "Touch-Steuerung", "Touch controls")}</span>
           <span className="mb-2 block text-xs text-slate-400">{translated(language, "Virtuelle Steuerung im Spielfeld.", "Virtual controls in the play area.")}</span>
@@ -2462,6 +2625,10 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-slate-200"><strong className="text-amber-300">{translated(language, "Punkte → Credits:", "Points → credits:")}</strong> {translated(language, "Am Ende einer Mission erhältst du für jeden Punkt einen Credit. Beispiel: 1.000 Punkte = 1.000 Credits.", "At the end of a mission, you receive one credit for every point. Example: 1,000 points = 1,000 credits.")}</div>
     </div>
   );
+}
+
+function VolumeSetting({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  return <label className="rounded-xl border border-slate-700 bg-slate-900/70 p-3"><span className="flex justify-between text-sm font-bold"><span>{label}</span><span>{Math.round(value * 100)}%</span></span><input className="mt-3 w-full accent-cyan-400" type="range" min="0" max="1" step="0.05" value={value} onChange={e => onChange(Number(e.target.value))} /></label>;
 }
 
 function SettingToggle({ label, description, checked, onClick }: { label: string; description: string; checked: boolean; onClick: () => void }) {
