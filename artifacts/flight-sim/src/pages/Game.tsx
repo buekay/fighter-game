@@ -1789,7 +1789,7 @@ export default function Game() {
       } else if (stealthChargeRef.current < STEALTH_MAX && activeUnlocksRef.current.includes("stealth_ulti")) {
         stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + 0.10 * dtScale);
       }
-      // Lädt exakt achtmal langsamer als Stealth (0,0125 statt 0,10 pro Frame).
+      // Lädt viermal langsamer als Stealth (doppelt so schnell wie zuvor).
       if (ultimateActiveRef.current > 0) {
         ultimateActiveRef.current = Math.max(0, ultimateActiveRef.current - dtScale);
       } else if (ultimateChargeRef.current < ULTIMATE_MAX && activeUnlocksRef.current.includes("ultimate_ulti")) {
@@ -3098,13 +3098,13 @@ const HEAL_BTN_Y = CANVAS_H - 195;
 const HEAL_BTN_R = 36;
 const ULTIMATE_MAX = STEALTH_MAX;
 const ULTIMATE_DURATION = 600;
-const ULTIMATE_CHARGE_RATE = 0.0125;
+const ULTIMATE_CHARGE_RATE = 0.025;
 const ULTIMATE_DOT_INTERVAL = 180;
 const ULTIMATE_DOT_DAMAGE = 5;
 const ULTIMATE_HEAL = 3;
 const ULTIMATE_SLOW_FACTOR = 0.45;
 const ULTIMATE_BTN_X = CANVAS_W - 340;
-const ULTIMATE_BTN_Y = CANVAS_H - 300;
+const ULTIMATE_BTN_Y = CANVAS_H - 90;
 const ULTIMATE_BTN_R = 38;
 
 function drawVirtualControls(
