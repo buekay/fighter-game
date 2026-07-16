@@ -197,6 +197,7 @@ function clearSave() {
 // ─── Skins, shop & persistent data ───────────────────────────────────────────
 
 const SKIN_KEY    = "fighter-command-skin";
+const DRONE_SKIN_KEY = "fighter-command-drone-skin";
 const HS_KEY      = "fighter-command-hs";
 const COINS_KEY   = "fighter-command-coins";
 const UNLOCKS_KEY = "fighter-command-unlocks";
@@ -217,6 +218,15 @@ const JET_SKINS = [
   { id: "n1",         name: "N-1 Jäger",    body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 120000, rarity: "legendary" },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
+
+const DRONE_SKINS = [
+  { id: "drone_violet", name: "Violett", body: "#24153c", stroke: "#b86cff", core: "#f0d5ff", cost: 0, rarity: "rare" },
+  { id: "drone_ember", name: "Glut", body: "#3b1608", stroke: "#ff6a28", core: "#ffe0a8", cost: 25000, rarity: "rare" },
+  { id: "drone_ion", name: "Ion", body: "#092a38", stroke: "#22dfff", core: "#d9fbff", cost: 50000, rarity: "rare" },
+  { id: "drone_phantom", name: "Phantom", body: "#171224", stroke: "#e94cff", core: "#ffffff", cost: 80000, rarity: "epic" },
+  { id: "drone_solar", name: "Solar", body: "#332a05", stroke: "#ffe34c", core: "#fffbd1", cost: 120000, rarity: "legendary" },
+] as const;
+type DroneSkin = typeof DRONE_SKINS[number];
 
 interface ShopItem {
   id: string;
@@ -299,9 +309,11 @@ function spendCoins(n: number)    { try { const c = loadCoins(); if (c >= n) loc
 function loadCoins(): number      { try { return parseInt(localStorage.getItem(COINS_KEY) ?? "0", 10) || 0; } catch { return 0; } }
 function saveSkin(id: string)     { try { localStorage.setItem(SKIN_KEY, id); } catch {} }
 function loadSkin(): string       { try { return localStorage.getItem(SKIN_KEY) ?? "steel"; } catch { return "steel"; } }
+function saveDroneSkin(id: string) { try { localStorage.setItem(DRONE_SKIN_KEY, id); } catch {} }
+function loadDroneSkin(): string   { try { return localStorage.getItem(DRONE_SKIN_KEY) ?? "drone_violet"; } catch { return "drone_violet"; } }
 function addUnlock(id: string)    { try { const u = loadUnlocks(); if (!u.includes(id)) localStorage.setItem(UNLOCKS_KEY, JSON.stringify([...u, id])); } catch {} }
 function loadUnlocks(): string[]  { try { return JSON.parse(localStorage.getItem(UNLOCKS_KEY) ?? "[]") as string[]; } catch { return []; } }
-function unlockAll()              { try { const all = [...JET_SKINS.map(s => s.id), ...SHOP_ITEMS.map(i => i.id)]; localStorage.setItem(UNLOCKS_KEY, JSON.stringify(all)); } catch {} }
+function unlockAll()              { try { const all = [...JET_SKINS.map(s => s.id), ...DRONE_SKINS.map(s => s.id), ...SHOP_ITEMS.map(i => i.id)]; localStorage.setItem(UNLOCKS_KEY, JSON.stringify(all)); } catch {} }
 function saveName(n: string)      { try { localStorage.setItem(NAME_KEY, n); } catch {} }
 function loadName(): string       { try { return localStorage.getItem(NAME_KEY) ?? "Pilot"; } catch { return "Pilot"; } }
 function saveBulletColor(c: string) { try { localStorage.setItem(BULLET_COLOR_KEY, c); } catch {} }
@@ -732,17 +744,17 @@ function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
   ctx.restore();
 }
 
-function drawCombatDrone(ctx: CanvasRenderingContext2D, x: number, y: number, time: number) {
+function drawCombatDrone(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, skin: DroneSkin = DRONE_SKINS[0]) {
   ctx.save();
   ctx.translate(x, y + Math.sin(time * 0.08) * 4);
-  ctx.shadowColor = "#b86cff"; ctx.shadowBlur = 16;
+  ctx.shadowColor = skin.stroke; ctx.shadowBlur = 16;
   ctx.beginPath();
   ctx.moveTo(16, 0); ctx.lineTo(2, -8); ctx.lineTo(-13, -5); ctx.lineTo(-18, 0); ctx.lineTo(-13, 5); ctx.lineTo(2, 8); ctx.closePath();
-  ctx.fillStyle = "#24153c"; ctx.fill(); ctx.strokeStyle = "#b86cff"; ctx.lineWidth = 2; ctx.stroke();
-  ctx.beginPath(); ctx.arc(3, 0, 4, 0, Math.PI * 2); ctx.fillStyle = "#f0d5ff"; ctx.fill();
-  ctx.fillStyle = "#d5a0ff"; ctx.fillRect(13, -1.5, 10, 3);
+  ctx.fillStyle = skin.body; ctx.fill(); ctx.strokeStyle = skin.stroke; ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); ctx.arc(3, 0, 4, 0, Math.PI * 2); ctx.fillStyle = skin.core; ctx.fill();
+  ctx.fillStyle = skin.stroke; ctx.fillRect(13, -1.5, 10, 3);
   const glow = ctx.createRadialGradient(-16, 0, 1, -16, 0, 12);
-  glow.addColorStop(0, "#b86cffaa"); glow.addColorStop(1, "transparent");
+  glow.addColorStop(0, skin.stroke + "aa"); glow.addColorStop(1, "transparent");
   ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(-16, 0, 12, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
@@ -870,6 +882,7 @@ export default function Game() {
   const milestoneBossFiredRef = useRef<Set<number>>(new Set());
   const gameOverCountdownRef = useRef(0);
   const activeSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadSkin()) ?? JET_SKINS[0]);
+  const activeDroneSkinRef = useRef<DroneSkin>(DRONE_SKINS.find(s => s.id === loadDroneSkin()) ?? DRONE_SKINS[0]);
   const activeUnlocksRef = useRef<string[]>([]);
   const stealthChargeRef = useRef(0);
   const stealthActiveRef = useRef(0);
@@ -882,6 +895,7 @@ export default function Game() {
   const activeBulletColorRef = useRef(loadBulletColor());
   const playerNameRef = useRef(loadName());
   const [selectedSkin, setSelectedSkin] = useState(() => loadSkin());
+  const [selectedDroneSkin, setSelectedDroneSkin] = useState(() => loadDroneSkin());
   const [coins, setCoins] = useState(() => loadCoins());
   const [highScore] = useState(() => loadHighScore());
   const [unlockedItems, setUnlockedItems] = useState<string[]>(() => loadUnlocks());
@@ -2074,7 +2088,7 @@ export default function Game() {
       }
       const droneX = playerRef.current.x + PLAYER_W / 2;
       const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22);
-      drawCombatDrone(ctx, droneX, droneY, timeRef.current);
+      drawCombatDrone(ctx, droneX, droneY, timeRef.current, activeDroneSkinRef.current);
 
       // ── Engine exhaust ──
       if (Math.random() < 1 - Math.pow(0.6, dtScale)) {
@@ -2121,6 +2135,14 @@ export default function Game() {
     activeSkinRef.current = skin;
   };
 
+  const handleDroneSkinSelect = (id: string) => {
+    const skin = DRONE_SKINS.find(s => s.id === id);
+    if (!skin) return;
+    setSelectedDroneSkin(id);
+    saveDroneSkin(id);
+    activeDroneSkinRef.current = skin;
+  };
+
   const handleBuy = (itemId: string) => {
     const item = SHOP_ITEMS.find(i => i.id === itemId);
     if (!item) return;
@@ -2141,6 +2163,16 @@ export default function Game() {
     setCoins(loadCoins());
     setUnlockedItems(loadUnlocks());
     handleSkinSelect(skinId);
+  };
+
+  const handleUnlockDroneSkin = (skinId: string) => {
+    const skin = DRONE_SKINS.find(s => s.id === skinId);
+    if (!skin || skin.cost === 0 || loadCoins() < skin.cost) return;
+    spendCoins(skin.cost);
+    addUnlock(skinId);
+    setCoins(loadCoins());
+    setUnlockedItems(loadUnlocks());
+    handleDroneSkinSelect(skinId);
   };
 
   return (
@@ -2209,6 +2241,7 @@ export default function Game() {
         {!displayState.started && (
           <HangarOverlay
             selectedSkin={selectedSkin}
+            selectedDroneSkin={selectedDroneSkin}
             coins={coins}
             highScore={highScore}
             unlockedItems={unlockedItems}
@@ -2217,8 +2250,10 @@ export default function Game() {
             onStart={() => startGame(saveExistsRef.current)}
             onNewGame={() => startGame(false)}
             onSkinSelect={handleSkinSelect}
+            onDroneSkinSelect={handleDroneSkinSelect}
             onBuy={handleBuy}
             onUnlockSkin={handleUnlockSkin}
+            onUnlockDroneSkin={handleUnlockDroneSkin}
             fullscreenSupported={fullscreenSupported}
             isFullscreen={isFullscreen}
             onFullscreenToggle={toggleFullscreen}
@@ -2275,14 +2310,14 @@ export default function Game() {
 // ─── Hangar Overlay ───────────────────────────────────────────────────────────
 
 function HangarOverlay({
-  selectedSkin, coins, highScore, unlockedItems, hasSave, saveData,
-  onStart, onNewGame, onSkinSelect, onBuy, onUnlockSkin, onAdminActivate,
+  selectedSkin, selectedDroneSkin, coins, highScore, unlockedItems, hasSave, saveData,
+  onStart, onNewGame, onSkinSelect, onDroneSkinSelect, onBuy, onUnlockSkin, onUnlockDroneSkin, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
-  selectedSkin: string; coins: number; highScore: number;
+  selectedSkin: string; selectedDroneSkin: string; coins: number; highScore: number;
   unlockedItems: string[]; hasSave: boolean; saveData: { level: number; score: number; weaponTier: number } | null;
   onStart: () => void; onNewGame: () => void;
-  onSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void;
+  onSkinSelect: (id: string) => void; onDroneSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void; onUnlockDroneSkin: (id: string) => void;
   onAdminActivate: () => void;
   fullscreenSupported: boolean; isFullscreen: boolean; onFullscreenToggle: () => void;
   settings: GameSettings; onSettingsChange: (settings: GameSettings) => void;
@@ -2301,7 +2336,7 @@ function HangarOverlay({
   const previewRef = useRef<HTMLCanvasElement>(null);
   const activeSkinId = hoverSkin ?? selectedSkin;
   const skin = JET_SKINS.find(s => s.id === activeSkinId) ?? JET_SKINS[0];
-  const nextPurchase = [...JET_SKINS.filter(s => s.cost > 0 && !unlockedItems.includes(s.id)), ...SHOP_ITEMS.filter(i => !unlockedItems.includes(i.id))]
+  const nextPurchase = [...JET_SKINS.filter(s => s.cost > 0 && !unlockedItems.includes(s.id)), ...DRONE_SKINS.filter(s => s.cost > 0 && !unlockedItems.includes(s.id)), ...SHOP_ITEMS.filter(i => !unlockedItems.includes(i.id))]
     .sort((a, b) => a.cost - b.cost)[0];
 
   useEffect(() => {
@@ -2317,7 +2352,8 @@ function HangarOverlay({
     gg.addColorStop(0, skin.glow + "44"); gg.addColorStop(1, "transparent");
     ctx.fillStyle = gg; ctx.fillRect(0, 0, 240, 140);
     drawPlayerJet(ctx, 90, 56, 5, false, skin);
-  }, [activeSkinId, skin]);
+    drawCombatDrone(ctx, 105, 38, 0, DRONE_SKINS.find(s => s.id === selectedDroneSkin) ?? DRONE_SKINS[0]);
+  }, [activeSkinId, skin, selectedDroneSkin]);
 
   if (view === "briefing") {
     return (
@@ -2333,8 +2369,9 @@ function HangarOverlay({
   if (view === "upgrades") {
     return (
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
-        <ShopScreen coins={coins} unlockedItems={unlockedItems} selectedSkin={selectedSkin}
-          onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect} />
+        <ShopScreen coins={coins} unlockedItems={unlockedItems} selectedSkin={selectedSkin} selectedDroneSkin={selectedDroneSkin}
+          onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect}
+          onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} />
       </div>
     );
   }
@@ -2423,6 +2460,18 @@ function HangarOverlay({
                 }}
               />
             );
+          })}
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-slate-500 text-xs">Drohne:</span>
+          {DRONE_SKINS.map(s => {
+            const owned = s.cost === 0 || unlockedItems.includes(s.id);
+            return <button key={s.id} onClick={() => owned ? onDroneSkinSelect(s.id) : setView("upgrades")}
+              aria-label={owned ? `${s.name} Drohnen-Skin auswählen` : `${s.name} Drohnen-Skin gesperrt`}
+              title={owned ? s.name : `${s.name} — 🔒 ${s.cost.toLocaleString("de-DE")} Credits`}
+              style={{ width: 20, height: 20, borderRadius: "50%", background: s.stroke, opacity: owned ? 1 : .3,
+                border: selectedDroneSkin === s.id ? "3px solid #fff" : `2px solid ${s.stroke}66`,
+                boxShadow: selectedDroneSkin === s.id ? `0 0 10px ${s.stroke}` : "none" }} />;
           })}
         </div>
         {/* Bullet color picker */}
@@ -2577,10 +2626,11 @@ function ShopStarfield() {
   );
 }
 
-function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnlockSkin, onSkinSelect }: {
-  coins: number; unlockedItems: string[]; selectedSkin: string;
+function ShopScreen({ coins, unlockedItems, selectedSkin, selectedDroneSkin, onBack, onBuy, onUnlockSkin, onSkinSelect, onUnlockDroneSkin, onDroneSkinSelect }: {
+  coins: number; unlockedItems: string[]; selectedSkin: string; selectedDroneSkin: string;
   onBack: () => void; onBuy: (id: string) => void;
   onUnlockSkin: (id: string) => void; onSkinSelect: (id: string) => void;
+  onUnlockDroneSkin: (id: string) => void; onDroneSkinSelect: (id: string) => void;
 }) {
   return (
     <div className="relative flex flex-col h-full p-4 gap-3 overflow-y-auto select-none text-white">
@@ -2629,6 +2679,25 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, onBack, onBuy, onUnloc
               }
             </button>
           );
+        })}
+      </div>
+
+      <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest mt-1">Drohnen-Skins</div>
+      <div className="relative z-10 grid grid-cols-3 gap-2 shrink-0">
+        {DRONE_SKINS.map(s => {
+          const owned = s.cost === 0 || unlockedItems.includes(s.id);
+          const active = s.id === selectedDroneSkin;
+          const canAfford = coins >= s.cost;
+          const rarity = SHOP_RARITIES[s.rarity];
+          return <button key={s.id} onClick={() => owned ? onDroneSkinSelect(s.id) : canAfford ? onUnlockDroneSkin(s.id) : undefined}
+            className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all active:scale-95"
+            style={{ background: active ? s.stroke + "22" : "rgba(255,255,255,0.05)", border: `1px solid ${s.stroke}55`, borderLeft: `4px solid ${rarity.color}`, opacity: !owned && !canAfford ? .45 : 1 }}>
+            <div className="w-8 h-4 rounded-full" style={{ background: s.body, border: `2px solid ${s.stroke}`, boxShadow: `0 0 8px ${s.stroke}` }} />
+            <div className="text-xs font-bold">{s.name}</div>
+            <div className="text-[9px] font-black" style={{ color: rarity.color }}>{rarity.label}</div>
+            {owned ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div> :
+              <div className={`text-xs font-bold ${canAfford ? "text-amber-300" : "text-slate-500"}`}>{canAfford ? "💰" : "🔒"} {formatLockedSkinPrice(s.cost)}</div>}
+          </button>;
         })}
       </div>
 
