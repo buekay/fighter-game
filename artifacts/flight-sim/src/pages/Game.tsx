@@ -69,7 +69,7 @@ interface Enemy {
   vx: number; vy: number;
   hp: number; maxHp: number;
   width: number; height: number;
-  type: "scout" | "fighter" | "bomber" | "boss" | "interceptor" | "gunship" | "tiefighter" | "emeraldtiefighter";
+  type: "scout" | "fighter" | "bomber" | "boss" | "interceptor" | "gunship" | "tiefighter" | "emeraldtiefighter" | "plasmawing" | "sentinel";
   shootCooldown: number;
   points: number;
   color: string;
@@ -236,7 +236,7 @@ const SHOP_ITEMS: readonly ShopItem[] = [
   { id: "weapon_head",   name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                        cost: 50000,  rarity: "rare" },
   { id: "clone_upgrade", name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",      cost: 50000,  rarity: "rare" },
   { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 50000,  rarity: "rare" },
-  { id: "clone_laser",   name: "Clone-Laser",      desc: "Clone feuert während seiner Ulti einen Laser",          cost: 80000,  rarity: "epic", requires: "clone_upgrade" },
+  { id: "clone_laser",   name: "Clone-Laser",      desc: "Clone kopiert den Laser bei gleichzeitig aktiven Ultis",   cost: 80000,  rarity: "epic", requires: "clone_upgrade" },
   { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 120000, rarity: "legendary" },
   { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 120000, rarity: "legendary" },
   { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 50000,  rarity: "rare" },
@@ -606,6 +606,27 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       ctx.beginPath(); ctx.ellipse(2,0,5,3,0,0,Math.PI*2); ctx.fillStyle=e.color+"99"; ctx.fill();
       break;
     }
+    case "plasmawing": {
+      ctx.beginPath();
+      ctx.moveTo(22, 0); ctx.lineTo(-8, -7); ctx.lineTo(-24, -19); ctx.lineTo(-17, -3);
+      ctx.lineTo(-17, 3); ctx.lineTo(-24, 19); ctx.lineTo(-8, 7); ctx.closePath();
+      ctx.fillStyle = "#160022"; ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(3, 0, 6, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff"; ctx.shadowColor = e.color; ctx.shadowBlur = 14; ctx.fill();
+      break;
+    }
+    case "sentinel": {
+      ctx.beginPath();
+      ctx.moveTo(20, 0); ctx.lineTo(5, -17); ctx.lineTo(-18, -17); ctx.lineTo(-27, 0);
+      ctx.lineTo(-18, 17); ctx.lineTo(5, 17); ctx.closePath();
+      ctx.fillStyle = "#071522"; ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.beginPath(); ctx.rect(-12, -8, 18, 16); ctx.fillStyle = e.color + "66"; ctx.fill();
+      if ((e.shieldHp ?? 0) > 0) {
+        ctx.beginPath(); ctx.arc(-2, 0, 29, 0, Math.PI * 2);
+        ctx.strokeStyle = "#66ddff88"; ctx.lineWidth = 2; ctx.stroke();
+      }
+      break;
+    }
     case "gunship": {
       ctx.beginPath();
       ctx.moveTo(22,0); ctx.lineTo(-14,-20); ctx.lineTo(-32,-12); ctx.lineTo(-22,0); ctx.lineTo(-32,12); ctx.lineTo(-14,20);
@@ -773,9 +794,9 @@ class GameAudio {
       if (ready && ac) this.playTone(ac, frequency, duration, volume, type, slide);
     });
   }
-  effect(kind: "shoot" | "hit" | "explosion" | "pickup" | "boss" | "upgrade", volume: number) {
-    const map = { shoot: [720, .04, "square", -180], hit: [150, .07, "sawtooth", -70], explosion: [90, .28, "sawtooth", -50], pickup: [620, .16, "sine", 500], boss: [55, .7, "sawtooth", -20], upgrade: [440, .35, "triangle", 440] } as const;
-    const [f, d, t, s] = map[kind]; this.tone(f, d, volume * (kind === "shoot" ? .16 : .35), t, s);
+  effect(kind: "hit" | "explosion" | "pickup" | "boss" | "upgrade", volume: number) {
+    const map = { hit: [150, .07, "sawtooth", -70], explosion: [90, .28, "sawtooth", -50], pickup: [620, .16, "sine", 500], boss: [55, .7, "sawtooth", -20], upgrade: [440, .35, "triangle", 440] } as const;
+    const [f, d, t, s] = map[kind]; this.tone(f, d, volume * .35, t, s);
   }
   updateMusic(level: number, volume: number, dtScale: number) {
     if (volume <= 0) return;
@@ -1025,15 +1046,19 @@ export default function Game() {
       color = isSuperBoss ? "#ff00cc" : "#cc00ff";
     } else if (level >= 7 && roll < 0.10) {
       type = "gunship"; hp = 8 + level * 2; w = 64; h = 46; vx = -rand(0.5, 1.0); pts = 80; color = "#ff6600";
-    } else if (level >= 12 && roll < 0.118) {
+    } else if (level >= 12 && roll < 0.13) {
       type = "emeraldtiefighter"; hp = 12; w = 48; h = 44; vx = -rand(2.0, 3.2); pts = 90; color = "#39ff88";
-    } else if (level >= 10 && roll < (level >= 12 ? 0.298 : 0.28)) {
+    } else if (level >= 8 && roll < 0.20) {
+      type = "sentinel"; hp = 10 + level; w = 58; h = 42; vx = -rand(0.7, 1.2); pts = 75; color = "#55bbff";
+    } else if (level >= 10 && roll < 0.32) {
       type = "tiefighter"; hp = 5; w = 42; h = 38; vx = -rand(2.0, 3.2); pts = 45; color = "#0099ff";
-    } else if (level >= 5 && roll < 0.38) {
+    } else if (level >= 3 && roll < 0.44) {
+      type = "plasmawing"; hp = 2 + Math.floor(level / 3); w = 46; h = 34; vx = -rand(2.4, 3.8); pts = 35; color = "#cc55ff";
+    } else if (level >= 5 && roll < 0.55) {
       type = "interceptor"; hp = 1; w = 36; h = 22; vx = -rand(3.5, 5.5); pts = 20; color = "#00ffcc";
-    } else if (level >= 4 && roll < 0.36) {
+    } else if (level >= 4 && roll < 0.68) {
       type = "bomber"; hp = 4 + level; w = 56; h = 40; vx = -rand(0.8, 1.5); pts = 60; color = "#44ff44";
-    } else if (level >= 2 && roll < 0.55) {
+    } else if (level >= 2 && roll < 0.84) {
       type = "fighter"; hp = 2 + Math.floor(level / 2); w = 48; h = 28; vx = -rand(1.8, 3.2); pts = 30; color = "#ffcc00";
     }
 
@@ -1047,11 +1072,11 @@ export default function Game() {
       hp, maxHp: hp,
       width: w, height: h,
       type,
-      shootCooldown: type === "emeraldtiefighter" ? rand(80, 120) : type === "tiefighter" ? rand(40, 60) : rand(60, 120),
+      shootCooldown: type === "plasmawing" ? rand(35, 55) : type === "emeraldtiefighter" ? rand(80, 120) : type === "tiefighter" ? rand(40, 60) : rand(60, 120),
       points: pts, color,
       angle: 0,
-      oscillate: type === "scout" ? rand(-0.4, 0.4) : 0,
-      shieldHp: type === "emeraldtiefighter" ? 4 : type === "tiefighter" ? 2 : 0,
+      oscillate: type === "plasmawing" ? 1.6 : type === "scout" ? rand(-0.4, 0.4) : 0,
+      shieldHp: type === "sentinel" ? 6 : type === "emeraldtiefighter" ? 4 : type === "tiefighter" ? 2 : 0,
     });
   }, []);
 
@@ -1106,8 +1131,6 @@ export default function Game() {
         color: activeBulletColorRef.current,
       });
     });
-    audioRef.current.effect("shoot", settingsRef.current.soundVolume);
-
     // Clone fires when ultima active
     if (ultimaActiveRef.current > 0) {
       const cloneY = clamp(playerRef.current.y + PLAYER_H / 2 + 54, PLAYER_H, CANVAS_H - PLAYER_H);
@@ -1778,19 +1801,19 @@ export default function Game() {
         e.shootCooldown -= dtScale;
         if (e.shootCooldown <= 0) {
           const bossPhase = e.type === "boss" ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
-          e.shootCooldown = e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
-          if (e.type === "tiefighter" || e.type === "emeraldtiefighter") {
+          e.shootCooldown = e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
+          if (e.type === "tiefighter" || e.type === "emeraldtiefighter" || e.type === "plasmawing") {
             // TIE Fighter: aimed shot toward player
             const px = playerRef.current.x + PLAYER_W / 2;
             const py = playerRef.current.y + PLAYER_H / 2;
             const dx = px - e.x; const dy = py - (e.y + e.height / 2);
             const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-            const spd2 = ENEMY_BULLET_SPEED * 1.4;
+            const spd2 = ENEMY_BULLET_SPEED * (e.type === "plasmawing" ? 1.8 : 1.4);
             bulletsRef.current.push({
               x: e.x, y: e.y + e.height / 2,
               vx: dx / d * spd2, vy: dy / d * spd2,
-              fromPlayer: false, damage: 2,
-              color: e.type === "emeraldtiefighter" ? "#ff8fda" : undefined,
+              fromPlayer: false, damage: e.type === "plasmawing" ? 1 : 2,
+              color: e.type === "plasmawing" ? "#cc55ff" : e.type === "emeraldtiefighter" ? "#ff8fda" : undefined,
               stunFrames: e.type === "emeraldtiefighter" ? 120 : undefined,
             });
           } else {
@@ -1971,7 +1994,7 @@ export default function Game() {
       // ── Laser beams ──
       const laserBeams: number[] = [];
       if (laserActiveRef.current > 0) laserBeams.push(playerRef.current.y + PLAYER_H / 2);
-      if (ultimaActiveRef.current > 0 && activeUnlocksRef.current.includes("clone_laser")) {
+      if (laserActiveRef.current > 0 && ultimaActiveRef.current > 0 && activeUnlocksRef.current.includes("clone_laser")) {
         const cloneY = clamp(playerRef.current.y + 56, 0, CANVAS_H - PLAYER_H);
         laserBeams.push(cloneY + PLAYER_H / 2);
       }
