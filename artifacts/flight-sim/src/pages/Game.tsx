@@ -246,7 +246,7 @@ const SHOP_ITEMS: readonly ShopItem[] = [
   { id: "weapon_head",   name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                        cost: 50000,  rarity: "rare" },
   { id: "clone_upgrade", name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",      cost: 50000,  rarity: "rare" },
   { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 50000,  rarity: "rare" },
-  { id: "clone_laser",   name: "Clone-Laser",      desc: "Clone kopiert den Laser bei gleichzeitig aktiven Ultis",   cost: 80000,  rarity: "epic", requires: "clone_upgrade" },
+  { id: "clone_laser",   name: "Clone-Laser",      desc: "Clone kopiert den Laser bei gleichzeitig aktiven Ultis",   cost: 80000,  rarity: "epic" },
   { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 120000, rarity: "legendary" },
   { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 120000, rarity: "legendary" },
   { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 50000,  rarity: "rare" },
