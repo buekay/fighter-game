@@ -35,6 +35,32 @@ export const SPACE_BACKGROUND_LEVEL = 50;
 export const PLAYER_SHIELD_HP = 5;
 export const COIN_REWARD_MULTIPLIER = 1;
 export const HEAL_ULTI_RESTORE = 5;
+export const MAX_AIRCRAFT_LEVEL = 10;
+export interface AircraftUpgradeStats {
+  level: number;
+  maxHpBonus: number;
+  damageBonus: number;
+  speedBonus: number;
+  fireRateMultiplier: number;
+}
+
+export function getAircraftUpgradeCost(currentLevel: number): number | null {
+  const level = Math.max(1, Math.min(MAX_AIRCRAFT_LEVEL, Math.floor(currentLevel)));
+  if (level >= MAX_AIRCRAFT_LEVEL) return null;
+  return 10_000 * level;
+}
+
+export function getAircraftUpgradeStats(level: number): AircraftUpgradeStats {
+  const safeLevel = Math.max(1, Math.min(MAX_AIRCRAFT_LEVEL, Math.floor(level)));
+  const upgrades = safeLevel - 1;
+  return {
+    level: safeLevel,
+    maxHpBonus: upgrades * 2,
+    damageBonus: Math.floor(upgrades / 2),
+    speedBonus: upgrades * 0.1,
+    fireRateMultiplier: 1 - upgrades * 0.025,
+  };
+}
 export interface DroneStats {
   level: number;
   guns: number;
@@ -47,9 +73,9 @@ export function getDroneStats(persistentUpgrades: number, runUpgrades = 0): Dron
 
   return {
     level,
-    guns: level >= 3 ? 2 : 1,
+    guns: level >= 6 ? 3 : level >= 3 ? 2 : 1,
     damage: 1 + Math.floor(level / 2),
-    fireRateMultiplier: Math.max(0.4, 1 - (level - 1) * 0.12),
+    fireRateMultiplier: Math.max(0.28, 1 - (level - 1) * 0.12),
   };
 }
 export const KEYBOARD_CONTROL_HELP = [

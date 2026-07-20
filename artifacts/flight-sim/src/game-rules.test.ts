@@ -8,6 +8,8 @@ import {
   getLevelForScore,
   getLevelThreshold,
   getDroneStats,
+  getAircraftUpgradeCost,
+  getAircraftUpgradeStats,
   HEAL_ULTI_RESTORE,
   KEYBOARD_CONTROL_HELP,
   isBossEligibleLevel,
@@ -143,6 +145,16 @@ assert.equal(shouldShowVirtualControls(true, false), true);
 
 assert.equal(HEAL_ULTI_RESTORE, 5);
 
+assert.equal(getAircraftUpgradeCost(1), 10000);
+assert.equal(getAircraftUpgradeCost(9), 90000);
+assert.equal(getAircraftUpgradeCost(10), null);
+assert.deepEqual(getAircraftUpgradeStats(1), { level: 1, maxHpBonus: 0, damageBonus: 0, speedBonus: 0, fireRateMultiplier: 1 });
+assert.deepEqual(getAircraftUpgradeStats(5), { level: 5, maxHpBonus: 8, damageBonus: 2, speedBonus: 0.4, fireRateMultiplier: 0.9 });
+assert.deepEqual(getAircraftUpgradeStats(99), { level: 10, maxHpBonus: 18, damageBonus: 4, speedBonus: 0.9, fireRateMultiplier: 0.775 });
+
 assert.deepEqual(getDroneStats(0), { level: 1, guns: 1, damage: 1, fireRateMultiplier: 1 });
 assert.deepEqual(getDroneStats(2), { level: 3, guns: 2, damage: 2, fireRateMultiplier: 0.76 });
 assert.deepEqual(getDroneStats(3, 1), { level: 5, guns: 2, damage: 3, fireRateMultiplier: 0.52 });
+assert.deepEqual(getDroneStats(5), { level: 6, guns: 3, damage: 4, fireRateMultiplier: 0.4 });
+assert.deepEqual(getDroneStats(7), { level: 8, guns: 3, damage: 5, fireRateMultiplier: 0.28 });
+assert.deepEqual(getDroneStats(20), { level: 21, guns: 3, damage: 11, fireRateMultiplier: 0.28 });
