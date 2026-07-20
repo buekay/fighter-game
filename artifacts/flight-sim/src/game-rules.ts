@@ -48,7 +48,7 @@ export interface AircraftUpgradeStats {
 export function getAircraftUpgradeCost(currentLevel: number): number | null {
   const level = Math.max(1, Math.min(MAX_AIRCRAFT_LEVEL, Math.floor(currentLevel)));
   if (level >= MAX_AIRCRAFT_LEVEL) return null;
-  return 10_000 * level;
+  return 50_000 * level * level;
 }
 
 export function getAircraftUpgradeStats(level: number): AircraftUpgradeStats {
@@ -66,7 +66,7 @@ export function getAircraftUpgradeStats(level: number): AircraftUpgradeStats {
 export function getDroneUpgradeCost(currentLevel: number): number | null {
   const level = Math.max(1, Math.min(MAX_DRONE_LEVEL, Math.floor(currentLevel)));
   if (level >= MAX_DRONE_LEVEL) return null;
-  return 7_500 * level;
+  return 40_000 * level * level;
 }
 export interface DroneStats {
   level: number;
@@ -133,6 +133,41 @@ export function getLevelForScore(score: number): number {
 
   for (let candidate = 2; candidate <= MAX_LEVEL; candidate++) {
     if (score < getLevelThreshold(candidate)) break;
+    level = candidate;
+  }
+
+  return level;
+}
+
+const PILOT_LEVEL_ANCHORS = [
+  { level: 1, score: 0 },
+  { level: 5, score: 30_000 },
+  { level: 10, score: 50_000 },
+  { level: 15, score: 100_000 },
+  { level: 20, score: 150_000 },
+] as const;
+
+export function getPilotLevelThreshold(level: number): number {
+  const safeLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
+
+  for (let i = 1; i < PILOT_LEVEL_ANCHORS.length; i++) {
+    const lower = PILOT_LEVEL_ANCHORS[i - 1];
+    const upper = PILOT_LEVEL_ANCHORS[i];
+    if (safeLevel <= upper.level) {
+      const progress = (safeLevel - lower.level) / (upper.level - lower.level);
+      return Math.round(lower.score + (upper.score - lower.score) * progress);
+    }
+  }
+
+  return 150_000 + (safeLevel - 20) * 10_000;
+}
+
+export function getPilotLevelForScore(score: number): number {
+  const safeScore = Math.max(0, score);
+  let level = 1;
+
+  for (let candidate = 2; candidate <= MAX_LEVEL; candidate++) {
+    if (safeScore < getPilotLevelThreshold(candidate)) break;
     level = candidate;
   }
 

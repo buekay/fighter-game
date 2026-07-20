@@ -12,6 +12,7 @@ import {
   getAircraftUpgradeCost,
   getAircraftUpgradeStats,
   getLevelForScore,
+  getPilotLevelForScore,
   getLevelThreshold,
   HEAL_ULTI_RESTORE,
   KEYBOARD_CONTROL_HELP,
@@ -2490,7 +2491,7 @@ export default function Game() {
   const handleBuy = (itemId: string) => {
     const item = SHOP_ITEMS.find(i => i.id === itemId);
     if (!item) return;
-    if (!isShopRarityUnlocked(item.rarity, getLevelForScore(loadHighScore()))) return;
+    if (!isShopRarityUnlocked(item.rarity, getPilotLevelForScore(loadHighScore()))) return;
     if (item.requires && !loadUnlocks().includes(item.requires)) return;
     if (loadCoins() < item.cost) return;
     spendCoins(item.cost);
@@ -2502,7 +2503,7 @@ export default function Game() {
   const handleUnlockSkin = (skinId: string) => {
     const sk = JET_SKINS.find(s => s.id === skinId);
     if (!sk || sk.cost === 0) return;
-    if (!isShopRarityUnlocked(sk.rarity, getLevelForScore(loadHighScore()))) return;
+    if (!isShopRarityUnlocked(sk.rarity, getPilotLevelForScore(loadHighScore()))) return;
     if (loadCoins() < sk.cost) return;
     spendCoins(sk.cost);
     addUnlock(skinId);
@@ -2514,7 +2515,7 @@ export default function Game() {
   const handleUnlockDroneSkin = (skinId: string) => {
     const skin = DRONE_SKINS.find(s => s.id === skinId);
     if (!skin || skin.cost === 0 || loadCoins() < skin.cost) return;
-    if (!isShopRarityUnlocked(skin.rarity, getLevelForScore(loadHighScore()))) return;
+    if (!isShopRarityUnlocked(skin.rarity, getPilotLevelForScore(loadHighScore()))) return;
     spendCoins(skin.cost);
     addUnlock(skinId);
     setCoins(loadCoins());
@@ -2724,7 +2725,7 @@ function HangarOverlay({
   if (view === "upgrades") {
     return (
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
-        <ShopScreen coins={coins} playerLevel={getLevelForScore(highScore)} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} selectedSkin={selectedSkin} selectedDroneSkin={selectedDroneSkin}
+        <ShopScreen coins={coins} playerLevel={getPilotLevelForScore(highScore)} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} selectedSkin={selectedSkin} selectedDroneSkin={selectedDroneSkin}
           onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect}
           onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} />
       </div>
@@ -2762,7 +2763,7 @@ function HangarOverlay({
         <div className="text-right flex flex-col items-end gap-1">
           <div className="rounded-full border border-cyan-400/50 bg-cyan-950/60 px-3 py-1 text-sm font-black tracking-wider text-cyan-300"
             title={translated(language, "Höchstes erreichtes Spielerlevel", "Highest player level reached")}>
-            🛡 PILOT-LEVEL {getLevelForScore(highScore)}
+            🛡 PILOT-LEVEL {getPilotLevelForScore(highScore)}
           </div>
           <div className="text-yellow-300 font-bold text-sm">⭐ {highScore.toLocaleString("de-DE")}</div>
           <div className="text-amber-400 font-bold text-sm" title={translated(language, "Verfügbare Credits", "Available credits")}>💰 {coins.toLocaleString(language === "de" ? "de-DE" : "en-US")} Credits</div>

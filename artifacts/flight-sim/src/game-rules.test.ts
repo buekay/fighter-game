@@ -6,6 +6,8 @@ import {
   calculateCoinReward,
   formatLockedSkinPrice,
   getLevelForScore,
+  getPilotLevelForScore,
+  getPilotLevelThreshold,
   getLevelThreshold,
   getDroneStats,
   getDroneUpgradeCost,
@@ -57,6 +59,19 @@ assert.equal(getLevelForScore(getLevelThreshold(1)), 1);
 assert.equal(getLevelForScore(getLevelThreshold(250)), 250);
 assert.equal(getLevelForScore(getLevelThreshold(500)), 500);
 assert.equal(getLevelForScore(getLevelThreshold(500) + 999_999_999), 500);
+
+assert.equal(getPilotLevelForScore(0), 1);
+assert.equal(getPilotLevelThreshold(5), 30_000);
+assert.equal(getPilotLevelThreshold(10), 50_000);
+assert.equal(getPilotLevelThreshold(15), 100_000);
+assert.equal(getPilotLevelThreshold(20), 150_000);
+assert.equal(getPilotLevelThreshold(25), 200_000);
+assert.equal(getPilotLevelForScore(29_999), 4);
+assert.equal(getPilotLevelForScore(30_000), 5);
+assert.equal(getPilotLevelForScore(49_999), 9);
+assert.equal(getPilotLevelForScore(50_000), 10);
+assert.equal(getPilotLevelForScore(100_000), 15);
+assert.equal(getPilotLevelForScore(150_000), 20);
 
 assert.equal(isBossEligibleLevel(19), true);
 assert.equal(isBossEligibleLevel(20), true);
@@ -146,11 +161,13 @@ assert.equal(shouldShowVirtualControls(true, false), true);
 
 assert.equal(HEAL_ULTI_RESTORE, 5);
 
-assert.equal(getAircraftUpgradeCost(1), 10000);
-assert.equal(getAircraftUpgradeCost(9), 90000);
+assert.equal(getAircraftUpgradeCost(1), 50000);
+assert.equal(getAircraftUpgradeCost(5), 1250000);
+assert.equal(getAircraftUpgradeCost(9), 4050000);
 assert.equal(getAircraftUpgradeCost(10), null);
-assert.equal(getDroneUpgradeCost(1), 7500);
-assert.equal(getDroneUpgradeCost(9), 67500);
+assert.equal(getDroneUpgradeCost(1), 40000);
+assert.equal(getDroneUpgradeCost(5), 1000000);
+assert.equal(getDroneUpgradeCost(9), 3240000);
 assert.equal(getDroneUpgradeCost(10), null);
 assert.deepEqual(getAircraftUpgradeStats(1), { level: 1, maxHpBonus: 0, damageBonus: 0, speedBonus: 0, fireRateMultiplier: 1 });
 assert.deepEqual(getAircraftUpgradeStats(5), { level: 5, maxHpBonus: 8, damageBonus: 2, speedBonus: 0.4, fireRateMultiplier: 0.9 });
