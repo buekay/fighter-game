@@ -8,6 +8,7 @@ import {
   getLevelForScore,
   getLevelThreshold,
   getDroneStats,
+  getDroneUpgradeCost,
   getAircraftUpgradeCost,
   getAircraftUpgradeStats,
   HEAL_ULTI_RESTORE,
@@ -148,6 +149,9 @@ assert.equal(HEAL_ULTI_RESTORE, 5);
 assert.equal(getAircraftUpgradeCost(1), 10000);
 assert.equal(getAircraftUpgradeCost(9), 90000);
 assert.equal(getAircraftUpgradeCost(10), null);
+assert.equal(getDroneUpgradeCost(1), 7500);
+assert.equal(getDroneUpgradeCost(9), 67500);
+assert.equal(getDroneUpgradeCost(10), null);
 assert.deepEqual(getAircraftUpgradeStats(1), { level: 1, maxHpBonus: 0, damageBonus: 0, speedBonus: 0, fireRateMultiplier: 1 });
 assert.deepEqual(getAircraftUpgradeStats(5), { level: 5, maxHpBonus: 8, damageBonus: 2, speedBonus: 0.4, fireRateMultiplier: 0.9 });
 assert.deepEqual(getAircraftUpgradeStats(99), { level: 10, maxHpBonus: 18, damageBonus: 4, speedBonus: 0.9, fireRateMultiplier: 0.775 });

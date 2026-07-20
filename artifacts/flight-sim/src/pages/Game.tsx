@@ -8,6 +8,7 @@ import {
   calculateCoinReward,
   formatLockedSkinPrice,
   getDroneStats,
+  getDroneUpgradeCost,
   getAircraftUpgradeCost,
   getAircraftUpgradeStats,
   getLevelForScore,
@@ -225,6 +226,7 @@ const HS_KEY      = "fighter-command-hs";
 const COINS_KEY   = "fighter-command-coins";
 const UNLOCKS_KEY = "fighter-command-unlocks";
 const AIRCRAFT_LEVELS_KEY = "fighter-command-aircraft-levels";
+const DRONE_LEVELS_KEY = "fighter-command-drone-levels";
 
 const JET_SKINS = [
   { id: "steel",   name: "Steel",    body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0,      rarity: "rare" },
@@ -383,6 +385,13 @@ function loadAircraftLevels(): Record<string, number> {
   } catch { return {}; }
 }
 function saveAircraftLevels(levels: Record<string, number>) { try { localStorage.setItem(AIRCRAFT_LEVELS_KEY, JSON.stringify(levels)); } catch {} }
+function loadDroneLevels(): Record<string, number> {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DRONE_LEVELS_KEY) ?? "{}") as Record<string, number>;
+    return Object.fromEntries(Object.entries(saved).map(([id, level]) => [id, Math.max(1, Math.min(10, Math.floor(level))) ]));
+  } catch { return {}; }
+}
+function saveDroneLevels(levels: Record<string, number>) { try { localStorage.setItem(DRONE_LEVELS_KEY, JSON.stringify(levels)); } catch {} }
 function unlockAll()              { try { const all = [...JET_SKINS.map(s => s.id), ...DRONE_SKINS.map(s => s.id), ...SHOP_ITEMS.map(i => i.id)]; localStorage.setItem(UNLOCKS_KEY, JSON.stringify(all)); } catch {} }
 function saveName(n: string)      { try { localStorage.setItem(NAME_KEY, n); } catch {} }
 function loadName(): string       { try { return localStorage.getItem(NAME_KEY) ?? "Pilot"; } catch { return "Pilot"; } }
@@ -1033,8 +1042,10 @@ export default function Game() {
   const [selectedDroneSkin, setSelectedDroneSkin] = useState(() => loadDroneSkin());
   const [coins, setCoins] = useState(() => loadCoins());
   const [aircraftLevels, setAircraftLevels] = useState<Record<string, number>>(() => loadAircraftLevels());
+  const [droneLevels, setDroneLevels] = useState<Record<string, number>>(() => loadDroneLevels());
   const aircraftUpgradeRef = useRef(getAircraftUpgradeStats(loadAircraftLevels()[loadSkin()] ?? 1));
-  const [highScore] = useState(() => loadHighScore());
+  const droneLevelRef = useRef(loadDroneLevels()[loadDroneSkin()] ?? 1);
+  const [highScore, setHighScore] = useState(() => loadHighScore());
   const [unlockedItems, setUnlockedItems] = useState<string[]>(() => loadUnlocks());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [settings, setSettings] = useState<GameSettings>(() => loadSettings());
@@ -1057,6 +1068,7 @@ export default function Game() {
 
   const syncDisplay = useCallback(() => {
     setDisplayState({ ...stateRef.current });
+    setHighScore(loadHighScore());
   }, []);
 
   const updateSettings = useCallback((next: GameSettings) => {
@@ -1251,7 +1263,7 @@ export default function Game() {
       "drone_mk6", "drone_mk7", "drone_mk8",
     ]
       .filter(id => activeUnlocksRef.current.includes(id)).length;
-    const drone = getDroneStats(persistentDroneUpgrades, runUpgradesRef.current.drone);
+    const drone = getDroneStats(persistentDroneUpgrades + droneLevelRef.current - 1, runUpgradesRef.current.drone);
     const droneFireRate = 280 * drone.fireRateMultiplier;
 
     if (now - lastDroneFireRef.current >= droneFireRate) {
@@ -1329,6 +1341,7 @@ export default function Game() {
     const save = fromSave ? loadSave() : null;
     const unlocks = loadUnlocks();
     const aircraftStats = getAircraftUpgradeStats(loadAircraftLevels()[loadSkin()] ?? 1);
+    droneLevelRef.current = loadDroneLevels()[loadDroneSkin()] ?? 1;
     const savedAircraftStats = getAircraftUpgradeStats(save?.aircraftLevel ?? 1);
     aircraftUpgradeRef.current = aircraftStats;
     activeUnlocksRef.current = unlocks;
@@ -2461,6 +2474,19 @@ export default function Game() {
     audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
   };
 
+  const handleDroneUpgrade = () => {
+    const currentLevel = droneLevels[selectedDroneSkin] ?? 1;
+    const cost = getDroneUpgradeCost(currentLevel);
+    if (cost === null || loadCoins() < cost) return;
+    const next = { ...droneLevels, [selectedDroneSkin]: currentLevel + 1 };
+    spendCoins(cost);
+    saveDroneLevels(next);
+    setDroneLevels(next);
+    setCoins(loadCoins());
+    droneLevelRef.current = currentLevel + 1;
+    audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
+  };
+
   const handleBuy = (itemId: string) => {
     const item = SHOP_ITEMS.find(i => i.id === itemId);
     if (!item) return;
@@ -2567,6 +2593,7 @@ export default function Game() {
             highScore={highScore}
             unlockedItems={unlockedItems}
             aircraftLevels={aircraftLevels}
+            droneLevels={droneLevels}
             hasSave={saveExistsRef.current}
             saveData={saveExistsRef.current ? loadSave() : null}
             onStart={() => startGame(saveExistsRef.current)}
@@ -2577,6 +2604,7 @@ export default function Game() {
             onUnlockSkin={handleUnlockSkin}
             onUnlockDroneSkin={handleUnlockDroneSkin}
             onAircraftUpgrade={handleAircraftUpgrade}
+            onDroneUpgrade={handleDroneUpgrade}
             fullscreenSupported={fullscreenSupported}
             isFullscreen={isFullscreen}
             onFullscreenToggle={toggleFullscreen}
@@ -2633,16 +2661,18 @@ export default function Game() {
 // ─── Hangar Overlay ───────────────────────────────────────────────────────────
 
 function HangarOverlay({
-  selectedSkin, selectedDroneSkin, coins, highScore, unlockedItems, aircraftLevels, hasSave, saveData,
-  onStart, onNewGame, onSkinSelect, onDroneSkinSelect, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onAdminActivate,
+  selectedSkin, selectedDroneSkin, coins, highScore, unlockedItems, aircraftLevels, droneLevels, hasSave, saveData,
+  onStart, onNewGame, onSkinSelect, onDroneSkinSelect, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
   selectedSkin: string; selectedDroneSkin: string; coins: number; highScore: number;
   aircraftLevels: Record<string, number>;
+  droneLevels: Record<string, number>;
   unlockedItems: string[]; hasSave: boolean; saveData: { level: number; score: number; weaponTier: number } | null;
   onStart: () => void; onNewGame: () => void;
   onSkinSelect: (id: string) => void; onDroneSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void; onUnlockDroneSkin: (id: string) => void;
   onAircraftUpgrade: () => void;
+  onDroneUpgrade: () => void;
   onAdminActivate: () => void;
   fullscreenSupported: boolean; isFullscreen: boolean; onFullscreenToggle: () => void;
   settings: GameSettings; onSettingsChange: (settings: GameSettings) => void;
@@ -2694,9 +2724,9 @@ function HangarOverlay({
   if (view === "upgrades") {
     return (
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
-        <ShopScreen coins={coins} playerLevel={getLevelForScore(highScore)} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} selectedSkin={selectedSkin} selectedDroneSkin={selectedDroneSkin}
+        <ShopScreen coins={coins} playerLevel={getLevelForScore(highScore)} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} selectedSkin={selectedSkin} selectedDroneSkin={selectedDroneSkin}
           onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect}
-          onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onAircraftUpgrade={onAircraftUpgrade} />
+          onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} />
       </div>
     );
   }
@@ -2730,6 +2760,10 @@ function HangarOverlay({
           <div className="text-xs text-slate-400 mt-0.5">{translated(language, "2D Kampfjet-Simulator", "2D fighter jet simulator")}</div>
         </div>
         <div className="text-right flex flex-col items-end gap-1">
+          <div className="rounded-full border border-cyan-400/50 bg-cyan-950/60 px-3 py-1 text-sm font-black tracking-wider text-cyan-300"
+            title={translated(language, "Höchstes erreichtes Spielerlevel", "Highest player level reached")}>
+            🛡 PILOT-LEVEL {getLevelForScore(highScore)}
+          </div>
           <div className="text-yellow-300 font-bold text-sm">⭐ {highScore.toLocaleString("de-DE")}</div>
           <div className="text-amber-400 font-bold text-sm" title={translated(language, "Verfügbare Credits", "Available credits")}>💰 {coins.toLocaleString(language === "de" ? "de-DE" : "en-US")} Credits</div>
           <button onClick={() => setView("leaderboard")}
@@ -2801,6 +2835,7 @@ function HangarOverlay({
                 border: selectedDroneSkin === s.id ? "3px solid #fff" : `2px solid ${s.stroke}66`,
                 boxShadow: selectedDroneSkin === s.id ? `0 0 10px ${s.stroke}` : "none" }} />;
           })}
+          <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2 py-0.5 text-[10px] font-black text-violet-300">LV {droneLevels[selectedDroneSkin] ?? 1}</span>
         </div>
         {/* Bullet color picker */}
         <div className="flex items-center gap-2 mt-1">
@@ -2954,23 +2989,31 @@ function ShopStarfield() {
   );
 }
 
-function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, selectedSkin, selectedDroneSkin, onBack, onBuy, onUnlockSkin, onSkinSelect, onUnlockDroneSkin, onDroneSkinSelect, onAircraftUpgrade }: {
+function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLevels, selectedSkin, selectedDroneSkin, onBack, onBuy, onUnlockSkin, onSkinSelect, onUnlockDroneSkin, onDroneSkinSelect, onAircraftUpgrade, onDroneUpgrade }: {
   coins: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; selectedDroneSkin: string;
   aircraftLevels: Record<string, number>;
+  droneLevels: Record<string, number>;
   onBack: () => void; onBuy: (id: string) => void;
   onUnlockSkin: (id: string) => void; onSkinSelect: (id: string) => void;
   onUnlockDroneSkin: (id: string) => void; onDroneSkinSelect: (id: string) => void;
   onAircraftUpgrade: () => void;
+  onDroneUpgrade: () => void;
 }) {
   const selectedJet = JET_SKINS.find(s => s.id === selectedSkin) ?? JET_SKINS[0];
   const aircraftStats = getAircraftUpgradeStats(aircraftLevels[selectedSkin] ?? 1);
   const aircraftUpgradeCost = getAircraftUpgradeCost(aircraftStats.level);
+  const selectedDrone = DRONE_SKINS.find(s => s.id === selectedDroneSkin) ?? DRONE_SKINS[0];
+  const droneLevel = droneLevels[selectedDroneSkin] ?? 1;
+  const droneUpgradeCost = getDroneUpgradeCost(droneLevel);
+  const mkUpgrades = ["drone_mk2", "drone_mk3", "drone_mk4", "drone_mk5", "drone_mk6", "drone_mk7", "drone_mk8"].filter(id => unlockedItems.includes(id)).length;
+  const droneStats = getDroneStats(mkUpgrades + droneLevel - 1);
   return (
     <div className="relative flex flex-col h-full p-4 gap-3 overflow-y-auto select-none text-white">
       <ShopStarfield />
       <div className="relative z-10 flex items-center gap-3 shrink-0">
         <button onClick={onBack} className="text-slate-400 hover:text-white text-xl font-bold px-2">←</button>
         <h2 className="font-bold text-xl tracking-wide" style={{ textShadow: "0 0 12px #00cfff88" }}>SHOP</h2>
+        <span className="rounded-full border border-cyan-400/50 bg-cyan-950/60 px-2.5 py-1 text-xs font-black text-cyan-300">PILOT-LEVEL {playerLevel}</span>
         <span className="ml-auto text-amber-300 font-bold text-sm">💰 {coins.toLocaleString("de-DE")}</span>
       </div>
 
@@ -3005,6 +3048,31 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, selecte
           <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">+{aircraftStats.damageBonus}</b>Schaden</div>
           <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">+{aircraftStats.speedBonus.toFixed(1)}</b>Tempo</div>
           <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">+{Math.round((1 - aircraftStats.fireRateMultiplier) * 100)}%</b>Feuerrate</div>
+        </div>
+      </div>
+
+      <div className="relative z-10 rounded-2xl p-4" style={{ background: `${selectedDrone.stroke}12`, border: `1px solid ${selectedDrone.stroke}77`, boxShadow: `0 0 18px ${selectedDrone.stroke}22` }}>
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl" style={{ background: selectedDrone.body, border: `2px solid ${selectedDrone.stroke}`, boxShadow: `0 0 12px ${selectedDrone.stroke}66` }}>🛸</div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-black uppercase tracking-[.2em] text-violet-300">Drohne verbessern</div>
+            <div className="font-black">{selectedDrone.name} · Level {droneLevel}/10</div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-violet-400" style={{ width: `${droneLevel * 10}%`, boxShadow: "0 0 8px #c084fc" }} /></div>
+          </div>
+          {droneUpgradeCost === null ? (
+            <span className="shrink-0 rounded-lg border border-emerald-400/50 px-3 py-2 text-xs font-black text-emerald-300">MAX</span>
+          ) : (
+            <button onClick={onDroneUpgrade} disabled={coins < droneUpgradeCost}
+              className="shrink-0 rounded-lg px-3 py-2 text-xs font-black transition active:scale-95 disabled:opacity-40"
+              style={{ background: "rgba(80,25,120,.65)", border: "1px solid #c084fc", color: "#e9d5ff" }}>
+              LEVEL {droneLevel + 1}<br />💰 {droneUpgradeCost.toLocaleString("de-DE")}
+            </button>
+          )}
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px] text-slate-300">
+          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">{droneStats.damage}</b>Schaden</div>
+          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">{droneStats.guns}</b>Kanonen</div>
+          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">+{Math.round((1 - droneStats.fireRateMultiplier) * 100)}%</b>Feuerrate</div>
         </div>
       </div>
 
@@ -3059,6 +3127,7 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, selecte
             <div className="w-8 h-4 rounded-full" style={{ background: s.body, border: `2px solid ${s.stroke}`, boxShadow: `0 0 8px ${s.stroke}` }} />
             <div className="text-xs font-bold">{s.name}</div>
             <div className="text-[9px] font-black" style={{ color: rarity.color }}>{rarity.label}</div>
+            <div className="text-[10px] font-bold text-violet-300">Level {droneLevels[s.id] ?? 1}</div>
             {owned ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div> :
               <div className={`text-xs font-bold ${canAfford && levelUnlocked ? "text-amber-300" : "text-slate-500"}`}>{!levelUnlocked ? `🔒 Level ${SHOP_RARITY_MIN_LEVEL[s.rarity]}` : `${canAfford ? "💰" : "🔒"} ${formatLockedSkinPrice(s.cost)}`}</div>}
           </button>;

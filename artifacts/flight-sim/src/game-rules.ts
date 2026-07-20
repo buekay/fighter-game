@@ -36,6 +36,7 @@ export const PLAYER_SHIELD_HP = 5;
 export const COIN_REWARD_MULTIPLIER = 1;
 export const HEAL_ULTI_RESTORE = 5;
 export const MAX_AIRCRAFT_LEVEL = 10;
+export const MAX_DRONE_LEVEL = 10;
 export interface AircraftUpgradeStats {
   level: number;
   maxHpBonus: number;
@@ -60,6 +61,12 @@ export function getAircraftUpgradeStats(level: number): AircraftUpgradeStats {
     speedBonus: upgrades * 0.1,
     fireRateMultiplier: 1 - upgrades * 0.025,
   };
+}
+
+export function getDroneUpgradeCost(currentLevel: number): number | null {
+  const level = Math.max(1, Math.min(MAX_DRONE_LEVEL, Math.floor(currentLevel)));
+  if (level >= MAX_DRONE_LEVEL) return null;
+  return 7_500 * level;
 }
 export interface DroneStats {
   level: number;
