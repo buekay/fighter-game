@@ -69,7 +69,7 @@ interface Enemy {
   vx: number; vy: number;
   hp: number; maxHp: number;
   width: number; height: number;
-  type: "scout" | "fighter" | "bomber" | "boss" | "interceptor" | "gunship" | "tiefighter" | "emeraldtiefighter" | "plasmawing" | "sentinel";
+  type: "scout" | "fighter" | "bomber" | "boss" | "overlord" | "interceptor" | "gunship" | "tiefighter" | "emeraldtiefighter" | "plasmawing" | "sentinel";
   shootCooldown: number;
   points: number;
   color: string;
@@ -79,6 +79,8 @@ interface Enemy {
   missileTimer?: number;
   bossVyTimer?: number;
   bossVyDir?: number;
+  bossAge?: number;
+  specialAttackTimer?: number;
   fighterDodgeTimer?: number;
   fighterDodgeDir?: number;
   tieDodgeTimer?: number;
@@ -88,6 +90,8 @@ interface Enemy {
   ultimateSlowTimer?: number;
   ultimateDotTimer?: number;
 }
+
+const isBossEnemy = (enemy: Enemy) => enemy.type === "boss" || enemy.type === "overlord";
 
 interface PowerUp {
   x: number; y: number;
@@ -220,7 +224,7 @@ const JET_SKINS = [
   { id: "lava",    name: "Lava",     body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 80000,  rarity: "epic" },
   { id: "xwing",      name: "X-Wing",       body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 120000, rarity: "legendary" },
   { id: "tiefighter", name: "TIE Fighter",  body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 120000, rarity: "legendary" },
-  { id: "n1",         name: "N-1 Jäger",    body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 120000, rarity: "legendary" },
+  { id: "n1",         name: "N-1 Jäger",    body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 200000, rarity: "ultraLegendary" },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
@@ -675,6 +679,41 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       ctx.fillRect(-barW / 2, -e.height / 2 - 16, barW * (e.hp / e.maxHp), barH);
       break;
     }
+    case "overlord": {
+      const pulse = 0.75 + Math.sin(performance.now() * 0.008) * 0.25;
+      ctx.shadowColor = e.color;
+      ctx.shadowBlur = 18 + pulse * 12;
+      // Broad armored silhouette with split wings and a glowing reactor core.
+      ctx.beginPath();
+      ctx.moveTo(52, 0); ctx.lineTo(18, -18); ctx.lineTo(-8, -42); ctx.lineTo(-46, -48);
+      ctx.lineTo(-34, -20); ctx.lineTo(-58, -10); ctx.lineTo(-40, 0);
+      ctx.lineTo(-58, 10); ctx.lineTo(-34, 20); ctx.lineTo(-46, 48);
+      ctx.lineTo(-8, 42); ctx.lineTo(18, 18); ctx.closePath();
+      const hull = ctx.createLinearGradient(-58, 0, 52, 0);
+      hull.addColorStop(0, "#050914"); hull.addColorStop(.55, "#16233b"); hull.addColorStop(1, "#09030f");
+      ctx.fillStyle = hull; ctx.fill();
+      ctx.strokeStyle = e.color; ctx.lineWidth = 3; ctx.stroke();
+      ctx.shadowBlur = 8;
+      ctx.strokeStyle = "#7eeaff"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(29, 0); ctx.lineTo(-22, -31); ctx.lineTo(-43, -35); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(29, 0); ctx.lineTo(-22, 31); ctx.lineTo(-43, 35); ctx.stroke();
+      ctx.beginPath(); ctx.arc(10, 0, 14, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,70,190,${.55 + pulse * .35})`; ctx.fill();
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(10, 0, 6 + pulse * 2, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff"; ctx.fill();
+      // Three forward weapon ports telegraph its spread and special attack.
+      [-18, 0, 18].forEach(offset => {
+        ctx.beginPath(); ctx.arc(34, offset, 4, 0, Math.PI * 2);
+        ctx.fillStyle = offset === 0 ? "#ff4fc8" : "#6fe9ff"; ctx.fill();
+      });
+      ctx.shadowBlur = 0;
+      const barW = 92, barH = 7;
+      ctx.fillStyle = "#170d20"; ctx.fillRect(-barW / 2, -e.height / 2 - 17, barW, barH);
+      ctx.fillStyle = e.color; ctx.fillRect(-barW / 2, -e.height / 2 - 17, barW * (e.hp / e.maxHp), barH);
+      ctx.strokeStyle = "#ffffff88"; ctx.lineWidth = 1; ctx.strokeRect(-barW / 2, -e.height / 2 - 17, barW, barH);
+      break;
+    }
     case "interceptor": {
       ctx.beginPath();
       ctx.moveTo(18,0); ctx.lineTo(-10,-6); ctx.lineTo(-16,-2); ctx.lineTo(-8,0); ctx.lineTo(-16,2); ctx.lineTo(-10,6);
@@ -1119,7 +1158,7 @@ export default function Game() {
     const isBossLevel = level >= 3 && isBossEligibleLevel(level) && timeRef.current % bossInterval < 5;
     const bossHpBase = (25 + level * 6) * (level >= 8 ? 5 : level >= 5 ? 3 : 1);
 
-    if (isBossLevel && enemiesRef.current.filter(e => e.type === "boss").length === 0) {
+    if (isBossLevel && enemiesRef.current.filter(isBossEnemy).length === 0) {
       const isSuperBoss = level >= 12 && timeRef.current % (bossInterval * 4) < 5;
       type = "boss";
       hp   = isSuperBoss ? bossHpBase * 3 : bossHpBase;
@@ -1161,6 +1200,7 @@ export default function Game() {
       angle: 0,
       oscillate: type === "plasmawing" ? 1.6 : type === "scout" ? rand(-0.4, 0.4) : 0,
       shieldHp: type === "sentinel" ? 6 : type === "emeraldtiefighter" ? 4 : type === "tiefighter" ? 2 : 0,
+      bossAge: type === "boss" ? 0 : undefined,
     };
     enemiesRef.current.push(enemy);
 
@@ -1726,7 +1766,7 @@ export default function Game() {
 
       // ── Milestone boss: spawn a mega-boss when entering key levels ──
       if (isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
-          enemiesRef.current.filter(e => e.type === "boss").length === 0) {
+          enemiesRef.current.filter(isBossEnemy).length === 0) {
         milestoneBossFiredRef.current.add(gs.level);
         const ml = gs.level;
         const mbHp = 80 + ml * 12;
@@ -1743,6 +1783,7 @@ export default function Game() {
           color: "#ff2200",
           angle: 0,
           oscillate: 0,
+          bossAge: 0,
         });
         audioRef.current.effect("boss", settingsRef.current.soundVolume);
       }
@@ -1850,6 +1891,25 @@ export default function Game() {
 
       enemiesRef.current = enemiesRef.current.filter(e => {
         if (e.dead) return false;
+        // From level 10 onward, a boss that survives for 20 seconds evolves.
+        if (e.type === "boss" && gs.level >= 10) {
+          e.bossAge = (e.bossAge ?? 0) + dtScale;
+          if (e.bossAge >= 1200) {
+            const centerX = e.x + e.width / 2;
+            const centerY = e.y + e.height / 2;
+            const bonusHp = Math.round(e.maxHp * .5);
+            e.type = "overlord";
+            e.width = 138; e.height = 104;
+            e.x = centerX - e.width / 2; e.y = centerY - e.height / 2;
+            e.maxHp += bonusHp; e.hp += bonusHp;
+            e.points *= 2;
+            e.color = "#ff4fc8";
+            e.shootCooldown = 20;
+            e.specialAttackTimer = 150;
+            spawnExplosion(particlesRef.current, centerX, centerY, true);
+            audioRef.current.effect("boss", settingsRef.current.soundVolume);
+          }
+        }
         if (ultimateActiveRef.current > 0) {
           e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimateActiveRef.current);
           e.ultimateDotTimer = (e.ultimateDotTimer ?? ULTIMATE_DOT_INTERVAL) - dtScale;
@@ -1860,7 +1920,7 @@ export default function Game() {
             if (e.hp <= 0) {
               gs.score += e.points;
               runStatsRef.current.kills += 1;
-              if (e.type === "boss") runStatsRef.current.bosses += 1;
+              if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
               e.dead = true;
               checkAchievements();
               audioRef.current.effect("explosion", settingsRef.current.soundVolume);
@@ -1878,7 +1938,7 @@ export default function Game() {
         e.y = clamp(e.y, 0, CANVAS_H - e.height);
 
         // Boss movement
-        if (e.type === "boss") {
+        if (isBossEnemy(e)) {
           e.vx = Math.sin(timeRef.current * 0.02) * -1.2;
           if (e.x > CANVAS_W - e.width - 10) e.x = CANVAS_W - e.width - 10;
           if (e.x < CANVAS_W * 0.5) e.x = CANVAS_W * 0.5;
@@ -1895,7 +1955,9 @@ export default function Game() {
           }
           // Three phases: movement and attacks intensify below 60% and 30% HP.
           const phase = e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1;
-          e.color = phase === 3 ? "#ff3300" : phase === 2 ? "#ff00aa" : e.color;
+          e.color = e.type === "overlord"
+            ? (phase === 3 ? "#ffffff" : phase === 2 ? "#6fe9ff" : "#ff4fc8")
+            : (phase === 3 ? "#ff3300" : phase === 2 ? "#ff00aa" : e.color);
           if (phase >= 2) e.vy += Math.sin(timeRef.current * .055) * (phase === 3 ? 1.7 : .9);
 
           // Homing missile every 4 s (level 10+)
@@ -1912,6 +1974,30 @@ export default function Game() {
                 trackPlayer: true,
                 lifetime: 720,
               });
+            }
+          }
+
+          // Overlord special: a telegraphed radial plasma burst every 3 seconds.
+          if (e.type === "overlord" && (e.ultimateFreezeTimer ?? 0) <= 0) {
+            e.specialAttackTimer = (e.specialAttackTimer ?? 180) - dtScale;
+            if (e.specialAttackTimer <= 0) {
+              e.specialAttackTimer = 180;
+              const px = playerRef.current.x + PLAYER_W / 2;
+              const py = playerRef.current.y + PLAYER_H / 2;
+              const originX = e.x + 12;
+              const originY = e.y + e.height / 2;
+              const aim = Math.atan2(py - originY, px - originX);
+              for (let s = -3; s <= 3; s++) {
+                const angle = aim + s * .19;
+                bulletsRef.current.push({
+                  x: originX, y: originY,
+                  vx: Math.cos(angle) * 5.2, vy: Math.sin(angle) * 5.2,
+                  fromPlayer: false, damage: 3,
+                  color: s === 0 ? "#ffffff" : "#ff4fc8",
+                  lifetime: 300,
+                });
+              }
+              spawnExplosion(particlesRef.current, originX, originY, false);
             }
           }
         }
@@ -1943,8 +2029,8 @@ export default function Game() {
         // Enemy shooting
         if ((e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;
         if (e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
-          const bossPhase = e.type === "boss" ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
-          e.shootCooldown = e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
+          const bossPhase = isBossEnemy(e) ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
+          e.shootCooldown = e.type === "overlord" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
           if (e.type === "tiefighter" || e.type === "emeraldtiefighter" || e.type === "plasmawing") {
             // TIE Fighter: aimed shot toward player
             const px = playerRef.current.x + PLAYER_W / 2;
@@ -1960,15 +2046,15 @@ export default function Game() {
               stunFrames: e.type === "emeraldtiefighter" ? 120 : undefined,
             });
           } else {
-            const shotCount = e.type === "boss" ? (bossPhase === 3 ? 7 : bossPhase === 2 ? 5 : 3) : e.type === "bomber" ? 2 : 1;
+            const shotCount = isBossEnemy(e) ? (bossPhase === 3 ? 7 : bossPhase === 2 ? 5 : 3) : e.type === "bomber" ? 2 : 1;
             for (let s = 0; s < shotCount; s++) {
               const spread = (s - (shotCount - 1) / 2) * 0.25;
               bulletsRef.current.push({
                 x: e.x, y: e.y + e.height / 2,
-                vx: -ENEMY_BULLET_SPEED + (e.type === "boss" ? -1 : 0),
+                vx: -ENEMY_BULLET_SPEED + (isBossEnemy(e) ? -1 : 0),
                 vy: spread * ENEMY_BULLET_SPEED,
-                fromPlayer: false, damage: e.type === "boss" ? 3 : 2,
-                color: e.type === "boss" && bossPhase === 3 ? "#ff3300" : undefined,
+                fromPlayer: false, damage: isBossEnemy(e) ? 3 : 2,
+                color: e.type === "overlord" ? "#6fe9ff" : e.type === "boss" && bossPhase === 3 ? "#ff3300" : undefined,
               });
             }
           }
@@ -2021,25 +2107,25 @@ export default function Game() {
           audioRef.current.effect("hit", settingsRef.current.soundVolume);
           hit = true;
           if (damageResult.destroyed) {
-            spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, e.type === "boss");
+            spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points;
             runStatsRef.current.kills += 1;
-            if (e.type === "boss") runStatsRef.current.bosses += 1;
+            if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
             checkAchievements();
             audioRef.current.effect("explosion", settingsRef.current.soundVolume);
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current +
-              (e.type === "boss" ? 90 : e.type === "bomber" ? 40 : e.type === "fighter" ? 22 : 12));
+              (isBossEnemy(e) ? 90 : e.type === "bomber" ? 40 : e.type === "fighter" ? 22 : 12));
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current +
-              (e.type === "boss" ? 60 : e.type === "bomber" ? 28 : e.type === "fighter" ? 14 : 8));
+              (isBossEnemy(e) ? 60 : e.type === "bomber" ? 28 : e.type === "fighter" ? 14 : 8));
             e.dead = true;
             // Boss always drops health
-            if (e.type === "boss") {
+            if (isBossEnemy(e)) {
               powerUpsRef.current.push({ x: e.x + e.width / 2, y: e.y + e.height / 2, type: "health", vy: 1.2 });
               stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + 50);
               if (runUpgradesRef.current.shield > 0) { shieldTimerRef.current = 600; playerShieldHpRef.current = PLAYER_SHIELD_HP; }
             }
             healChargeRef.current = Math.min(HEAL_MAX, healChargeRef.current +
-              (e.type === "boss" ? 60 : e.type === "bomber" ? 28 : e.type === "fighter" ? 14 : 8));
+              (isBossEnemy(e) ? 60 : e.type === "bomber" ? 28 : e.type === "fighter" ? 14 : 8));
             // Power-up chance
             if (Math.random() < 0.20) {
               const roll2 = Math.random();
@@ -2172,14 +2258,14 @@ export default function Game() {
           if (beamHits === 0) continue;
           e.hp -= 0.38 * beamHits * dtScale;
           if (e.hp <= 0) {
-            spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, e.type === "boss");
+            spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points;
             runStatsRef.current.kills += 1;
-            if (e.type === "boss") runStatsRef.current.bosses += 1;
+            if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
             checkAchievements(); audioRef.current.effect("explosion", settingsRef.current.soundVolume);
-            ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (e.type === "boss" ? 50 : 8));
-            laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + (e.type === "boss" ? 30 : 5));
-            stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + (e.type === "boss" ? 30 : 4));
+            ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (isBossEnemy(e) ? 50 : 8));
+            laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + (isBossEnemy(e) ? 30 : 5));
+            stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + (isBossEnemy(e) ? 30 : 4));
             e.dead = true;
             syncDisplay();
           }
@@ -2850,7 +2936,7 @@ function ShopScreen({ coins, unlockedItems, selectedSkin, selectedDroneSkin, onB
                 borderBottom: active ? `2px solid ${s.glow}` : `1px solid ${s.glow}33`,
                 borderLeft: `4px solid ${rarity.color}`,
                 borderRight: `4px solid ${rarity.color}`,
-                boxShadow: s.rarity === "legendary" ? `0 0 12px ${rarity.glow}` : undefined,
+                boxShadow: s.rarity === "legendary" || s.rarity === "ultraLegendary" ? `0 0 12px ${rarity.glow}` : undefined,
                 opacity: !owned && !canAfford ? 0.45 : 1,
               }}>
               <div className="w-5 h-5 rounded-full" style={{ background: s.glow, boxShadow: `0 0 8px ${s.glow}88` }} />
@@ -3169,7 +3255,7 @@ const ULTIMATE_MAX = STEALTH_MAX;
 const ULTIMATE_DURATION = 600;
 const ULTIMATE_CHARGE_RATE = 0.05;
 const ULTIMATE_DOT_INTERVAL = 60;
-const ULTIMATE_DOT_DAMAGE = 3;
+const ULTIMATE_DOT_DAMAGE = 8;
 const ULTIMATE_HEAL = 3;
 const ULTIMATE_SLOW_FACTOR = 0.45;
 const ULTIMATE_BTN_X = CANVAS_W - 340;
