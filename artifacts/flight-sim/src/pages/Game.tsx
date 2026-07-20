@@ -230,19 +230,19 @@ const AIRCRAFT_LEVELS_KEY = "fighter-command-aircraft-levels";
 const DRONE_LEVELS_KEY = "fighter-command-drone-levels";
 
 const JET_SKINS = [
-  { id: "steel",   name: "Steel",    body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0,      rarity: "rare" },
-  { id: "fire",    name: "Feuer",    body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 50000,  rarity: "rare" },
-  { id: "jade",    name: "Jade",     body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 50000,  rarity: "rare" },
-  { id: "gold",    name: "Gold",     body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 50000,  rarity: "rare" },
-  { id: "shadow",  name: "Schatten", body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 50000,  rarity: "rare" },
-  { id: "crimson", name: "Scharlach",body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 50000,  rarity: "rare" },
-  { id: "galaxy",  name: "Galaxy",   body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 80000,  rarity: "epic" },
-  { id: "neon",    name: "Neon",     body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 80000,  rarity: "epic" },
-  { id: "arctic",  name: "Arktis",   body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 80000,  rarity: "epic" },
-  { id: "lava",    name: "Lava",     body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 80000,  rarity: "epic" },
-  { id: "xwing",      name: "X-Wing",       body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 120000, rarity: "legendary" },
-  { id: "tiefighter", name: "TIE Fighter",  body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 120000, rarity: "legendary" },
-  { id: "n1",         name: "N-1 Jäger",    body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 200000, rarity: "ultraLegendary" },
+  { id: "steel", name: "Steel", body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0, rarity: "rare", ultiName: "Stahlfestung", ultiDesc: "Starker Schutzschild und stark verringerter Schaden." },
+  { id: "fire", name: "Feuer", body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 50000, rarity: "rare", ultiName: "Feuersturm", ultiDesc: "Alle Gegner brennen und erleiden fortlaufend Schaden." },
+  { id: "jade", name: "Jade", body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 50000, rarity: "rare", ultiName: "Lebensenergie", ultiDesc: "Heilt sofort 5 HP und aktiviert einen Schutzschild." },
+  { id: "gold", name: "Gold", body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 50000, rarity: "rare", ultiName: "Goldrausch", ultiDesc: "Doppelte Punkte und deutlich schnellere Feuerrate." },
+  { id: "shadow", name: "Schatten", body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 50000, rarity: "rare", ultiName: "Phantomflug", ultiDesc: "Unsichtbar und unverwundbar; endet mit einer Schockwelle." },
+  { id: "crimson", name: "Scharlach", body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 50000, rarity: "rare", ultiName: "Blutrausch", ultiDesc: "Doppelter Schaden und massiv erhöhte Feuerrate." },
+  { id: "galaxy", name: "Galaxy", body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 80000, rarity: "epic", ultiName: "Schwarzes Loch", ultiDesc: "Zieht Gegner zur Mitte und beschädigt sie dauerhaft." },
+  { id: "neon", name: "Neon", body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 80000, rarity: "epic", ultiName: "Kettenblitz", ultiDesc: "Blitze springen fortlaufend durch alle Gegner." },
+  { id: "arctic", name: "Arktis", body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 80000, rarity: "epic", ultiName: "Absoluter Nullpunkt", ultiDesc: "Friert Gegner und gegnerische Projektile vollständig ein." },
+  { id: "lava", name: "Lava", body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 80000, rarity: "epic", ultiName: "Vulkanausbruch", ultiDesc: "Explosive Lavawellen verursachen hohen Flächenschaden." },
+  { id: "xwing", name: "X-Wing", body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 120000, rarity: "legendary", ultiName: "Rebellenangriff", ultiDesc: "Zwei verbündete X-Wings greifen mit dir gemeinsam an." },
+  { id: "tiefighter", name: "TIE Fighter", body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 120000, rarity: "legendary", ultiName: "Imperialer Schwarm", ultiDesc: "Vier TIE-Jäger umkreisen dich und feuern gemeinsam." },
+  { id: "n1", name: "N-1 Jäger", body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 200000, rarity: "ultraLegendary", ultiName: "Naboo-Blitz", ultiDesc: "Unverwundbar: Naboo-Blitz, Schwarzes Loch und Rebellenangriff zugleich." },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
@@ -275,9 +275,9 @@ const SHOP_ITEMS: readonly ShopItem[] = [
   { id: "ulti_boost",    name: "Ulti-Boost",       desc: "Ultis laden 50% schneller",                      cost: 50000,  rarity: "rare" },
   { id: "extra_life",    name: "+1 Leben",          desc: "Starte mit 4 statt 3 Leben",                     cost: 50000,  rarity: "rare" },
   { id: "weapon_head",   name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                        cost: 50000,  rarity: "rare" },
-  { id: "clone_upgrade", name: "Clone-Ulti ⬆",     desc: "Clone feuert Raketen & lädt 25% schneller",      cost: 50000,  rarity: "rare" },
+  { id: "clone_upgrade", name: "Flugzeug-Ulti ⬆", desc: "Die Flugzeug-Ulti lädt 25% schneller", cost: 50000, rarity: "rare" },
   { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 50000,  rarity: "rare" },
-  { id: "clone_laser",   name: "Clone-Laser",      desc: "Clone kopiert den Laser bei gleichzeitig aktiven Ultis",   cost: 80000,  rarity: "epic" },
+  { id: "clone_laser", name: "Flügelmann-Laser", desc: "Beschworene Flügelmänner kopieren den Laser", cost: 80000, rarity: "epic" },
   { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 120000, rarity: "legendary" },
   { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 120000, rarity: "legendary" },
   { id: "ultimate_ulti", name: "Ultimate Ulti ⚡", desc: "10 Sek. Titanenschild, 2× Schaden, Frost & Kettenblitze [Taste U]", cost: 200000, rarity: "ultraLegendary" },
@@ -1283,7 +1283,8 @@ export default function Game() {
       }));
     }
 
-    const fireRate = tier.fireRate * Math.pow(0.8, runUpgradesRef.current.rapid_fire) * aircraftUpgradeRef.current.fireRateMultiplier;
+    const aircraftUltiFireRate = ultimaActiveRef.current > 0 && ["gold", "crimson"].includes(activeSkinRef.current.id) ? 0.45 : 1;
+    const fireRate = tier.fireRate * Math.pow(0.8, runUpgradesRef.current.rapid_fire) * aircraftUpgradeRef.current.fireRateMultiplier * aircraftUltiFireRate;
     if (now - lastFireRef.current < fireRate) return;
     lastFireRef.current = now;
     const px = playerRef.current.x + PLAYER_W;
@@ -1310,18 +1311,19 @@ export default function Game() {
         color: activeBulletColorRef.current,
       });
     });
-    // Clone fires when ultima active
-    if (ultimaActiveRef.current > 0) {
-      const cloneY = clamp(playerRef.current.y + PLAYER_H / 2 + 54, PLAYER_H, CANVAS_H - PLAYER_H);
-      offsets.forEach((oy, i) => {
+    // Summoned wingmen fire during the X-Wing, TIE and N-1 aircraft ultimates.
+    if (ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeSkinRef.current.id)) {
+      const wingmen = activeSkinRef.current.id === "tiefighter" ? [-72, -36, 36, 72] : [-50, 50];
+      wingmen.forEach(wingOffset => offsets.forEach((oy, i) => {
         let cvx = BASE_BULLET_SPEED;
         let cvy = 0;
         if (tier.spread && offsets.length > 1) {
           const spread = (i - (offsets.length - 1) / 2) * 0.12;
           cvy = spread * BASE_BULLET_SPEED;
         }
-        bulletsRef.current.push({ x: px, y: cloneY + oy, vx: cvx, vy: cvy, fromPlayer: true, damage: tier.bulletDmg + aircraftUpgradeRef.current.damageBonus, color: activeBulletColorRef.current });
-      });
+        const wingY = clamp(playerRef.current.y + PLAYER_H / 2 + wingOffset, PLAYER_H, CANVAS_H - PLAYER_H);
+        bulletsRef.current.push({ x: px, y: wingY + oy, vx: cvx, vy: cvy, fromPlayer: true, damage: tier.bulletDmg + aircraftUpgradeRef.current.damageBonus, color: activeBulletColorRef.current });
+      }));
     }
 
     // Missiles
@@ -1484,6 +1486,12 @@ export default function Game() {
         if (ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0) {
           ultimaActiveRef.current = ULTI_DURATION;
           ultimaChargeRef.current = 0;
+          if (activeSkinRef.current.id === "jade") stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
+          if (["steel", "jade"].includes(activeSkinRef.current.id)) {
+            shieldTimerRef.current = ULTI_DURATION;
+            playerShieldHpRef.current = activeSkinRef.current.id === "steel" ? 12 : 6;
+          }
+          syncDisplay();
         }
       }
       if ((e.key === "e" || e.key === "E") && down && stateRef.current.started &&
@@ -1571,6 +1579,12 @@ export default function Game() {
           } else if (du <= ULTI_BTN_R + 12 && ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0) {
             ultimaActiveRef.current = ULTI_DURATION;
             ultimaChargeRef.current = 0;
+            if (activeSkinRef.current.id === "jade") stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
+            if (["steel", "jade"].includes(activeSkinRef.current.id)) {
+              shieldTimerRef.current = ULTI_DURATION;
+              playerShieldHpRef.current = activeSkinRef.current.id === "steel" ? 12 : 6;
+            }
+            syncDisplay();
           } else if (!touchFireRef.current.active) {
             if (tutorialStageRef.current === 1) {
               tutorialStageRef.current = 2; setTutorialStage(2); window.setTimeout(finishTutorial, 1400);
@@ -1763,7 +1777,8 @@ export default function Game() {
       audioRef.current.updateMusic(gs.level, settingsRef.current.musicVolume, dtScale);
 
       // ── Input & Player Movement ──
-      const speedMult = (activeSkinRef.current?.id === "n1" ? 1.15 : 1) * (speedBoostRef.current > 0 ? 2 : 1);
+      const n1UltiSpeed = activeSkinRef.current?.id === "n1" && ultimaActiveRef.current > 0 ? 2 : 1;
+      const speedMult = (activeSkinRef.current?.id === "n1" ? 1.15 : 1) * n1UltiSpeed * (speedBoostRef.current > 0 ? 2 : 1);
       const spd = gs.speed * speedMult;
       const js = joystickRef.current;
       const JOY_RADIUS = 70;
@@ -1877,8 +1892,9 @@ export default function Game() {
           const sp = Math.hypot(b.vx, b.vy);
           if (sp > 5) { b.vx = b.vx / sp * 5; b.vy = b.vy / sp * 5; }
         }
-        b.x += b.vx * dtScale;
-        b.y += b.vy * dtScale;
+        const projectileSpeed = !b.fromPlayer && ultimaActiveRef.current > 0 && activeSkinRef.current.id === "arctic" ? 0 : 1;
+        b.x += b.vx * dtScale * projectileSpeed;
+        b.y += b.vy * dtScale * projectileSpeed;
         drawBullet(ctx, b);
         return b.x > -20 && b.x < CANVAS_W + 20 && b.y > -20 && b.y < CANVAS_H + 20;
       });
@@ -1893,6 +1909,7 @@ export default function Game() {
       // ── Ultima charge & countdown ──
       if (ultimaActiveRef.current > 0) {
         ultimaActiveRef.current = Math.max(0, ultimaActiveRef.current - dtScale);
+        if (["steel", "shadow", "n1"].includes(activeSkinRef.current.id)) invincibleRef.current = Math.max(invincibleRef.current, 3);
       } else if (ultimaChargeRef.current < ULTI_MAX) {
         const cloneMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
         const cloneBonus = activeUnlocksRef.current.includes("clone_upgrade") ? 1.25 : 1;
@@ -1958,6 +1975,33 @@ export default function Game() {
             audioRef.current.effect("boss", settingsRef.current.soundVolume);
           }
         }
+        if (ultimaActiveRef.current > 0) {
+          const aircraftId = activeSkinRef.current.id;
+          const blackHoleActive = aircraftId === "galaxy" || aircraftId === "n1";
+          if (blackHoleActive) {
+            const targetX = CANVAS_W * .58;
+            const targetY = CANVAS_H * .5;
+            e.x += (targetX - (e.x + e.width / 2)) * .012 * dtScale;
+            e.y += (targetY - (e.y + e.height / 2)) * .012 * dtScale;
+            e.hp -= .10 * dtScale;
+          }
+          if (aircraftId === "arctic") e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
+          if (aircraftId === "fire") e.hp -= .11 * dtScale;
+          if (aircraftId === "neon") e.hp -= .14 * dtScale;
+          if (aircraftId === "lava") e.hp -= .18 * dtScale;
+          if (aircraftId === "shadow" && ultimaActiveRef.current < 3) e.hp -= 14;
+          if (e.hp <= 0) {
+            spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
+            gs.score += e.points * (aircraftId === "gold" ? 2 : 1);
+            runStatsRef.current.kills += 1;
+            if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
+            e.dead = true;
+            checkAchievements();
+            audioRef.current.effect("explosion", settingsRef.current.soundVolume);
+            syncDisplay();
+            return false;
+          }
+        }
         if (ultimateActiveRef.current > 0) {
           e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimateActiveRef.current);
           e.ultimateDotTimer = (e.ultimateDotTimer ?? ULTIMATE_DOT_INTERVAL) - dtScale;
@@ -1966,7 +2010,7 @@ export default function Game() {
             e.ultimateDotTimer += ULTIMATE_DOT_INTERVAL;
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
             if (e.hp <= 0) {
-              gs.score += e.points;
+              gs.score += e.points * (ultimaActiveRef.current > 0 && activeSkinRef.current.id === "gold" ? 2 : 1);
               runStatsRef.current.kills += 1;
               if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
               e.dead = true;
@@ -2147,7 +2191,8 @@ export default function Game() {
           const bh = b.isMissile ? 8 : 4;
           if (!rectHit(b.x, b.y - bh / 2, bw, bh, e.x, e.y, e.width, e.height)) return true;
           const critical = runUpgradesRef.current.critical > 0 && Math.random() < Math.min(.45, .15 * runUpgradesRef.current.critical);
-          const damageResult = applyEnemyDamage(e, b.damage * (critical ? 3 : 1) * (ultimateActiveRef.current > 0 ? 2 : 1));
+          const aircraftDamage = ultimaActiveRef.current > 0 && activeSkinRef.current.id === "crimson" ? 2 : 1;
+          const damageResult = applyEnemyDamage(e, b.damage * (critical ? 3 : 1) * aircraftDamage * (ultimateActiveRef.current > 0 ? 2 : 1));
           e.hp = damageResult.hp;
           e.shieldHp = damageResult.shieldHp;
           if (ultimateActiveRef.current > 0) e.ultimateFreezeTimer = ultimateActiveRef.current;
@@ -2156,7 +2201,7 @@ export default function Game() {
           hit = true;
           if (damageResult.destroyed) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
-            gs.score += e.points;
+            gs.score += e.points * (ultimaActiveRef.current > 0 && activeSkinRef.current.id === "gold" ? 2 : 1);
             runStatsRef.current.kills += 1;
             if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
             checkAchievements();
@@ -2277,7 +2322,7 @@ export default function Game() {
       // ── Laser beams ──
       const laserBeams: number[] = [];
       if (laserActiveRef.current > 0) laserBeams.push(playerRef.current.y + PLAYER_H / 2);
-      if (laserActiveRef.current > 0 && ultimaActiveRef.current > 0 && activeUnlocksRef.current.includes("clone_laser")) {
+      if (laserActiveRef.current > 0 && ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeSkinRef.current.id) && activeUnlocksRef.current.includes("clone_laser")) {
         const cloneY = clamp(playerRef.current.y + 56, 0, CANVAS_H - PLAYER_H);
         laserBeams.push(cloneY + PLAYER_H / 2);
       }
@@ -2307,7 +2352,7 @@ export default function Game() {
           e.hp -= 0.38 * beamHits * dtScale;
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
-            gs.score += e.points;
+            gs.score += e.points * (ultimaActiveRef.current > 0 && activeSkinRef.current.id === "gold" ? 2 : 1);
             runStatsRef.current.kills += 1;
             if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
             checkAchievements(); audioRef.current.effect("explosion", settingsRef.current.soundVolume);
@@ -2320,7 +2365,22 @@ export default function Game() {
         }
       }
 
-      // ── Draw player (+ clone when ultima active) ──
+      // ── Aircraft-ultimate visuals ──
+      if (ultimaActiveRef.current > 0 && ["galaxy", "n1"].includes(activeSkinRef.current.id)) {
+        const holeX = CANVAS_W * .58, holeY = CANVAS_H * .5;
+        const pulse = 1 + Math.sin(timeRef.current * .12) * .12;
+        ctx.save();
+        ctx.translate(holeX, holeY); ctx.scale(pulse, pulse);
+        const vortex = ctx.createRadialGradient(0, 0, 4, 0, 0, 68);
+        vortex.addColorStop(0, "#000000"); vortex.addColorStop(.45, "#10002d"); vortex.addColorStop(.72, "#5533ff99"); vortex.addColorStop(1, "#4488ff00");
+        ctx.fillStyle = vortex; ctx.shadowColor = "#7755ff"; ctx.shadowBlur = 30;
+        ctx.beginPath(); ctx.arc(0, 0, 68, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#aaddff"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(0, 0, 58, 20, timeRef.current * .025, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+
+      // ── Draw player and summoned wingmen ──
       if (movementStunRef.current > 0) {
         ctx.save();
         ctx.fillStyle = "#ff8fda";
@@ -2394,15 +2454,18 @@ export default function Game() {
             ? (shieldHp <= 1 ? "#ff2200" : shieldHp <= 3 ? "#ff9900" : "#cfd6dc") : undefined;
           drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current, _sc);
         }
-        if (ultimaActiveRef.current > 0) {
-          const cloneY = clamp(playerRef.current.y + 56, 0, CANVAS_H - PLAYER_H);
-          ctx.save();
-          const pulse = 0.65 + 0.35 * Math.sin(timeRef.current * 0.18);
-          ctx.globalAlpha = pulse;
-          ctx.shadowColor = "#ff00ff";
-          ctx.shadowBlur = 18;
-          drawPlayerJet(ctx, playerRef.current.x, cloneY, gs.weaponTier, false, activeSkinRef.current);
-          ctx.restore();
+        if (ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeSkinRef.current.id)) {
+          const wingmen = activeSkinRef.current.id === "tiefighter" ? [-72, -36, 36, 72] : [-50, 50];
+          const allySkin = JET_SKINS.find(s => s.id === (activeSkinRef.current.id === "tiefighter" ? "tiefighter" : "xwing")) ?? activeSkinRef.current;
+          wingmen.forEach((wingOffset, index) => {
+            const wingY = clamp(playerRef.current.y + wingOffset, 0, CANVAS_H - PLAYER_H);
+            ctx.save();
+            ctx.globalAlpha = 0.72 + 0.2 * Math.sin(timeRef.current * .18 + index);
+            ctx.shadowColor = allySkin.glow;
+            ctx.shadowBlur = 18;
+            drawPlayerJet(ctx, playerRef.current.x - 18 - Math.abs(wingOffset) * .12, wingY, gs.weaponTier, false, allySkin);
+            ctx.restore();
+          });
         }
       }
       const droneX = playerRef.current.x + PLAYER_W / 2;
@@ -2652,7 +2715,7 @@ export default function Game() {
       </div>
       {displayState.started && !displayState.gameOver && (
         <div className="mt-2 text-xs text-gray-600 tracking-wider hidden sm:block">
-          WASD · SPACE — Schuss · Q — Clone · E — Laser · R — Stealth · H — Heil · P — Pause
+          WASD · SPACE — Schuss · Q — Jet-Ulti · E — Laser · R — Stealth · H — Heil · P — Pause
         </div>
       )}
     </div>
@@ -2797,6 +2860,10 @@ function HangarOverlay({
           <canvas ref={previewRef} width={240} height={140} className="block" />
         </div>
         <div className="font-bold text-white text-sm tracking-wide">{skin.name}</div>
+        <div className="max-w-sm rounded-xl border px-3 py-2 text-center" style={{ borderColor: `${skin.glow}55`, background: `${skin.glow}12` }}>
+          <div className="text-xs font-black uppercase tracking-wider" style={{ color: skin.glow }}>ULTI · {skin.ultiName} · 10 SEK.</div>
+          <div className="mt-1 text-[11px] leading-snug text-slate-300">{skin.ultiDesc}</div>
+        </div>
         <div className="rounded-full border border-cyan-400/40 bg-cyan-950/50 px-3 py-0.5 text-[11px] font-black tracking-wider text-cyan-300">
           JET-LEVEL {aircraftLevels[selectedSkin] ?? 1}
         </div>
@@ -3101,6 +3168,8 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
               }}>
               <div className="w-5 h-5 rounded-full" style={{ background: s.glow, boxShadow: `0 0 8px ${s.glow}88` }} />
               <div className="text-xs font-bold">{s.name}</div>
+              <div className="text-[9px] font-black leading-tight" style={{ color: s.glow }}>{s.ultiName} · 10 SEK.</div>
+              <div className="line-clamp-3 text-[8px] leading-tight text-slate-400">{s.ultiDesc}</div>
               <div className="text-[10px] font-bold text-cyan-300">Level {aircraftLevels[s.id] ?? 1}</div>
               <div className="text-[9px] font-black tracking-wider" style={{ color: rarity.color, textShadow: `0 0 6px ${rarity.glow}` }}>{rarity.label}</div>
               {owned
@@ -3242,19 +3311,19 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
     { icon: "🎯", title: "Dein Auftrag", text: "Fliege nach rechts durch immer schwierigere Sektoren, besiege Gegner und sammle Punkte. Dein Level steigt automatisch mit deiner Punktzahl; Bosskämpfe markieren wichtige Etappen." },
     { icon: "❤", title: "Überleben", text: "Treffer kosten HP. Sind deine HP leer, verlierst du ein Leben und startest mit voller Energie neu. Nach dem letzten Leben endet die Mission. Schilde fangen Treffer ab." },
     { icon: "📦", title: "Power-ups", text: "Abgeschossene Gegner können Heilung, Schilde und Geschwindigkeits-Boosts fallen lassen. Fliege durch ein Power-up, um es sofort einzusammeln." },
-    { icon: "⚡", title: "Waffen & Ultimates", text: "Halte Feuer gedrückt. Neue Waffenstufen machen deine Salven stärker. Clone, Laser, Stealth und Heilung laden sich im Kampf auf; ihre Anzeige zeigt, wann sie bereit sind." },
+    { icon: "⚡", title: "Waffen & Ultimates", text: "Halte Feuer gedrückt. Jedes Flugzeug besitzt eine eigene 10-Sekunden-Ulti. Jet-Ulti, Laser, Stealth und Heilung laden sich im Kampf auf." },
     { icon: "⬆", title: "Fortschritt", text: "Nach geschafften Sektoren wählst du eines von drei Run-Upgrades. Checkpoints speichern deinen Lauf. Ein gespeicherter Einsatz kann später im Hangar fortgesetzt werden." },
     { icon: "💰", title: "Credits & Hangar", text: "Am Missionsende wird jeder Punkt zu einem Credit. Im Shop kaufst du damit dauerhafte Verbesserungen und Jet-Skins. Erfolge geben zusätzliche Credits." },
   ] : [
     { icon: "🎯", title: "Your mission", text: "Fly right through increasingly difficult sectors, defeat enemies, and score points. Your level rises automatically with your score; boss fights mark major milestones." },
     { icon: "❤", title: "Survival", text: "Hits cost HP. When HP reaches zero, you lose a life and return at full health. The mission ends after your last life. Shields absorb hits." },
     { icon: "📦", title: "Power-ups", text: "Defeated enemies may drop health, shields, and speed boosts. Fly through a power-up to collect it immediately." },
-    { icon: "⚡", title: "Weapons & ultimates", text: "Hold fire to shoot continuously. New weapon tiers improve your volleys. Clone, laser, stealth, and healing charge during combat; their meters show when they are ready." },
+    { icon: "⚡", title: "Weapons & ultimates", text: "Hold fire to shoot continuously. Every aircraft has its own 10-second ultimate. Aircraft ultimate, laser, stealth, and healing charge during combat." },
     { icon: "⬆", title: "Progress", text: "After clearing sectors, choose one of three run upgrades. Checkpoints save your run, which you can continue later from the hangar." },
     { icon: "💰", title: "Credits & hangar", text: "At mission end, every point becomes one credit. Spend credits on permanent upgrades and jet skins. Achievements award extra credits." },
   ];
   const keyboardHelp = language === "de" ? KEYBOARD_CONTROL_HELP : [
-    ["WASD / Arrow keys", "Move"], ["SPACE", "Shoot"], ["Q", "Clone ultimate"],
+    ["WASD / Arrow keys", "Move"], ["SPACE", "Shoot"], ["Q", "Aircraft ultimate"],
     ["E", "Laser ultimate"], ["R", "Stealth ultimate"], ["H", "Healing ultimate"], ["U", "Ultimate Ulti"], ["P", "Pause"],
   ] as const;
 
@@ -3288,7 +3357,7 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
             <div className="mt-3 space-y-2 text-xs text-slate-300">
               <p><strong className="text-white">{translated(language, "Links ziehen:", "Drag left:")}</strong> {translated(language, "Jet mit dem virtuellen Joystick bewegen.", "Move the jet with the virtual joystick.")}</p>
               <p><strong className="text-white">FIRE:</strong> {translated(language, "gedrückt halten, um dauerhaft zu schießen.", "hold to keep firing.")}</p>
-              <p><strong className="text-white">CLONE · LASER · STEALTH · HEAL:</strong> {translated(language, "antippen, sobald die jeweilige Fähigkeit bereit ist.", "tap once the corresponding ability is ready.")}</p>
+              <p><strong className="text-white">ULTI · LASER · STEALTH · HEAL:</strong> {translated(language, "antippen, sobald die jeweilige Fähigkeit bereit ist.", "tap once the corresponding ability is ready.")}</p>
             </div>
           </div>
         </div>
@@ -3310,11 +3379,11 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
   const [name, setName] = useState(() => loadName());
   const language = settings.language;
   const keyboardHelp = language === "de" ? KEYBOARD_CONTROL_HELP : [
-    ["WASD / Arrow keys", "Move"], ["SPACE", "Shoot"], ["Q", "Clone ultimate"],
+    ["WASD / Arrow keys", "Move"], ["SPACE", "Shoot"], ["Q", "Aircraft ultimate"],
     ["E", "Laser ultimate"], ["R", "Stealth ultimate"], ["H", "Healing ultimate"], ["U", "Ultimate Ulti"], ["P", "Pause"],
   ] as const;
   const mobileHelp = language === "de" ? MOBILE_CONTROL_HELP : [
-    "Left side -> Joystick (move)", "FIRE -> Shoot", "CLONE -> Clone ultimate (Q)",
+    "Left side -> Joystick (move)", "FIRE -> Shoot", "ULTI -> Aircraft ultimate (Q)",
     "LASER -> Laser ultimate (E)", "STEALTH -> Stealth ultimate (R)", "HEAL -> Healing ultimate (H)",
   ] as const;
   const toggle = (key: "tutorial" | "reducedMotion" | "highContrast") => onChange({ ...settings, [key]: !settings[key] });
@@ -3720,7 +3789,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     }
   };
 
-  drawUltBar("CLONE",   "Q", ultimaCharge,  ULTI_MAX,    ultimaActive,  ULTI_DURATION,
+  drawUltBar("JET ULTI", "Q", ultimaCharge, ULTI_MAX, ultimaActive, ULTI_DURATION,
     16, 43, 120, 5, ["#ff00ff","#8800ff"],  ["#6600bb","#cc00ff"], "#ff44ff");
   drawUltBar("LASER",   "E", laserCharge,   LASER_MAX,   laserActive,   LASER_DURATION,
     16, 53, 120, 5, ["#ff8800","#ffdd00"],  ["#cc4400","#ff8800"], "#ffaa22");

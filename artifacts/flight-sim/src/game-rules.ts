@@ -88,7 +88,7 @@ export function getDroneStats(persistentUpgrades: number, runUpgrades = 0): Dron
 export const KEYBOARD_CONTROL_HELP = [
   ["WASD / Pfeiltasten", "Bewegen"],
   ["LEERTASTE", "Schießen"],
-  ["Q", "Clone-Ulti"],
+  ["Q", "Flugzeug-Ulti"],
   ["E", "Laser-Ulti"],
   ["R", "Stealth-Ulti"],
   ["H", "Heil-Ulti"],
@@ -97,7 +97,7 @@ export const KEYBOARD_CONTROL_HELP = [
 export const MOBILE_CONTROL_HELP = [
   "Linke Seite -> Joystick (Bewegen)",
   "FIRE -> Schießen",
-  "CLONE -> Clone-Ulti (Q)",
+  "ULTI -> Flugzeug-Ulti (Q)",
   "LASER -> Laser-Ulti (E)",
   "STEALTH -> Stealth-Ulti (R)",
   "HEAL -> Heil-Ulti (H)",
