@@ -294,16 +294,50 @@ const ACHIEVEMENTS: Achievement[] = [
   { id: "ace", icon: "🎯", name: "Fliegerass", description: "Besiege 100 Gegner in einem Einsatz", target: 100, reward: 3000, stat: "kills" },
   { id: "elite_ace", icon: "🦅", name: "Elite-Ass", description: "Besiege 250 Gegner in einem Einsatz", target: 250, reward: 7500, stat: "kills" },
   { id: "legend_of_the_skies", icon: "🌌", name: "Legende der Lüfte", description: "Besiege 500 Gegner in einem Einsatz", target: 500, reward: 15000, stat: "kills" },
+  { id: "air_superiority", icon: "🛩", name: "Luftüberlegenheit", description: "Besiege 750 Gegner in einem Einsatz", target: 750, reward: 22000, stat: "kills" },
+  { id: "thousand_down", icon: "💯", name: "Tausendfacher Abschuss", description: "Besiege 1.000 Gegner in einem Einsatz", target: 1000, reward: 30000, stat: "kills" },
+  { id: "storm_of_lead", icon: "🌪", name: "Sturm aus Stahl", description: "Besiege 1.500 Gegner in einem Einsatz", target: 1500, reward: 42000, stat: "kills" },
+  { id: "enemy_extinction", icon: "☄", name: "Auslöschung", description: "Besiege 2.000 Gegner in einem Einsatz", target: 2000, reward: 55000, stat: "kills" },
+  { id: "untouchable_hunter", icon: "🔱", name: "Jäger ohne Grenzen", description: "Besiege 3.000 Gegner in einem Einsatz", target: 3000, reward: 75000, stat: "kills" },
+  { id: "sky_legend", icon: "👑", name: "Herrscher des Himmels", description: "Besiege 4.000 Gegner in einem Einsatz", target: 4000, reward: 100000, stat: "kills" },
+  { id: "five_thousand", icon: "🌠", name: "Die glorreichen 5.000", description: "Besiege 5.000 Gegner in einem Einsatz", target: 5000, reward: 125000, stat: "kills" },
+  { id: "endless_barrage", icon: "♾", name: "Endloses Sperrfeuer", description: "Besiege 7.500 Gegner in einem Einsatz", target: 7500, reward: 175000, stat: "kills" },
+  { id: "ten_thousand", icon: "🏆", name: "Unsterbliche Legende", description: "Besiege 10.000 Gegner in einem Einsatz", target: 10000, reward: 250000, stat: "kills" },
   { id: "first_boss", icon: "💥", name: "David gegen Goliath", description: "Besiege einen Boss", target: 1, reward: 1500, stat: "bosses" },
   { id: "boss_hunter", icon: "☠", name: "Bossjäger", description: "Besiege 3 Bosse in einem Einsatz", target: 3, reward: 5000, stat: "bosses" },
   { id: "boss_breaker", icon: "🔨", name: "Bossbrecher", description: "Besiege 5 Bosse in einem Einsatz", target: 5, reward: 8000, stat: "bosses" },
   { id: "boss_nemesis", icon: "👹", name: "Erzfeind der Bosse", description: "Besiege 10 Bosse in einem Einsatz", target: 10, reward: 16000, stat: "bosses" },
   { id: "boss_apocalypse", icon: "🌋", name: "Boss-Apokalypse", description: "Besiege 20 Bosse in einem Einsatz", target: 20, reward: 30000, stat: "bosses" },
+  { id: "boss_annihilator", icon: "⚔", name: "Titanenbezwinger", description: "Besiege 30 Bosse in einem Einsatz", target: 30, reward: 45000, stat: "bosses" },
+  { id: "boss_nightmare", icon: "🌑", name: "Albtraum der Bosse", description: "Besiege 40 Bosse in einem Einsatz", target: 40, reward: 60000, stat: "bosses" },
+  { id: "boss_half_century", icon: "🎖", name: "Halbes Jahrhundert", description: "Besiege 50 Bosse in einem Einsatz", target: 50, reward: 80000, stat: "bosses" },
+  { id: "boss_dominator", icon: "🦾", name: "Boss-Dominator", description: "Besiege 75 Bosse in einem Einsatz", target: 75, reward: 110000, stat: "bosses" },
+  { id: "boss_centurion", icon: "🏛", name: "Boss-Zenturio", description: "Besiege 100 Bosse in einem Einsatz", target: 100, reward: 150000, stat: "bosses" },
+  { id: "boss_reaper", icon: "🗡", name: "Titanenschnitter", description: "Besiege 150 Bosse in einem Einsatz", target: 150, reward: 220000, stat: "bosses" },
+  { id: "boss_final_judgment", icon: "⚖", name: "Jüngstes Gericht", description: "Besiege 200 Bosse in einem Einsatz", target: 200, reward: 300000, stat: "bosses" },
   { id: "scavenger", icon: "🧲", name: "Bergungsexperte", description: "Sammle 3 Power-ups in einem Einsatz", target: 3, reward: 750, stat: "powerUps" },
   { id: "collector", icon: "💎", name: "Sammler", description: "Sammle 10 Power-ups in einem Einsatz", target: 10, reward: 2000, stat: "powerUps" },
   { id: "power_hungry", icon: "🔋", name: "Energiehungrig", description: "Sammle 20 Power-ups in einem Einsatz", target: 20, reward: 4500, stat: "powerUps" },
   { id: "arsenal_master", icon: "🚀", name: "Arsenalmeister", description: "Sammle 35 Power-ups in einem Einsatz", target: 35, reward: 8000, stat: "powerUps" },
   { id: "overcharged", icon: "✨", name: "Voll aufgeladen", description: "Sammle 50 Power-ups in einem Einsatz", target: 50, reward: 14000, stat: "powerUps" },
+  { id: "power_stockpile", icon: "📦", name: "Energievorrat", description: "Sammle 75 Power-ups in einem Einsatz", target: 75, reward: 20000, stat: "powerUps" },
+  { id: "power_century", icon: "💯", name: "Power-Jubiläum", description: "Sammle 100 Power-ups in einem Einsatz", target: 100, reward: 28000, stat: "powerUps" },
+  { id: "power_magnet", icon: "🧲", name: "Supermagnet", description: "Sammle 150 Power-ups in einem Einsatz", target: 150, reward: 40000, stat: "powerUps" },
+  { id: "power_overflow", icon: "🌈", name: "Energieüberfluss", description: "Sammle 200 Power-ups in einem Einsatz", target: 200, reward: 55000, stat: "powerUps" },
+  { id: "power_vault", icon: "🏦", name: "Power-Tresor", description: "Sammle 300 Power-ups in einem Einsatz", target: 300, reward: 75000, stat: "powerUps" },
+  { id: "power_core", icon: "☀", name: "Lebender Reaktor", description: "Sammle 400 Power-ups in einem Einsatz", target: 400, reward: 100000, stat: "powerUps" },
+  { id: "power_master", icon: "🪄", name: "Meister der Energie", description: "Sammle 500 Power-ups in einem Einsatz", target: 500, reward: 140000, stat: "powerUps" },
+  { id: "power_infinite", icon: "♾", name: "Unendliche Energie", description: "Sammle 750 Power-ups in einem Einsatz", target: 750, reward: 200000, stat: "powerUps" },
+  { id: "tough_hide", icon: "🩹", name: "Nur ein Kratzer", description: "Überstehe 5 Schadenspunkte in einem Einsatz", target: 5, reward: 750, stat: "damageTaken" },
+  { id: "battle_worn", icon: "🪖", name: "Kampferprobt", description: "Überstehe 10 Schadenspunkte in einem Einsatz", target: 10, reward: 1500, stat: "damageTaken" },
+  { id: "hard_to_kill", icon: "🛡", name: "Nicht kleinzukriegen", description: "Überstehe 20 Schadenspunkte in einem Einsatz", target: 20, reward: 3000, stat: "damageTaken" },
+  { id: "iron_wings", icon: "🪽", name: "Eiserne Schwingen", description: "Überstehe 35 Schadenspunkte in einem Einsatz", target: 35, reward: 5500, stat: "damageTaken" },
+  { id: "survivor", icon: "❤", name: "Überlebenskünstler", description: "Überstehe 50 Schadenspunkte in einem Einsatz", target: 50, reward: 8500, stat: "damageTaken" },
+  { id: "scarred_veteran", icon: "🦿", name: "Narben des Krieges", description: "Überstehe 75 Schadenspunkte in einem Einsatz", target: 75, reward: 13000, stat: "damageTaken" },
+  { id: "indestructible", icon: "💪", name: "Unzerstörbar", description: "Überstehe 100 Schadenspunkte in einem Einsatz", target: 100, reward: 20000, stat: "damageTaken" },
+  { id: "flying_fortress", icon: "🏰", name: "Fliegende Festung", description: "Überstehe 150 Schadenspunkte in einem Einsatz", target: 150, reward: 32000, stat: "damageTaken" },
+  { id: "damage_sponge", icon: "🔧", name: "Stahlgewitter überlebt", description: "Überstehe 200 Schadenspunkte in einem Einsatz", target: 200, reward: 50000, stat: "damageTaken" },
+  { id: "phoenix", icon: "🔥", name: "Phönix", description: "Überstehe 300 Schadenspunkte in einem Einsatz", target: 300, reward: 80000, stat: "damageTaken" },
 ];
 function loadAchievements(): string[] { try { return JSON.parse(localStorage.getItem(ACHIEVEMENT_KEY) ?? "[]") as string[]; } catch { return []; } }
 function saveAchievements(ids: string[]) { try { localStorage.setItem(ACHIEVEMENT_KEY, JSON.stringify(ids)); } catch {} }
@@ -2047,6 +2081,7 @@ export default function Game() {
         }
         const bulletDmg = activeUnlocksRef.current.includes("armor") ? Math.max(0.5, b.damage * 0.5) : b.damage;
         runStatsRef.current.damageTaken += bulletDmg;
+        checkAchievements();
         const nextLifeState = applyPlayerDamage(gs, bulletDmg);
         gs.hp = nextLifeState.hp;
         gs.lives = nextLifeState.lives;
@@ -2170,12 +2205,46 @@ export default function Game() {
         drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, activeSkinRef.current, "#35bfff");
         ctx.restore();
         ctx.save();
-        ctx.strokeStyle = "#35bfff"; ctx.shadowColor = "#35bfff"; ctx.shadowBlur = 18; ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.shadowColor = "#35bfff";
+        ctx.shadowBlur = 24;
         for (const e of enemiesRef.current) {
           const ex = e.x + e.width / 2, ey = e.y + e.height / 2;
-          ctx.beginPath(); ctx.moveTo(cx, cy);
-          for (let i = 1; i < 6; i++) ctx.lineTo(cx + (ex - cx) * i / 6, cy + (ey - cy) * i / 6 + Math.sin(timeRef.current * .4 + i) * 7);
-          ctx.lineTo(ex, ey); ctx.stroke();
+          const dx = ex - cx, dy = ey - cy;
+          const distance = Math.max(1, Math.hypot(dx, dy));
+          const normalX = -dy / distance, normalY = dx / distance;
+          const points: { x: number; y: number }[] = [{ x: cx, y: cy }];
+          for (let i = 1; i < 9; i++) {
+            const progress = i / 9;
+            const jag = Math.sin(timeRef.current * 1.7 + i * 8.31 + e.x * .17 + e.y * .11) * (i % 2 === 0 ? 15 : 10);
+            points.push({ x: cx + dx * progress + normalX * jag, y: cy + dy * progress + normalY * jag });
+          }
+          points.push({ x: ex, y: ey });
+
+          const strokeBolt = (color: string, width: number) => {
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (const point of points.slice(1)) ctx.lineTo(point.x, point.y);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+          };
+          strokeBolt("#168cff99", 10);
+          strokeBolt("#57d9ff", 5);
+          strokeBolt("#e9fbff", 1.8);
+
+          for (const branchIndex of [3, 6]) {
+            const start = points[branchIndex];
+            const direction = branchIndex === 3 ? -1 : 1;
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(start.x + dx * .07 + normalX * 24 * direction, start.y + dy * .07 + normalY * 24 * direction);
+            ctx.lineTo(start.x + dx * .12 + normalX * 36 * direction, start.y + dy * .12 + normalY * 36 * direction);
+            ctx.strokeStyle = "#8be8ff";
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+          }
         }
         ctx.restore();
       } else if (stealthActiveRef.current > 0) {
@@ -3099,8 +3168,8 @@ const HEAL_BTN_R = 36;
 const ULTIMATE_MAX = STEALTH_MAX;
 const ULTIMATE_DURATION = 600;
 const ULTIMATE_CHARGE_RATE = 0.05;
-const ULTIMATE_DOT_INTERVAL = 180;
-const ULTIMATE_DOT_DAMAGE = 5;
+const ULTIMATE_DOT_INTERVAL = 60;
+const ULTIMATE_DOT_DAMAGE = 3;
 const ULTIMATE_HEAL = 3;
 const ULTIMATE_SLOW_FACTOR = 0.45;
 const ULTIMATE_BTN_X = CANVAS_W - 340;
