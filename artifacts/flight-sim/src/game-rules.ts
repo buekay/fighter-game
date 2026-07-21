@@ -92,6 +92,7 @@ export const KEYBOARD_CONTROL_HELP = [
   ["E", "Laser-Ulti"],
   ["R", "Stealth-Ulti"],
   ["H", "Heil-Ulti"],
+  ["T", "Gift-Raketen-Ulti"],
   ["P", "Pause"],
 ] as const;
 export const MOBILE_CONTROL_HELP = [
@@ -101,6 +102,7 @@ export const MOBILE_CONTROL_HELP = [
   "LASER -> Laser-Ulti (E)",
   "STEALTH -> Stealth-Ulti (R)",
   "HEAL -> Heil-Ulti (H)",
+  "GIFT -> Gift-Raketen-Ulti (T)",
 ] as const;
 const EARLY_MILESTONE_BOSS_LEVELS = new Set([3, 5, 8, 10, 12, 15, 18]);
 const BASE_LEVEL_THRESHOLDS = [
