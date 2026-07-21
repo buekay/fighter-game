@@ -447,8 +447,81 @@ function loadSettings(): GameSettings {
 }
 function saveSettings(settings: GameSettings) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} }
 
+const TURKISH_TRANSLATIONS: Readonly<Record<string, string>> = {
+  "2D fighter jet simulator": "2D savaş uçağı simülatörü",
+  "? HOW TO PLAY": "? NASIL OYNANIR",
+  "Always show": "Her zaman göster",
+  "At the end of a mission, you receive one credit for every point. Example: 1,000 points = 1,000 credits.": "Görev sonunda her puan için bir kredi kazanırsın. Örnek: 1.000 puan = 1.000 kredi.",
+  "Automatic": "Otomatik",
+  "Available credits": "Mevcut krediler",
+  "Back": "Geri",
+  "Drag left:": "Solda sürükle:",
+  "Enter fullscreen": "Tam ekrana geç",
+  "Exit fullscreen": "Tam ekrandan çık",
+  "Explains movement and shooting on the first start.": "İlk başlangıçta hareket etmeyi ve ateş etmeyi açıklar.",
+  "Fighter Command": "Fighter Command",
+  "Fullscreen": "Tam ekran",
+  "GOT IT — GO TO HANGAR": "ANLADIM — HANGARA GİT",
+  "HOW FIGHTER COMMAND WORKS": "FIGHTER COMMAND NASIL OYNANIR",
+  "High contrast": "Yüksek kontrast",
+  "Highest player level reached": "Ulaşılan en yüksek oyuncu seviyesi",
+  "Hold SPACE · hold right on touch": "BOŞLUK tuşunu basılı tut · dokunmatikte sağ tarafa basılı tut",
+  "Keyboard": "Klavye",
+  "Language": "Dil",
+  "Language used for menus and hints.": "Menülerde ve ipuçlarında kullanılan dil.",
+  "Level": "Seviye",
+  "Mission briefing": "Görev brifingi",
+  "Mission paused": "Görev duraklatıldı",
+  "Mobile / Touch": "Mobil / Dokunmatik",
+  "Move the jet with the virtual joystick.": "Uçağı sanal joystick ile hareket ettir.",
+  "Move your jet": "Uçağını hareket ettir",
+  "Music": "Müzik",
+  "NEW GAME": "YENİ OYUN",
+  "Never show": "Asla gösterme",
+  "Next goal": "Sonraki hedef",
+  "Open fire": "Ateş aç",
+  "PAUSED": "DURAKLATILDI",
+  "Pause game": "Oyunu duraklat",
+  "Pilot name": "Pilot adı",
+  "Points → credits:": "Puanlar → krediler:",
+  "Press P to resume": "Devam etmek için P tuşuna bas",
+  "Ready for the mission!": "Göreve hazırsın!",
+  "Reduce motion": "Hareketi azalt",
+  "Reduces decorative effects and animations.": "Dekoratif efektleri ve animasyonları azaltır.",
+  "Resume game": "Oyuna devam et",
+  "SETTINGS": "AYARLAR",
+  "Saved": "Kaydedildi",
+  "Select language": "Dil seç",
+  "Shot color:": "Atış rengi:",
+  "Show tutorial": "Eğitimi göster",
+  "Skip training": "Eğitimi atla",
+  "Sound effects": "Ses efektleri",
+  "Strengthens text, borders and controls.": "Metinleri, kenarlıkları ve kontrolleri daha belirgin yapar.",
+  "Touch controls": "Dokunmatik kontroller",
+  "Ultimates are explained when they are ready.": "Özel yetenekler hazır olduklarında açıklanır.",
+  "Virtual controls in the play area.": "Oyun alanındaki sanal kontroller.",
+  "WASD / arrow keys · drag left on touch": "WASD / yön tuşları · dokunmatikte solda sürükle",
+  "You can reopen this guide from the hangar at any time.": "Bu rehberi hangardan istediğin zaman yeniden açabilirsin.",
+  "Your jet": "Uçağın",
+  "Your objective is simple: survive as long as possible, destroy enemies, and make your jet stronger throughout the mission. Read this briefing once—then practice movement and shooting during your first deployment.": "Hedefin basit: mümkün olduğunca uzun süre hayatta kal, düşmanları yok et ve görev boyunca uçağını güçlendir. Bu brifingi bir kez oku; ardından ilk görevinde hareket ve atış alıştırması yap.",
+  "hold to keep firing.": "sürekli ateş etmek için basılı tut.",
+  "points": "puan",
+  "tap once the corresponding ability is ready.": "ilgili yetenek hazır olduğunda bir kez dokun.",
+  "↙ Exit fullscreen": "↙ Tam ekrandan çık",
+  "↻ RESTART": "↻ YENİDEN BAŞLAT",
+  "⌂ RETURN TO HANGAR": "⌂ HANGARA DÖN",
+  "▶ CONTINUE": "▶ DEVAM ET",
+  "▶ RESUME": "▶ DEVAM ET",
+  "▶ START": "▶ BAŞLAT",
+  "⚙ SETTINGS": "⚙ AYARLAR",
+  "⛶ Fullscreen": "⛶ Tam ekran",
+  "🏆 LEADERBOARD": "🏆 LİDERLİK TABLOSU",
+};
+
 function translated(language: GameSettings["language"], german: string, english: string) {
-  return language === "de" ? german : english;
+  if (language === "de") return german;
+  if (language === "tr") return TURKISH_TRANSLATIONS[english] ?? english;
+  return english;
 }
 
 function localeFor(language: GameSettings["language"]) {
@@ -877,11 +950,19 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
     }
   }
 
-  if ((e.poisonTimer ?? 0) > 0 && Math.floor((e.poisonTimer ?? 0) / 10) % 2 === 0) {
+  if ((e.poisonTimer ?? 0) > 0) {
+    const poisonPulse = 0.5 + Math.sin(performance.now() * 0.018) * 0.5;
     ctx.globalCompositeOperation = "source-atop";
-    ctx.globalAlpha = 0.72;
+    ctx.globalAlpha = 0.15 + poisonPulse * 0.55;
     ctx.fillStyle = "#ff1010";
     ctx.fillRect(-e.width / 2 - 12, -e.height / 2 - 18, e.width + 24, e.height + 36);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.25 + poisonPulse * 0.75;
+    ctx.shadowColor = "#ff2020";
+    ctx.shadowBlur = 8 + poisonPulse * 18;
+    ctx.strokeStyle = "#ff3030";
+    ctx.lineWidth = 1.5 + poisonPulse * 2;
+    ctx.strokeRect(-e.width / 2 - 5, -e.height / 2 - 5, e.width + 10, e.height + 10);
   }
 
   ctx.restore();
@@ -1135,6 +1216,7 @@ export default function Game() {
   const language = settings.language;
   const [pauseView, setPauseView] = useState<"menu" | "settings">("menu");
   const [tutorialStage, setTutorialStage] = useState(-1);
+  const [showVirtualControls, setShowVirtualControls] = useState(false);
   const audioRef = useRef(new GameAudio());
   const runUpgradesRef = useRef<Record<RunUpgradeId, number>>({ rapid_fire: 0, damage: 0, max_hp: 0, drone: 0, critical: 0, shield: 0 });
   const runStatsRef = useRef<RunStats>({ kills: 0, bosses: 0, damageTaken: 0, powerUps: 0 });
@@ -1636,13 +1718,15 @@ export default function Game() {
     const updateVirtualControlVisibility = () => {
       const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
       const preference = settingsRef.current.touchControls;
-      showVirtualControlsRef.current = preference === "always" || (preference === "auto" && shouldShowVirtualControls(hasTouch, pointerQuery?.matches ?? false));
+      const shouldShow = preference === "always" || (preference === "auto" && shouldShowVirtualControls(hasTouch, pointerQuery?.matches ?? false));
+      showVirtualControlsRef.current = shouldShow;
+      setShowVirtualControls(shouldShow);
     };
 
     updateVirtualControlVisibility();
     pointerQuery?.addEventListener?.("change", updateVirtualControlVisibility);
     return () => pointerQuery?.removeEventListener?.("change", updateVirtualControlVisibility);
-  }, []);
+  }, [settings.touchControls]);
 
   // Touch event setup
   useEffect(() => {
@@ -2888,12 +2972,32 @@ export default function Game() {
           </div>
         )}
         {displayState.started && !displayState.paused && tutorialStage >= 0 && (
-          <div className="tutorial-card absolute bottom-5 left-1/2 z-20 w-[min(92%,430px)] -translate-x-1/2 rounded-2xl px-5 py-4 text-center" style={{ background: "rgba(4,12,28,0.94)", border: "1px solid #00cfff", boxShadow: "0 0 30px #00cfff33" }}>
-            <div className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-400">Training {tutorialStage + 1}/3</div>
-            <div className="mt-1 text-lg font-black text-white">{tutorialStage === 0 ? translated(language, "Bewege deinen Jet", "Move your jet") : tutorialStage === 1 ? translated(language, "Eröffne das Feuer", "Open fire") : translated(language, "Bereit für die Mission!", "Ready for the mission!")}</div>
-            <div className="mt-1 text-sm text-slate-300">{tutorialStage === 0 ? translated(language, "WASD / Pfeiltasten · auf Touch links ziehen", "WASD / arrow keys · drag left on touch") : tutorialStage === 1 ? translated(language, "LEERTASTE halten · auf Touch rechts halten", "Hold SPACE · hold right on touch") : translated(language, "Ultimates werden erklärt, sobald sie bereit sind.", "Ultimates are explained when they are ready.")}</div>
-            {tutorialStage < 2 && <button onClick={finishTutorial} className="mt-2 text-xs font-bold text-slate-400 underline underline-offset-4">{translated(language, "Training überspringen", "Skip training")}</button>}
-          </div>
+          <>
+            <div className="tutorial-card absolute left-1/2 top-20 z-20 w-[min(92%,460px)] -translate-x-1/2 rounded-2xl px-5 py-4 text-center" style={{ background: "rgba(4,12,28,0.96)", border: "1px solid #00cfff", boxShadow: "0 0 30px #00cfff33" }}>
+              <div className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-400">Training {tutorialStage + 1}/3</div>
+              <div className="mt-1 text-lg font-black text-white">{tutorialStage === 0 ? translated(language, "Bewege deinen Jet", "Move your jet") : tutorialStage === 1 ? translated(language, "Jetzt schießen", "Now fire") : translated(language, "Bereit für die Mission!", "Ready for the mission!")}</div>
+              {tutorialStage === 0 && !showVirtualControls && (
+                <div className="mt-3 flex items-center justify-center gap-4">
+                  <div className="grid grid-cols-3 gap-1" aria-label={translated(language, "WASD-Tasten", "WASD keys")}>
+                    <span /><kbd className="tutorial-key">W</kbd><span />
+                    <kbd className="tutorial-key">A</kbd><kbd className="tutorial-key">S</kbd><kbd className="tutorial-key">D</kbd>
+                  </div>
+                  <span className="text-xs font-bold text-slate-400">{translated(language, "ODER", "OR")}</span>
+                  <div className="grid grid-cols-3 gap-1" aria-label={translated(language, "Pfeiltasten", "Arrow keys")}>
+                    <span /><kbd className="tutorial-key">↑</kbd><span />
+                    <kbd className="tutorial-key">←</kbd><kbd className="tutorial-key">↓</kbd><kbd className="tutorial-key">→</kbd>
+                  </div>
+                </div>
+              )}
+              {tutorialStage === 1 && !showVirtualControls && <kbd className="tutorial-space mt-3 inline-block">{translated(language, "LEERTASTE GEDRÜCKT HALTEN", "HOLD SPACE")}</kbd>}
+              {showVirtualControls && tutorialStage < 2 && <div className="mt-2 text-sm font-bold text-slate-200">{tutorialStage === 0 ? translated(language, "Lege den Finger links auf den Joystick und ziehe ihn in eine Richtung.", "Place your finger on the joystick at the left and drag in any direction.") : translated(language, "Halte rechts den roten FIRE-Knopf gedrückt.", "Hold the red FIRE button on the right.")}</div>}
+              {tutorialStage === 2 && <div className="mt-2 text-sm text-slate-300">{translated(language, "Gut gemacht! Volle Spezialanzeigen leuchten auf. Nutze dann die angezeigte Taste oder den entsprechenden Touch-Knopf.", "Well done! Full ability meters light up. Then use the displayed key or matching touch button.")}</div>}
+              {tutorialStage < 2 && <div className="mt-2 text-xs font-bold text-emerald-300">{translated(language, "Probiere es jetzt aus, um fortzufahren.", "Try it now to continue.")}</div>}
+              {tutorialStage < 2 && <button onClick={finishTutorial} className="mt-2 text-xs font-bold text-slate-400 underline underline-offset-4">{translated(language, "Training überspringen", "Skip training")}</button>}
+            </div>
+            {showVirtualControls && tutorialStage === 0 && <div className="tutorial-pointer absolute bottom-[155px] left-[4%] z-20 text-center text-cyan-200"><div className="text-sm font-black">{translated(language, "HIER ZIEHEN", "DRAG HERE")}</div><div className="text-4xl">↓</div></div>}
+            {showVirtualControls && tutorialStage === 1 && <div className="tutorial-pointer absolute bottom-[150px] right-[3%] z-20 text-center text-red-300"><div className="text-sm font-black">{translated(language, "HIER HALTEN", "HOLD HERE")}</div><div className="text-4xl">↓</div></div>}
+          </>
         )}
       </div>
       {displayState.started && !displayState.gameOver && (
@@ -3572,6 +3676,13 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
     { icon: "⚡", title: "Waffen & Ultimates", text: "Halte die Feuertaste gedrückt, um ohne Unterbrechung zu schießen. Im Einsatz laden sich mehrere Spezialfähigkeiten auf: die individuelle 10-Sekunden-Jet-Ulti sowie Laser, Tarnung und Heilung. Sobald eine Anzeige voll ist, aktivierst du die Fähigkeit mit der eingeblendeten Taste." },
     { icon: "⬆", title: "Fortschritt", text: "Nach abgeschlossenen Sektoren pausiert das Gefecht und du wählst eines von drei Upgrades für den aktuellen Lauf. Diese Boni gelten bis zum Missionsende. Checkpoints speichern Level, Punktzahl und Waffenstufe, sodass du einen unterbrochenen Einsatz später über „Weiterspielen“ fortsetzen kannst." },
     { icon: "💰", title: "Credits & Hangar", text: "Nach dem Missionsende wird jeder erzielte Punkt in einen Credit umgewandelt. Credits bleiben dauerhaft erhalten. Im Hangar-Shop investierst du sie in Jet- und Drohnen-Upgrades, neue Skins und weitere Vorteile; abgeschlossene Erfolge zahlen zusätzliche Belohnungen aus." },
+  ] : language === "tr" ? [
+    { icon: "🎯", title: "Görevin", text: "Uçağını giderek zorlaşan ve otomatik kayan sektörlerde yönlendir. Düşmanlardan ve mermilerden kaç, hedefleri vur ve mümkün olduğunca çok puan topla. Puanın arttıkça pilot seviyen yükselir; bölüm sonu savaşları görevin büyük aşamalarını belirler." },
+    { icon: "❤", title: "Hayatta kalma", text: "Her düşman isabeti HP'ni azaltır. HP sıfıra düştüğünde bir can kaybeder ve tam enerjiyle geri dönersin. Son canından sonra görev biter. Aktif kalkan önce hasarı emer, ancak kaçınmak hâlâ en güvenli taktiktir." },
+    { icon: "📦", title: "Güçlendirmeler", text: "Yok edilen düşmanlar yararlı güçlendirmeler bırakabilir: sağlık HP'ni yeniler, kalkanlar ek koruma sağlar ve hız takviyeleri uçağını geçici olarak hızlandırır. Simgeler ekrandan çıkmadan önce uçağınla onlara dokun." },
+    { icon: "⚡", title: "Silahlar ve özel yetenekler", text: "Kesintisiz ateş etmek için ateş kontrolünü basılı tut. Savaş sırasında uçağına özel 10 saniyelik yetenek ile lazer, gizlilik ve iyileştirme dolar. Gösterge dolduğunda ekrandaki tuşla yeteneği etkinleştir." },
+    { icon: "⬆", title: "İlerleme", text: "Sektörleri tamamladıktan sonra savaş durur ve mevcut görev için üç geliştirmeden birini seçersin. Bu bonuslar görev sonuna kadar geçerlidir. Kontrol noktaları seviyeni, puanını ve silah kademeni kaydeder; böylece göreve daha sonra Devam Et ile dönebilirsin." },
+    { icon: "💰", title: "Krediler ve hangar", text: "Görev sonunda kazandığın her puan bir krediye dönüşür. Krediler kalıcıdır. Hangar mağazasında uçak ve drone geliştirmeleri, yeni görünümler ve diğer avantajlar satın alabilir; başarılarla ek ödüller kazanabilirsin." },
   ] : [
     { icon: "🎯", title: "Your mission", text: "Pilot your jet through automatically scrolling sectors that become progressively harder. Dodge enemies and projectiles, shoot down targets, and score as many points as possible. Your pilot level rises with your score, while boss fights mark the major milestones of a mission." },
     { icon: "❤", title: "Survival", text: "Every enemy hit reduces your HP. When HP reaches zero, you lose a life and return at full health. The mission ends after your final life. An active shield absorbs damage first, but dodging remains your safest tactic." },
@@ -3580,7 +3691,10 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
     { icon: "⬆", title: "Progress", text: "After clearing sectors, combat pauses and you choose one of three upgrades for the current run. These bonuses last until the mission ends. Checkpoints save your level, score, and weapon tier so you can resume an interrupted mission later with Continue." },
     { icon: "💰", title: "Credits & hangar", text: "At the end of a mission, every point you scored becomes one credit. Credits are kept permanently. Spend them in the hangar shop on aircraft and drone upgrades, new skins, and other advantages; achievements grant additional rewards." },
   ];
-  const keyboardHelp = language === "de" ? KEYBOARD_CONTROL_HELP : [
+  const keyboardHelp = language === "de" ? KEYBOARD_CONTROL_HELP : language === "tr" ? [
+    ["WASD / Yön tuşları", "Hareket"], ["BOŞLUK", "Ateş et"], ["Q", "Uçak özel yeteneği"],
+    ["E", "Lazer özel yeteneği"], ["R", "Gizlilik özel yeteneği"], ["H", "İyileştirme özel yeteneği"], ["U", "Nihai özel yetenek"], ["P", "Duraklat"],
+  ] as const : [
     ["WASD / Arrow keys", "Move"], ["SPACE", "Shoot"], ["Q", "Aircraft ultimate"],
     ["E", "Laser ultimate"], ["R", "Stealth ultimate"], ["H", "Healing ultimate"], ["U", "Ultimate Ulti"], ["P", "Pause"],
   ] as const;
@@ -3636,11 +3750,17 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
 function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings; onChange: (settings: GameSettings) => void; onBack: () => void }) {
   const [name, setName] = useState(() => loadName());
   const language = settings.language;
-  const keyboardHelp = language === "de" ? KEYBOARD_CONTROL_HELP : [
+  const keyboardHelp = language === "de" ? KEYBOARD_CONTROL_HELP : language === "tr" ? [
+    ["WASD / Yön tuşları", "Hareket"], ["BOŞLUK", "Ateş et"], ["Q", "Uçak özel yeteneği"],
+    ["E", "Lazer özel yeteneği"], ["R", "Gizlilik özel yeteneği"], ["H", "İyileştirme özel yeteneği"], ["U", "Nihai özel yetenek"], ["P", "Duraklat"],
+  ] as const : [
     ["WASD / Arrow keys", "Move"], ["SPACE", "Shoot"], ["Q", "Aircraft ultimate"],
     ["E", "Laser ultimate"], ["R", "Stealth ultimate"], ["H", "Healing ultimate"], ["U", "Ultimate Ulti"], ["P", "Pause"],
   ] as const;
-  const mobileHelp = language === "de" ? MOBILE_CONTROL_HELP : [
+  const mobileHelp = language === "de" ? MOBILE_CONTROL_HELP : language === "tr" ? [
+    "Sol taraf -> Joystick (hareket)", "FIRE -> Ateş et", "ULTI -> Uçak özel yeteneği (Q)",
+    "LASER -> Lazer özel yeteneği (E)", "STEALTH -> Gizlilik özel yeteneği (R)", "HEAL -> İyileştirme özel yeteneği (H)",
+  ] as const : [
     "Left side -> Joystick (move)", "FIRE -> Shoot", "ULTI -> Aircraft ultimate (Q)",
     "LASER -> Laser ultimate (E)", "STEALTH -> Stealth ultimate (R)", "HEAL -> Healing ultimate (H)",
   ] as const;
@@ -3738,7 +3858,7 @@ const STEALTH_MAX = 520;
 const STEALTH_DURATION = 600;
 const POISON_MISSILE_MAX = STEALTH_MAX;
 const POISON_MISSILE_DIRECT_DAMAGE = 20;
-const POISON_MISSILE_SPEED = 14;
+const POISON_MISSILE_SPEED = 10.5;
 const POISON_DURATION = 300;
 const POISON_TICK_INTERVAL = 60;
 const POISON_TICK_DAMAGE = 3;

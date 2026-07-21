@@ -185,6 +185,47 @@ input:focus-visible {
   animation: daily-chest-reward-pop 1.2s ease-out both;
 }
 
+.tutorial-key {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #67e8f9;
+  border-bottom-width: 3px;
+  border-radius: 7px;
+  background: #12243b;
+  color: white;
+  font: 800 15px/1 ui-monospace, monospace;
+  box-shadow: 0 0 10px #22d3ee55;
+  animation: tutorial-key-pulse 1.1s ease-in-out infinite alternate;
+}
+
+.tutorial-space {
+  border: 1px solid #67e8f9;
+  border-bottom-width: 4px;
+  border-radius: 8px;
+  background: #12243b;
+  padding: 10px 28px;
+  color: white;
+  font: 800 13px/1 ui-monospace, monospace;
+  box-shadow: 0 0 16px #22d3ee66;
+  animation: tutorial-key-pulse .75s ease-in-out infinite alternate;
+}
+
+.tutorial-pointer {
+  filter: drop-shadow(0 0 7px currentColor);
+  animation: tutorial-pointer-bounce .7s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes tutorial-key-pulse {
+  to { transform: translateY(2px); border-color: #fff; box-shadow: 0 0 18px #22d3eeaa; }
+}
+
+@keyframes tutorial-pointer-bounce {
+  to { transform: translateY(10px); }
+}
+
 @media (max-height: 500px) and (orientation: landscape) {
   .hangar-main {
     display: grid;
