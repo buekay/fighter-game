@@ -772,6 +772,52 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
   ctx.translate(e.x + e.width / 2, e.y + e.height / 2);
   ctx.rotate(Math.PI); // facing left
 
+  const now = performance.now();
+  const pulse = 0.72 + Math.sin(now * 0.009 + e.x * 0.03) * 0.18;
+  const hullGradient = (dark: string, mid: string, highlight = e.color) => {
+    const gradient = ctx.createLinearGradient(-e.width / 2, -e.height / 2, e.width / 2, e.height / 2);
+    gradient.addColorStop(0, dark);
+    gradient.addColorStop(0.52, mid);
+    gradient.addColorStop(0.78, dark);
+    gradient.addColorStop(1, highlight + "55");
+    return gradient;
+  };
+  const drawEngine = (x: number, y: number, size: number, color = e.color) => {
+    ctx.save();
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 12;
+    const flame = ctx.createLinearGradient(x - size * 2.4, y, x + size * 0.2, y);
+    flame.addColorStop(0, "transparent");
+    flame.addColorStop(0.55, color + "55");
+    flame.addColorStop(1, "#ffffff");
+    ctx.beginPath();
+    ctx.moveTo(x + 2, y - size * 0.45);
+    ctx.lineTo(x - size * (1.6 + pulse), y);
+    ctx.lineTo(x + 2, y + size * 0.45);
+    ctx.closePath();
+    ctx.fillStyle = flame;
+    ctx.fill();
+    ctx.restore();
+  };
+  const drawPanelLine = (x1: number, y1: number, x2: number, y2: number) => {
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    ctx.strokeStyle = "#ffffff3d"; ctx.lineWidth = 0.8; ctx.stroke();
+  };
+
+  // Every enemy gets a readable propulsion signature, even against dark backgrounds.
+  if (e.type === "overlord") {
+    drawEngine(-43, -26, 12); drawEngine(-43, 26, 12);
+  } else if (e.type === "boss") {
+    drawEngine(-29, -18, 9); drawEngine(-29, 18, 9);
+  } else if (e.type === "bomber" || e.type === "gunship" || e.type === "sentinel") {
+    drawEngine(-22, -8, 7); drawEngine(-22, 8, 7);
+  } else if (e.type !== "tiefighter" && e.type !== "emeraldtiefighter") {
+    drawEngine(-14, 0, 7);
+  }
+
+  ctx.shadowColor = e.color;
+  ctx.shadowBlur = 5;
+
   switch (e.type) {
     case "scout": {
       ctx.beginPath();
@@ -782,51 +828,60 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       ctx.lineTo(-18, 3);
       ctx.lineTo(-12, 8);
       ctx.closePath();
-      ctx.fillStyle = "#3a0a0a";
+      ctx.fillStyle = hullGradient("#160406", "#5b1520");
       ctx.fill();
       ctx.strokeStyle = e.color;
       ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.beginPath(); ctx.ellipse(4, 0, 7, 4, 0, 0, Math.PI * 2);
       ctx.fillStyle = e.color + "99"; ctx.fill();
+      drawPanelLine(-10, -4, 8, 0); drawPanelLine(-10, 4, 8, 0);
+      ctx.fillStyle = "#fff"; ctx.fillRect(16, -1, 5, 2);
       break;
     }
     case "fighter": {
       ctx.beginPath();
       ctx.moveTo(24, 0); ctx.lineTo(-16, -12); ctx.lineTo(-22, -5); ctx.lineTo(-14, 0);
       ctx.lineTo(-22, 5); ctx.lineTo(-16, 12); ctx.closePath();
-      ctx.fillStyle = "#1a1a00";
+      ctx.fillStyle = hullGradient("#151204", "#554b0b");
       ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 1.5; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-4, -12); ctx.lineTo(-16, -24); ctx.lineTo(-22, -12); ctx.closePath();
-      ctx.fillStyle = "#0a0a00"; ctx.fill(); ctx.strokeStyle = e.color; ctx.stroke();
+      ctx.fillStyle = hullGradient("#080804", "#332e08"); ctx.fill(); ctx.strokeStyle = e.color; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-4, 12); ctx.lineTo(-16, 24); ctx.lineTo(-22, 12); ctx.closePath();
-      ctx.fillStyle = "#0a0a00"; ctx.fill(); ctx.strokeStyle = e.color; ctx.stroke();
+      ctx.fillStyle = hullGradient("#080804", "#332e08"); ctx.fill(); ctx.strokeStyle = e.color; ctx.stroke();
       ctx.beginPath(); ctx.ellipse(6, 0, 9, 5, 0, 0, Math.PI * 2);
       ctx.fillStyle = e.color + "99"; ctx.fill();
+      drawPanelLine(-14, -8, 10, 0); drawPanelLine(-14, 8, 10, 0);
+      ctx.fillStyle = "#fff7b0"; ctx.fillRect(19, -7, 6, 2); ctx.fillRect(19, 5, 6, 2);
       break;
     }
     case "bomber": {
       ctx.beginPath();
       ctx.moveTo(18, 0); ctx.lineTo(-10, -18); ctx.lineTo(-28, -10); ctx.lineTo(-20, 0);
       ctx.lineTo(-28, 10); ctx.lineTo(-10, 18); ctx.closePath();
-      ctx.fillStyle = "#0a1a00";
+      ctx.fillStyle = hullGradient("#071006", "#244814");
       ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 2; ctx.stroke();
       ctx.beginPath(); ctx.ellipse(0, 0, 10, 7, 0, 0, Math.PI * 2);
       ctx.fillStyle = e.color + "99"; ctx.fill();
+      drawPanelLine(-18, -11, 8, -3); drawPanelLine(-18, 11, 8, 3);
+      [-9, 9].forEach(y => { ctx.beginPath(); ctx.arc(12, y, 2.5, 0, Math.PI * 2); ctx.fillStyle = "#fff4bd"; ctx.fill(); });
       break;
     }
     case "boss": {
       ctx.beginPath();
       ctx.moveTo(40, 0); ctx.lineTo(-20, -28); ctx.lineTo(-36, -14); ctx.lineTo(-24, 0);
       ctx.lineTo(-36, 14); ctx.lineTo(-20, 28); ctx.closePath();
-      ctx.fillStyle = "#1a001a";
+      ctx.fillStyle = hullGradient("#100310", "#47134c");
       ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 2.5; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-4, -28); ctx.lineTo(-24, -44); ctx.lineTo(-36, -28); ctx.closePath();
-      ctx.fillStyle = "#100010"; ctx.fill(); ctx.strokeStyle = e.color; ctx.stroke();
+      ctx.fillStyle = hullGradient("#090109", "#2e0a32"); ctx.fill(); ctx.strokeStyle = e.color; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-4, 28); ctx.lineTo(-24, 44); ctx.lineTo(-36, 28); ctx.closePath();
-      ctx.fillStyle = "#100010"; ctx.fill(); ctx.strokeStyle = e.color; ctx.stroke();
+      ctx.fillStyle = hullGradient("#090109", "#2e0a32"); ctx.fill(); ctx.strokeStyle = e.color; ctx.stroke();
       ctx.beginPath(); ctx.ellipse(8, 0, 14, 9, 0, 0, Math.PI * 2);
       ctx.fillStyle = e.color + "bb"; ctx.fill();
+      ctx.beginPath(); ctx.arc(8, 0, 5 + pulse * 2, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
+      drawPanelLine(-24, -23, 20, -5); drawPanelLine(-24, 23, 20, 5);
+      [-16, 0, 16].forEach(y => { ctx.fillStyle = "#ffedf9"; ctx.fillRect(31, y - 1.5, 8, 3); });
       // HP bar
       const barW = 64, barH = 6;
       ctx.fillStyle = "#333";
@@ -836,9 +891,9 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       break;
     }
     case "overlord": {
-      const pulse = 0.75 + Math.sin(performance.now() * 0.008) * 0.25;
+      const overlordPulse = 0.75 + Math.sin(now * 0.008) * 0.25;
       ctx.shadowColor = e.color;
-      ctx.shadowBlur = 18 + pulse * 12;
+      ctx.shadowBlur = 18 + overlordPulse * 12;
       // Broad armored silhouette with split wings and a glowing reactor core.
       ctx.beginPath();
       ctx.moveTo(52, 0); ctx.lineTo(18, -18); ctx.lineTo(-8, -42); ctx.lineTo(-46, -48);
@@ -854,9 +909,9 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       ctx.beginPath(); ctx.moveTo(29, 0); ctx.lineTo(-22, -31); ctx.lineTo(-43, -35); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(29, 0); ctx.lineTo(-22, 31); ctx.lineTo(-43, 35); ctx.stroke();
       ctx.beginPath(); ctx.arc(10, 0, 14, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,70,190,${.55 + pulse * .35})`; ctx.fill();
+      ctx.fillStyle = `rgba(255,70,190,${.55 + overlordPulse * .35})`; ctx.fill();
       ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.stroke();
-      ctx.beginPath(); ctx.arc(10, 0, 6 + pulse * 2, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(10, 0, 6 + overlordPulse * 2, 0, Math.PI * 2);
       ctx.fillStyle = "#ffffff"; ctx.fill();
       // Three forward weapon ports telegraph its spread and special attack.
       [-18, 0, 18].forEach(offset => {
@@ -873,29 +928,35 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
     case "interceptor": {
       ctx.beginPath();
       ctx.moveTo(18,0); ctx.lineTo(-10,-6); ctx.lineTo(-16,-2); ctx.lineTo(-8,0); ctx.lineTo(-16,2); ctx.lineTo(-10,6);
-      ctx.closePath(); ctx.fillStyle="#001a1a"; ctx.fill(); ctx.strokeStyle=e.color; ctx.lineWidth=1.5; ctx.stroke();
+      ctx.closePath(); ctx.fillStyle=hullGradient("#031112", "#0a464b"); ctx.fill(); ctx.strokeStyle=e.color; ctx.lineWidth=1.5; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-2,0); ctx.lineTo(-10,-14); ctx.lineTo(-14,-6); ctx.closePath();
       ctx.fillStyle="#001010"; ctx.fill(); ctx.strokeStyle=e.color; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-2,0); ctx.lineTo(-10,14); ctx.lineTo(-14,6); ctx.closePath();
       ctx.fillStyle="#001010"; ctx.fill(); ctx.strokeStyle=e.color; ctx.stroke();
       ctx.beginPath(); ctx.ellipse(2,0,5,3,0,0,Math.PI*2); ctx.fillStyle=e.color+"99"; ctx.fill();
+      drawPanelLine(-10, -5, 10, 0); drawPanelLine(-10, 5, 10, 0);
+      ctx.fillStyle = "#dfffff"; ctx.fillRect(14, -1, 6, 2);
       break;
     }
     case "plasmawing": {
       ctx.beginPath();
       ctx.moveTo(22, 0); ctx.lineTo(-8, -7); ctx.lineTo(-24, -19); ctx.lineTo(-17, -3);
       ctx.lineTo(-17, 3); ctx.lineTo(-24, 19); ctx.lineTo(-8, 7); ctx.closePath();
-      ctx.fillStyle = "#160022"; ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = hullGradient("#0c0215", "#4c1268"); ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 2; ctx.stroke();
       ctx.beginPath(); ctx.arc(3, 0, 6, 0, Math.PI * 2);
       ctx.fillStyle = "#ffffff"; ctx.shadowColor = e.color; ctx.shadowBlur = 14; ctx.fill();
+      drawPanelLine(-17, -11, 8, -3); drawPanelLine(-17, 11, 8, 3);
+      ctx.fillStyle = e.color; ctx.fillRect(16, -7, 8, 2); ctx.fillRect(16, 5, 8, 2);
       break;
     }
     case "sentinel": {
       ctx.beginPath();
       ctx.moveTo(20, 0); ctx.lineTo(5, -17); ctx.lineTo(-18, -17); ctx.lineTo(-27, 0);
       ctx.lineTo(-18, 17); ctx.lineTo(5, 17); ctx.closePath();
-      ctx.fillStyle = "#071522"; ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.fillStyle = hullGradient("#040c14", "#173c58"); ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 2.5; ctx.stroke();
       ctx.beginPath(); ctx.rect(-12, -8, 18, 16); ctx.fillStyle = e.color + "66"; ctx.fill();
+      drawPanelLine(-19, -12, 11, -8); drawPanelLine(-19, 12, 11, 8);
+      ctx.beginPath(); ctx.arc(-3, 0, 4 + pulse, 0, Math.PI * 2); ctx.fillStyle = "#eaffff"; ctx.fill();
       if ((e.shieldHp ?? 0) > 0) {
         ctx.beginPath(); ctx.arc(-2, 0, 29, 0, Math.PI * 2);
         ctx.strokeStyle = "#66ddff88"; ctx.lineWidth = 2; ctx.stroke();
@@ -905,8 +966,10 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
     case "gunship": {
       ctx.beginPath();
       ctx.moveTo(22,0); ctx.lineTo(-14,-20); ctx.lineTo(-32,-12); ctx.lineTo(-22,0); ctx.lineTo(-32,12); ctx.lineTo(-14,20);
-      ctx.closePath(); ctx.fillStyle="#1a0a00"; ctx.fill(); ctx.strokeStyle=e.color; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.closePath(); ctx.fillStyle=hullGradient("#140804", "#593016"); ctx.fill(); ctx.strokeStyle=e.color; ctx.lineWidth=2.5; ctx.stroke();
       ctx.beginPath(); ctx.ellipse(4,0,8,5,0,0,Math.PI*2); ctx.fillStyle=e.color+"99"; ctx.fill();
+      drawPanelLine(-21, -14, 10, -4); drawPanelLine(-21, 14, 10, 4);
+      [-11, 11].forEach(y => { ctx.fillStyle = "#fff0d0"; ctx.fillRect(17, y - 2, 8, 4); });
       const bW=e.width*0.8,bH=4;
       ctx.fillStyle="#333"; ctx.fillRect(-bW/2,-e.height/2-8,bW,bH);
       ctx.fillStyle=e.color; ctx.fillRect(-bW/2,-e.height/2-8,bW*(e.hp/e.maxHp),bH);
@@ -927,7 +990,8 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
           if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
         }
         ctx.closePath();
-        ctx.fillStyle = "#0a0a12"; ctx.fill(); ctx.strokeStyle = tg; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = hullGradient("#05060b", e.type === "emeraldtiefighter" ? "#123c2c" : "#18263a"); ctx.fill(); ctx.strokeStyle = tg; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-10, cy); ctx.lineTo(6, cy); ctx.strokeStyle = "#ffffff42"; ctx.lineWidth = 1; ctx.stroke();
       };
       drawEnemyHex(-16); drawEnemyHex(16);
       ctx.strokeStyle = tg; ctx.lineWidth = 2;
@@ -937,6 +1001,8 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       ctx.fillStyle = "#12121a"; ctx.fill(); ctx.strokeStyle = tg; ctx.lineWidth = 1.5; ctx.stroke();
       ctx.beginPath(); ctx.arc(-3, -1, 4, 0, Math.PI * 2);
       ctx.fillStyle = tg + "88"; ctx.fill();
+      ctx.beginPath(); ctx.arc(-3, -1, 2 + pulse, 0, Math.PI * 2); ctx.fillStyle = "#ffffff"; ctx.fill();
+      drawEngine(-12, -16, 5, tg); drawEngine(-12, 16, 5, tg);
       if ((e.shieldHp ?? 0) > 0) {
         ctx.beginPath();
         ctx.arc(-2, 0, 27, 0, Math.PI * 2);
