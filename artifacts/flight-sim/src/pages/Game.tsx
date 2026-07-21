@@ -222,9 +222,12 @@ function clearSave() {
 // ─── Skins, shop & persistent data ───────────────────────────────────────────
 
 const SKIN_KEY    = "fighter-command-skin";
+const ULTI_SKIN_KEY = "fighter-command-ulti-skin";
 const DRONE_SKIN_KEY = "fighter-command-drone-skin";
 const HS_KEY      = "fighter-command-hs";
 const COINS_KEY   = "fighter-command-coins";
+const DAILY_CHEST_KEY = "fighter-command-daily-chest";
+const DAILY_CHEST_REWARD = 10_000;
 const UNLOCKS_KEY = "fighter-command-unlocks";
 const AIRCRAFT_LEVELS_KEY = "fighter-command-aircraft-levels";
 const DRONE_LEVELS_KEY = "fighter-command-drone-levels";
@@ -373,8 +376,27 @@ function addCoins(n: number)      { try { localStorage.setItem(COINS_KEY, String
 function setCoinsAbsolute(n: number) { try { localStorage.setItem(COINS_KEY, String(n)); } catch {} }
 function spendCoins(n: number)    { try { const c = loadCoins(); if (c >= n) localStorage.setItem(COINS_KEY, String(c - n)); } catch {} }
 function loadCoins(): number      { try { return parseInt(localStorage.getItem(COINS_KEY) ?? "0", 10) || 0; } catch { return 0; } }
+function getLocalDateKey(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+function canClaimDailyChest(): boolean {
+  try { return localStorage.getItem(DAILY_CHEST_KEY) !== getLocalDateKey(); } catch { return false; }
+}
+function claimDailyChest(): boolean {
+  if (!canClaimDailyChest()) return false;
+  try {
+    addCoins(DAILY_CHEST_REWARD);
+    localStorage.setItem(DAILY_CHEST_KEY, getLocalDateKey());
+    return true;
+  } catch { return false; }
+}
 function saveSkin(id: string)     { try { localStorage.setItem(SKIN_KEY, id); } catch {} }
 function loadSkin(): string       { try { return localStorage.getItem(SKIN_KEY) ?? "steel"; } catch { return "steel"; } }
+function saveUltiSkin(id: string) { try { localStorage.setItem(ULTI_SKIN_KEY, id); } catch {} }
+function loadUltiSkin(): string   { try { return localStorage.getItem(ULTI_SKIN_KEY) ?? loadSkin(); } catch { return loadSkin(); } }
 function saveDroneSkin(id: string) { try { localStorage.setItem(DRONE_SKIN_KEY, id); } catch {} }
 function loadDroneSkin(): string   { try { return localStorage.getItem(DRONE_SKIN_KEY) ?? "drone_violet"; } catch { return "drone_violet"; } }
 function addUnlock(id: string)    { try { const u = loadUnlocks(); if (!u.includes(id)) localStorage.setItem(UNLOCKS_KEY, JSON.stringify([...u, id])); } catch {} }
@@ -1025,6 +1047,7 @@ export default function Game() {
   const milestoneBossFiredRef = useRef<Set<number>>(new Set());
   const gameOverCountdownRef = useRef(0);
   const activeSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadSkin()) ?? JET_SKINS[0]);
+  const activeUltiSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadUltiSkin()) ?? JET_SKINS[0]);
   const activeDroneSkinRef = useRef<DroneSkin>(DRONE_SKINS.find(s => s.id === loadDroneSkin()) ?? DRONE_SKINS[0]);
   const activeUnlocksRef = useRef<string[]>([]);
   const stealthChargeRef = useRef(0);
@@ -1040,6 +1063,7 @@ export default function Game() {
   const activeBulletColorRef = useRef(loadBulletColor());
   const playerNameRef = useRef(loadName());
   const [selectedSkin, setSelectedSkin] = useState(() => loadSkin());
+  const [selectedUltiSkin, setSelectedUltiSkin] = useState(() => loadUltiSkin());
   const [selectedDroneSkin, setSelectedDroneSkin] = useState(() => loadDroneSkin());
   const [coins, setCoins] = useState(() => loadCoins());
   const [aircraftLevels, setAircraftLevels] = useState<Record<string, number>>(() => loadAircraftLevels());
@@ -1283,7 +1307,7 @@ export default function Game() {
       }));
     }
 
-    const aircraftUltiFireRate = ultimaActiveRef.current > 0 && ["gold", "crimson"].includes(activeSkinRef.current.id) ? 0.45 : 1;
+    const aircraftUltiFireRate = ultimaActiveRef.current > 0 && ["gold", "crimson"].includes(activeUltiSkinRef.current.id) ? 0.45 : 1;
     const fireRate = tier.fireRate * Math.pow(0.8, runUpgradesRef.current.rapid_fire) * aircraftUpgradeRef.current.fireRateMultiplier * aircraftUltiFireRate;
     if (now - lastFireRef.current < fireRate) return;
     lastFireRef.current = now;
@@ -1312,8 +1336,8 @@ export default function Game() {
       });
     });
     // Summoned wingmen fire during the X-Wing, TIE and N-1 aircraft ultimates.
-    if (ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeSkinRef.current.id)) {
-      const wingmen = activeSkinRef.current.id === "tiefighter" ? [-72, -36, 36, 72] : [-50, 50];
+    if (ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeUltiSkinRef.current.id)) {
+      const wingmen = activeUltiSkinRef.current.id === "tiefighter" ? [-72, -36, 36, 72] : [-50, 50];
       wingmen.forEach(wingOffset => offsets.forEach((oy, i) => {
         let cvx = BASE_BULLET_SPEED;
         let cvy = 0;
@@ -1486,10 +1510,10 @@ export default function Game() {
         if (ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0) {
           ultimaActiveRef.current = ULTI_DURATION;
           ultimaChargeRef.current = 0;
-          if (activeSkinRef.current.id === "jade") stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
-          if (["steel", "jade"].includes(activeSkinRef.current.id)) {
+          if (activeUltiSkinRef.current.id === "jade") stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
+          if (["steel", "jade"].includes(activeUltiSkinRef.current.id)) {
             shieldTimerRef.current = ULTI_DURATION;
-            playerShieldHpRef.current = activeSkinRef.current.id === "steel" ? 12 : 6;
+            playerShieldHpRef.current = activeUltiSkinRef.current.id === "steel" ? 12 : 6;
           }
           syncDisplay();
         }
@@ -1579,10 +1603,10 @@ export default function Game() {
           } else if (du <= ULTI_BTN_R + 12 && ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0) {
             ultimaActiveRef.current = ULTI_DURATION;
             ultimaChargeRef.current = 0;
-            if (activeSkinRef.current.id === "jade") stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
-            if (["steel", "jade"].includes(activeSkinRef.current.id)) {
+            if (activeUltiSkinRef.current.id === "jade") stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
+            if (["steel", "jade"].includes(activeUltiSkinRef.current.id)) {
               shieldTimerRef.current = ULTI_DURATION;
-              playerShieldHpRef.current = activeSkinRef.current.id === "steel" ? 12 : 6;
+              playerShieldHpRef.current = activeUltiSkinRef.current.id === "steel" ? 12 : 6;
             }
             syncDisplay();
           } else if (!touchFireRef.current.active) {
@@ -1777,7 +1801,7 @@ export default function Game() {
       audioRef.current.updateMusic(gs.level, settingsRef.current.musicVolume, dtScale);
 
       // ── Input & Player Movement ──
-      const n1UltiSpeed = activeSkinRef.current?.id === "n1" && ultimaActiveRef.current > 0 ? 2 : 1;
+      const n1UltiSpeed = activeUltiSkinRef.current.id === "n1" && ultimaActiveRef.current > 0 ? 2 : 1;
       const speedMult = (activeSkinRef.current?.id === "n1" ? 1.15 : 1) * n1UltiSpeed * (speedBoostRef.current > 0 ? 2 : 1);
       const spd = gs.speed * speedMult;
       const js = joystickRef.current;
@@ -1892,7 +1916,7 @@ export default function Game() {
           const sp = Math.hypot(b.vx, b.vy);
           if (sp > 5) { b.vx = b.vx / sp * 5; b.vy = b.vy / sp * 5; }
         }
-        const projectileSpeed = !b.fromPlayer && ultimaActiveRef.current > 0 && activeSkinRef.current.id === "arctic" ? 0 : 1;
+        const projectileSpeed = !b.fromPlayer && ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "arctic" ? 0 : 1;
         b.x += b.vx * dtScale * projectileSpeed;
         b.y += b.vy * dtScale * projectileSpeed;
         drawBullet(ctx, b);
@@ -1909,11 +1933,11 @@ export default function Game() {
       // ── Ultima charge & countdown ──
       if (ultimaActiveRef.current > 0) {
         ultimaActiveRef.current = Math.max(0, ultimaActiveRef.current - dtScale);
-        if (["steel", "shadow", "n1"].includes(activeSkinRef.current.id)) invincibleRef.current = Math.max(invincibleRef.current, 3);
+        if (["steel", "shadow", "n1"].includes(activeUltiSkinRef.current.id)) invincibleRef.current = Math.max(invincibleRef.current, 3);
       } else if (ultimaChargeRef.current < ULTI_MAX) {
         const cloneMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
         const cloneBonus = activeUnlocksRef.current.includes("clone_upgrade") ? 1.25 : 1;
-        ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + 0.18 * cloneMult * cloneBonus * dtScale);
+        ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + 0.09 * cloneMult * cloneBonus * dtScale);
       }
       // ── Laser charge & countdown ──
       if (laserActiveRef.current > 0) {
@@ -1976,7 +2000,7 @@ export default function Game() {
           }
         }
         if (ultimaActiveRef.current > 0) {
-          const aircraftId = activeSkinRef.current.id;
+          const aircraftId = activeUltiSkinRef.current.id;
           const blackHoleActive = aircraftId === "galaxy" || aircraftId === "n1";
           if (blackHoleActive) {
             const targetX = CANVAS_W * .58;
@@ -2010,7 +2034,7 @@ export default function Game() {
             e.ultimateDotTimer += ULTIMATE_DOT_INTERVAL;
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
             if (e.hp <= 0) {
-              gs.score += e.points * (ultimaActiveRef.current > 0 && activeSkinRef.current.id === "gold" ? 2 : 1);
+              gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
               runStatsRef.current.kills += 1;
               if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
               e.dead = true;
@@ -2191,7 +2215,7 @@ export default function Game() {
           const bh = b.isMissile ? 8 : 4;
           if (!rectHit(b.x, b.y - bh / 2, bw, bh, e.x, e.y, e.width, e.height)) return true;
           const critical = runUpgradesRef.current.critical > 0 && Math.random() < Math.min(.45, .15 * runUpgradesRef.current.critical);
-          const aircraftDamage = ultimaActiveRef.current > 0 && activeSkinRef.current.id === "crimson" ? 2 : 1;
+          const aircraftDamage = ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "crimson" ? 2 : 1;
           const damageResult = applyEnemyDamage(e, b.damage * (critical ? 3 : 1) * aircraftDamage * (ultimateActiveRef.current > 0 ? 2 : 1));
           e.hp = damageResult.hp;
           e.shieldHp = damageResult.shieldHp;
@@ -2201,13 +2225,13 @@ export default function Game() {
           hit = true;
           if (damageResult.destroyed) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
-            gs.score += e.points * (ultimaActiveRef.current > 0 && activeSkinRef.current.id === "gold" ? 2 : 1);
+            gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
             runStatsRef.current.kills += 1;
             if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
             checkAchievements();
             audioRef.current.effect("explosion", settingsRef.current.soundVolume);
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current +
-              (isBossEnemy(e) ? 90 : e.type === "bomber" ? 40 : e.type === "fighter" ? 22 : 12));
+              (isBossEnemy(e) ? 45 : e.type === "bomber" ? 20 : e.type === "fighter" ? 11 : 6));
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current +
               (isBossEnemy(e) ? 60 : e.type === "bomber" ? 28 : e.type === "fighter" ? 14 : 8));
             e.dead = true;
@@ -2322,7 +2346,7 @@ export default function Game() {
       // ── Laser beams ──
       const laserBeams: number[] = [];
       if (laserActiveRef.current > 0) laserBeams.push(playerRef.current.y + PLAYER_H / 2);
-      if (laserActiveRef.current > 0 && ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeSkinRef.current.id) && activeUnlocksRef.current.includes("clone_laser")) {
+      if (laserActiveRef.current > 0 && ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeUltiSkinRef.current.id) && activeUnlocksRef.current.includes("clone_laser")) {
         const cloneY = clamp(playerRef.current.y + 56, 0, CANVAS_H - PLAYER_H);
         laserBeams.push(cloneY + PLAYER_H / 2);
       }
@@ -2352,11 +2376,11 @@ export default function Game() {
           e.hp -= 0.38 * beamHits * dtScale;
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
-            gs.score += e.points * (ultimaActiveRef.current > 0 && activeSkinRef.current.id === "gold" ? 2 : 1);
+            gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
             runStatsRef.current.kills += 1;
             if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
             checkAchievements(); audioRef.current.effect("explosion", settingsRef.current.soundVolume);
-            ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (isBossEnemy(e) ? 50 : 8));
+            ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (isBossEnemy(e) ? 25 : 4));
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + (isBossEnemy(e) ? 30 : 5));
             stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + (isBossEnemy(e) ? 30 : 4));
             e.dead = true;
@@ -2366,7 +2390,7 @@ export default function Game() {
       }
 
       // ── Aircraft-ultimate visuals ──
-      if (ultimaActiveRef.current > 0 && ["galaxy", "n1"].includes(activeSkinRef.current.id)) {
+      if (ultimaActiveRef.current > 0 && ["galaxy", "n1"].includes(activeUltiSkinRef.current.id)) {
         const holeX = CANVAS_W * .58, holeY = CANVAS_H * .5;
         const pulse = 1 + Math.sin(timeRef.current * .12) * .12;
         ctx.save();
@@ -2454,9 +2478,9 @@ export default function Game() {
             ? (shieldHp <= 1 ? "#ff2200" : shieldHp <= 3 ? "#ff9900" : "#cfd6dc") : undefined;
           drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current, _sc);
         }
-        if (ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeSkinRef.current.id)) {
-          const wingmen = activeSkinRef.current.id === "tiefighter" ? [-72, -36, 36, 72] : [-50, 50];
-          const allySkin = JET_SKINS.find(s => s.id === (activeSkinRef.current.id === "tiefighter" ? "tiefighter" : "xwing")) ?? activeSkinRef.current;
+        if (ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeUltiSkinRef.current.id)) {
+          const wingmen = activeUltiSkinRef.current.id === "tiefighter" ? [-72, -36, 36, 72] : [-50, 50];
+          const allySkin = JET_SKINS.find(s => s.id === (activeUltiSkinRef.current.id === "tiefighter" ? "tiefighter" : "xwing")) ?? activeSkinRef.current;
           wingmen.forEach((wingOffset, index) => {
             const wingY = clamp(playerRef.current.y + wingOffset, 0, CANVAS_H - PLAYER_H);
             ctx.save();
@@ -2517,6 +2541,15 @@ export default function Game() {
     activeSkinRef.current = skin;
   };
 
+  const handleUltiSkinSelect = (id: string) => {
+    const skin = JET_SKINS.find(s => s.id === id);
+    const owned = skin?.cost === 0 || loadUnlocks().includes(id);
+    if (!skin || !owned) return;
+    setSelectedUltiSkin(id);
+    saveUltiSkin(id);
+    activeUltiSkinRef.current = skin;
+  };
+
   const handleDroneSkinSelect = (id: string) => {
     const skin = DRONE_SKINS.find(s => s.id === id);
     if (!skin) return;
@@ -2548,6 +2581,12 @@ export default function Game() {
     setDroneLevels(next);
     setCoins(loadCoins());
     droneLevelRef.current = currentLevel + 1;
+    audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
+  };
+
+  const handleDailyChestClaim = () => {
+    if (!claimDailyChest()) return;
+    setCoins(loadCoins());
     audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
   };
 
@@ -2652,6 +2691,7 @@ export default function Game() {
         {!displayState.started && (
           <HangarOverlay
             selectedSkin={selectedSkin}
+            selectedUltiSkin={selectedUltiSkin}
             selectedDroneSkin={selectedDroneSkin}
             coins={coins}
             highScore={highScore}
@@ -2663,12 +2703,14 @@ export default function Game() {
             onStart={() => startGame(saveExistsRef.current)}
             onNewGame={() => startGame(false)}
             onSkinSelect={handleSkinSelect}
+            onUltiSkinSelect={handleUltiSkinSelect}
             onDroneSkinSelect={handleDroneSkinSelect}
             onBuy={handleBuy}
             onUnlockSkin={handleUnlockSkin}
             onUnlockDroneSkin={handleUnlockDroneSkin}
             onAircraftUpgrade={handleAircraftUpgrade}
             onDroneUpgrade={handleDroneUpgrade}
+            onDailyChestClaim={handleDailyChestClaim}
             fullscreenSupported={fullscreenSupported}
             isFullscreen={isFullscreen}
             onFullscreenToggle={toggleFullscreen}
@@ -2725,18 +2767,19 @@ export default function Game() {
 // ─── Hangar Overlay ───────────────────────────────────────────────────────────
 
 function HangarOverlay({
-  selectedSkin, selectedDroneSkin, coins, highScore, unlockedItems, aircraftLevels, droneLevels, hasSave, saveData,
-  onStart, onNewGame, onSkinSelect, onDroneSkinSelect, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onAdminActivate,
+  selectedSkin, selectedUltiSkin, selectedDroneSkin, coins, highScore, unlockedItems, aircraftLevels, droneLevels, hasSave, saveData,
+  onStart, onNewGame, onSkinSelect, onUltiSkinSelect, onDroneSkinSelect, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
-  selectedSkin: string; selectedDroneSkin: string; coins: number; highScore: number;
+  selectedSkin: string; selectedUltiSkin: string; selectedDroneSkin: string; coins: number; highScore: number;
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
   unlockedItems: string[]; hasSave: boolean; saveData: { level: number; score: number; weaponTier: number } | null;
   onStart: () => void; onNewGame: () => void;
-  onSkinSelect: (id: string) => void; onDroneSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void; onUnlockDroneSkin: (id: string) => void;
+  onSkinSelect: (id: string) => void; onUltiSkinSelect: (id: string) => void; onDroneSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void; onUnlockDroneSkin: (id: string) => void;
   onAircraftUpgrade: () => void;
   onDroneUpgrade: () => void;
+  onDailyChestClaim: () => void;
   onAdminActivate: () => void;
   fullscreenSupported: boolean; isFullscreen: boolean; onFullscreenToggle: () => void;
   settings: GameSettings; onSettingsChange: (settings: GameSettings) => void;
@@ -2788,9 +2831,9 @@ function HangarOverlay({
   if (view === "upgrades") {
     return (
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
-        <ShopScreen coins={coins} playerLevel={getPilotLevelForScore(highScore)} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} selectedSkin={selectedSkin} selectedDroneSkin={selectedDroneSkin}
+        <ShopScreen coins={coins} playerLevel={getPilotLevelForScore(highScore)} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} selectedSkin={selectedSkin} selectedUltiSkin={selectedUltiSkin} selectedDroneSkin={selectedDroneSkin}
           onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect}
-          onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} />
+          onUltiSkinSelect={onUltiSkinSelect} onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} onDailyChestClaim={onDailyChestClaim} />
       </div>
     );
   }
@@ -3057,16 +3100,19 @@ function ShopStarfield() {
   );
 }
 
-function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLevels, selectedSkin, selectedDroneSkin, onBack, onBuy, onUnlockSkin, onSkinSelect, onUnlockDroneSkin, onDroneSkinSelect, onAircraftUpgrade, onDroneUpgrade }: {
-  coins: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; selectedDroneSkin: string;
+function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLevels, selectedSkin, selectedUltiSkin, selectedDroneSkin, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiSkinSelect, onUnlockDroneSkin, onDroneSkinSelect, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim }: {
+  coins: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; selectedUltiSkin: string; selectedDroneSkin: string;
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
   onBack: () => void; onBuy: (id: string) => void;
   onUnlockSkin: (id: string) => void; onSkinSelect: (id: string) => void;
+  onUltiSkinSelect: (id: string) => void;
   onUnlockDroneSkin: (id: string) => void; onDroneSkinSelect: (id: string) => void;
   onAircraftUpgrade: () => void;
   onDroneUpgrade: () => void;
+  onDailyChestClaim: () => void;
 }) {
+  const [dailyChestAvailable, setDailyChestAvailable] = useState(() => canClaimDailyChest());
   const selectedJet = JET_SKINS.find(s => s.id === selectedSkin) ?? JET_SKINS[0];
   const aircraftStats = getAircraftUpgradeStats(aircraftLevels[selectedSkin] ?? 1);
   const aircraftUpgradeCost = getAircraftUpgradeCost(aircraftStats.level);
@@ -3084,6 +3130,27 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
         <span className="rounded-full border border-cyan-400/50 bg-cyan-950/60 px-2.5 py-1 text-xs font-black text-cyan-300">PILOT-LEVEL {playerLevel}</span>
         <span className="ml-auto text-amber-300 font-bold text-sm">💰 {coins.toLocaleString("de-DE")}</span>
       </div>
+
+      <button
+        type="button"
+        disabled={!dailyChestAvailable}
+        onClick={() => {
+          onDailyChestClaim();
+          setDailyChestAvailable(canClaimDailyChest());
+        }}
+        className="relative z-10 flex shrink-0 items-center gap-4 rounded-2xl p-4 text-left transition active:scale-[.99] disabled:cursor-default disabled:opacity-60"
+        style={{ background: dailyChestAvailable ? "linear-gradient(110deg,rgba(120,70,0,.82),rgba(40,24,4,.92))" : "rgba(20,24,36,.82)", border: `1px solid ${dailyChestAvailable ? "#fbbf24" : "#475569"}`, boxShadow: dailyChestAvailable ? "0 0 22px #f59e0b44" : "none" }}
+      >
+        <span className={`text-4xl ${dailyChestAvailable ? "animate-pulse" : "grayscale"}`}>🎁</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[10px] font-black uppercase tracking-[.22em] text-amber-300">Tägliche Truhe</span>
+          <span className="block font-black text-white">{dailyChestAvailable ? "+10.000 Credits abholen" : "Heute bereits abgeholt"}</span>
+          <span className="block text-xs text-slate-300">{dailyChestAvailable ? "Jeden Tag wartet eine neue Belohnung auf dich." : "Morgen ist die nächste Truhe verfügbar."}</span>
+        </span>
+        <span className={`rounded-lg px-3 py-2 text-xs font-black ${dailyChestAvailable ? "bg-amber-400 text-slate-950" : "bg-slate-700 text-slate-300"}`}>
+          {dailyChestAvailable ? "ÖFFNEN" : "✓ GEÖFFNET"}
+        </span>
+      </button>
 
       <div className="relative z-10 flex flex-wrap gap-2 text-[10px] font-black tracking-wider">
         {(Object.keys(SHOP_RARITIES) as ShopRarity[]).map(key => {
@@ -3178,6 +3245,22 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
                     {!levelUnlocked ? `🔒 Level ${SHOP_RARITY_MIN_LEVEL[s.rarity]}` : canAfford ? `💰 ${formatLockedSkinPrice(s.cost)}` : `🔒 ${formatLockedSkinPrice(s.cost)}`}
                   </div>
               }
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest mt-1">Flugzeug-Ulti wählen</div>
+      <div className="relative z-10 grid grid-cols-3 gap-2 shrink-0">
+        {JET_SKINS.filter(s => s.cost === 0 || unlockedItems.includes(s.id)).map(s => {
+          const active = s.id === selectedUltiSkin;
+          return (
+            <button key={s.id} onClick={() => onUltiSkinSelect(s.id)}
+              className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all active:scale-95"
+              style={{ background: active ? s.glow + "22" : "rgba(255,255,255,0.05)", border: `1px solid ${active ? s.glow : s.glow + "44"}`, boxShadow: active ? `0 0 12px ${s.glow}55` : undefined }}>
+              <div className="text-xs font-black" style={{ color: s.glow }}>{s.ultiName}</div>
+              <div className="line-clamp-2 text-[8px] leading-tight text-slate-400">{s.ultiDesc}</div>
+              <div className={`text-[10px] font-bold ${active ? "text-green-400" : "text-cyan-300"}`}>{active ? "✓ Aktiv" : "Auswählen"}</div>
             </button>
           );
         })}
