@@ -123,7 +123,7 @@ interface GameState {
 }
 
 interface GameSettings {
-  language: "de" | "en";
+  language: "de" | "en" | "tr";
   tutorial: boolean;
   reducedMotion: boolean;
   highContrast: boolean;
@@ -449,6 +449,10 @@ function saveSettings(settings: GameSettings) { try { localStorage.setItem(SETTI
 
 function translated(language: GameSettings["language"], german: string, english: string) {
   return language === "de" ? german : english;
+}
+
+function localeFor(language: GameSettings["language"]) {
+  return language === "de" ? "de-DE" : language === "tr" ? "tr-TR" : "en-US";
 }
 function tutorialSeen(): boolean { try { return localStorage.getItem(TUTORIAL_KEY) === "1"; } catch { return false; } }
 function markTutorialSeen() { try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch {} }
@@ -3009,7 +3013,7 @@ function HangarOverlay({
             🛡 PILOT-LEVEL {getPilotLevelForScore(highScore)}
           </div>
           <div className="text-yellow-300 font-bold text-sm">⭐ {highScore.toLocaleString("de-DE")}</div>
-          <div className="text-amber-400 font-bold text-sm" title={translated(language, "Verfügbare Credits", "Available credits")}>💰 {coins.toLocaleString(language === "de" ? "de-DE" : "en-US")} Credits</div>
+          <div className="text-amber-400 font-bold text-sm" title={translated(language, "Verfügbare Credits", "Available credits")}>💰 {coins.toLocaleString(localeFor(language))} Credits</div>
           <button onClick={() => setView("leaderboard")}
             className="text-xs font-bold px-2 py-0.5 rounded"
             style={{ background: "rgba(0,180,255,0.12)", border: "1px solid #1a4466", color: "#44aadd" }}>
@@ -3103,7 +3107,7 @@ function HangarOverlay({
         {/* Continue hint */}
         {hasSave && saveData && (
           <div className="text-xs text-emerald-400/80 mt-1">
-            {translated(language, "Gespeichert", "Saved")}: {translated(language, "Level", "Level")} {saveData.level} · {saveData.score.toLocaleString(language === "de" ? "de-DE" : "en-US")} {translated(language, "Punkte", "points")} · {WEAPON_TIERS[saveData.weaponTier]?.name}
+            {translated(language, "Gespeichert", "Saved")}: {translated(language, "Level", "Level")} {saveData.level} · {saveData.score.toLocaleString(localeFor(language))} {translated(language, "Punkte", "points")} · {WEAPON_TIERS[saveData.weaponTier]?.name}
           </div>
         )}
         {nextPurchase && (
@@ -3652,7 +3656,7 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
           <span className="block text-sm font-bold">{translated(language, "Sprache", "Language")}</span>
           <span className="mb-2 block text-xs text-slate-400">{translated(language, "Sprache der Menüs und Hinweise.", "Language used for menus and hints.")}</span>
           <select aria-label={translated(language, "Sprache auswählen", "Select language")} value={language} onChange={e => onChange({ ...settings, language: e.target.value as GameSettings["language"] })} className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white">
-            <option value="de">Deutsch</option><option value="en">English</option>
+            <option value="de">Deutsch</option><option value="en">English</option><option value="tr">Türkçe</option>
           </select>
         </label>
         <SettingToggle label={translated(language, "Einführung anzeigen", "Show tutorial")} description={translated(language, "Erklärt Bewegung und Schießen beim ersten Start.", "Explains movement and shooting on the first start.")} checked={settings.tutorial} onClick={() => toggle("tutorial")} />
