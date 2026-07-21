@@ -771,6 +771,8 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
   ctx.save();
   ctx.translate(e.x + e.width / 2, e.y + e.height / 2);
   ctx.rotate(Math.PI); // facing left
+  const visualScale = isBossEnemy(e) ? 1.06 : e.type === "gunship" || e.type === "sentinel" ? 1.14 : 1.22;
+  ctx.scale(visualScale, visualScale);
 
   const now = performance.now();
   const pulse = 0.72 + Math.sin(now * 0.009 + e.x * 0.03) * 0.18;
@@ -816,27 +818,34 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
   }
 
   ctx.shadowColor = e.color;
-  ctx.shadowBlur = 5;
+  ctx.shadowBlur = 9;
 
   switch (e.type) {
     case "scout": {
+      // Razor-like light fighter: split wings, armored spine and twin cannons.
       ctx.beginPath();
-      ctx.moveTo(20, 0);
-      ctx.lineTo(-12, -8);
-      ctx.lineTo(-18, -3);
+      ctx.moveTo(23, 0);
+      ctx.lineTo(4, -6);
+      ctx.lineTo(-13, -16);
+      ctx.lineTo(-9, -5);
+      ctx.lineTo(-18, -2);
       ctx.lineTo(-10, 0);
-      ctx.lineTo(-18, 3);
-      ctx.lineTo(-12, 8);
+      ctx.lineTo(-18, 2);
+      ctx.lineTo(-9, 5);
+      ctx.lineTo(-13, 16);
+      ctx.lineTo(4, 6);
       ctx.closePath();
       ctx.fillStyle = hullGradient("#160406", "#5b1520");
       ctx.fill();
       ctx.strokeStyle = e.color;
       ctx.lineWidth = 1.5;
       ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(4, 0, 7, 4, 0, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.ellipse(5, 0, 8, 4.5, 0, 0, Math.PI * 2);
       ctx.fillStyle = e.color + "99"; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(7, -1, 3.5, 2, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "#fff4f6"; ctx.fill();
       drawPanelLine(-10, -4, 8, 0); drawPanelLine(-10, 4, 8, 0);
-      ctx.fillStyle = "#fff"; ctx.fillRect(16, -1, 5, 2);
+      ctx.fillStyle = "#fff"; ctx.fillRect(16, -5, 9, 2); ctx.fillRect(16, 3, 9, 2);
       break;
     }
     case "fighter": {
@@ -865,6 +874,12 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       ctx.fillStyle = e.color + "99"; ctx.fill();
       drawPanelLine(-18, -11, 8, -3); drawPanelLine(-18, 11, 8, 3);
       [-9, 9].forEach(y => { ctx.beginPath(); ctx.arc(12, y, 2.5, 0, Math.PI * 2); ctx.fillStyle = "#fff4bd"; ctx.fill(); });
+      // Heavy ordnance pods make the bomber distinct at a glance.
+      [-14, 14].forEach(y => {
+        ctx.beginPath(); ctx.roundRect(-11, y - 4, 19, 8, 3);
+        ctx.fillStyle = "#10180d"; ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = "#fff7cf"; ctx.fillRect(5, y - 1, 6, 2);
+      });
       break;
     }
     case "boss": {
@@ -927,15 +942,16 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
     }
     case "interceptor": {
       ctx.beginPath();
-      ctx.moveTo(18,0); ctx.lineTo(-10,-6); ctx.lineTo(-16,-2); ctx.lineTo(-8,0); ctx.lineTo(-16,2); ctx.lineTo(-10,6);
+      ctx.moveTo(24,0); ctx.lineTo(4,-5); ctx.lineTo(-12,-10); ctx.lineTo(-18,-3); ctx.lineTo(-8,0); ctx.lineTo(-18,3); ctx.lineTo(-12,10); ctx.lineTo(4,5);
       ctx.closePath(); ctx.fillStyle=hullGradient("#031112", "#0a464b"); ctx.fill(); ctx.strokeStyle=e.color; ctx.lineWidth=1.5; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-2,0); ctx.lineTo(-10,-14); ctx.lineTo(-14,-6); ctx.closePath();
+      ctx.beginPath(); ctx.moveTo(3,-3); ctx.lineTo(-8,-19); ctx.lineTo(-16,-15); ctx.lineTo(-11,-6); ctx.closePath();
       ctx.fillStyle="#001010"; ctx.fill(); ctx.strokeStyle=e.color; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-2,0); ctx.lineTo(-10,14); ctx.lineTo(-14,6); ctx.closePath();
+      ctx.beginPath(); ctx.moveTo(3,3); ctx.lineTo(-8,19); ctx.lineTo(-16,15); ctx.lineTo(-11,6); ctx.closePath();
       ctx.fillStyle="#001010"; ctx.fill(); ctx.strokeStyle=e.color; ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(2,0,5,3,0,0,Math.PI*2); ctx.fillStyle=e.color+"99"; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(5,0,7,3.5,0,0,Math.PI*2); ctx.fillStyle=e.color+"99"; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(7,-.5,3,1.5,0,0,Math.PI*2); ctx.fillStyle="#edffff"; ctx.fill();
       drawPanelLine(-10, -5, 10, 0); drawPanelLine(-10, 5, 10, 0);
-      ctx.fillStyle = "#dfffff"; ctx.fillRect(14, -1, 6, 2);
+      ctx.fillStyle = "#dfffff"; ctx.fillRect(17, -6, 9, 2); ctx.fillRect(17, 4, 9, 2);
       break;
     }
     case "plasmawing": {
@@ -957,6 +973,10 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       ctx.beginPath(); ctx.rect(-12, -8, 18, 16); ctx.fillStyle = e.color + "66"; ctx.fill();
       drawPanelLine(-19, -12, 11, -8); drawPanelLine(-19, 12, 11, 8);
       ctx.beginPath(); ctx.arc(-3, 0, 4 + pulse, 0, Math.PI * 2); ctx.fillStyle = "#eaffff"; ctx.fill();
+      [-12, 12].forEach(y => {
+        ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(25, y * .72); ctx.lineTo(8, y * .5); ctx.closePath();
+        ctx.fillStyle = "#0a1e2d"; ctx.fill(); ctx.strokeStyle = e.color; ctx.stroke();
+      });
       if ((e.shieldHp ?? 0) > 0) {
         ctx.beginPath(); ctx.arc(-2, 0, 29, 0, Math.PI * 2);
         ctx.strokeStyle = "#66ddff88"; ctx.lineWidth = 2; ctx.stroke();
@@ -970,6 +990,11 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       ctx.beginPath(); ctx.ellipse(4,0,8,5,0,0,Math.PI*2); ctx.fillStyle=e.color+"99"; ctx.fill();
       drawPanelLine(-21, -14, 10, -4); drawPanelLine(-21, 14, 10, 4);
       [-11, 11].forEach(y => { ctx.fillStyle = "#fff0d0"; ctx.fillRect(17, y - 2, 8, 4); });
+      [-15, 15].forEach(y => {
+        ctx.beginPath(); ctx.arc(-7, y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = "#21130a"; ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = "#fff3db"; ctx.fillRect(-3, y - 1.5, 15, 3);
+      });
       const bW=e.width*0.8,bH=4;
       ctx.fillStyle="#333"; ctx.fillRect(-bW/2,-e.height/2-8,bW,bH);
       ctx.fillStyle=e.color; ctx.fillRect(-bW/2,-e.height/2-8,bW*(e.hp/e.maxHp),bH);
