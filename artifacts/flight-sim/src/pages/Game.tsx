@@ -885,7 +885,30 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
 
 function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
   ctx.save();
-  if (b.isMissile && b.trackPlayer) {
+  if (b.isPoisonMissile) {
+    ctx.translate(b.x, b.y);
+    ctx.rotate(Math.atan2(b.vy, b.vx));
+    ctx.shadowColor = "#65ff38";
+    ctx.shadowBlur = 18;
+    const body = ctx.createLinearGradient(-9, 0, 14, 0);
+    body.addColorStop(0, "#43105f");
+    body.addColorStop(0.55, "#151820");
+    body.addColorStop(1, "#baff3c");
+    ctx.beginPath();
+    ctx.moveTo(17, 0); ctx.lineTo(7, -6); ctx.lineTo(-9, -5);
+    ctx.lineTo(-13, 0); ctx.lineTo(-9, 5); ctx.lineTo(7, 6); ctx.closePath();
+    ctx.fillStyle = body; ctx.fill();
+    ctx.strokeStyle = "#d8ff72"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-4, -5); ctx.lineTo(-12, -11); ctx.lineTo(3, -6);
+    ctx.moveTo(-4, 5); ctx.lineTo(-12, 11); ctx.lineTo(3, 6);
+    ctx.strokeStyle = "#b84cff"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(5, 0, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff"; ctx.fill();
+    ctx.shadowColor = "#b84cff"; ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.moveTo(-13, 0); ctx.lineTo(-28, -5); ctx.lineTo(-22, 0); ctx.lineTo(-28, 5); ctx.closePath();
+    ctx.fillStyle = "#8d20ff99"; ctx.fill();
+  } else if (b.isMissile && b.trackPlayer) {
     // Enemy homing missile — magenta/purple
     ctx.translate(b.x, b.y);
     const ang = Math.atan2(b.vy, b.vx);
@@ -1503,13 +1526,13 @@ export default function Game() {
       bulletsRef.current.push({
         x: px,
         y: py + offset,
-        vx: 7,
+        vx: POISON_MISSILE_SPEED,
         vy: offset * 0.035,
         fromPlayer: true,
         damage: POISON_MISSILE_DIRECT_DAMAGE,
         isMissile: true,
         isPoisonMissile: true,
-        missileTarget: eligibleTargets[index % eligibleTargets.length],
+        missileTarget: eligibleTargets[index] ?? null,
         lifetime: 420,
       });
     });
@@ -1968,9 +1991,13 @@ export default function Game() {
         }
         const living = b.isPoisonMissile ? enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0) : [];
         const normalTargets = living.filter(enemy => !isBossEnemy(enemy));
+        const reservedTargets = new Set(bulletsRef.current
+          .filter(other => other !== b && other.isPoisonMissile && other.missileTarget && !other.missileTarget.dead)
+          .map(other => other.missileTarget));
         if (b.isPoisonMissile && (!b.missileTarget || b.missileTarget.dead || b.missileTarget.hp <= 0 ||
           (isBossEnemy(b.missileTarget) && normalTargets.length > 0))) {
-          const eligibleTargets = normalTargets.length > 0 ? normalTargets : living.filter(isBossEnemy);
+          const eligibleTargets = (normalTargets.length > 0 ? normalTargets : living.filter(isBossEnemy))
+            .filter(enemy => !reservedTargets.has(enemy));
           b.missileTarget = eligibleTargets.sort((a, target) =>
             Math.hypot(a.x - b.x, a.y - b.y) - Math.hypot(target.x - b.x, target.y - b.y),
           )[0] ?? null;
@@ -1979,11 +2006,12 @@ export default function Game() {
           const tx = b.missileTarget.x + b.missileTarget.width / 2;
           const ty = b.missileTarget.y + b.missileTarget.height / 2;
           const ang = Math.atan2(ty - b.y, tx - b.x);
-          const steer = 1 - Math.pow(1 - 0.08, dtScale);
-          b.vx += (Math.cos(ang) * 0.6 - b.vx) * steer;
-          b.vy += (Math.sin(ang) * 0.6 - b.vy) * steer;
+          const targetSpeed = b.isPoisonMissile ? POISON_MISSILE_SPEED : 0.6;
+          const steer = 1 - Math.pow(1 - (b.isPoisonMissile ? 0.2 : 0.08), dtScale);
+          b.vx += (Math.cos(ang) * targetSpeed - b.vx) * steer;
+          b.vy += (Math.sin(ang) * targetSpeed - b.vy) * steer;
           const spd2 = Math.hypot(b.vx, b.vy);
-          const ms = 7;
+          const ms = b.isPoisonMissile ? POISON_MISSILE_SPEED : 7;
           if (spd2 > ms) { b.vx = b.vx / spd2 * ms; b.vy = b.vy / spd2 * ms; }
         }
         // Enemy homing missile tracks player
@@ -2315,6 +2343,7 @@ export default function Game() {
         let hit = false;
         bulletsRef.current = bulletsRef.current.filter(b => {
           if (!b.fromPlayer || hit) return true;
+          if (b.isPoisonMissile && b.missileTarget !== e) return true;
           const bw = b.isMissile ? 14 : 14;
           const bh = b.isMissile ? 8 : 4;
           if (!rectHit(b.x, b.y - bh / 2, bw, bh, e.x, e.y, e.width, e.height)) return true;
@@ -2622,11 +2651,11 @@ export default function Game() {
       if (gs.score > bestScoreRef.current) { bestScoreRef.current = gs.score; saveHighScore(gs.score); }
 
       // ── HUD ──
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, ultimateChargeRef.current, ultimateActiveRef.current, bestScoreRef.current, activeUnlocksRef.current);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, ultimateChargeRef.current, ultimateActiveRef.current, bestScoreRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current);
 
       // ── Virtual controls overlay ──
       if (showVirtualControlsRef.current) {
-        drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, ultimateChargeRef.current, ultimateActiveRef.current, activeUnlocksRef.current);
+        drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, ultimateChargeRef.current, ultimateActiveRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current);
       }
 
       // Sync display once per ~30 frames for React state
@@ -3705,6 +3734,7 @@ const STEALTH_MAX = 520;
 const STEALTH_DURATION = 600;
 const POISON_MISSILE_MAX = STEALTH_MAX;
 const POISON_MISSILE_DIRECT_DAMAGE = 20;
+const POISON_MISSILE_SPEED = 14;
 const POISON_DURATION = 300;
 const POISON_TICK_INTERVAL = 60;
 const POISON_TICK_DAMAGE = 3;
@@ -3746,6 +3776,7 @@ function drawVirtualControls(
   ultimateCharge: number,
   ultimateActive: number,
   unlocks: string[],
+  ultiLoadout: UltiLoadoutId[],
 ) {
   ctx.save();
   ctx.globalAlpha = 0.45;
@@ -3798,6 +3829,7 @@ function drawVirtualControls(
   ctx.fillText("FIRE", FIRE_BTN_X, FIRE_BTN_Y);
 
   // ── ULTI button ──
+  if (ultiLoadout.includes("jet")) {
   const ultiReady = ultimaCharge >= ULTI_MAX && ultimaActive === 0;
   const ultiGlow = ultiReady ? (0.55 + 0.45 * Math.sin(Date.now() / 200)) : 0.45;
   ctx.globalAlpha = ultiGlow;
@@ -3824,8 +3856,10 @@ function drawVirtualControls(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(ultimaActive > 0 ? "ULTI!" : "ULTI", ULTI_BTN_X, ULTI_BTN_Y);
+  }
 
   // ── LASER button ──
+  if (ultiLoadout.includes("laser")) {
   const laserReady = laserCharge >= LASER_MAX && laserActive === 0;
   const laserGlow = laserReady ? (0.55 + 0.45 * Math.sin(Date.now() / 180)) : 0.45;
   ctx.globalAlpha = laserGlow;
@@ -3848,9 +3882,10 @@ function drawVirtualControls(
   ctx.font = `bold ${laserReady ? 11 : 9}px 'Inter', sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText(laserActive > 0 ? "LASER!" : "LASER", LASER_BTN_X, LASER_BTN_Y);
+  }
 
   // ── STEALTH button ──
-  if (unlocks.includes("stealth_ulti")) {
+  if (unlocks.includes("stealth_ulti") && ultiLoadout.includes("stealth_ulti")) {
     const stealthReady = stealthCharge >= STEALTH_MAX && stealthActive === 0;
     const stealthGlow = stealthReady ? (0.55 + 0.45 * Math.sin(Date.now() / 160)) : 0.45;
     ctx.globalAlpha = stealthGlow;
@@ -3876,7 +3911,7 @@ function drawVirtualControls(
   }
 
   // ── HEAL button ──
-  if (unlocks.includes("heal_ulti")) {
+  if (unlocks.includes("heal_ulti") && ultiLoadout.includes("heal_ulti")) {
     const healReady = healCharge >= HEAL_MAX && healActive === 0;
     const healGlowA = healReady ? (0.55 + 0.45 * Math.sin(Date.now() / 160)) : 0.45;
     ctx.globalAlpha = healGlowA;
@@ -3894,7 +3929,7 @@ function drawVirtualControls(
     ctx.strokeStyle = "#ff4466"; ctx.lineWidth = 4; ctx.stroke();
   }
 
-  if (unlocks.includes("poison_missiles_ulti")) {
+  if (unlocks.includes("poison_missiles_ulti") && ultiLoadout.includes("poison_missiles_ulti")) {
     const ready = poisonMissileCharge >= POISON_MISSILE_MAX;
     ctx.globalAlpha = ready ? 0.9 : 0.45;
     ctx.beginPath(); ctx.arc(POISON_MISSILE_BTN_X, POISON_MISSILE_BTN_Y, POISON_MISSILE_BTN_R, 0, Math.PI * 2);
@@ -3912,7 +3947,7 @@ function drawVirtualControls(
     ctx.fillText("GIFT", POISON_MISSILE_BTN_X, POISON_MISSILE_BTN_Y);
   }
 
-  if (unlocks.includes("ultimate_ulti")) {
+  if (unlocks.includes("ultimate_ulti") && ultiLoadout.includes("ultimate_ulti")) {
     const ready = ultimateCharge >= ULTIMATE_MAX && ultimateActive === 0;
     ctx.globalAlpha = ready ? 0.9 : 0.5;
     ctx.beginPath(); ctx.arc(ULTIMATE_BTN_X, ULTIMATE_BTN_Y, ULTIMATE_BTN_R, 0, Math.PI * 2);
@@ -3939,13 +3974,13 @@ function drawVirtualControls(
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, ultimateCharge: number, ultimateActive: number, bestScore: number, unlocks: string[]) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, ultimateCharge: number, ultimateActive: number, bestScore: number, unlocks: string[], ultiLoadout: UltiLoadoutId[]) {
   ctx.save();
   ctx.textBaseline = "top";
 
   // Top bar background
   ctx.fillStyle = "rgba(4,10,24,0.72)";
-  ctx.fillRect(0, 0, CANVAS_W, 82);
+  ctx.fillRect(0, 0, CANVAS_W, 86);
 
   // Score
   ctx.fillStyle = "#00cfff";
@@ -4015,51 +4050,54 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ) => {
     const pct = Math.min(1, charge / maxCharge);
     const ready = pct >= 1 && active === 0;
+    const barX = x + 56;
     ctx.textAlign = "left"; ctx.font = "bold 9px 'Inter', sans-serif";
     ctx.fillStyle = ready ? labelColor : active > 0 ? labelColor + "cc" : "#556";
     ctx.fillText(label, x, y);
-    ctx.fillStyle = "#111"; ctx.fillRect(x + 30, y, w, h);
+    ctx.fillStyle = "#111"; ctx.fillRect(barX, y, w, h);
     if (active > 0) {
       const ap = active / duration;
-      const ag = ctx.createLinearGradient(x + 30, 0, x + 30 + w, 0);
+      const ag = ctx.createLinearGradient(barX, 0, barX + w, 0);
       ag.addColorStop(0, activeColors[0]); ag.addColorStop(1, activeColors[1]);
-      ctx.fillStyle = ag; ctx.fillRect(x + 30, y, w * ap, h);
+      ctx.fillStyle = ag; ctx.fillRect(barX, y, w * ap, h);
       ctx.globalAlpha = 0.6 + 0.4 * Math.sin(Date.now() / 120);
-      ctx.fillStyle = labelColor; ctx.font = "bold 9px 'Inter', sans-serif";
-      ctx.fillText("ACTIVE", x + w + 36, y);
+      ctx.fillStyle = labelColor; ctx.font = "bold 8px 'Inter', sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText("ACTIVE", barX + w, y);
       ctx.globalAlpha = 1;
     } else if (pct > 0) {
-      const cg = ctx.createLinearGradient(x + 30, 0, x + 30 + w, 0);
+      const cg = ctx.createLinearGradient(barX, 0, barX + w, 0);
       cg.addColorStop(0, chargeColors[0]); cg.addColorStop(1, chargeColors[1]);
-      ctx.fillStyle = cg; ctx.fillRect(x + 30, y, w * pct, h);
+      ctx.fillStyle = cg; ctx.fillRect(barX, y, w * pct, h);
       if (ready) {
         ctx.globalAlpha = 0.6 + 0.4 * Math.sin(Date.now() / 200);
-        ctx.fillStyle = labelColor; ctx.font = "bold 9px 'Inter', sans-serif";
-        ctx.fillText(`${key} — READY!`, x + w + 36, y);
+        ctx.fillStyle = labelColor; ctx.font = "bold 8px 'Inter', sans-serif";
+        ctx.textAlign = "right";
+        ctx.fillText(`${key} READY`, barX + w, y);
         ctx.globalAlpha = 1;
       }
     }
   };
 
-  drawUltBar("JET ULTI", "Q", ultimaCharge, ULTI_MAX, ultimaActive, ULTI_DURATION,
-    16, 43, 120, 5, ["#ff00ff","#8800ff"],  ["#6600bb","#cc00ff"], "#ff44ff");
-  drawUltBar("LASER",   "E", laserCharge,   LASER_MAX,   laserActive,   LASER_DURATION,
-    16, 53, 120, 5, ["#ff8800","#ffdd00"],  ["#cc4400","#ff8800"], "#ffaa22");
-  if (unlocks.includes("stealth_ulti")) {
+  if (ultiLoadout.includes("jet")) drawUltBar("JET ULTI", "Q", ultimaCharge, ULTI_MAX, ultimaActive, ULTI_DURATION,
+    16, 47, 108, 5, ["#ff00ff","#8800ff"],  ["#6600bb","#cc00ff"], "#ff44ff");
+  if (ultiLoadout.includes("laser")) drawUltBar("LASER", "E", laserCharge, LASER_MAX, laserActive, LASER_DURATION,
+    16, 57, 108, 5, ["#ff8800","#ffdd00"], ["#cc4400","#ff8800"], "#ffaa22");
+  if (unlocks.includes("stealth_ulti") && ultiLoadout.includes("stealth_ulti")) {
     drawUltBar("STEALTH", "R", stealthCharge, STEALTH_MAX, stealthActive, STEALTH_DURATION,
-      16, 63, 120, 5, ["#00ffee","#0088ff"], ["#004488","#00aacc"], "#00ddcc");
+      16, 67, 108, 5, ["#00ffee","#0088ff"], ["#004488","#00aacc"], "#00ddcc");
   }
-  if (unlocks.includes("heal_ulti")) {
+  if (unlocks.includes("heal_ulti") && ultiLoadout.includes("heal_ulti")) {
     drawUltBar("HEAL", "H", healCharge, HEAL_MAX, healActive, HEAL_DURATION,
-      16, 73, 120, 5, ["#ff6699","#ff0044"], ["#aa2233","#ff3366"], "#ff4466");
+      16, 77, 108, 5, ["#ff6699","#ff0044"], ["#aa2233","#ff3366"], "#ff4466");
   }
-  if (unlocks.includes("ultimate_ulti")) {
+  if (unlocks.includes("ultimate_ulti") && ultiLoadout.includes("ultimate_ulti")) {
     drawUltBar("OMEGA", "U", ultimateCharge, ULTIMATE_MAX, ultimateActive, ULTIMATE_DURATION,
-      190, 63, 120, 5, ["#55e8ff", "#087cff"], ["#075080", "#28c8ff"], "#62ddff");
+      205, 67, 108, 5, ["#55e8ff", "#087cff"], ["#075080", "#28c8ff"], "#62ddff");
   }
-  if (unlocks.includes("poison_missiles_ulti")) {
+  if (unlocks.includes("poison_missiles_ulti") && ultiLoadout.includes("poison_missiles_ulti")) {
     drawUltBar("GIFT", "T", poisonMissileCharge, POISON_MISSILE_MAX, 0, 1,
-      190, 73, 120, 5, ["#ff3030", "#8b0000"], ["#681010", "#ff3030"], "#ff4040");
+      205, 77, 108, 5, ["#ff3030", "#8b0000"], ["#681010", "#ff3030"], "#ff4040");
   }
 
   ctx.restore();
