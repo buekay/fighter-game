@@ -3436,19 +3436,19 @@ function AchievementsScreen({ unlocked, onBack }: { unlocked: string[]; onBack: 
 
 function BriefingScreen({ language, onDone }: { language: GameSettings["language"]; onDone: () => void }) {
   const sections = language === "de" ? [
-    { icon: "🎯", title: "Dein Auftrag", text: "Fliege nach rechts durch immer schwierigere Sektoren, besiege Gegner und sammle Punkte. Dein Level steigt automatisch mit deiner Punktzahl; Bosskämpfe markieren wichtige Etappen." },
-    { icon: "❤", title: "Überleben", text: "Treffer kosten HP. Sind deine HP leer, verlierst du ein Leben und startest mit voller Energie neu. Nach dem letzten Leben endet die Mission. Schilde fangen Treffer ab." },
-    { icon: "📦", title: "Power-ups", text: "Abgeschossene Gegner können Heilung, Schilde und Geschwindigkeits-Boosts fallen lassen. Fliege durch ein Power-up, um es sofort einzusammeln." },
-    { icon: "⚡", title: "Waffen & Ultimates", text: "Halte Feuer gedrückt. Jedes Flugzeug besitzt eine eigene 10-Sekunden-Ulti. Jet-Ulti, Laser, Stealth und Heilung laden sich im Kampf auf." },
-    { icon: "⬆", title: "Fortschritt", text: "Nach geschafften Sektoren wählst du eines von drei Run-Upgrades. Checkpoints speichern deinen Lauf. Ein gespeicherter Einsatz kann später im Hangar fortgesetzt werden." },
-    { icon: "💰", title: "Credits & Hangar", text: "Am Missionsende wird jeder Punkt zu einem Credit. Im Shop kaufst du damit dauerhafte Verbesserungen und Jet-Skins. Erfolge geben zusätzliche Credits." },
+    { icon: "🎯", title: "Dein Auftrag", text: "Steuere deinen Jet durch automatisch scrollende, immer schwierigere Sektoren. Weiche Feinden und Geschossen aus, schieße Gegner ab und sammle möglichst viele Punkte. Mit deiner Punktzahl steigt auch dein Pilot-Level; Bosskämpfe markieren die großen Etappen eines Einsatzes." },
+    { icon: "❤", title: "Überleben", text: "Jeder gegnerische Treffer zieht dir HP ab. Fallen deine HP auf null, verlierst du ein Leben und kehrst mit voller Energie zurück. Nach dem letzten Leben ist der Einsatz beendet. Ein aktiver Schild fängt Schaden zuerst ab – Ausweichen bleibt trotzdem die sicherste Taktik." },
+    { icon: "📦", title: "Power-ups", text: "Zerstörte Gegner können nützliche Pick-ups hinterlassen: Heilung stellt HP wieder her, Schilde geben zusätzlichen Schutz und Tempo-Boosts machen deinen Jet vorübergehend schneller. Berühre ein Symbol mit deinem Jet, bevor es vom Bildschirm verschwindet." },
+    { icon: "⚡", title: "Waffen & Ultimates", text: "Halte die Feuertaste gedrückt, um ohne Unterbrechung zu schießen. Im Einsatz laden sich mehrere Spezialfähigkeiten auf: die individuelle 10-Sekunden-Jet-Ulti sowie Laser, Tarnung und Heilung. Sobald eine Anzeige voll ist, aktivierst du die Fähigkeit mit der eingeblendeten Taste." },
+    { icon: "⬆", title: "Fortschritt", text: "Nach abgeschlossenen Sektoren pausiert das Gefecht und du wählst eines von drei Upgrades für den aktuellen Lauf. Diese Boni gelten bis zum Missionsende. Checkpoints speichern Level, Punktzahl und Waffenstufe, sodass du einen unterbrochenen Einsatz später über „Weiterspielen“ fortsetzen kannst." },
+    { icon: "💰", title: "Credits & Hangar", text: "Nach dem Missionsende wird jeder erzielte Punkt in einen Credit umgewandelt. Credits bleiben dauerhaft erhalten. Im Hangar-Shop investierst du sie in Jet- und Drohnen-Upgrades, neue Skins und weitere Vorteile; abgeschlossene Erfolge zahlen zusätzliche Belohnungen aus." },
   ] : [
-    { icon: "🎯", title: "Your mission", text: "Fly right through increasingly difficult sectors, defeat enemies, and score points. Your level rises automatically with your score; boss fights mark major milestones." },
-    { icon: "❤", title: "Survival", text: "Hits cost HP. When HP reaches zero, you lose a life and return at full health. The mission ends after your last life. Shields absorb hits." },
-    { icon: "📦", title: "Power-ups", text: "Defeated enemies may drop health, shields, and speed boosts. Fly through a power-up to collect it immediately." },
-    { icon: "⚡", title: "Weapons & ultimates", text: "Hold fire to shoot continuously. Every aircraft has its own 10-second ultimate. Aircraft ultimate, laser, stealth, and healing charge during combat." },
-    { icon: "⬆", title: "Progress", text: "After clearing sectors, choose one of three run upgrades. Checkpoints save your run, which you can continue later from the hangar." },
-    { icon: "💰", title: "Credits & hangar", text: "At mission end, every point becomes one credit. Spend credits on permanent upgrades and jet skins. Achievements award extra credits." },
+    { icon: "🎯", title: "Your mission", text: "Pilot your jet through automatically scrolling sectors that become progressively harder. Dodge enemies and projectiles, shoot down targets, and score as many points as possible. Your pilot level rises with your score, while boss fights mark the major milestones of a mission." },
+    { icon: "❤", title: "Survival", text: "Every enemy hit reduces your HP. When HP reaches zero, you lose a life and return at full health. The mission ends after your final life. An active shield absorbs damage first, but dodging remains your safest tactic." },
+    { icon: "📦", title: "Power-ups", text: "Destroyed enemies may leave useful pick-ups behind: health restores HP, shields provide extra protection, and speed boosts temporarily make your jet faster. Touch an icon with your jet before it leaves the screen." },
+    { icon: "⚡", title: "Weapons & ultimates", text: "Hold the fire control to shoot continuously. Several special abilities charge during combat: your aircraft's unique 10-second ultimate, plus laser, stealth, and healing. Once a meter is full, activate the ability with the control shown on screen." },
+    { icon: "⬆", title: "Progress", text: "After clearing sectors, combat pauses and you choose one of three upgrades for the current run. These bonuses last until the mission ends. Checkpoints save your level, score, and weapon tier so you can resume an interrupted mission later with Continue." },
+    { icon: "💰", title: "Credits & hangar", text: "At the end of a mission, every point you scored becomes one credit. Credits are kept permanently. Spend them in the hangar shop on aircraft and drone upgrades, new skins, and other advantages; achievements grant additional rewards." },
   ];
   const keyboardHelp = language === "de" ? KEYBOARD_CONTROL_HELP : [
     ["WASD / Arrow keys", "Move"], ["SPACE", "Shoot"], ["Q", "Aircraft ultimate"],
@@ -3461,7 +3461,7 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
         <div className="text-center">
           <div className="text-xs font-black uppercase tracking-[.3em] text-cyan-400">{translated(language, "Einsatzbriefing", "Mission briefing")}</div>
           <h2 className="mt-1 text-2xl font-black sm:text-3xl">{translated(language, "SO FUNKTIONIERT FIGHTER COMMAND", "HOW FIGHTER COMMAND WORKS")}</h2>
-          <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-300">{translated(language, "Lies das Briefing einmal durch – danach übst du Bewegung und Schießen direkt im ersten Einsatz.", "Read this briefing once—then practice movement and shooting during your first mission.")}</p>
+          <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">{translated(language, "Dein Ziel ist einfach: so lange wie möglich überleben, Gegner ausschalten und deinen Jet während des Einsatzes immer stärker machen. Lies das Briefing einmal durch – danach übst du Bewegung und Schießen direkt in deiner ersten Mission.", "Your objective is simple: survive as long as possible, destroy enemies, and make your jet stronger throughout the mission. Read this briefing once—then practice movement and shooting during your first deployment.")}</p>
         </div>
 
         <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
