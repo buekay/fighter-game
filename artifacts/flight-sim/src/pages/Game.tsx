@@ -3551,8 +3551,7 @@ function HangarOverlay({
         </div>
         <div className="font-bold text-white text-sm tracking-wide">{skin.name}</div>
         <div className="max-w-sm rounded-xl border px-3 py-2 text-center" style={{ borderColor: `${skin.glow}55`, background: `${skin.glow}12` }}>
-          <div className="text-xs font-black uppercase tracking-wider" style={{ color: skin.glow }}>ULTI · {skin.ultiName} · 10 SEK.</div>
-          <div className="mt-1 text-[11px] leading-snug text-slate-300">{skin.ultiDesc}</div>
+          <div className="text-xs font-black uppercase tracking-wider" style={{ color: skin.glow }}>{skin.ultiName}</div>
         </div>
         <div className="rounded-full border border-cyan-400/40 bg-cyan-950/50 px-3 py-0.5 text-[11px] font-black tracking-wider text-cyan-300">
           JET-LEVEL {aircraftLevels[selectedSkin] ?? 1}
@@ -3902,8 +3901,7 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
               }}>
               <div className="w-5 h-5 rounded-full" style={{ background: s.glow, boxShadow: `0 0 8px ${s.glow}88` }} />
               <div className="text-xs font-bold">{s.name}</div>
-              <div className="text-[9px] font-black leading-tight" style={{ color: s.glow }}>{s.ultiName} · 10 SEK.</div>
-              <div className="line-clamp-3 text-[8px] leading-tight text-slate-400">{s.ultiDesc}</div>
+              <div className="text-[9px] font-black leading-tight" style={{ color: s.glow }}>{s.ultiName}</div>
               <div className="text-[10px] font-bold text-cyan-300">Level {aircraftLevels[s.id] ?? 1}</div>
               <div className="text-[9px] font-black tracking-wider" style={{ color: rarity.color, textShadow: `0 0 6px ${rarity.glow}` }}>{rarity.label}</div>
               {owned
