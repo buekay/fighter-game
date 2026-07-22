@@ -79,7 +79,7 @@ interface Enemy {
   vx: number; vy: number;
   hp: number; maxHp: number;
   width: number; height: number;
-  type: "scout" | "fighter" | "bomber" | "boss" | "overlord" | "interceptor" | "gunship" | "tiefighter" | "emeraldtiefighter" | "plasmawing" | "sentinel";
+  type: "scout" | "fighter" | "bomber" | "boss" | "overlord" | "titan" | "interceptor" | "gunship" | "tiefighter" | "emeraldtiefighter" | "plasmawing" | "sentinel";
   shootCooldown: number;
   points: number;
   color: string;
@@ -101,9 +101,18 @@ interface Enemy {
   ultimateDotTimer?: number;
   poisonTimer?: number;
   poisonTickTimer?: number;
+  titanShieldCooldown?: number;
+  titanShieldTimer?: number;
+  titanHealTimer?: number;
+  titanDashCooldown?: number;
+  titanDashTimer?: number;
+  titanDashHomeX?: number;
+  titanDashTargetX?: number;
 }
 
-const isBossEnemy = (enemy: Enemy) => enemy.type === "boss" || enemy.type === "overlord";
+const isBossEnemy = (enemy: Enemy) => enemy.type === "boss" || enemy.type === "overlord" || enemy.type === "titan";
+const isTitanInvulnerable = (enemy: Enemy) => enemy.type === "titan" &&
+  ((enemy.titanShieldTimer ?? 0) > 0 || (enemy.titanDashTimer ?? 0) > 0);
 
 interface PowerUp {
   x: number; y: number;
@@ -152,6 +161,9 @@ const PLAYER_H = 28;
 const BASE_BULLET_SPEED = 10;
 const ENEMY_BULLET_SPEED = 3;
 const BACKGROUND_TRANSITION_MS = 1100;
+const TITAN_SHIELD_COOLDOWN = 15 * 60;
+const TITAN_SHIELD_DURATION = 5 * 60;
+const TITAN_DASH_COOLDOWN = 10 * 60;
 
 const SHOP_RARITIES: Record<ShopRarity, { label: string; color: string; glow: string }> = {
   rare:      { label: "SELTEN",    color: "#a8b0ba", glow: "#d6dbe166" },
@@ -815,7 +827,9 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
   };
 
   // Every enemy gets a readable propulsion signature, even against dark backgrounds.
-  if (e.type === "overlord") {
+  if (e.type === "titan") {
+    drawEngine(-61, -35, 15, e.color); drawEngine(-61, 0, 12, "#ff4fd8"); drawEngine(-61, 35, 15, e.color);
+  } else if (e.type === "overlord") {
     drawEngine(-43, -26, 12); drawEngine(-43, 26, 12);
   } else if (e.type === "boss") {
     drawEngine(-29, -18, 9); drawEngine(-29, 18, 9);
@@ -946,6 +960,46 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       ctx.fillStyle = "#170d20"; ctx.fillRect(-barW / 2, -e.height / 2 - 17, barW, barH);
       ctx.fillStyle = e.color; ctx.fillRect(-barW / 2, -e.height / 2 - 17, barW * (e.hp / e.maxHp), barH);
       ctx.strokeStyle = "#ffffff88"; ctx.lineWidth = 1; ctx.strokeRect(-barW / 2, -e.height / 2 - 17, barW, barH);
+      break;
+    }
+    case "titan": {
+      const phase = e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1;
+      const titanPulse = .65 + Math.sin(now * .012) * .35;
+      const phaseColor = phase === 3 ? "#fff36a" : phase === 2 ? "#45f6ff" : "#ff3fd2";
+      ctx.shadowColor = phaseColor; ctx.shadowBlur = 26 + titanPulse * 20;
+      // Crown-like outer wings become more elaborate in every damage phase.
+      ctx.beginPath();
+      ctx.moveTo(68, 0); ctx.lineTo(27, -20); ctx.lineTo(5, -48); ctx.lineTo(-40, -63);
+      ctx.lineTo(-32, -31); ctx.lineTo(-68, -18); ctx.lineTo(-49, 0);
+      ctx.lineTo(-68, 18); ctx.lineTo(-32, 31); ctx.lineTo(-40, 63);
+      ctx.lineTo(5, 48); ctx.lineTo(27, 20); ctx.closePath();
+      const titanHull = ctx.createLinearGradient(-70, -55, 68, 50);
+      titanHull.addColorStop(0, phase === 1 ? "#190622" : "#071b2b");
+      titanHull.addColorStop(.5, phase === 3 ? "#573b00" : "#26103d");
+      titanHull.addColorStop(1, "#03040d");
+      ctx.fillStyle = titanHull; ctx.fill(); ctx.strokeStyle = phaseColor; ctx.lineWidth = 4; ctx.stroke();
+      if (phase >= 2) {
+        [-1, 1].forEach(side => {
+          ctx.beginPath(); ctx.moveTo(-15, side * 38); ctx.lineTo(-55, side * (phase === 3 ? 78 : 70)); ctx.lineTo(12, side * 51); ctx.closePath();
+          ctx.fillStyle = phase === 3 ? "#ffb00044" : "#00ddff33"; ctx.fill(); ctx.strokeStyle = phaseColor; ctx.lineWidth = 2; ctx.stroke();
+        });
+      }
+      // Armored reactor, crown prongs and six weapon ports.
+      ctx.beginPath(); ctx.arc(15, 0, 21, 0, Math.PI * 2); ctx.fillStyle = "#090914"; ctx.fill(); ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.stroke();
+      ctx.beginPath(); ctx.arc(15, 0, 10 + titanPulse * 4, 0, Math.PI * 2); ctx.fillStyle = phaseColor; ctx.fill();
+      [-27, -16, -5, 5, 16, 27].forEach(offset => { ctx.beginPath(); ctx.arc(48, offset, 4, 0, Math.PI * 2); ctx.fillStyle = offset % 2 ? "#fff" : phaseColor; ctx.fill(); });
+      if (phase === 3) {
+        [-1, 1].forEach(side => { ctx.beginPath(); ctx.moveTo(-12, side * 47); ctx.lineTo(20, side * 72); ctx.lineTo(32, side * 35); ctx.closePath(); ctx.fillStyle = "#ffe34a55"; ctx.fill(); ctx.stroke(); });
+      }
+      if ((e.titanShieldTimer ?? 0) > 0) {
+        ctx.beginPath(); ctx.ellipse(0, 0, 84, 75, 0, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,35,190,${.12 + titanPulse * .12})`; ctx.fill();
+        ctx.strokeStyle = "#ff23be"; ctx.lineWidth = 5; ctx.stroke();
+      }
+      const barW = 130, barH = 9;
+      ctx.shadowBlur = 0; ctx.fillStyle = "#160718"; ctx.fillRect(-barW / 2, -e.height / 2 - 20, barW, barH);
+      ctx.fillStyle = phaseColor; ctx.fillRect(-barW / 2, -e.height / 2 - 20, barW * (e.hp / e.maxHp), barH);
+      ctx.strokeStyle = "#ffffffaa"; ctx.lineWidth = 1; ctx.strokeRect(-barW / 2, -e.height / 2 - 20, barW, barH);
       break;
     }
     case "interceptor": {
@@ -1304,6 +1358,7 @@ export default function Game() {
   // ── Checkpoint save tracking ──
   const saveExistsRef = useRef(!!loadSave());
   const milestoneBossFiredRef = useRef<Set<number>>(new Set());
+  const titanBossFiredRef = useRef<Set<number>>(new Set());
   const gameOverCountdownRef = useRef(0);
   const activeSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadSkin()) ?? JET_SKINS[0]);
   const activeUltiSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadSkin()) ?? JET_SKINS[0]);
@@ -1693,6 +1748,7 @@ export default function Game() {
     ultimateChargeRef.current = 0;
     ultimateActiveRef.current = 0;
     milestoneBossFiredRef.current = new Set();
+    titanBossFiredRef.current = new Set();
     saveExistsRef.current = !!loadSave();
     setPauseView("menu");
     const shouldTeach = settingsRef.current.tutorial && !tutorialSeen() && !fromSave;
@@ -2217,8 +2273,41 @@ export default function Game() {
         }
       }
 
+      // ── Titan: exclusive boss fight at every tenth level ──
+      if (gs.level % 10 === 0 && !titanBossFiredRef.current.has(gs.level)) {
+        titanBossFiredRef.current.add(gs.level);
+        // An evolved milestone Overlord has 1.5x its initial HP. The Titan has exactly 15x that value.
+        const overlordHp = Math.round((80 + gs.level * 12) * 1.5);
+        const titanHp = overlordHp * 15;
+        enemiesRef.current = [];
+        bulletsRef.current = bulletsRef.current.filter(b => b.fromPlayer);
+        enemiesRef.current.push({
+          x: CANVAS_W + 25,
+          y: CANVAS_H / 2 - 68,
+          vx: -.55, vy: 0,
+          hp: titanHp, maxHp: titanHp,
+          width: 158, height: 136,
+          type: "titan",
+          shootCooldown: 14,
+          points: 5000 + gs.level * 250,
+          color: "#ff3fd2",
+          angle: 0,
+          oscillate: 0,
+          missileTimer: 180,
+          specialAttackTimer: 150,
+          titanShieldCooldown: TITAN_SHIELD_COOLDOWN,
+          titanShieldTimer: 0,
+          titanHealTimer: 60,
+          titanDashCooldown: TITAN_DASH_COOLDOWN,
+          titanDashTimer: 0,
+        });
+        audioRef.current.effect("boss", settingsRef.current.soundVolume);
+      }
+
+      const titanActive = enemiesRef.current.some(e => e.type === "titan" && !e.dead);
+
       // ── Milestone boss: spawn a mega-boss when entering key levels ──
-      if (isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
+      if (!titanActive && gs.level % 10 !== 0 && isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
           enemiesRef.current.filter(isBossEnemy).length === 0) {
         milestoneBossFiredRef.current.add(gs.level);
         const ml = gs.level;
@@ -2244,7 +2333,7 @@ export default function Game() {
       // ── Spawn enemies ──
       const spawnRate = Math.max(32, 110 - gs.level * 10);
       enemySpawnTimerRef.current += dtScale;
-      if (enemySpawnTimerRef.current >= spawnRate) {
+      if (!titanActive && enemySpawnTimerRef.current >= spawnRate) {
         enemySpawnTimerRef.current = 0;
         spawnEnemy(gs.level);
       }
@@ -2369,7 +2458,31 @@ export default function Game() {
       }
 
       enemiesRef.current = enemiesRef.current.filter(e => {
-        if ((e.poisonTimer ?? 0) > 0) {
+        if (e.type === "titan") {
+          e.titanShieldTimer = Math.max(0, (e.titanShieldTimer ?? 0) - dtScale);
+          e.titanShieldCooldown = (e.titanShieldCooldown ?? TITAN_SHIELD_COOLDOWN) - dtScale;
+          if (e.titanShieldCooldown <= 0) {
+            e.titanShieldTimer = TITAN_SHIELD_DURATION;
+            e.titanShieldCooldown = TITAN_SHIELD_COOLDOWN;
+          }
+          e.titanHealTimer = (e.titanHealTimer ?? 60) - dtScale;
+          while (e.titanHealTimer <= 0) {
+            e.hp = Math.min(e.maxHp, e.hp + 1);
+            e.titanHealTimer += 60;
+          }
+          e.titanDashCooldown = (e.titanDashCooldown ?? TITAN_DASH_COOLDOWN) - dtScale;
+          if ((e.titanDashTimer ?? 0) <= 0) {
+            if (e.titanDashCooldown <= 0) {
+              e.titanDashCooldown = TITAN_DASH_COOLDOWN;
+              e.titanDashTimer = 90;
+              e.titanDashHomeX = e.x;
+              e.titanDashTargetX = Math.max(70, playerRef.current.x + PLAYER_W + 12);
+            }
+          } else {
+            e.titanDashTimer = Math.max(0, (e.titanDashTimer ?? 0) - dtScale);
+          }
+        }
+        if ((e.poisonTimer ?? 0) > 0 && !isTitanInvulnerable(e)) {
           e.poisonTickTimer = (e.poisonTickTimer ?? POISON_TICK_INTERVAL) - dtScale;
           while (e.poisonTickTimer <= 0) {
             e.hp -= POISON_TICK_DAMAGE;
@@ -2408,7 +2521,7 @@ export default function Game() {
             audioRef.current.effect("boss", settingsRef.current.soundVolume);
           }
         }
-        if (ultimaActiveRef.current > 0) {
+        if (ultimaActiveRef.current > 0 && !isTitanInvulnerable(e)) {
           const aircraftId = activeUltiSkinRef.current.id;
           const blackHoleActive = aircraftId === "galaxy" || aircraftId === "n1";
           if (blackHoleActive) {
@@ -2435,7 +2548,7 @@ export default function Game() {
             return false;
           }
         }
-        if (ultimateActiveRef.current > 0) {
+        if (ultimateActiveRef.current > 0 && !isTitanInvulnerable(e)) {
           e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimateActiveRef.current);
           e.ultimateDotTimer = (e.ultimateDotTimer ?? ULTIMATE_DOT_INTERVAL) - dtScale;
           if (e.ultimateDotTimer <= 0) {
@@ -2468,6 +2581,19 @@ export default function Game() {
           if (e.x > CANVAS_W - e.width - 10) e.x = CANVAS_W - e.width - 10;
           if (e.x < CANVAS_W * 0.5) e.x = CANVAS_W * 0.5;
 
+          if (e.type === "titan" && (e.titanDashTimer ?? 0) > 0) {
+            const remaining = e.titanDashTimer ?? 0;
+            const home = e.titanDashHomeX ?? e.x;
+            const target = e.titanDashTargetX ?? playerRef.current.x;
+            if (remaining > 55) {
+              e.x = target + (home - target) * ((remaining - 55) / 35);
+            } else if (remaining > 35) {
+              e.x = target;
+            } else {
+              e.x = home + (target - home) * (remaining / 35);
+            }
+          }
+
           // Vertical dodge every 4 s (level 10+)
           if (gs.level >= 10) {
             e.bossVyTimer = (e.bossVyTimer ?? 0) + dtScale;
@@ -2480,7 +2606,9 @@ export default function Game() {
           }
           // Three phases: movement and attacks intensify below 60% and 30% HP.
           const phase = e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1;
-          e.color = e.type === "overlord"
+          e.color = e.type === "titan"
+            ? (phase === 3 ? "#fff36a" : phase === 2 ? "#45f6ff" : "#ff3fd2")
+            : e.type === "overlord"
             ? (phase === 3 ? "#ffffff" : phase === 2 ? "#6fe9ff" : "#ff4fc8")
             : (phase === 3 ? "#ff3300" : phase === 2 ? "#ff00aa" : e.color);
           if (phase >= 2) e.vy += Math.sin(timeRef.current * .055) * (phase === 3 ? 1.7 : .9);
@@ -2503,7 +2631,7 @@ export default function Game() {
           }
 
           // Overlord special: a telegraphed radial plasma burst every 3 seconds.
-          if (e.type === "overlord" && (e.ultimateFreezeTimer ?? 0) <= 0) {
+          if ((e.type === "overlord" || e.type === "titan") && (e.ultimateFreezeTimer ?? 0) <= 0) {
             e.specialAttackTimer = (e.specialAttackTimer ?? 180) - dtScale;
             if (e.specialAttackTimer <= 0) {
               e.specialAttackTimer = 180;
@@ -2518,7 +2646,7 @@ export default function Game() {
                   x: originX, y: originY,
                   vx: Math.cos(angle) * 5.2, vy: Math.sin(angle) * 5.2,
                   fromPlayer: false, damage: 3,
-                  color: s === 0 ? "#ffffff" : "#ff4fc8",
+                  color: s === 0 ? "#ffffff" : e.type === "titan" ? e.color : "#ff4fc8",
                   lifetime: 300,
                 });
               }
@@ -2555,7 +2683,7 @@ export default function Game() {
         if ((e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;
         if (e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
           const bossPhase = isBossEnemy(e) ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
-          e.shootCooldown = e.type === "overlord" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
+          e.shootCooldown = e.type === "overlord" || e.type === "titan" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
           if (e.type === "tiefighter" || e.type === "emeraldtiefighter" || e.type === "plasmawing") {
             // TIE Fighter: aimed shot toward player
             const px = playerRef.current.x + PLAYER_W / 2;
@@ -2579,7 +2707,7 @@ export default function Game() {
                 vx: -ENEMY_BULLET_SPEED + (isBossEnemy(e) ? -1 : 0),
                 vy: spread * ENEMY_BULLET_SPEED,
                 fromPlayer: false, damage: isBossEnemy(e) ? 3 : 2,
-                color: e.type === "overlord" ? "#6fe9ff" : e.type === "boss" && bossPhase === 3 ? "#ff3300" : undefined,
+                color: e.type === "titan" ? e.color : e.type === "overlord" ? "#6fe9ff" : e.type === "boss" && bossPhase === 3 ? "#ff3300" : undefined,
               });
             }
           }
@@ -2589,11 +2717,24 @@ export default function Game() {
         drawEnemy(ctx, e);
 
         // Enemy-player collision
+        const playerTouchesEnemy = rectHit(playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H, e.x, e.y, e.width, e.height);
+        if (e.type === "titan" && playerTouchesEnemy && invincibleRef.current <= 0 && stealthActiveRef.current <= 0) {
+          const collisionDamage = (e.titanDashTimer ?? 0) > 0 ? 5 : 1;
+          const nextLifeState = applyPlayerDamage(gs, collisionDamage);
+          gs.hp = nextLifeState.hp;
+          gs.lives = nextLifeState.lives;
+          gs.gameOver = nextLifeState.gameOver;
+          invincibleRef.current = 90;
+          spawnExplosion(particlesRef.current, playerRef.current.x + PLAYER_W / 2, playerRef.current.y + PLAYER_H / 2, true);
+          audioRef.current.effect("hit", settingsRef.current.soundVolume);
+          if (gs.gameOver) { clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(calculateCoinReward(gs.score)); saveExistsRef.current = false; }
+          syncDisplay();
+        }
         const absorberShieldHit = absorberActiveRef.current > 0 &&
           rectHit(playerRef.current.x + PLAYER_W - 2, playerRef.current.y - ABSORBER_SHIELD_PADDING,
             ABSORBER_SHIELD_WIDTH, PLAYER_H + ABSORBER_SHIELD_PADDING * 2,
             e.x, e.y, e.width, e.height);
-        if (absorberShieldHit) {
+        if (absorberShieldHit && e.type !== "titan") {
           absorberHitsRef.current = Math.min(3, absorberHitsRef.current + 1);
           spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
           audioRef.current.effect("hit", settingsRef.current.soundVolume);
@@ -2601,7 +2742,9 @@ export default function Game() {
           return false;
         }
         if (invincibleRef.current <= 0 && stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0 &&
-          rectHit(playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H, e.x, e.y, e.width, e.height)) {
+          e.type !== "titan" && playerTouchesEnemy) {
+          const collidedWithBoss = isBossEnemy(e);
+          if (collidedWithBoss) e.hp = Math.max(0, e.hp - 1);
           const protection = applyPlayerHitProtection({
             shieldTimer: shieldTimerRef.current,
             shieldHp: playerShieldHpRef.current,
@@ -2612,19 +2755,20 @@ export default function Game() {
           playerShieldHpRef.current = protection.shieldHp;
           if (protection.protected) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
-            e.dead = true; return false;
+            e.dead = collidedWithBoss ? e.hp <= 0 : true;
+            return !e.dead;
           }
-          const collDmg = activeUnlocksRef.current.includes("armor") ? 0.5 : 1;
+          const collDmg = collidedWithBoss ? 1 : activeUnlocksRef.current.includes("armor") ? 0.5 : 1;
           const nextLifeState = applyPlayerDamage(gs, collDmg);
           gs.hp = nextLifeState.hp;
           gs.lives = nextLifeState.lives;
           gs.gameOver = nextLifeState.gameOver;
           invincibleRef.current = 140;
-          spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, true);
-          e.dead = true;
+          spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, !collidedWithBoss || e.hp <= 0);
+          e.dead = collidedWithBoss ? e.hp <= 0 : true;
           if (gs.gameOver) { clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(calculateCoinReward(gs.score)); saveExistsRef.current = false; syncDisplay(); }
           syncDisplay();
-          return false;
+          return !e.dead;
         }
 
         // Bullet-enemy collision
@@ -2639,14 +2783,16 @@ export default function Game() {
           const aircraftDamage = ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "crimson" ? 2 : 1;
           const absorberDamage = absorberActiveRef.current > 0 && absorberHitsRef.current > 0
             ? Math.pow(2, absorberHitsRef.current) : 1;
-          const damageResult = applyEnemyDamage(e, b.damage * (critical ? 3 : 1) * aircraftDamage * absorberDamage * (ultimateActiveRef.current > 0 ? 2 : 1));
+          const damageResult = isTitanInvulnerable(e)
+            ? { hp: e.hp, shieldHp: e.shieldHp ?? 0, absorbedByShield: true, destroyed: false }
+            : applyEnemyDamage(e, b.damage * (critical ? 3 : 1) * aircraftDamage * absorberDamage * (ultimateActiveRef.current > 0 ? 2 : 1));
           e.hp = damageResult.hp;
           e.shieldHp = damageResult.shieldHp;
-          if (b.isPoisonMissile) {
+          if (b.isPoisonMissile && !isTitanInvulnerable(e)) {
             e.poisonTimer = POISON_DURATION;
             e.poisonTickTimer = POISON_TICK_INTERVAL;
           }
-          if (ultimateActiveRef.current > 0) e.ultimateFreezeTimer = ultimateActiveRef.current;
+          if (ultimateActiveRef.current > 0 && !isTitanInvulnerable(e)) e.ultimateFreezeTimer = ultimateActiveRef.current;
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           audioRef.current.effect("hit", settingsRef.current.soundVolume);
           hit = true;
@@ -2812,7 +2958,7 @@ export default function Game() {
           if (beamHits === 0) continue;
           const absorberDamage = absorberActiveRef.current > 0 && absorberHitsRef.current > 0
             ? Math.pow(2, absorberHitsRef.current) : 1;
-          e.hp -= 0.38 * beamHits * absorberDamage * dtScale;
+          if (!isTitanInvulnerable(e)) e.hp -= 0.38 * beamHits * absorberDamage * dtScale;
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
