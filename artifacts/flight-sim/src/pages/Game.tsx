@@ -55,6 +55,11 @@ interface Building {
   windows: { wx: number; wy: number; lit: boolean }[];
 }
 
+interface BackgroundTransition {
+  snapshot: HTMLCanvasElement;
+  elapsed: number;
+}
+
 interface Bullet {
   x: number; y: number;
   vx: number; vy: number;
@@ -146,6 +151,7 @@ const PLAYER_W = 52;
 const PLAYER_H = 28;
 const BASE_BULLET_SPEED = 10;
 const ENEMY_BULLET_SPEED = 3;
+const BACKGROUND_TRANSITION_MS = 1100;
 
 const SHOP_RARITIES: Record<ShopRarity, { label: string; color: string; glow: string }> = {
   rare:      { label: "SELTEN",    color: "#a8b0ba", glow: "#d6dbe166" },
@@ -1067,46 +1073,69 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
     ctx.translate(b.x, b.y);
     ctx.rotate(Math.atan2(b.vy, b.vx));
     ctx.shadowColor = "#65ff38";
-    ctx.shadowBlur = 18;
+    ctx.shadowBlur = 10;
     const body = ctx.createLinearGradient(-9, 0, 14, 0);
-    body.addColorStop(0, "#43105f");
-    body.addColorStop(0.55, "#151820");
-    body.addColorStop(1, "#baff3c");
+    body.addColorStop(0, "#2b073e");
+    body.addColorStop(0.42, "#4c1464");
+    body.addColorStop(0.68, "#171c20");
+    body.addColorStop(1, "#caff54");
     ctx.beginPath();
-    ctx.moveTo(17, 0); ctx.lineTo(7, -6); ctx.lineTo(-9, -5);
-    ctx.lineTo(-13, 0); ctx.lineTo(-9, 5); ctx.lineTo(7, 6); ctx.closePath();
+    ctx.moveTo(17, 0); ctx.quadraticCurveTo(12, -5.5, 6, -5.5); ctx.lineTo(-9, -4.5);
+    ctx.lineTo(-13, 0); ctx.lineTo(-9, 4.5); ctx.lineTo(6, 5.5); ctx.quadraticCurveTo(12, 5.5, 17, 0); ctx.closePath();
     ctx.fillStyle = body; ctx.fill();
-    ctx.strokeStyle = "#d8ff72"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.strokeStyle = "#d8ff72"; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.moveTo(-7, -2.7); ctx.lineTo(9, -2.1);
+    ctx.strokeStyle = "#ffffff80"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-4, -4.5); ctx.lineTo(-4, 4.5); ctx.moveTo(7, -5); ctx.lineTo(7, 5);
+    ctx.strokeStyle = "#b84cffaa"; ctx.lineWidth = 1; ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(-4, -5); ctx.lineTo(-12, -11); ctx.lineTo(3, -6);
-    ctx.moveTo(-4, 5); ctx.lineTo(-12, 11); ctx.lineTo(3, 6);
-    ctx.strokeStyle = "#b84cff"; ctx.lineWidth = 2; ctx.stroke();
-    ctx.beginPath(); ctx.arc(5, 0, 2.5, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffffff"; ctx.fill();
-    ctx.shadowColor = "#b84cff"; ctx.shadowBlur = 14;
-    ctx.beginPath(); ctx.moveTo(-13, 0); ctx.lineTo(-28, -5); ctx.lineTo(-22, 0); ctx.lineTo(-28, 5); ctx.closePath();
-    ctx.fillStyle = "#8d20ff99"; ctx.fill();
+    ctx.moveTo(-3, -4.5); ctx.lineTo(-12, -11); ctx.lineTo(3, -5.3);
+    ctx.moveTo(-3, 4.5); ctx.lineTo(-12, 11); ctx.lineTo(3, 5.3);
+    ctx.strokeStyle = "#c55cff"; ctx.lineWidth = 1.8; ctx.stroke();
+    ctx.beginPath(); ctx.arc(5, 0, 2.2, 0, Math.PI * 2);
+    ctx.fillStyle = "#efffd5"; ctx.fill();
+    ctx.strokeStyle = "#282d31"; ctx.lineWidth = 0.8; ctx.stroke();
+    const exhaust = ctx.createLinearGradient(-28, 0, -13, 0);
+    exhaust.addColorStop(0, "#7d12ff00"); exhaust.addColorStop(0.45, "#9a26ff99"); exhaust.addColorStop(1, "#e7ff6eee");
+    ctx.shadowColor = "#b84cff"; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.moveTo(-13, -2.8); ctx.lineTo(-28, 0); ctx.lineTo(-13, 2.8); ctx.closePath();
+    ctx.fillStyle = exhaust; ctx.fill();
   } else if (b.isMissile && b.trackPlayer) {
     // Enemy homing missile — magenta/purple
     ctx.translate(b.x, b.y);
     const ang = Math.atan2(b.vy, b.vx);
     ctx.rotate(ang);
+    const body = ctx.createLinearGradient(0, -5, 0, 5);
+    body.addColorStop(0, "#ff8cff"); body.addColorStop(0.45, "#b900df"); body.addColorStop(1, "#4d075e");
+    ctx.shadowColor = "#aa00ff"; ctx.shadowBlur = 8;
     ctx.beginPath();
-    ctx.moveTo(12, 0); ctx.lineTo(-6, -5); ctx.lineTo(-4, 0); ctx.lineTo(-6, 5); ctx.closePath();
-    ctx.fillStyle = "#dd00ff"; ctx.fill();
-    ctx.shadowColor = "#aa00ff"; ctx.shadowBlur = 10;
-    ctx.fill();
-    ctx.beginPath(); ctx.arc(-9, 0, 5, 0, Math.PI * 2);
-    ctx.fillStyle = "#88008888"; ctx.fill();
+    ctx.moveTo(12, 0); ctx.quadraticCurveTo(7, -4.5, -5, -4); ctx.lineTo(-6, 4); ctx.quadraticCurveTo(7, 4.5, 12, 0); ctx.closePath();
+    ctx.fillStyle = body; ctx.fill();
+    ctx.strokeStyle = "#ffc6ff"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.moveTo(-3, -4); ctx.lineTo(-7, -5); ctx.lineTo(-5, -1);
+    ctx.moveTo(-3, 4); ctx.lineTo(-7, 5); ctx.lineTo(-5, 1);
+    ctx.strokeStyle = "#ff8cff"; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-6, -2.5); ctx.lineTo(-11, 0); ctx.lineTo(-6, 2.5); ctx.closePath();
+    ctx.fillStyle = "#ff45dbaa"; ctx.fill();
   } else if (b.isMissile) {
     ctx.translate(b.x, b.y);
     const ang = Math.atan2(b.vy, b.vx);
     ctx.rotate(ang);
+    const body = ctx.createLinearGradient(0, -4, 0, 4);
+    body.addColorStop(0, "#fff3cf"); body.addColorStop(0.4, "#ff8a18"); body.addColorStop(1, "#8f2109");
+    ctx.shadowColor = "#ff6a00"; ctx.shadowBlur = 7;
     ctx.beginPath();
-    ctx.moveTo(12, 0); ctx.lineTo(-6, -4); ctx.lineTo(-4, 0); ctx.lineTo(-6, 4); ctx.closePath();
-    ctx.fillStyle = "#ff6600"; ctx.fill();
-    ctx.beginPath(); ctx.arc(-8, 0, 4, 0, Math.PI * 2);
-    ctx.fillStyle = "#ff330088"; ctx.fill();
+    ctx.moveTo(12, 0); ctx.quadraticCurveTo(7, -4, -5, -3.6); ctx.lineTo(-6, 3.6); ctx.quadraticCurveTo(7, 4, 12, 0); ctx.closePath();
+    ctx.fillStyle = body; ctx.fill();
+    ctx.strokeStyle = "#ffd08a"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.moveTo(-2, -3.7); ctx.lineTo(-6, -5); ctx.lineTo(-5, -1);
+    ctx.moveTo(-2, 3.7); ctx.lineTo(-6, 5); ctx.lineTo(-5, 1);
+    ctx.strokeStyle = "#ffb24d"; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-6, -2.4); ctx.lineTo(-12, 0); ctx.lineTo(-6, 2.4); ctx.closePath();
+    ctx.fillStyle = "#ff4b18bb"; ctx.fill();
   } else if (b.fromPlayer) {
     const bc = b.color ?? "#00ffff";
     ctx.beginPath();
@@ -1270,6 +1299,7 @@ export default function Game() {
   // ── City background ──
   const cityFarRef  = useRef<Building[]>([]);
   const cityNearRef = useRef<Building[]>([]);
+  const backgroundTransitionRef = useRef<BackgroundTransition | null>(null);
 
   // ── Checkpoint save tracking ──
   const saveExistsRef = useRef(!!loadSave());
@@ -2055,6 +2085,35 @@ export default function Game() {
         drawCityLayer(cityNearRef.current, 0.9, "#1a2840");
       }
 
+      const backgroundTransition = backgroundTransitionRef.current;
+      if (backgroundTransition) {
+        if (settingsRef.current.reducedMotion) {
+          backgroundTransitionRef.current = null;
+        } else {
+          backgroundTransition.elapsed += dt;
+          const progress = Math.min(1, backgroundTransition.elapsed / BACKGROUND_TRANSITION_MS);
+          const easedProgress = progress * progress * (3 - 2 * progress);
+
+          ctx.save();
+          ctx.globalAlpha = 1 - easedProgress;
+          ctx.drawImage(backgroundTransition.snapshot, 0, 0);
+
+          // A narrow light front makes the scene change feel intentional while
+          // keeping enemies and controls unobscured during gameplay.
+          const frontX = -CANVAS_W * 0.2 + progress * CANVAS_W * 1.4;
+          const lightFront = ctx.createLinearGradient(frontX - 90, 0, frontX + 90, 0);
+          lightFront.addColorStop(0, "rgba(150,225,255,0)");
+          lightFront.addColorStop(0.5, `rgba(210,245,255,${Math.sin(progress * Math.PI) * 0.24})`);
+          lightFront.addColorStop(1, "rgba(150,225,255,0)");
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = lightFront;
+          ctx.fillRect(frontX - 90, 0, 180, CANVAS_H);
+          ctx.restore();
+
+          if (progress >= 1) backgroundTransitionRef.current = null;
+        }
+      }
+
       if (!gs.started) {
         return; // Hangar React overlay handles this screen
       }
@@ -2134,6 +2193,17 @@ export default function Game() {
       // ── Level / Weapon tier ──
       const nextLevel = getLevelForScore(gs.score);
       if (nextLevel !== gs.level) {
+        const backgroundChanges =
+          shouldUseSpaceBackground(nextLevel) !== shouldUseSpaceBackground(gs.level) ||
+          shouldUseAboveCloudsBackground(nextLevel) !== shouldUseAboveCloudsBackground(gs.level) ||
+          shouldUseCityBackground(nextLevel) !== shouldUseCityBackground(gs.level);
+        if (backgroundChanges && !settingsRef.current.reducedMotion) {
+          const snapshot = document.createElement("canvas");
+          snapshot.width = CANVAS_W;
+          snapshot.height = CANVAS_H;
+          snapshot.getContext("2d")?.drawImage(canvas, 0, 0);
+          backgroundTransitionRef.current = { snapshot, elapsed: 0 };
+        }
         gs.level = nextLevel;
         const tierIndex = Math.min(nextLevel - 1, WEAPON_TIERS.length - 1);
         gs.weaponTier = Math.max(gs.weaponTier, tierIndex);
