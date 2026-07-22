@@ -107,7 +107,13 @@ interface Enemy {
   titanDashCooldown?: number;
   titanDashTimer?: number;
   titanDashHomeX?: number;
+  titanDashHomeY?: number;
+  titanDashStageX?: number;
   titanDashTargetX?: number;
+  titanDashTargetY?: number;
+  titanReinforcementsSpawned?: boolean;
+  ramDamage?: number;
+  trackPlayerRam?: boolean;
 }
 
 const isBossEnemy = (enemy: Enemy) => enemy.type === "boss" || enemy.type === "overlord" || enemy.type === "titan";
@@ -254,16 +260,16 @@ const DRONE_LEVELS_KEY = "fighter-command-drone-levels";
 const ULTI_LOADOUT_KEY = "fighter-command-ulti-loadout";
 
 const JET_SKINS = [
-  { id: "steel", name: "Steel", body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0, rarity: "rare", ultiName: "Stahlfestung", ultiDesc: "Starker Schutzschild und stark verringerter Schaden." },
-  { id: "fire", name: "Feuer", body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 50000, rarity: "rare", ultiName: "Feuersturm", ultiDesc: "Alle Gegner brennen und erleiden fortlaufend Schaden." },
-  { id: "jade", name: "Jade", body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 50000, rarity: "rare", ultiName: "Lebensenergie", ultiDesc: "Heilt sofort 5 HP und aktiviert einen Schutzschild." },
-  { id: "gold", name: "Gold", body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 50000, rarity: "rare", ultiName: "Goldrausch", ultiDesc: "Doppelte Punkte und deutlich schnellere Feuerrate." },
-  { id: "shadow", name: "Schatten", body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 50000, rarity: "rare", ultiName: "Phantomflug", ultiDesc: "Unsichtbar und unverwundbar; endet mit einer Schockwelle." },
-  { id: "crimson", name: "Scharlach", body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 50000, rarity: "rare", ultiName: "Blutrausch", ultiDesc: "Doppelter Schaden und massiv erhöhte Feuerrate." },
-  { id: "galaxy", name: "Galaxy", body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 80000, rarity: "epic", ultiName: "Schwarzes Loch", ultiDesc: "Zieht Gegner zur Mitte und beschädigt sie dauerhaft." },
-  { id: "neon", name: "Neon", body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 80000, rarity: "epic", ultiName: "Kettenblitz", ultiDesc: "Blitze springen fortlaufend durch alle Gegner." },
-  { id: "arctic", name: "Arktis", body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 80000, rarity: "epic", ultiName: "Absoluter Nullpunkt", ultiDesc: "Friert Gegner und gegnerische Projektile vollständig ein." },
-  { id: "lava", name: "Lava", body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 80000, rarity: "epic", ultiName: "Vulkanausbruch", ultiDesc: "Explosive Lavawellen verursachen hohen Flächenschaden." },
+  { id: "steel", name: "Aegis", body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0, rarity: "rare", ultiName: "Stahlfestung", ultiDesc: "Starker Schutzschild und stark verringerter Schaden." },
+  { id: "fire", name: "Ignis", body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 50000, rarity: "rare", ultiName: "Feuersturm", ultiDesc: "Alle Gegner brennen und erleiden fortlaufend Schaden." },
+  { id: "jade", name: "Viridia", body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 50000, rarity: "rare", ultiName: "Lebensenergie", ultiDesc: "Heilt sofort 5 HP und aktiviert einen Schutzschild." },
+  { id: "gold", name: "Midas", body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 50000, rarity: "rare", ultiName: "Goldrausch", ultiDesc: "Doppelte Punkte und deutlich schnellere Feuerrate." },
+  { id: "shadow", name: "Nyx", body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 50000, rarity: "rare", ultiName: "Phantomflug", ultiDesc: "Unsichtbar und unverwundbar; endet mit einer Schockwelle." },
+  { id: "crimson", name: "Ravena", body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 50000, rarity: "rare", ultiName: "Blutrausch", ultiDesc: "Doppelter Schaden und massiv erhöhte Feuerrate." },
+  { id: "galaxy", name: "Orion", body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 80000, rarity: "epic", ultiName: "Schwarzes Loch", ultiDesc: "Zieht Gegner zur Mitte und beschädigt sie dauerhaft." },
+  { id: "neon", name: "Voltara", body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 80000, rarity: "epic", ultiName: "Kettenblitz", ultiDesc: "Blitze springen fortlaufend durch alle Gegner." },
+  { id: "arctic", name: "Boreas", body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 80000, rarity: "epic", ultiName: "Absoluter Nullpunkt", ultiDesc: "Friert Gegner und gegnerische Projektile vollständig ein." },
+  { id: "lava", name: "Vulkara", body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 80000, rarity: "epic", ultiName: "Vulkanausbruch", ultiDesc: "Explosive Lavawellen verursachen hohen Flächenschaden." },
   { id: "xwing", name: "X-Wing", body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 120000, rarity: "legendary", ultiName: "Rebellenangriff", ultiDesc: "Zwei verbündete X-Wings greifen mit dir gemeinsam an." },
   { id: "tiefighter", name: "TIE Fighter", body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 120000, rarity: "legendary", ultiName: "Imperialer Schwarm", ultiDesc: "Vier TIE-Jäger umkreisen dich und feuern gemeinsam." },
   { id: "n1", name: "N-1 Jäger", body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 200000, rarity: "ultraLegendary", ultiName: "Naboo-Blitz", ultiDesc: "Unverwundbar: Naboo-Blitz, Schwarzes Loch und Rebellenangriff zugleich." },
@@ -2300,6 +2306,7 @@ export default function Game() {
           titanHealTimer: 60,
           titanDashCooldown: TITAN_DASH_COOLDOWN,
           titanDashTimer: 0,
+          titanReinforcementsSpawned: false,
         });
         audioRef.current.effect("boss", settingsRef.current.soundVolume);
       }
@@ -2457,6 +2464,30 @@ export default function Game() {
         }
       }
 
+      const halfLifeTitan = enemiesRef.current.find(e => e.type === "titan" && !e.dead &&
+        e.hp <= e.maxHp * .5 && !e.titanReinforcementsSpawned);
+      if (halfLifeTitan) {
+        halfLifeTitan.titanReinforcementsSpawned = true;
+        [-70, 0, 70].forEach((offset, index) => {
+          enemiesRef.current.push({
+            x: CANVAS_W + 30 + index * 45,
+            y: clamp(playerRef.current.y + offset, 18, CANVAS_H - 42),
+            vx: -6.5, vy: 0,
+            hp: 8, maxHp: 8,
+            width: 48, height: 26,
+            type: "scout",
+            shootCooldown: 999999,
+            points: 75,
+            color: "#ff2020",
+            angle: 0,
+            oscillate: 0,
+            ramDamage: 3,
+            trackPlayerRam: true,
+          });
+        });
+        audioRef.current.effect("boss", settingsRef.current.soundVolume);
+      }
+
       enemiesRef.current = enemiesRef.current.filter(e => {
         if (e.type === "titan") {
           e.titanShieldTimer = Math.max(0, (e.titanShieldTimer ?? 0) - dtScale);
@@ -2474,9 +2505,13 @@ export default function Game() {
           if ((e.titanDashTimer ?? 0) <= 0) {
             if (e.titanDashCooldown <= 0) {
               e.titanDashCooldown = TITAN_DASH_COOLDOWN;
-              e.titanDashTimer = 90;
+              e.titanDashTimer = 180;
               e.titanDashHomeX = e.x;
-              e.titanDashTargetX = Math.max(70, playerRef.current.x + PLAYER_W + 12);
+              e.titanDashHomeY = e.y;
+              e.titanDashStageX = clamp(playerRef.current.x + 245, CANVAS_W * .45, CANVAS_W - e.width - 12);
+              e.titanDashTargetX = Math.max(-e.width - 15, playerRef.current.x - e.width - 40);
+              e.titanDashTargetY = clamp(playerRef.current.y + PLAYER_H / 2 - e.height / 2, 0, CANVAS_H - e.height);
+              e.titanShieldTimer = Math.max(e.titanShieldTimer ?? 0, 180);
             }
           } else {
             e.titanDashTimer = Math.max(0, (e.titanDashTimer ?? 0) - dtScale);
@@ -2570,6 +2605,13 @@ export default function Game() {
         e.ultimateFreezeTimer = Math.max(0, (e.ultimateFreezeTimer ?? 0) - dtScale);
         e.ultimateSlowTimer = Math.max(0, (e.ultimateSlowTimer ?? 0) - dtScale);
         const statusSpeed = (e.ultimateFreezeTimer ?? 0) > 0 ? 0 : (e.ultimateSlowTimer ?? 0) > 0 ? ULTIMATE_SLOW_FACTOR : 1;
+        if (e.trackPlayerRam) {
+          const dx = playerRef.current.x + PLAYER_W / 2 - (e.x + e.width / 2);
+          const dy = playerRef.current.y + PLAYER_H / 2 - (e.y + e.height / 2);
+          const distance = Math.max(1, Math.hypot(dx, dy));
+          e.vx = dx / distance * 6.5;
+          e.vy = dy / distance * 6.5;
+        }
         e.x += e.vx * dtScale * statusSpeed;
         e.y += e.vy * dtScale * statusSpeed;
         if (e.oscillate) e.y += Math.sin(timeRef.current * 0.04) * Math.abs(e.oscillate) * 0.8 * dtScale * statusSpeed;
@@ -2583,14 +2625,23 @@ export default function Game() {
 
           if (e.type === "titan" && (e.titanDashTimer ?? 0) > 0) {
             const remaining = e.titanDashTimer ?? 0;
-            const home = e.titanDashHomeX ?? e.x;
-            const target = e.titanDashTargetX ?? playerRef.current.x;
-            if (remaining > 55) {
-              e.x = target + (home - target) * ((remaining - 55) / 35);
-            } else if (remaining > 35) {
-              e.x = target;
+            const homeX = e.titanDashHomeX ?? e.x;
+            const homeY = e.titanDashHomeY ?? e.y;
+            const stageX = e.titanDashStageX ?? homeX;
+            const strikeX = e.titanDashTargetX ?? playerRef.current.x - e.width;
+            const targetY = e.titanDashTargetY ?? e.y;
+            if (remaining > 120) {
+              const progress = (180 - remaining) / 60;
+              e.x = homeX + (stageX - homeX) * progress;
+              e.y = homeY + (targetY - homeY) * progress;
+            } else if (remaining > 75) {
+              const progress = (120 - remaining) / 45;
+              e.x = stageX + (strikeX - stageX) * progress;
+              e.y = targetY;
             } else {
-              e.x = home + (target - home) * (remaining / 35);
+              const progress = (75 - remaining) / 75;
+              e.x = strikeX + (homeX - strikeX) * progress;
+              e.y = targetY + (homeY - targetY) * progress;
             }
           }
 
@@ -2758,7 +2809,7 @@ export default function Game() {
             e.dead = collidedWithBoss ? e.hp <= 0 : true;
             return !e.dead;
           }
-          const collDmg = collidedWithBoss ? 1 : activeUnlocksRef.current.includes("armor") ? 0.5 : 1;
+          const collDmg = e.ramDamage ?? (collidedWithBoss ? 1 : activeUnlocksRef.current.includes("armor") ? 0.5 : 1);
           const nextLifeState = applyPlayerDamage(gs, collDmg);
           gs.hp = nextLifeState.hp;
           gs.lives = nextLifeState.lives;
