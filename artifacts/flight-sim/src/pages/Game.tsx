@@ -298,8 +298,8 @@ const JET_SKINS = [
   { id: "xwing", name: "X-Wing", body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 120000, rarity: "legendary", ultiName: "Rebellenangriff", ultiDesc: "Zwei verbündete X-Wings greifen mit dir gemeinsam an." },
   { id: "tiefighter", name: "TIE Fighter", body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 120000, rarity: "legendary", ultiName: "Imperialer Schwarm", ultiDesc: "Vier TIE-Jäger umkreisen dich und feuern gemeinsam." },
   { id: "n1", name: "Naboo-Sternjäger", body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 200000, rarity: "ultraLegendary", ultiName: "Naboo-Blitz", ultiDesc: "Unverwundbar: Naboo-Blitz, Schwarzes Loch und gezielte X-Wing-Feuerbälle zugleich." },
-  { id: "solaris", name: "Solaris Prime", body: "#4a1900", stroke: "#ff8a00", glow: "#fff06a", cost: 500000, rarity: "ultimate", ultiName: "Supernova", ultiDesc: "Eine brennende Supernova beschädigt alle Gegner und entfesselt die maximale Feuerrate." },
-  { id: "voidreaper", name: "Void Reaper", body: "#10052d", stroke: "#6d28d9", glow: "#e879f9", cost: 500000, rarity: "ultimate", ultiName: "Ereignishorizont", ultiDesc: "Unverwundbar: Friert Projektile ein und zieht Gegner in einen vernichtenden Ereignishorizont." },
+  { id: "solaris", name: "Solaris Prime", body: "#4a1900", stroke: "#ff8a00", glow: "#fff06a", cost: 500000, rarity: "ultimate", ultiName: "Phönix-Protokoll", ultiDesc: "Repariert den Jet vollständig, aktiviert einen Schild und verstärkt Kanonen und Feuerrate massiv." },
+  { id: "voidreaper", name: "Void Reaper", body: "#10052d", stroke: "#6d28d9", glow: "#e879f9", cost: 500000, rarity: "ultimate", ultiName: "Nullzone", ultiDesc: "Löscht gegnerische Projektile, verlangsamt alle Gegner und verdoppelt deinen Waffenschaden." },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
@@ -632,7 +632,7 @@ function rectHit(ax: number, ay: number, aw: number, ah: number,
 
 // ─── Drawing helpers ─────────────────────────────────────────────────────────
 
-function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier: number, shieldActive: boolean, skin?: JetSkin, shieldColor?: string) {
+function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier: number, shieldActive: boolean, skin?: JetSkin, shieldColor?: string, aircraftLevel = 1) {
   ctx.save();
   ctx.translate(x + PLAYER_W / 2, y + PLAYER_H / 2);
 
@@ -774,14 +774,46 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
   ctx.fillStyle = grad;
   ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI * 2); ctx.fill();
 
+  // Every original aircraft has its own silhouette. Persistent aircraft levels
+  // add progressively richer hull markings, fins and illuminated armour seams.
+  const level = clamp(Math.floor(aircraftLevel), 1, 10);
+  const profile = {
+    steel:      { nose: 27, tail: -28, waist: 11, wingX: -10, wingTip: 25, sweep: -24, cockpitX: 8, cockpitW: 10, pattern: 0 },
+    fire:       { nose: 31, tail: -25, waist: 8,  wingX: -5,  wingTip: 19, sweep: -29, cockpitX: 11, cockpitW: 8, pattern: 1 },
+    jade:       { nose: 29, tail: -31, waist: 7,  wingX: -13, wingTip: 28, sweep: -17, cockpitX: 5, cockpitW: 12, pattern: 2 },
+    gold:       { nose: 25, tail: -26, waist: 13, wingX: -4,  wingTip: 22, sweep: -20, cockpitX: 7, cockpitW: 9, pattern: 3 },
+    shadow:     { nose: 34, tail: -23, waist: 6,  wingX: 2,   wingTip: 25, sweep: -25, cockpitX: 13, cockpitW: 7, pattern: 4 },
+    crimson:    { nose: 30, tail: -30, waist: 9,  wingX: -8,  wingTip: 31, sweep: -19, cockpitX: 9, cockpitW: 9, pattern: 5 },
+    galaxy:     { nose: 28, tail: -28, waist: 12, wingX: -15, wingTip: 30, sweep: -8,  cockpitX: 4, cockpitW: 11, pattern: 6 },
+    neon:       { nose: 33, tail: -27, waist: 7,  wingX: -1,  wingTip: 22, sweep: -31, cockpitX: 12, cockpitW: 8, pattern: 7 },
+    arctic:     { nose: 26, tail: -32, waist: 10, wingX: -16, wingTip: 27, sweep: -12, cockpitX: 3, cockpitW: 12, pattern: 8 },
+    lava:       { nose: 29, tail: -27, waist: 12, wingX: -9,  wingTip: 24, sweep: -27, cockpitX: 8, cockpitW: 10, pattern: 9 },
+    solaris:    { nose: 35, tail: -30, waist: 9,  wingX: -3,  wingTip: 34, sweep: -22, cockpitX: 12, cockpitW: 10, pattern: 10 },
+    voidreaper: { nose: 32, tail: -34, waist: 6,  wingX: -12, wingTip: 35, sweep: -14, cockpitX: 10, cockpitW: 8, pattern: 11 },
+  }[skin?.id ?? "steel"] ?? { nose: 28, tail: -28, waist: 10, wingX: -10, wingTip: 22, sweep: -22, cockpitX: 8, cockpitW: 10, pattern: 0 };
+
+  // Wings behind the fuselage; alternating tips make even similarly coloured
+  // craft readable by silhouette alone.
+  for (const side of [-1, 1]) {
+    const s = side as -1 | 1;
+    ctx.beginPath();
+    ctx.moveTo(4, s * (profile.waist - 2));
+    ctx.lineTo(profile.wingX, s * profile.wingTip);
+    ctx.lineTo(profile.sweep, s * (profile.wingTip - 4));
+    ctx.lineTo(profile.tail + 5, s * 7);
+    ctx.closePath();
+    ctx.fillStyle = skin?.body ?? "#162040"; ctx.fill();
+    ctx.strokeStyle = skin?.stroke ?? "#2a4a8a"; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
   // Body
   ctx.beginPath();
-  ctx.moveTo(28, 0);
-  ctx.lineTo(-20, -10);
-  ctx.lineTo(-28, -5);
-  ctx.lineTo(-20, 0);
-  ctx.lineTo(-28, 5);
-  ctx.lineTo(-20, 10);
+  ctx.moveTo(profile.nose, 0);
+  ctx.lineTo(-10, -profile.waist);
+  ctx.lineTo(profile.tail, -5);
+  ctx.lineTo(profile.tail + 6, 0);
+  ctx.lineTo(profile.tail, 5);
+  ctx.lineTo(-10, profile.waist);
   ctx.closePath();
   ctx.fillStyle = skin?.body ?? "#1a2a4a";
   ctx.fill();
@@ -791,17 +823,39 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
 
   // Cockpit
   ctx.beginPath();
-  ctx.ellipse(8, 0, 10, 6, 0, 0, Math.PI * 2);
+  ctx.ellipse(profile.cockpitX, 0, profile.cockpitW, Math.max(4, profile.waist - 4), 0, 0, Math.PI * 2);
   ctx.fillStyle = glow + "cc";
   ctx.fill();
 
-  // Wing stripes per tier
-  ctx.strokeStyle = glow;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-14, -22); ctx.lineTo(-22, -10); ctx.closePath();
-  ctx.fillStyle = skin?.body ?? "#162040"; ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(-14, 22); ctx.lineTo(-22, 10); ctx.closePath();
-  ctx.fillStyle = skin?.body ?? "#162040"; ctx.fill(); ctx.stroke();
+  // Model-specific pattern. More stripes light up at levels 3/5/7/9.
+  const marks = 1 + Math.floor(level / 2);
+  ctx.save();
+  ctx.strokeStyle = glow; ctx.lineCap = "round";
+  ctx.shadowColor = glow; ctx.shadowBlur = level >= 7 ? 5 : 0;
+  for (let i = 0; i < marks; i++) {
+    const t = marks === 1 ? .5 : i / (marks - 1);
+    const px = -18 + t * 30;
+    const spread = 4 + ((profile.pattern * 3 + i * 5) % Math.max(6, profile.wingTip - 5));
+    ctx.lineWidth = i === 0 ? 1.8 : 1;
+    ctx.beginPath();
+    if (profile.pattern % 4 === 0) { ctx.moveTo(px, -spread); ctx.lineTo(px + 7, 0); ctx.lineTo(px, spread); }
+    else if (profile.pattern % 4 === 1) { ctx.moveTo(px - 5, -spread); ctx.lineTo(px + 7, -spread + 5); ctx.moveTo(px - 5, spread); ctx.lineTo(px + 7, spread - 5); }
+    else if (profile.pattern % 4 === 2) { ctx.arc(px, 0, Math.min(spread, 5 + i * 2), -.8, .8); ctx.moveTo(px, -spread); ctx.lineTo(px + 4, spread); }
+    else { ctx.moveTo(px - 4, -spread); ctx.lineTo(px + 5, 0); ctx.lineTo(px - 4, spread); ctx.moveTo(px + 2, -spread); ctx.lineTo(px + 9, 0); ctx.lineTo(px + 2, spread); }
+    ctx.stroke();
+  }
+  if (level >= 5) {
+    const finLength = 5 + level;
+    ctx.fillStyle = glow + "66"; ctx.strokeStyle = glow;
+    for (const side of [-1, 1]) {
+      ctx.beginPath(); ctx.moveTo(profile.tail + 7, side * 4); ctx.lineTo(profile.tail - finLength, side * (6 + level)); ctx.lineTo(profile.tail + 13, side * 7); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+  }
+  if (level >= 9) {
+    ctx.beginPath(); ctx.arc(profile.cockpitX, 0, profile.cockpitW + 4, 0, Math.PI * 2);
+    ctx.setLineDash([2, 3]); ctx.strokeStyle = "#ffffff"; ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.restore();
 
   // Gun barrels
   const gunOffsets = [
@@ -817,10 +871,10 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
   const offsets = gunOffsets[Math.min(tier, gunOffsets.length - 1)];
   offsets.forEach(oy => {
     ctx.beginPath();
-    ctx.moveTo(28, oy - 1.5);
-    ctx.lineTo(38, oy - 1.5);
-    ctx.lineTo(38, oy + 1.5);
-    ctx.lineTo(28, oy + 1.5);
+    ctx.moveTo(profile.nose - 1, oy - 1.5);
+    ctx.lineTo(profile.nose + 10, oy - 1.5);
+    ctx.lineTo(profile.nose + 10, oy + 1.5);
+    ctx.lineTo(profile.nose - 1, oy + 1.5);
     ctx.closePath();
     ctx.fillStyle = glow;
     ctx.fill();
@@ -1961,6 +2015,11 @@ export default function Game() {
             shieldTimerRef.current = ULTI_DURATION;
             playerShieldHpRef.current = activeUltiSkinRef.current.id === "steel" ? 12 : 6;
           }
+          if (activeUltiSkinRef.current.id === "solaris") {
+            stateRef.current.hp = stateRef.current.maxHp;
+            shieldTimerRef.current = ULTI_DURATION;
+            playerShieldHpRef.current = 8;
+          }
           syncDisplay();
         }
       }
@@ -2069,6 +2128,11 @@ export default function Game() {
             if (["steel", "jade"].includes(activeUltiSkinRef.current.id)) {
               shieldTimerRef.current = ULTI_DURATION;
               playerShieldHpRef.current = activeUltiSkinRef.current.id === "steel" ? 12 : 6;
+            }
+            if (activeUltiSkinRef.current.id === "solaris") {
+              stateRef.current.hp = stateRef.current.maxHp;
+              shieldTimerRef.current = ULTI_DURATION;
+              playerShieldHpRef.current = 8;
             }
             syncDisplay();
           } else if (!touchFireRef.current.active) {
@@ -2466,7 +2530,8 @@ export default function Game() {
           const sp = Math.hypot(b.vx, b.vy);
           if (sp > 5) { b.vx = b.vx / sp * 5; b.vy = b.vy / sp * 5; }
         }
-        const projectileSpeed = !b.fromPlayer && ultimaActiveRef.current > 0 && ["arctic", "voidreaper"].includes(activeUltiSkinRef.current.id) ? 0 : 1;
+        if (!b.fromPlayer && ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "voidreaper") return false;
+        const projectileSpeed = !b.fromPlayer && ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "arctic" ? 0 : 1;
         b.x += b.vx * dtScale * projectileSpeed;
         b.y += b.vy * dtScale * projectileSpeed;
         drawBullet(ctx, b);
@@ -2483,7 +2548,7 @@ export default function Game() {
       // ── Ultima charge & countdown ──
       if (ultimaActiveRef.current > 0) {
         ultimaActiveRef.current = Math.max(0, ultimaActiveRef.current - dtScale);
-        if (["steel", "shadow", "n1", "voidreaper"].includes(activeUltiSkinRef.current.id)) invincibleRef.current = Math.max(invincibleRef.current, 3);
+        if (["steel", "shadow", "n1"].includes(activeUltiSkinRef.current.id)) invincibleRef.current = Math.max(invincibleRef.current, 3);
       } else if (ultimaChargeRef.current < ULTI_MAX) {
         const cloneMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
         const cloneBonus = activeUnlocksRef.current.includes("clone_upgrade") ? 1.25 : 1;
@@ -2633,20 +2698,19 @@ export default function Game() {
         }
         if (ultimaActiveRef.current > 0 && !isTitanInvulnerable(e)) {
           const aircraftId = activeUltiSkinRef.current.id;
-          const blackHoleActive = aircraftId === "galaxy" || aircraftId === "n1" || aircraftId === "voidreaper";
+          const blackHoleActive = aircraftId === "galaxy" || aircraftId === "n1";
           if (blackHoleActive) {
             const targetX = CANVAS_W * .58;
             const targetY = CANVAS_H * .5;
-            const pullStrength = aircraftId === "voidreaper" ? .022 : .012;
-            e.x += (targetX - (e.x + e.width / 2)) * pullStrength * dtScale;
-            e.y += (targetY - (e.y + e.height / 2)) * pullStrength * dtScale;
-            e.hp -= (aircraftId === "voidreaper" ? .22 : .10) * dtScale;
+            e.x += (targetX - (e.x + e.width / 2)) * .012 * dtScale;
+            e.y += (targetY - (e.y + e.height / 2)) * .012 * dtScale;
+            e.hp -= .10 * dtScale;
           }
+          if (aircraftId === "voidreaper") e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimaActiveRef.current);
           if (aircraftId === "arctic") e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
           if (aircraftId === "fire") e.hp -= .11 * dtScale;
           if (aircraftId === "neon") e.hp -= .14 * dtScale;
           if (aircraftId === "lava") e.hp -= .18 * dtScale;
-          if (aircraftId === "solaris") e.hp -= .22 * dtScale;
           if (aircraftId === "shadow" && ultimaActiveRef.current < 3) e.hp -= 14;
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
@@ -2910,7 +2974,10 @@ export default function Game() {
           const bh = b.isMissile ? 8 : 4;
           if (!rectHit(b.x, b.y - bh / 2, bw, bh, e.x, e.y, e.width, e.height)) return true;
           const critical = runUpgradesRef.current.critical > 0 && Math.random() < Math.min(.45, .15 * runUpgradesRef.current.critical);
-          const aircraftDamage = ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "crimson" ? 2 : 1;
+          const activeAircraftId = activeUltiSkinRef.current.id;
+          const aircraftDamage = ultimaActiveRef.current > 0
+            ? activeAircraftId === "solaris" ? 3 : ["crimson", "voidreaper"].includes(activeAircraftId) ? 2 : 1
+            : 1;
           const absorberDamage = absorberActiveRef.current > 0 && absorberHitsRef.current > 0
             ? Math.pow(2, absorberHitsRef.current) : 1;
           const damageResult = isTitanInvulnerable(e)
@@ -3107,7 +3174,7 @@ export default function Game() {
       }
 
       // ── Aircraft-ultimate visuals ──
-      if (ultimaActiveRef.current > 0 && ["galaxy", "n1", "voidreaper"].includes(activeUltiSkinRef.current.id)) {
+      if (ultimaActiveRef.current > 0 && ["galaxy", "n1"].includes(activeUltiSkinRef.current.id)) {
         const holeX = CANVAS_W * .58, holeY = CANVAS_H * .5;
         const pulse = 1 + Math.sin(timeRef.current * .12) * .12;
         ctx.save();
@@ -3183,7 +3250,7 @@ export default function Game() {
         const cy = playerRef.current.y + PLAYER_H / 2;
         ctx.save();
         ctx.translate(cx, cy); ctx.scale(1.16, 1.16); ctx.translate(-cx, -cy);
-        drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, activeSkinRef.current, "#35bfff");
+        drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level);
         ctx.restore();
         ctx.save();
         ctx.lineCap = "round";
@@ -3232,7 +3299,7 @@ export default function Game() {
         ctx.save();
         ctx.globalAlpha = 0.15 + 0.1 * Math.sin(timeRef.current * 0.25);
         ctx.shadowColor = "#00ffee"; ctx.shadowBlur = 20;
-        drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, activeSkinRef.current);
+        drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, activeSkinRef.current, undefined, aircraftUpgradeRef.current.level);
         ctx.restore();
       } else if (
         ultimaActiveRef.current > 0 || laserActiveRef.current > 0 || stealthActiveRef.current > 0 ||
@@ -3244,7 +3311,7 @@ export default function Game() {
           const shieldHp = playerShieldHpRef.current;
           const _sc = (activeSkinRef.current?.id === "n1" && shieldTimerRef.current > 0)
             ? (shieldHp <= 1 ? "#ff2200" : shieldHp <= 3 ? "#ff9900" : "#cfd6dc") : undefined;
-          drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current, _sc);
+          drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current, _sc, aircraftUpgradeRef.current.level);
         }
         if (ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeUltiSkinRef.current.id)) {
           const wingmen = activeUltiSkinRef.current.id === "tiefighter" ? [-72, -36, 36, 72] : [-50, 50];
@@ -3631,9 +3698,9 @@ function HangarOverlay({
     const gg = ctx.createRadialGradient(120, 70, 4, 120, 70, 65);
     gg.addColorStop(0, skin.glow + "44"); gg.addColorStop(1, "transparent");
     ctx.fillStyle = gg; ctx.fillRect(0, 0, 240, 140);
-    drawPlayerJet(ctx, 90, 56, 5, false, skin);
+    drawPlayerJet(ctx, 90, 56, 5, false, skin, undefined, aircraftLevels[skin.id] ?? 1);
     drawCombatDrone(ctx, 105, 38, 0, DRONE_SKINS.find(s => s.id === selectedDroneSkin) ?? DRONE_SKINS[0]);
-  }, [activeSkinId, skin, selectedDroneSkin]);
+  }, [activeSkinId, skin, selectedDroneSkin, aircraftLevels]);
 
   if (view === "briefing") {
     return (
