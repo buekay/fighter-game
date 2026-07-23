@@ -143,7 +143,7 @@ interface GameState {
 }
 
 interface GameSettings {
-  language: "de" | "en" | "tr";
+  language: "de" | "en" | "tr" | "fr" | "es";
   tutorial: boolean;
   reducedMotion: boolean;
   highContrast: boolean;
@@ -272,16 +272,20 @@ const JET_SKINS = [
   { id: "lava", name: "Vulkara", body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 80000, rarity: "epic", ultiName: "Vulkanausbruch", ultiDesc: "Explosive Lavawellen verursachen hohen Flächenschaden." },
   { id: "xwing", name: "X-Wing", body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 120000, rarity: "legendary", ultiName: "Rebellenangriff", ultiDesc: "Zwei verbündete X-Wings greifen mit dir gemeinsam an." },
   { id: "tiefighter", name: "TIE Fighter", body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 120000, rarity: "legendary", ultiName: "Imperialer Schwarm", ultiDesc: "Vier TIE-Jäger umkreisen dich und feuern gemeinsam." },
-  { id: "n1", name: "N-1 Jäger", body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 200000, rarity: "ultraLegendary", ultiName: "Naboo-Blitz", ultiDesc: "Unverwundbar: Naboo-Blitz, Schwarzes Loch und Rebellenangriff zugleich." },
+  { id: "n1", name: "Naboo-Sternjäger", body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 200000, rarity: "ultraLegendary", ultiName: "Naboo-Blitz", ultiDesc: "Unverwundbar: Naboo-Blitz, Schwarzes Loch und gezielte X-Wing-Feuerbälle zugleich." },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
 const DRONE_SKINS = [
-  { id: "drone_violet", name: "Violett", body: "#24153c", stroke: "#b86cff", core: "#f0d5ff", cost: 0, rarity: "rare" },
-  { id: "drone_ember", name: "Glut", body: "#3b1608", stroke: "#ff6a28", core: "#ffe0a8", cost: 25000, rarity: "rare" },
-  { id: "drone_ion", name: "Ion", body: "#092a38", stroke: "#22dfff", core: "#d9fbff", cost: 50000, rarity: "rare" },
-  { id: "drone_phantom", name: "Phantom", body: "#171224", stroke: "#e94cff", core: "#ffffff", cost: 80000, rarity: "epic" },
-  { id: "drone_solar", name: "Solar", body: "#332a05", stroke: "#ffe34c", core: "#fffbd1", cost: 120000, rarity: "legendary" },
+  { id: "drone_violet", name: "Amethyst-Wächter", body: "#24153c", stroke: "#b86cff", core: "#f0d5ff", cost: 0, rarity: "rare" },
+  { id: "drone_ember", name: "Aschenfalke", body: "#3b1608", stroke: "#ff6a28", core: "#ffe0a8", cost: 25000, rarity: "rare" },
+  { id: "drone_ion", name: "Ionensturm", body: "#092a38", stroke: "#22dfff", core: "#d9fbff", cost: 50000, rarity: "rare" },
+  { id: "drone_phantom", name: "Nachtgeist", body: "#171224", stroke: "#e94cff", core: "#ffffff", cost: 80000, rarity: "epic" },
+  { id: "drone_solar", name: "Sonnenlanze", body: "#332a05", stroke: "#ffe34c", core: "#fffbd1", cost: 120000, rarity: "legendary" },
+  { id: "drone_frost", name: "Frostklinge", body: "#10273b", stroke: "#9ee8ff", core: "#ffffff", cost: 80000, rarity: "epic" },
+  { id: "drone_venom", name: "Vipernauge", body: "#102b16", stroke: "#66ff55", core: "#eaffd9", cost: 120000, rarity: "legendary" },
+  { id: "drone_nova", name: "Nova-Kern", body: "#351018", stroke: "#ff4f72", core: "#fff0b8", cost: 200000, rarity: "ultraLegendary" },
+  { id: "drone_void", name: "Leerenläufer", body: "#080914", stroke: "#6574ff", core: "#dfe4ff", cost: 200000, rarity: "ultraLegendary" },
 ] as const;
 type DroneSkin = typeof DRONE_SKINS[number];
 
@@ -343,6 +347,7 @@ function saveUltiLoadout(ids: UltiLoadoutId[]) { try { localStorage.setItem(ULTI
 
 const NAME_KEY         = "fighter-command-name";
 const BULLET_COLOR_KEY = "fighter-command-bcolor";
+const PILOT_KILLS_KEY  = "fighter-command-pilot-kills";
 const SETTINGS_KEY     = "fighter-command-settings";
 const TUTORIAL_KEY     = "fighter-command-tutorial-seen";
 const BRIEFING_KEY     = "fighter-command-briefing-seen";
@@ -467,6 +472,9 @@ function saveName(n: string)      { try { localStorage.setItem(NAME_KEY, n); } c
 function loadName(): string       { try { return localStorage.getItem(NAME_KEY) ?? "Pilot"; } catch { return "Pilot"; } }
 function saveBulletColor(c: string) { try { localStorage.setItem(BULLET_COLOR_KEY, c); } catch {} }
 function loadBulletColor(): string  { try { return localStorage.getItem(BULLET_COLOR_KEY) ?? "#00ffff"; } catch { return "#00ffff"; } }
+function loadPilotKills(): number { try { return Math.max(0, Number(localStorage.getItem(PILOT_KILLS_KEY)) || 0); } catch { return 0; } }
+function addPilotKill() { try { localStorage.setItem(PILOT_KILLS_KEY, String(loadPilotKills() + 1)); } catch {} }
+function getPilotLevelFromKills(kills = loadPilotKills()) { return getPilotLevelForScore(kills * 1000); }
 function loadSettings(): GameSettings {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Partial<GameSettings> }; }
   catch { return DEFAULT_SETTINGS; }
@@ -547,11 +555,23 @@ const TURKISH_TRANSLATIONS: Readonly<Record<string, string>> = {
 function translated(language: GameSettings["language"], german: string, english: string) {
   if (language === "de") return german;
   if (language === "tr") return TURKISH_TRANSLATIONS[english] ?? english;
+  if (language === "fr") return ({
+    "Language": "Langue", "Select language": "Choisir la langue", "SETTINGS": "PARAMÈTRES",
+    "Back": "Retour", "NEW GAME": "NOUVELLE PARTIE", "Your jet": "Votre chasseur",
+    "Shot color:": "Couleur des tirs :", "Available credits": "Crédits disponibles",
+    "Touch controls": "Commandes tactiles", "Music": "Musique", "Sound effects": "Effets sonores",
+  } as Record<string, string>)[english] ?? english;
+  if (language === "es") return ({
+    "Language": "Idioma", "Select language": "Elegir idioma", "SETTINGS": "AJUSTES",
+    "Back": "Atrás", "NEW GAME": "NUEVA PARTIDA", "Your jet": "Tu caza",
+    "Shot color:": "Color de disparo:", "Available credits": "Créditos disponibles",
+    "Touch controls": "Controles táctiles", "Music": "Música", "Sound effects": "Efectos de sonido",
+  } as Record<string, string>)[english] ?? english;
   return english;
 }
 
 function localeFor(language: GameSettings["language"]) {
-  return language === "de" ? "de-DE" : language === "tr" ? "tr-TR" : "en-US";
+  return language === "de" ? "de-DE" : language === "tr" ? "tr-TR" : language === "fr" ? "fr-FR" : language === "es" ? "es-ES" : "en-US";
 }
 function tutorialSeen(): boolean { try { return localStorage.getItem(TUTORIAL_KEY) === "1"; } catch { return false; } }
 function markTutorialSeen() { try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch {} }
@@ -1620,17 +1640,17 @@ export default function Game() {
     if (now - lastDroneFireRef.current >= droneFireRate) {
       lastDroneFireRef.current = now;
       const droneX = playerRef.current.x + PLAYER_W / 2;
-      const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22) + Math.sin(timeRef.current * 0.08) * 4;
+      const droneCount = drone.level >= 8 ? 3 : drone.level >= 4 ? 2 : 1;
+      const formation = droneCount === 3 ? [-42, 0, 42] : droneCount === 2 ? [-30, 30] : [-30];
       const offsets = drone.guns === 3 ? [-7, 0, 7] : drone.guns === 2 ? [-4, 4] : [0];
-      offsets.forEach(offset => bulletsRef.current.push({
-        x: droneX + 22,
-        y: droneY + offset,
-        vx: BASE_BULLET_SPEED,
-        vy: 0,
-        fromPlayer: true,
-        damage: drone.damage + runUpgradesRef.current.damage,
-        color: "#b86cff",
-      }));
+      formation.forEach((formationY, droneIndex) => {
+        const droneY = clamp(playerRef.current.y + PLAYER_H / 2 + formationY, 22, CANVAS_H - 22) + Math.sin(timeRef.current * 0.08 + droneIndex) * 4;
+        offsets.forEach(offset => bulletsRef.current.push({
+          x: droneX + 22, y: droneY + offset, vx: BASE_BULLET_SPEED, vy: 0,
+          fromPlayer: true, damage: drone.damage + runUpgradesRef.current.damage,
+          color: activeDroneSkinRef.current.stroke,
+        }));
+      });
     }
 
     const aircraftUltiFireRate = ultimaActiveRef.current > 0 && ["gold", "crimson"].includes(activeUltiSkinRef.current.id) ? 0.45 : 1;
@@ -1672,7 +1692,17 @@ export default function Game() {
           cvy = spread * BASE_BULLET_SPEED;
         }
         const wingY = clamp(playerRef.current.y + PLAYER_H / 2 + wingOffset, PLAYER_H, CANVAS_H - PLAYER_H);
-        bulletsRef.current.push({ x: px, y: wingY + oy, vx: cvx, vy: cvy, fromPlayer: true, damage: tier.bulletDmg + aircraftUpgradeRef.current.damageBonus, color: activeBulletColorRef.current });
+        const nabooFireball = activeUltiSkinRef.current.id === "n1";
+        const target = nabooFireball
+          ? enemiesRef.current.filter(enemy => !enemy.dead).sort((a, b) =>
+              Math.hypot(a.x - px, a.y - wingY) - Math.hypot(b.x - px, b.y - wingY))[0] ?? null
+          : null;
+        bulletsRef.current.push({
+          x: px, y: wingY + oy, vx: cvx, vy: cvy, fromPlayer: true,
+          damage: tier.bulletDmg + aircraftUpgradeRef.current.damageBonus + (nabooFireball ? 3 : 0),
+          color: nabooFireball ? "#ff6a20" : activeBulletColorRef.current,
+          isMissile: nabooFireball, missileTarget: target,
+        });
       }));
     }
 
@@ -1821,6 +1851,11 @@ export default function Game() {
     initCity();
     const onKey = (e: KeyboardEvent, down: boolean) => {
       keysRef.current[down ? "add" : "delete"](e.key);
+      const titanDashing = enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0);
+      if (down && titanDashing && ["q", "e", "r", "h", "t", "f", "u"].includes(e.key.toLowerCase())) {
+        keysRef.current.delete(e.key);
+        return;
+      }
       if (down && tutorialStageRef.current === 0 && ["w", "a", "s", "d", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
         tutorialStageRef.current = 1; setTutorialStage(1);
       }
@@ -1953,6 +1988,7 @@ export default function Game() {
           }
         } else {
           // Check ULTI button first
+          const titanDashing = enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0);
           const du = Math.hypot(x - ULTI_BTN_X, y - ULTI_BTN_Y);
           const dl = Math.hypot(x - LASER_BTN_X, y - LASER_BTN_Y);
           const ds = Math.hypot(x - STEALTH_BTN_X, y - STEALTH_BTN_Y);
@@ -1960,7 +1996,9 @@ export default function Game() {
           const dx = Math.hypot(x - ULTIMATE_BTN_X, y - ULTIMATE_BTN_Y);
           const dp = Math.hypot(x - POISON_MISSILE_BTN_X, y - POISON_MISSILE_BTN_Y);
           const da = Math.hypot(x - ABSORBER_BTN_X, y - ABSORBER_BTN_Y);
-          if (da <= ABSORBER_BTN_R + 12 && absorberChargeRef.current >= ABSORBER_MAX && absorberActiveRef.current === 0
+          if (titanDashing && Math.min(du, dl, ds, dh, dx, dp, da) <= 50) {
+            continue;
+          } else if (da <= ABSORBER_BTN_R + 12 && absorberChargeRef.current >= ABSORBER_MAX && absorberActiveRef.current === 0
               && activeUnlocksRef.current.includes("absorber_ulti") && activeUltiLoadoutRef.current.includes("absorber_ulti")) {
             absorberActiveRef.current = ABSORBER_DURATION;
             absorberChargeRef.current = 0;
@@ -2072,7 +2110,7 @@ export default function Game() {
         ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
         starsRef.current.forEach(s => {
-          if (!settingsRef.current.reducedMotion) s.x -= s.speed * 1.8;
+          if (!settingsRef.current.reducedMotion) s.x -= s.speed * 2.8;
           if (s.x < -12) { s.x = CANVAS_W + 12; s.y = rand(0, CANVAS_H); }
           ctx.globalAlpha = 0.35 + s.brightness * 0.65;
           ctx.fillStyle = s.size > 1.6 ? "#c9dcff" : "#ffffff";
@@ -2089,7 +2127,7 @@ export default function Game() {
         ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
         starsRef.current.slice(0, 14).forEach(s => {
-          if (!settingsRef.current.reducedMotion) s.x -= s.speed * 0.18;
+          if (!settingsRef.current.reducedMotion) s.x -= s.speed * 0.32;
           if (s.x < -120) { s.x = CANVAS_W + 120; s.y = rand(18, CANVAS_H * 0.38); }
           const cw = 50 + s.size * 28, ch = 18 + s.size * 7;
           ctx.save();
@@ -2111,7 +2149,7 @@ export default function Game() {
           ctx.fillStyle = cloudGrad;
           ctx.fillRect(0, cloudTop + 26, CANVAS_W, CANVAS_H - cloudTop);
 
-          const drift = settingsRef.current.reducedMotion ? 0 : (timeRef.current * 0.16) % 150;
+          const drift = settingsRef.current.reducedMotion ? 0 : (timeRef.current * 0.3) % 150;
           for (let x = -110 - drift; x < CANVAS_W + 130; x += 105) {
             const y = cloudTop + Math.sin((x + drift) * 0.025) * 10;
             ctx.fillStyle = "#f8fdffff";
@@ -2143,8 +2181,8 @@ export default function Game() {
         }
       };
       if (cityBackground) {
-        drawCityLayer(cityFarRef.current,  0.3, "#2c3f62");
-        drawCityLayer(cityNearRef.current, 0.9, "#1a2840");
+        drawCityLayer(cityFarRef.current,  0.55, "#2c3f62");
+        drawCityLayer(cityNearRef.current, 1.55, "#1a2840");
       }
 
       const backgroundTransition = backgroundTransitionRef.current;
@@ -2528,6 +2566,7 @@ export default function Game() {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points;
             runStatsRef.current.kills += 1;
+            addPilotKill();
             if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
             e.dead = true;
             checkAchievements();
@@ -2575,6 +2614,7 @@ export default function Game() {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points * (aircraftId === "gold" ? 2 : 1);
             runStatsRef.current.kills += 1;
+            addPilotKill();
             if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
             e.dead = true;
             checkAchievements();
@@ -2593,6 +2633,7 @@ export default function Game() {
             if (e.hp <= 0) {
               gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
               runStatsRef.current.kills += 1;
+              addPilotKill();
               if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
               e.dead = true;
               checkAchievements();
@@ -2792,7 +2833,7 @@ export default function Game() {
           e.dead = true;
           return false;
         }
-        if (invincibleRef.current <= 0 && stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0 &&
+        if ((invincibleRef.current <= 0 || e.trackPlayerRam) && stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0 &&
           e.type !== "titan" && playerTouchesEnemy) {
           const collidedWithBoss = isBossEnemy(e);
           if (collidedWithBoss) e.hp = Math.max(0, e.hp - 1);
@@ -2851,6 +2892,7 @@ export default function Game() {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
             runStatsRef.current.kills += 1;
+            addPilotKill();
             if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
             checkAchievements();
             audioRef.current.effect("explosion", settingsRef.current.soundVolume);
@@ -3014,6 +3056,7 @@ export default function Game() {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
             runStatsRef.current.kills += 1;
+            addPilotKill();
             if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
             checkAchievements(); audioRef.current.effect("explosion", settingsRef.current.soundVolume);
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (isBossEnemy(e) ? 25 : 4));
@@ -3035,8 +3078,26 @@ export default function Game() {
         vortex.addColorStop(0, "#000000"); vortex.addColorStop(.45, "#10002d"); vortex.addColorStop(.72, "#5533ff99"); vortex.addColorStop(1, "#4488ff00");
         ctx.fillStyle = vortex; ctx.shadowColor = "#7755ff"; ctx.shadowBlur = 30;
         ctx.beginPath(); ctx.arc(0, 0, 68, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#aaddff"; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.ellipse(0, 0, 58, 20, timeRef.current * .025, 0, Math.PI * 2); ctx.stroke();
+        ctx.rotate(timeRef.current * .018);
+        for (let ring = 0; ring < 4; ring++) {
+          ctx.rotate(ring % 2 ? -.34 : .25);
+          ctx.strokeStyle = ["#ffffff", "#7ee7ff", "#a65cff", "#ff5dc8"][ring];
+          ctx.globalAlpha = .9 - ring * .15;
+          ctx.lineWidth = 4 - ring * .55;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 54 + ring * 10, 13 + ring * 4, ring * .42, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#000";
+        ctx.shadowColor = "#000"; ctx.shadowBlur = 18;
+        ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
+        for (let star = 0; star < 12; star++) {
+          const angle = star * Math.PI / 6 + timeRef.current * .035;
+          const radius = 32 + (star % 4) * 13;
+          ctx.fillStyle = star % 2 ? "#9aeaff" : "#eeb7ff";
+          ctx.fillRect(Math.cos(angle) * radius, Math.sin(angle) * radius * .42, 2.5, 2.5);
+        }
         ctx.restore();
       }
 
@@ -3064,12 +3125,12 @@ export default function Game() {
         ctx.shadowColor = "#ff43d7";
         ctx.shadowBlur = 20 + pulse * 12;
         ctx.beginPath();
-        ctx.ellipse(shieldX, shieldY, ABSORBER_SHIELD_WIDTH, PLAYER_H * 0.82, 0, -Math.PI / 2, Math.PI / 2);
+        ctx.ellipse(shieldX, shieldY, ABSORBER_SHIELD_WIDTH, PLAYER_H * 0.62, 0, -Math.PI / 2, Math.PI / 2);
         ctx.stroke();
         ctx.globalAlpha = 0.16 + pulse * 0.1;
         ctx.fillStyle = "#ff4fc8";
         ctx.beginPath();
-        ctx.ellipse(shieldX, shieldY, ABSORBER_SHIELD_WIDTH, PLAYER_H * 0.82, 0, -Math.PI / 2, Math.PI / 2);
+        ctx.ellipse(shieldX, shieldY, ABSORBER_SHIELD_WIDTH, PLAYER_H * 0.62, 0, -Math.PI / 2, Math.PI / 2);
         ctx.lineTo(shieldX, shieldY);
         ctx.fill();
         ctx.globalAlpha = 0.95;
@@ -3136,7 +3197,8 @@ export default function Game() {
         drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, activeSkinRef.current);
         ctx.restore();
       } else if (
-        (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "n1") ||
+        ultimaActiveRef.current > 0 || laserActiveRef.current > 0 || stealthActiveRef.current > 0 ||
+        healActiveRef.current > 0 || absorberActiveRef.current > 0 || ultimateActiveRef.current > 0 ||
         invincibleRef.current <= 0 ||
         Math.floor(timeRef.current / 5) % 2 === 0
       ) {
@@ -3161,8 +3223,13 @@ export default function Game() {
         }
       }
       const droneX = playerRef.current.x + PLAYER_W / 2;
-      const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22);
-      drawCombatDrone(ctx, droneX, droneY, timeRef.current, activeDroneSkinRef.current);
+      const visibleDroneCount = droneLevelRef.current >= 8 ? 3 : droneLevelRef.current >= 4 ? 2 : 1;
+      const droneFormation = visibleDroneCount === 3 ? [-42, 0, 42] : visibleDroneCount === 2 ? [-30, 30] : [-30];
+      droneFormation.forEach((offset, index) => drawCombatDrone(
+        ctx, droneX - index * 5,
+        clamp(playerRef.current.y + PLAYER_H / 2 + offset, 22, CANVAS_H - 22),
+        timeRef.current + index * 9, activeDroneSkinRef.current,
+      ));
 
       // Keep the remaining duration of every active ultimate visible above the pilot.
       drawActiveUltiCountdowns(ctx, playerRef.current.x, playerRef.current.y, [
@@ -3197,6 +3264,21 @@ export default function Game() {
       // ── Virtual controls overlay ──
       if (showVirtualControlsRef.current) {
         drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current);
+        if (enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0)) {
+          const buttonPositions: Partial<Record<UltiLoadoutId, [number, number]>> = {
+            jet: [ULTI_BTN_X, ULTI_BTN_Y], laser: [LASER_BTN_X, LASER_BTN_Y],
+            stealth_ulti: [STEALTH_BTN_X, STEALTH_BTN_Y], heal_ulti: [HEAL_BTN_X, HEAL_BTN_Y],
+            poison_missiles_ulti: [POISON_MISSILE_BTN_X, POISON_MISSILE_BTN_Y],
+            absorber_ulti: [ABSORBER_BTN_X, ABSORBER_BTN_Y], ultimate_ulti: [ULTIMATE_BTN_X, ULTIMATE_BTN_Y],
+          };
+          ctx.save(); ctx.font = "bold 25px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          activeUltiLoadoutRef.current.forEach(id => {
+            const pos = buttonPositions[id]; if (!pos) return;
+            ctx.fillStyle = "#120008dd"; ctx.beginPath(); ctx.arc(pos[0], pos[1], 31, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#ff3344"; ctx.fillText("☠", pos[0], pos[1] + 1);
+          });
+          ctx.restore();
+        }
       }
 
       // Sync display once per ~30 frames for React state
@@ -3269,9 +3351,15 @@ export default function Game() {
   };
 
   const handleBuy = (itemId: string) => {
+    if (itemId.startsWith("bullet_color_")) {
+      if (loadUnlocks().includes(itemId) || loadCoins() < 5000) return;
+      spendCoins(5000); addUnlock(itemId);
+      setCoins(loadCoins()); setUnlockedItems(loadUnlocks());
+      return;
+    }
     const item = SHOP_ITEMS.find(i => i.id === itemId);
     if (!item) return;
-    if (!isShopRarityUnlocked(item.rarity, getPilotLevelForScore(loadHighScore()))) return;
+    if (!isShopRarityUnlocked(item.rarity, getPilotLevelFromKills())) return;
     if (item.requires && !loadUnlocks().includes(item.requires)) return;
     if (loadCoins() < item.cost) return;
     spendCoins(item.cost);
@@ -3283,7 +3371,7 @@ export default function Game() {
   const handleUnlockSkin = (skinId: string) => {
     const sk = JET_SKINS.find(s => s.id === skinId);
     if (!sk || sk.cost === 0) return;
-    if (!isShopRarityUnlocked(sk.rarity, getPilotLevelForScore(loadHighScore()))) return;
+    if (!isShopRarityUnlocked(sk.rarity, getPilotLevelFromKills())) return;
     if (loadCoins() < sk.cost) return;
     spendCoins(sk.cost);
     addUnlock(skinId);
@@ -3295,7 +3383,7 @@ export default function Game() {
   const handleUnlockDroneSkin = (skinId: string) => {
     const skin = DRONE_SKINS.find(s => s.id === skinId);
     if (!skin || skin.cost === 0 || loadCoins() < skin.cost) return;
-    if (!isShopRarityUnlocked(skin.rarity, getPilotLevelForScore(loadHighScore()))) return;
+    if (!isShopRarityUnlocked(skin.rarity, getPilotLevelFromKills())) return;
     spendCoins(skin.cost);
     addUnlock(skinId);
     setCoins(loadCoins());
@@ -3529,7 +3617,7 @@ function HangarOverlay({
   if (view === "upgrades") {
     return (
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
-        <ShopScreen coins={coins} playerLevel={getPilotLevelForScore(highScore)} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} selectedSkin={selectedSkin} ultiLoadout={ultiLoadout} selectedDroneSkin={selectedDroneSkin}
+        <ShopScreen coins={coins} playerLevel={getPilotLevelFromKills()} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} selectedSkin={selectedSkin} ultiLoadout={ultiLoadout} selectedDroneSkin={selectedDroneSkin}
           onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect}
           onUltiLoadoutChange={onUltiLoadoutChange} onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} onDailyChestClaim={onDailyChestClaim} />
       </div>
@@ -3567,7 +3655,7 @@ function HangarOverlay({
         <div className="text-right flex flex-col items-end gap-1">
           <div className="rounded-full border border-cyan-400/50 bg-cyan-950/60 px-3 py-1 text-sm font-black tracking-wider text-cyan-300"
             title={translated(language, "Höchstes erreichtes Spielerlevel", "Highest player level reached")}>
-            🛡 PILOT-LEVEL {getPilotLevelForScore(highScore)}
+            🛡 PILOT-LEVEL {getPilotLevelFromKills()}
           </div>
           <div className="text-yellow-300 font-bold text-sm">⭐ {highScore.toLocaleString("de-DE")}</div>
           <div className="text-amber-400 font-bold text-sm" title={translated(language, "Verfügbare Credits", "Available credits")}>💰 {coins.toLocaleString(localeFor(language))} Credits</div>
@@ -3649,13 +3737,19 @@ function HangarOverlay({
         <div className="flex items-center gap-2 mt-1">
           <span className="text-slate-500 text-xs">{translated(language, "Schussfarbe:", "Shot color:")}</span>
           {[{ color: "#00ffff", label: "Blau" }, { color: "#ff3333", label: "Rot" }, { color: "#00ff88", label: "Grün" }, { color: "#ffff00", label: "Gelb" }, { color: "#ff00ff", label: "Lila" }].map(opt => (
-            <button key={opt.color} onClick={() => { setBulletColor(opt.color); saveBulletColor(opt.color); }}
-              title={opt.label}
+            <button key={opt.color} onClick={() => {
+                const unlockId = `bullet_color_${opt.color.slice(1)}`;
+                const owned = opt.color === "#00ffff" || unlockedItems.includes(unlockId);
+                if (!owned) { if (coins < 5000) return; onBuy(unlockId); }
+                setBulletColor(opt.color); saveBulletColor(opt.color);
+              }}
+              title={`${opt.label}${opt.color === "#00ffff" || unlockedItems.includes(`bullet_color_${opt.color.slice(1)}`) ? "" : " · 5.000 Credits"}`}
               style={{
                 width: 20, height: 20, borderRadius: "50%", background: opt.color,
                 border: bulletColor === opt.color ? "3px solid #fff" : "2px solid transparent",
                 boxShadow: bulletColor === opt.color ? `0 0 10px ${opt.color}` : "none",
                 transform: bulletColor === opt.color ? "scale(1.2)" : "scale(1)",
+                opacity: opt.color === "#00ffff" || unlockedItems.includes(`bullet_color_${opt.color.slice(1)}`) ? 1 : .42,
                 transition: "all 0.12s",
               }} />
           ))}
@@ -3789,9 +3883,6 @@ function ShopStarfield() {
     <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(170deg,#000012 0%,#02020e 55%,#050518 100%)" }}>
       <svg width="100%" height="100%" style={{ position: "absolute", inset: 0 }}>
         {stars.map((s, i) => <circle key={i} cx={`${s.cx}%`} cy={`${s.cy}%`} r={s.r} fill="#fff" opacity={s.op} />)}
-        <text x="50%" y="8%" textAnchor="middle" style={{ fontFamily: "'Courier New', monospace", fontSize: 11, fill: "#ffcc00", opacity: 0.6, fontWeight: "bold", letterSpacing: 2 }}>
-          ✦ A LONG TIME AGO IN A GALAXY FAR, FAR AWAY ✦
-        </text>
       </svg>
     </div>
   );
@@ -4227,7 +4318,7 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
           <span className="block text-sm font-bold">{translated(language, "Sprache", "Language")}</span>
           <span className="mb-2 block text-xs text-slate-400">{translated(language, "Sprache der Menüs und Hinweise.", "Language used for menus and hints.")}</span>
           <select aria-label={translated(language, "Sprache auswählen", "Select language")} value={language} onChange={e => onChange({ ...settings, language: e.target.value as GameSettings["language"] })} className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white">
-            <option value="de">Deutsch</option><option value="en">English</option><option value="tr">Türkçe</option>
+            <option value="de">Deutsch</option><option value="en">English</option><option value="tr">Türkçe</option><option value="fr">Français</option><option value="es">Español</option>
           </select>
         </label>
         <SettingToggle label={translated(language, "Einführung anzeigen", "Show tutorial")} description={translated(language, "Erklärt Bewegung und Schießen beim ersten Start.", "Explains movement and shooting on the first start.")} checked={settings.tutorial} onClick={() => toggle("tutorial")} />
@@ -4319,8 +4410,8 @@ const POISON_MISSILE_BTN_R = 36;
 const ABSORBER_MAX = ULTI_MAX;
 const ABSORBER_DURATION = 600;
 const ABSORBER_CHARGE_RATE = 0.045;
-const ABSORBER_SHIELD_WIDTH = 34;
-const ABSORBER_SHIELD_PADDING = 12;
+const ABSORBER_SHIELD_WIDTH = 24;
+const ABSORBER_SHIELD_PADDING = 5;
 const ABSORBER_BTN_X = CANVAS_W - 420;
 const ABSORBER_BTN_Y = CANVAS_H - 195;
 const ABSORBER_BTN_R = 36;
@@ -4479,7 +4570,7 @@ function drawVirtualControls(
   ctx.font = `bold ${ultiReady ? 12 : 10}px 'Inter', sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(ultimaActive > 0 ? "ULTI!" : "ULTI", ULTI_BTN_X, ULTI_BTN_Y);
+  ctx.fillText(ultimaActive > 0 ? `${Math.ceil(ultimaActive / 60)}s` : "ULTI", ULTI_BTN_X, ULTI_BTN_Y);
   }
 
   // ── LASER button ──
@@ -4505,7 +4596,7 @@ function drawVirtualControls(
   ctx.fillStyle = laserReady ? "#ffaa00" : "#cc8844";
   ctx.font = `bold ${laserReady ? 11 : 9}px 'Inter', sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(laserActive > 0 ? "LASER!" : "LASER", LASER_BTN_X, LASER_BTN_Y);
+  ctx.fillText(laserActive > 0 ? `${Math.ceil(laserActive / 60)}s` : "LASER", LASER_BTN_X, LASER_BTN_Y);
   }
 
   // ── STEALTH button ──
@@ -4524,7 +4615,7 @@ function drawVirtualControls(
     }
     ctx.globalAlpha = 1; ctx.fillStyle = "#ffd0f4"; ctx.font = "bold 9px 'Inter', sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(absorberActive > 0 ? `ABS ${absorberHits > 0 ? Math.pow(2, absorberHits) : 1}×` : "ABS", ABSORBER_BTN_X, ABSORBER_BTN_Y);
+    ctx.fillText(absorberActive > 0 ? `${Math.ceil(absorberActive / 60)}s` : "ABS", ABSORBER_BTN_X, ABSORBER_BTN_Y);
   }
 
   // ── STEALTH button ──
@@ -4550,7 +4641,7 @@ function drawVirtualControls(
   ctx.fillStyle = stealthActive > 0 ? "#00ffff" : stealthReady ? "#00ddcc" : "#339988";
   ctx.font = `bold ${stealthReady ? 10 : 9}px 'Inter', sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(stealthActive > 0 ? "STEALTH!" : "STEALTH", STEALTH_BTN_X, STEALTH_BTN_Y);
+  ctx.fillText(stealthActive > 0 ? `${Math.ceil(stealthActive / 60)}s` : "STEALTH", STEALTH_BTN_X, STEALTH_BTN_Y);
   }
 
   // ── HEAL button ──
@@ -4604,14 +4695,14 @@ function drawVirtualControls(
     }
     ctx.globalAlpha = 1; ctx.fillStyle = "#8eeaff"; ctx.font = "bold 10px 'Inter', sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(ultimateActive > 0 ? "ULTIMATE!" : "ULTIMATE", ULTIMATE_BTN_X, ULTIMATE_BTN_Y);
+    ctx.fillText(ultimateActive > 0 ? `${Math.ceil(ultimateActive / 60)}s` : "ULTIMATE", ULTIMATE_BTN_X, ULTIMATE_BTN_Y);
   }
 
   ctx.globalAlpha = healReady ? 0.95 : 0.55;
   ctx.fillStyle = healActive > 0 ? "#ff6699" : healReady ? "#ff4466" : "#884455";
   ctx.font = `bold ${healReady ? 10 : 9}px 'Inter', sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(healActive > 0 ? "HEAL! ❤" : "HEAL ❤", HEAL_BTN_X, HEAL_BTN_Y);
+  ctx.fillText(healActive > 0 ? `${Math.ceil(healActive / 60)}s` : "HEAL ❤", HEAL_BTN_X, HEAL_BTN_Y);
   }
 
   ctx.restore();
@@ -4722,31 +4813,27 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     }
   };
 
-  if (ultiLoadout.includes("jet")) drawUltBar("JET ULTI", "Q", ultimaCharge, ULTI_MAX, ultimaActive, ULTI_DURATION,
-    16, 47, 108, 5, ["#ff00ff","#8800ff"],  ["#6600bb","#cc00ff"], "#ff44ff");
-  if (ultiLoadout.includes("laser")) drawUltBar("LASER", "E", laserCharge, LASER_MAX, laserActive, LASER_DURATION,
-    16, 57, 108, 5, ["#ff8800","#ffdd00"], ["#cc4400","#ff8800"], "#ffaa22");
-  if (unlocks.includes("stealth_ulti") && ultiLoadout.includes("stealth_ulti")) {
-    drawUltBar("STEALTH", "R", stealthCharge, STEALTH_MAX, stealthActive, STEALTH_DURATION,
-      16, 67, 108, 5, ["#00ffee","#0088ff"], ["#004488","#00aacc"], "#00ddcc");
-  }
-  if (unlocks.includes("heal_ulti") && ultiLoadout.includes("heal_ulti")) {
-    drawUltBar("HEAL", "H", healCharge, HEAL_MAX, healActive, HEAL_DURATION,
-      16, 77, 108, 5, ["#ff6699","#ff0044"], ["#aa2233","#ff3366"], "#ff4466");
-  }
-  if (unlocks.includes("ultimate_ulti") && ultiLoadout.includes("ultimate_ulti")) {
-    drawUltBar("OMEGA", "U", ultimateCharge, ULTIMATE_MAX, ultimateActive, ULTIMATE_DURATION,
-      205, 67, 108, 5, ["#55e8ff", "#087cff"], ["#075080", "#28c8ff"], "#62ddff");
-  }
-  if (unlocks.includes("poison_missiles_ulti") && ultiLoadout.includes("poison_missiles_ulti")) {
-    drawUltBar("GIFT", "T", poisonMissileCharge, POISON_MISSILE_MAX, 0, 1,
-      205, 77, 108, 5, ["#ff3030", "#8b0000"], ["#681010", "#ff3030"], "#ff4040");
-  }
-  if (unlocks.includes("absorber_ulti") && ultiLoadout.includes("absorber_ulti")) {
-    const multiplier = absorberHits > 0 ? Math.pow(2, absorberHits) : 1;
-    drawUltBar(`ABS ${multiplier}×`, "F", absorberCharge, ABSORBER_MAX, absorberActive, ABSORBER_DURATION,
-      394, 67, 108, 5, ["#ff8bea", "#ff2dbd"], ["#7a145f", "#ff55cf"], "#ff72dc");
-  }
+  const multiplier = absorberHits > 0 ? Math.pow(2, absorberHits) : 1;
+  const hudUltis: Record<UltiLoadoutId, Parameters<typeof drawUltBar> extends never ? never : {
+    label: string; key: string; charge: number; max: number; active: number; duration: number;
+    activeColors: [string, string]; chargeColors: [string, string]; color: string;
+  }> = {
+    jet: { label: "JET ULTI", key: "Q", charge: ultimaCharge, max: ULTI_MAX, active: ultimaActive, duration: ULTI_DURATION, activeColors: ["#ff00ff","#8800ff"], chargeColors: ["#6600bb","#cc00ff"], color: "#ff44ff" },
+    laser: { label: "LASER", key: "E", charge: laserCharge, max: LASER_MAX, active: laserActive, duration: LASER_DURATION, activeColors: ["#ff8800","#ffdd00"], chargeColors: ["#cc4400","#ff8800"], color: "#ffaa22" },
+    stealth_ulti: { label: "STEALTH", key: "R", charge: stealthCharge, max: STEALTH_MAX, active: stealthActive, duration: STEALTH_DURATION, activeColors: ["#00ffee","#0088ff"], chargeColors: ["#004488","#00aacc"], color: "#00ddcc" },
+    heal_ulti: { label: "HEAL", key: "H", charge: healCharge, max: HEAL_MAX, active: healActive, duration: HEAL_DURATION, activeColors: ["#ff6699","#ff0044"], chargeColors: ["#aa2233","#ff3366"], color: "#ff4466" },
+    poison_missiles_ulti: { label: "GIFT", key: "T", charge: poisonMissileCharge, max: POISON_MISSILE_MAX, active: 0, duration: 1, activeColors: ["#ff3030","#8b0000"], chargeColors: ["#681010","#ff3030"], color: "#ff4040" },
+    absorber_ulti: { label: `ABS ${multiplier}×`, key: "F", charge: absorberCharge, max: ABSORBER_MAX, active: absorberActive, duration: ABSORBER_DURATION, activeColors: ["#ff8bea","#ff2dbd"], chargeColors: ["#7a145f","#ff55cf"], color: "#ff72dc" },
+    ultimate_ulti: { label: "OMEGA", key: "U", charge: ultimateCharge, max: ULTIMATE_MAX, active: ultimateActive, duration: ULTIMATE_DURATION, activeColors: ["#55e8ff","#087cff"], chargeColors: ["#075080","#28c8ff"], color: "#62ddff" },
+  };
+  ultiLoadout.forEach((id, slot) => {
+    const item = hudUltis[id];
+    if (!item || (id !== "jet" && id !== "laser" && !unlocks.includes(id))) return;
+    const column = Math.floor(slot / 3);
+    const row = slot % 3;
+    drawUltBar(`${slot + 1} ${item.label}`, item.key, item.charge, item.max, item.active, item.duration,
+      16 + column * 190, 47 + row * 10, 108, 5, item.activeColors, item.chargeColors, item.color);
+  });
 
   ctx.restore();
 }
