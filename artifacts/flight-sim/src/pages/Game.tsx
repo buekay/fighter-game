@@ -126,7 +126,7 @@ interface PowerUp {
   vy: number;
 }
 
-type ShopRarity = "rare" | "epic" | "legendary" | "ultraLegendary";
+type ShopRarity = "rare" | "epic" | "legendary" | "ultraLegendary" | "ultimate";
 
 interface GameState {
   score: number;
@@ -176,18 +176,43 @@ const SHOP_RARITIES: Record<ShopRarity, { label: string; color: string; glow: st
   epic:      { label: "EPISCH",    color: "#b44cff", glow: "#b44cff88" },
   legendary: { label: "LEGENDÄR", color: "#ffe600", glow: "#ffe600cc" },
   ultraLegendary: { label: "ULTRA LEGENDÄR", color: "#53d8ff", glow: "#00aaffee" },
+  ultimate: { label: "ULTIMATE", color: "#e7edf7", glow: "#cbd5e1ee" },
 } as const;
+const ULTIMATE_GRADIENT = "linear-gradient(90deg, #f8fafc 0%, #67e8f9 22%, #c4b5fd 43%, #f9a8d4 63%, #fde68a 82%, #f8fafc 100%)";
+const ULTIMATE_GLOW = "0 0 7px #f8fafc, 0 0 14px #67e8f9aa, 0 0 21px #f472b688";
+
+function shopRarityLabelStyle(rarity: ShopRarity) {
+  if (rarity === "ultimate") {
+    return {
+      color: "transparent",
+      background: ULTIMATE_GRADIENT,
+      backgroundClip: "text",
+      WebkitBackgroundClip: "text",
+      textShadow: "0 0 7px #ffffff99",
+    };
+  }
+  return {
+    color: SHOP_RARITIES[rarity].color,
+    textShadow: `0 0 6px ${SHOP_RARITIES[rarity].glow}`,
+  };
+}
+
+function shopRarityGlow(rarity: ShopRarity, size: number) {
+  return rarity === "ultimate" ? ULTIMATE_GLOW : `0 0 ${size}px ${SHOP_RARITIES[rarity].glow}`;
+}
 const SHOP_RARITY_ORDER: Record<ShopRarity, number> = {
   rare: 0,
   epic: 1,
   legendary: 2,
   ultraLegendary: 3,
+  ultimate: 4,
 };
 const SHOP_RARITY_MIN_LEVEL: Record<ShopRarity, number> = {
   rare: 1,
   epic: 5,
   legendary: 10,
   ultraLegendary: 15,
+  ultimate: 20,
 };
 
 function isShopRarityUnlocked(rarity: ShopRarity, playerLevel: number): boolean {
@@ -273,6 +298,8 @@ const JET_SKINS = [
   { id: "xwing", name: "X-Wing", body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 120000, rarity: "legendary", ultiName: "Rebellenangriff", ultiDesc: "Zwei verbündete X-Wings greifen mit dir gemeinsam an." },
   { id: "tiefighter", name: "TIE Fighter", body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 120000, rarity: "legendary", ultiName: "Imperialer Schwarm", ultiDesc: "Vier TIE-Jäger umkreisen dich und feuern gemeinsam." },
   { id: "n1", name: "Naboo-Sternjäger", body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 200000, rarity: "ultraLegendary", ultiName: "Naboo-Blitz", ultiDesc: "Unverwundbar: Naboo-Blitz, Schwarzes Loch und gezielte X-Wing-Feuerbälle zugleich." },
+  { id: "solaris", name: "Solaris Prime", body: "#4a1900", stroke: "#ff8a00", glow: "#fff06a", cost: 500000, rarity: "ultimate", ultiName: "Supernova", ultiDesc: "Eine brennende Supernova beschädigt alle Gegner und entfesselt die maximale Feuerrate." },
+  { id: "voidreaper", name: "Void Reaper", body: "#10052d", stroke: "#6d28d9", glow: "#e879f9", cost: 500000, rarity: "ultimate", ultiName: "Ereignishorizont", ultiDesc: "Unverwundbar: Friert Projektile ein und zieht Gegner in einen vernichtenden Ereignishorizont." },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
@@ -316,7 +343,7 @@ const SHOP_ITEMS: readonly ShopItem[] = [
   { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 120000, rarity: "legendary" },
   { id: "poison_missiles_ulti", name: "Gift-Raketen-Ulti ☣", desc: "3 Lenkraketen: 20 Schaden + 5 Sek. Gift [Taste T]", cost: 120000, rarity: "legendary" },
   { id: "absorber_ulti", name: "Absorber-Ulti ◖", desc: "10 Sek. unzerstörbares pinkes Frontschild; Treffer erhöhen den Schaden auf 2×, 4×, dann 8× [Taste F]", cost: 120000, rarity: "legendary" },
-  { id: "ultimate_ulti", name: "Ultimate Ulti ⚡", desc: "10 Sek. Titanenschild, 2× Schaden, Frost & Kettenblitze [Taste U]", cost: 200000, rarity: "ultraLegendary" },
+  { id: "ultimate_ulti", name: "Ultimate Ulti ⚡", desc: "10 Sek. Titanenschild, 2× Schaden, Frost & Kettenblitze [Taste U]", cost: 500000, rarity: "ultimate" },
   { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 50000,  rarity: "rare" },
   { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 50000,  rarity: "rare" },
   { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 80000,  rarity: "epic" },
@@ -1351,6 +1378,7 @@ export default function Game() {
   const rafRef = useRef<number>(0);
   const lastFireRef = useRef(0);
   const lastDroneFireRef = useRef(0);
+  const lastWingmanFireRef = useRef(0);
   const lastMissileRef = useRef(0);
   const playerRef = useRef({ x: 60, y: CANVAS_H / 2 - PLAYER_H / 2 });
   const bulletsRef = useRef<Bullet[]>([]);
@@ -1640,25 +1668,37 @@ export default function Game() {
     if (now - lastDroneFireRef.current >= droneFireRate) {
       lastDroneFireRef.current = now;
       const droneX = playerRef.current.x + PLAYER_W / 2;
-      const droneCount = drone.level >= 8 ? 3 : drone.level >= 4 ? 2 : 1;
-      const formation = droneCount === 3 ? [-42, 0, 42] : droneCount === 2 ? [-30, 30] : [-30];
+      const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22) + Math.sin(timeRef.current * 0.08) * 4;
       const offsets = drone.guns === 3 ? [-7, 0, 7] : drone.guns === 2 ? [-4, 4] : [0];
-      formation.forEach((formationY, droneIndex) => {
-        const droneY = clamp(playerRef.current.y + PLAYER_H / 2 + formationY, 22, CANVAS_H - 22) + Math.sin(timeRef.current * 0.08 + droneIndex) * 4;
-        offsets.forEach(offset => bulletsRef.current.push({
-          x: droneX + 22, y: droneY + offset, vx: BASE_BULLET_SPEED, vy: 0,
-          fromPlayer: true, damage: drone.damage + runUpgradesRef.current.damage,
-          color: activeDroneSkinRef.current.stroke,
-        }));
+      offsets.forEach(offset => bulletsRef.current.push({
+        x: droneX + 22, y: droneY + offset, vx: BASE_BULLET_SPEED, vy: 0,
+        fromPlayer: true, damage: drone.damage + runUpgradesRef.current.damage,
+        color: activeDroneSkinRef.current.stroke,
+      }));
+    }
+
+    const px = playerRef.current.x + PLAYER_W;
+    const py = playerRef.current.y + PLAYER_H / 2;
+    if (ultimaActiveRef.current > 0 && ["xwing", "n1"].includes(activeUltiSkinRef.current.id) &&
+        now - lastWingmanFireRef.current >= 500) {
+      lastWingmanFireRef.current = now;
+      const livingTargets = enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0);
+      [-50, 50].forEach((wingOffset, index) => {
+        const wingY = clamp(playerRef.current.y + PLAYER_H / 2 + wingOffset, PLAYER_H, CANVAS_H - PLAYER_H);
+        const target = [...livingTargets].sort((a, b) =>
+          Math.hypot(a.x - px, a.y - wingY) - Math.hypot(b.x - px, b.y - wingY))[index % Math.max(1, livingTargets.length)] ?? null;
+        bulletsRef.current.push({
+          x: px, y: wingY, vx: 8.5, vy: 0, fromPlayer: true,
+          damage: 5 + aircraftUpgradeRef.current.damageBonus,
+          color: "#ff6a20", isMissile: true, missileTarget: target,
+        });
       });
     }
 
-    const aircraftUltiFireRate = ultimaActiveRef.current > 0 && ["gold", "crimson"].includes(activeUltiSkinRef.current.id) ? 0.45 : 1;
+    const aircraftUltiFireRate = ultimaActiveRef.current > 0 && ["gold", "crimson", "solaris"].includes(activeUltiSkinRef.current.id) ? 0.45 : 1;
     const fireRate = tier.fireRate * Math.pow(0.8, runUpgradesRef.current.rapid_fire) * aircraftUpgradeRef.current.fireRateMultiplier * aircraftUltiFireRate;
     if (now - lastFireRef.current < fireRate) return;
     lastFireRef.current = now;
-    const px = playerRef.current.x + PLAYER_W;
-    const py = playerRef.current.y + PLAYER_H / 2;
 
     const gunOffsets: number[][] = [
       [0], [-8, 8], [-12, 0, 12], [-14, -5, 5, 14], [-14, -7, 0, 7, 14],
@@ -1681,9 +1721,10 @@ export default function Game() {
         color: activeBulletColorRef.current,
       });
     });
-    // Summoned wingmen fire during the X-Wing, TIE and N-1 aircraft ultimates.
-    if (ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeUltiSkinRef.current.id)) {
-      const wingmen = activeUltiSkinRef.current.id === "tiefighter" ? [-72, -36, 36, 72] : [-50, 50];
+    // TIE wingmen copy the normal cannons. X-Wings use their own targeted
+    // two-shots-per-second fireball cadence below.
+    if (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "tiefighter") {
+      const wingmen = [-72, -36, 36, 72];
       wingmen.forEach(wingOffset => offsets.forEach((oy, i) => {
         let cvx = BASE_BULLET_SPEED;
         let cvy = 0;
@@ -1692,16 +1733,10 @@ export default function Game() {
           cvy = spread * BASE_BULLET_SPEED;
         }
         const wingY = clamp(playerRef.current.y + PLAYER_H / 2 + wingOffset, PLAYER_H, CANVAS_H - PLAYER_H);
-        const nabooFireball = activeUltiSkinRef.current.id === "n1";
-        const target = nabooFireball
-          ? enemiesRef.current.filter(enemy => !enemy.dead).sort((a, b) =>
-              Math.hypot(a.x - px, a.y - wingY) - Math.hypot(b.x - px, b.y - wingY))[0] ?? null
-          : null;
         bulletsRef.current.push({
           x: px, y: wingY + oy, vx: cvx, vy: cvy, fromPlayer: true,
-          damage: tier.bulletDmg + aircraftUpgradeRef.current.damageBonus + (nabooFireball ? 3 : 0),
-          color: nabooFireball ? "#ff6a20" : activeBulletColorRef.current,
-          isMissile: nabooFireball, missileTarget: target,
+          damage: tier.bulletDmg + aircraftUpgradeRef.current.damageBonus,
+          color: activeBulletColorRef.current,
         });
       }));
     }
@@ -1773,6 +1808,7 @@ export default function Game() {
     timeRef.current = 0;
     lastFireRef.current = 0;
     lastDroneFireRef.current = 0;
+    lastWingmanFireRef.current = 0;
     lastMissileRef.current = 0;
     shieldTimerRef.current = 0;
     invincibleRef.current = 0;
@@ -2430,7 +2466,7 @@ export default function Game() {
           const sp = Math.hypot(b.vx, b.vy);
           if (sp > 5) { b.vx = b.vx / sp * 5; b.vy = b.vy / sp * 5; }
         }
-        const projectileSpeed = !b.fromPlayer && ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "arctic" ? 0 : 1;
+        const projectileSpeed = !b.fromPlayer && ultimaActiveRef.current > 0 && ["arctic", "voidreaper"].includes(activeUltiSkinRef.current.id) ? 0 : 1;
         b.x += b.vx * dtScale * projectileSpeed;
         b.y += b.vy * dtScale * projectileSpeed;
         drawBullet(ctx, b);
@@ -2447,7 +2483,7 @@ export default function Game() {
       // ── Ultima charge & countdown ──
       if (ultimaActiveRef.current > 0) {
         ultimaActiveRef.current = Math.max(0, ultimaActiveRef.current - dtScale);
-        if (["steel", "shadow", "n1"].includes(activeUltiSkinRef.current.id)) invincibleRef.current = Math.max(invincibleRef.current, 3);
+        if (["steel", "shadow", "n1", "voidreaper"].includes(activeUltiSkinRef.current.id)) invincibleRef.current = Math.max(invincibleRef.current, 3);
       } else if (ultimaChargeRef.current < ULTI_MAX) {
         const cloneMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
         const cloneBonus = activeUnlocksRef.current.includes("clone_upgrade") ? 1.25 : 1;
@@ -2597,18 +2633,20 @@ export default function Game() {
         }
         if (ultimaActiveRef.current > 0 && !isTitanInvulnerable(e)) {
           const aircraftId = activeUltiSkinRef.current.id;
-          const blackHoleActive = aircraftId === "galaxy" || aircraftId === "n1";
+          const blackHoleActive = aircraftId === "galaxy" || aircraftId === "n1" || aircraftId === "voidreaper";
           if (blackHoleActive) {
             const targetX = CANVAS_W * .58;
             const targetY = CANVAS_H * .5;
-            e.x += (targetX - (e.x + e.width / 2)) * .012 * dtScale;
-            e.y += (targetY - (e.y + e.height / 2)) * .012 * dtScale;
-            e.hp -= .10 * dtScale;
+            const pullStrength = aircraftId === "voidreaper" ? .022 : .012;
+            e.x += (targetX - (e.x + e.width / 2)) * pullStrength * dtScale;
+            e.y += (targetY - (e.y + e.height / 2)) * pullStrength * dtScale;
+            e.hp -= (aircraftId === "voidreaper" ? .22 : .10) * dtScale;
           }
           if (aircraftId === "arctic") e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
           if (aircraftId === "fire") e.hp -= .11 * dtScale;
           if (aircraftId === "neon") e.hp -= .14 * dtScale;
           if (aircraftId === "lava") e.hp -= .18 * dtScale;
+          if (aircraftId === "solaris") e.hp -= .22 * dtScale;
           if (aircraftId === "shadow" && ultimaActiveRef.current < 3) e.hp -= 14;
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
@@ -3069,7 +3107,7 @@ export default function Game() {
       }
 
       // ── Aircraft-ultimate visuals ──
-      if (ultimaActiveRef.current > 0 && ["galaxy", "n1"].includes(activeUltiSkinRef.current.id)) {
+      if (ultimaActiveRef.current > 0 && ["galaxy", "n1", "voidreaper"].includes(activeUltiSkinRef.current.id)) {
         const holeX = CANVAS_W * .58, holeY = CANVAS_H * .5;
         const pulse = 1 + Math.sin(timeRef.current * .12) * .12;
         ctx.save();
@@ -3223,13 +3261,8 @@ export default function Game() {
         }
       }
       const droneX = playerRef.current.x + PLAYER_W / 2;
-      const visibleDroneCount = droneLevelRef.current >= 8 ? 3 : droneLevelRef.current >= 4 ? 2 : 1;
-      const droneFormation = visibleDroneCount === 3 ? [-42, 0, 42] : visibleDroneCount === 2 ? [-30, 30] : [-30];
-      droneFormation.forEach((offset, index) => drawCombatDrone(
-        ctx, droneX - index * 5,
-        clamp(playerRef.current.y + PLAYER_H / 2 + offset, 22, CANVAS_H - 22),
-        timeRef.current + index * 9, activeDroneSkinRef.current,
-      ));
+      const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22);
+      drawCombatDrone(ctx, droneX, droneY, timeRef.current, activeDroneSkinRef.current);
 
       // Keep the remaining duration of every active ultimate visible above the pilot.
       drawActiveUltiCountdowns(ctx, playerRef.current.x, playerRef.current.y, [
@@ -3577,7 +3610,6 @@ function HangarOverlay({
   );
   const [hoverSkin, setHoverSkin] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState(() => loadName());
-  const [bulletColor, setBulletColor] = useState(() => loadBulletColor());
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminCode, setAdminCode] = useState("");
   const [adminMsg, setAdminMsg] = useState("");
@@ -3733,27 +3765,6 @@ function HangarOverlay({
           })}
           <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2 py-0.5 text-[10px] font-black text-violet-300">LV {droneLevels[selectedDroneSkin] ?? 1}</span>
         </div>
-        {/* Bullet color picker */}
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-slate-500 text-xs">{translated(language, "Schussfarbe:", "Shot color:")}</span>
-          {[{ color: "#00ffff", label: "Blau" }, { color: "#ff3333", label: "Rot" }, { color: "#00ff88", label: "Grün" }, { color: "#ffff00", label: "Gelb" }, { color: "#ff00ff", label: "Lila" }].map(opt => (
-            <button key={opt.color} onClick={() => {
-                const unlockId = `bullet_color_${opt.color.slice(1)}`;
-                const owned = opt.color === "#00ffff" || unlockedItems.includes(unlockId);
-                if (!owned) { if (coins < 5000) return; onBuy(unlockId); }
-                setBulletColor(opt.color); saveBulletColor(opt.color);
-              }}
-              title={`${opt.label}${opt.color === "#00ffff" || unlockedItems.includes(`bullet_color_${opt.color.slice(1)}`) ? "" : " · 5.000 Credits"}`}
-              style={{
-                width: 20, height: 20, borderRadius: "50%", background: opt.color,
-                border: bulletColor === opt.color ? "3px solid #fff" : "2px solid transparent",
-                boxShadow: bulletColor === opt.color ? `0 0 10px ${opt.color}` : "none",
-                transform: bulletColor === opt.color ? "scale(1.2)" : "scale(1)",
-                opacity: opt.color === "#00ffff" || unlockedItems.includes(`bullet_color_${opt.color.slice(1)}`) ? 1 : .42,
-                transition: "all 0.12s",
-              }} />
-          ))}
-        </div>
         {/* Continue hint */}
         {hasSave && saveData && (
           <div className="text-xs text-emerald-400/80 mt-1">
@@ -3903,6 +3914,7 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
   const [dailyChestAvailable, setDailyChestAvailable] = useState(() => canClaimDailyChest());
   const [dailyChestOpening, setDailyChestOpening] = useState(false);
   const [dailyChestCelebrating, setDailyChestCelebrating] = useState(false);
+  const [bulletColor, setBulletColor] = useState(() => loadBulletColor());
   const dailyChestTimers = useRef<number[]>([]);
   useEffect(() => () => dailyChestTimers.current.forEach(window.clearTimeout), []);
 
@@ -3964,8 +3976,35 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
         {(Object.keys(SHOP_RARITIES) as ShopRarity[]).map(key => {
           const rarity = SHOP_RARITIES[key];
           const unlocked = isShopRarityUnlocked(key, playerLevel);
-          return <span key={key} className="rounded px-2 py-0.5" style={{ opacity: unlocked ? 1 : .45, color: rarity.color, border: `1px solid ${rarity.color}`, boxShadow: unlocked ? `0 0 7px ${rarity.glow}` : undefined }}>{unlocked ? "" : "🔒 "}{rarity.label} · LVL {SHOP_RARITY_MIN_LEVEL[key]}</span>;
+          return <span key={key} className="rounded px-2 py-0.5" style={{
+            opacity: unlocked ? 1 : .45,
+            ...shopRarityLabelStyle(key),
+            border: `1px solid ${rarity.color}`,
+            boxShadow: unlocked ? shopRarityGlow(key, 7) : undefined,
+          }}>{unlocked ? "" : "🔒 "}{rarity.label} · LVL {SHOP_RARITY_MIN_LEVEL[key]}</span>;
         })}
+      </div>
+
+      <div className="relative z-10 rounded-2xl border border-cyan-400/35 bg-cyan-950/20 p-4">
+        <div className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-300">Schussfarben</div>
+        <div className="mt-1 text-xs text-slate-400">Wähle deine aktive Farbe. Jede zusätzliche Farbe kostet 5.000 Credits.</div>
+        <div className="mt-3 grid grid-cols-5 gap-2">
+          {[{ color: "#00ffff", label: "Cyan" }, { color: "#ff3333", label: "Rot" }, { color: "#00ff88", label: "Grün" }, { color: "#ffff00", label: "Gelb" }, { color: "#ff00ff", label: "Lila" }].map(opt => {
+            const unlockId = `bullet_color_${opt.color.slice(1)}`;
+            const owned = opt.color === "#00ffff" || unlockedItems.includes(unlockId);
+            const active = bulletColor === opt.color;
+            return <button key={opt.color} disabled={!owned && coins < 5000} onClick={() => {
+              if (!owned) onBuy(unlockId);
+              setBulletColor(opt.color);
+              saveBulletColor(opt.color);
+            }} className="rounded-xl p-2 text-center text-[10px] font-bold transition active:scale-95 disabled:opacity-35"
+              style={{ border: active ? "2px solid white" : `1px solid ${opt.color}66`, background: `${opt.color}16`, boxShadow: active ? `0 0 14px ${opt.color}` : undefined }}>
+              <span className="mx-auto mb-1 block h-7 w-7 rounded-full" style={{ background: opt.color, boxShadow: `0 0 9px ${opt.color}` }} />
+              <span className="block text-white">{opt.label}</span>
+              <span className={owned ? "text-emerald-300" : "text-amber-300"}>{owned ? (active ? "✓ Aktiv" : "Gekauft") : "💰 5.000"}</span>
+            </button>;
+          })}
+        </div>
       </div>
 
       <div className="relative z-10 rounded-2xl p-4" style={{ background: `${selectedJet.glow}12`, border: `1px solid ${selectedJet.glow}77`, boxShadow: `0 0 18px ${selectedJet.glow}22` }}>
@@ -4038,14 +4077,14 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
                 borderBottom: active ? `2px solid ${s.glow}` : `1px solid ${s.glow}33`,
                 borderLeft: `4px solid ${rarity.color}`,
                 borderRight: `4px solid ${rarity.color}`,
-                boxShadow: s.rarity === "legendary" || s.rarity === "ultraLegendary" ? `0 0 12px ${rarity.glow}` : undefined,
+                boxShadow: SHOP_RARITY_ORDER[s.rarity] >= SHOP_RARITY_ORDER.legendary ? shopRarityGlow(s.rarity, 12) : undefined,
                 opacity: !owned && (!canAfford || !levelUnlocked) ? 0.45 : 1,
               }}>
               <div className="w-5 h-5 rounded-full" style={{ background: s.glow, boxShadow: `0 0 8px ${s.glow}88` }} />
               <div className="text-xs font-bold">{s.name}</div>
               <div className="text-[9px] font-black leading-tight" style={{ color: s.glow }}>{s.ultiName}</div>
               <div className="text-[10px] font-bold text-cyan-300">Level {aircraftLevels[s.id] ?? 1}</div>
-              <div className="text-[9px] font-black tracking-wider" style={{ color: rarity.color, textShadow: `0 0 6px ${rarity.glow}` }}>{rarity.label}</div>
+              <div className="text-[9px] font-black tracking-wider" style={shopRarityLabelStyle(s.rarity)}>{rarity.label}</div>
               {owned
                 ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div>
                 : <div className={`text-xs font-bold ${canAfford && levelUnlocked ? "text-amber-300" : "text-slate-500"}`}>
@@ -4100,7 +4139,7 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
             style={{ background: active ? s.stroke + "22" : "rgba(255,255,255,0.05)", border: `1px solid ${s.stroke}55`, borderLeft: `4px solid ${rarity.color}`, opacity: !owned && (!canAfford || !levelUnlocked) ? .45 : 1 }}>
             <div className="w-8 h-4 rounded-full" style={{ background: s.body, border: `2px solid ${s.stroke}`, boxShadow: `0 0 8px ${s.stroke}` }} />
             <div className="text-xs font-bold">{s.name}</div>
-            <div className="text-[9px] font-black" style={{ color: rarity.color }}>{rarity.label}</div>
+            <div className="text-[9px] font-black" style={shopRarityLabelStyle(s.rarity)}>{rarity.label}</div>
             <div className="text-[10px] font-bold text-violet-300">Level {droneLevels[s.id] ?? 1}</div>
             {owned ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div> :
               <div className={`text-xs font-bold ${canAfford && levelUnlocked ? "text-amber-300" : "text-slate-500"}`}>{!levelUnlocked ? `🔒 Level ${SHOP_RARITY_MIN_LEVEL[s.rarity]}` : `${canAfford ? "💰" : "🔒"} ${formatLockedSkinPrice(s.cost)}`}</div>}
@@ -4119,17 +4158,19 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
           return (
             <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl"
               style={{
-                background: owned ? "rgba(0,180,80,0.10)" : "rgba(255,255,255,0.05)",
+                background: item.rarity === "ultimate"
+                  ? "linear-gradient(110deg, rgba(248,250,252,.12), rgba(103,232,249,.08), rgba(249,168,212,.10), rgba(253,230,138,.08))"
+                  : owned ? "rgba(0,180,80,0.10)" : "rgba(255,255,255,0.05)",
                 borderTop: `1px solid ${owned ? "#00aa4444" : "#334"}`,
                 borderBottom: `1px solid ${owned ? "#00aa4444" : "#334"}`,
                 borderLeft: `5px solid ${rarity.color}`,
                 borderRight: `5px solid ${rarity.color}`,
-                boxShadow: item.rarity === "legendary" || item.rarity === "ultraLegendary" ? `0 0 14px ${rarity.glow}` : undefined,
+                boxShadow: SHOP_RARITY_ORDER[item.rarity] >= SHOP_RARITY_ORDER.legendary ? shopRarityGlow(item.rarity, 14) : undefined,
               }}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <div className="font-bold text-sm">{item.name}</div>
-                  <span className="text-[9px] font-black tracking-wider" style={{ color: rarity.color, textShadow: `0 0 6px ${rarity.glow}` }}>{rarity.label}</span>
+                  <span className="text-[9px] font-black tracking-wider" style={shopRarityLabelStyle(item.rarity)}>{rarity.label}</span>
                 </div>
                 <div className="text-slate-400 text-xs">{item.desc}</div>
               </div>

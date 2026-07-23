@@ -61,8 +61,8 @@ pnpm run build
 - Boss encounters are available from level 10. Milestone bosses appear at levels 10, 15, and every fifth level from level 20 onward.
 - TIE fighters perform an evasive vertical dodge roughly every 1.5 seconds.
 - At the end of a mission, the score is converted to credits at a 1:1 rate (for example, 1,000 points award 1,000 credits).
-- Shop skins and upgrades are displayed in rarity order: rare, epic, then legendary. Legendary items receive an additional visual glow.
-- Purchasable shop items cost 50,000 credits for rare, 80,000 credits for epic, and 120,000 credits for legendary rarity. The default Steel skin remains free.
+- Shop skins and upgrades are displayed in rarity order: rare, epic, legendary, ultra legendary, then ultimate. Legendary and higher items receive an additional visual glow; ultimate uses an iridescent, colorful silver treatment.
+- Purchasable shop items cost 50,000 credits for rare, 80,000 credits for epic, 120,000 credits for legendary, 200,000 credits for ultra legendary, and 500,000 credits for ultimate rarity. The default Steel skin remains free.
 
 ## Deployment Notes
 
