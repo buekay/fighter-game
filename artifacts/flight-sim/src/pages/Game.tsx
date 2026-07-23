@@ -2084,13 +2084,17 @@ export default function Game() {
         } else {
           // Check ULTI button first
           const titanDashing = enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0);
-          const du = Math.hypot(x - ULTI_BTN_X, y - ULTI_BTN_Y);
-          const dl = Math.hypot(x - LASER_BTN_X, y - LASER_BTN_Y);
-          const ds = Math.hypot(x - STEALTH_BTN_X, y - STEALTH_BTN_Y);
-          const dh = Math.hypot(x - HEAL_BTN_X, y - HEAL_BTN_Y);
-          const dx = Math.hypot(x - ULTIMATE_BTN_X, y - ULTIMATE_BTN_Y);
-          const dp = Math.hypot(x - POISON_MISSILE_BTN_X, y - POISON_MISSILE_BTN_Y);
-          const da = Math.hypot(x - ABSORBER_BTN_X, y - ABSORBER_BTN_Y);
+          const distanceToUlti = (id: UltiLoadoutId) => {
+            const position = getUltiButtonPosition(activeUltiLoadoutRef.current, id);
+            return position ? Math.hypot(x - position[0], y - position[1]) : Number.POSITIVE_INFINITY;
+          };
+          const du = distanceToUlti("jet");
+          const dl = distanceToUlti("laser");
+          const ds = distanceToUlti("stealth_ulti");
+          const dh = distanceToUlti("heal_ulti");
+          const dx = distanceToUlti("ultimate_ulti");
+          const dp = distanceToUlti("poison_missiles_ulti");
+          const da = distanceToUlti("absorber_ulti");
           if (titanDashing && Math.min(du, dl, ds, dh, dx, dp, da) <= 50) {
             continue;
           } else if (da <= ABSORBER_BTN_R + 12 && absorberChargeRef.current >= ABSORBER_MAX && absorberActiveRef.current === 0
@@ -3220,6 +3224,9 @@ export default function Game() {
       if (absorberActiveRef.current > 0) {
         const shieldX = playerRef.current.x + PLAYER_W + 9;
         const shieldY = playerRef.current.y + PLAYER_H / 2;
+        const shieldTop = shieldY - PLAYER_H * 0.62;
+        const shieldBottom = shieldY + PLAYER_H * 0.62;
+        const shieldCurve = 12;
         const pulse = 0.78 + 0.22 * Math.sin(timeRef.current * 0.18);
         ctx.save();
         const gradient = ctx.createLinearGradient(shieldX - 8, 0, shieldX + ABSORBER_SHIELD_WIDTH, 0);
@@ -3230,13 +3237,15 @@ export default function Game() {
         ctx.shadowColor = "#ff43d7";
         ctx.shadowBlur = 20 + pulse * 12;
         ctx.beginPath();
-        ctx.ellipse(shieldX, shieldY, ABSORBER_SHIELD_WIDTH, PLAYER_H * 0.62, 0, -Math.PI / 2, Math.PI / 2);
+        ctx.moveTo(shieldX, shieldTop);
+        ctx.quadraticCurveTo(shieldX + shieldCurve, shieldY, shieldX, shieldBottom);
         ctx.stroke();
         ctx.globalAlpha = 0.16 + pulse * 0.1;
         ctx.fillStyle = "#ff4fc8";
         ctx.beginPath();
-        ctx.ellipse(shieldX, shieldY, ABSORBER_SHIELD_WIDTH, PLAYER_H * 0.62, 0, -Math.PI / 2, Math.PI / 2);
-        ctx.lineTo(shieldX, shieldY);
+        ctx.moveTo(shieldX, shieldTop);
+        ctx.quadraticCurveTo(shieldX + shieldCurve, shieldY, shieldX, shieldBottom);
+        ctx.closePath();
         ctx.fill();
         ctx.globalAlpha = 0.95;
         ctx.fillStyle = "#ffd8f6";
@@ -3365,15 +3374,9 @@ export default function Game() {
       if (showVirtualControlsRef.current) {
         drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current);
         if (enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0)) {
-          const buttonPositions: Partial<Record<UltiLoadoutId, [number, number]>> = {
-            jet: [ULTI_BTN_X, ULTI_BTN_Y], laser: [LASER_BTN_X, LASER_BTN_Y],
-            stealth_ulti: [STEALTH_BTN_X, STEALTH_BTN_Y], heal_ulti: [HEAL_BTN_X, HEAL_BTN_Y],
-            poison_missiles_ulti: [POISON_MISSILE_BTN_X, POISON_MISSILE_BTN_Y],
-            absorber_ulti: [ABSORBER_BTN_X, ABSORBER_BTN_Y], ultimate_ulti: [ULTIMATE_BTN_X, ULTIMATE_BTN_Y],
-          };
           ctx.save(); ctx.font = "bold 25px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
           activeUltiLoadoutRef.current.forEach(id => {
-            const pos = buttonPositions[id]; if (!pos) return;
+            const pos = getUltiButtonPosition(activeUltiLoadoutRef.current, id); if (!pos) return;
             ctx.fillStyle = "#120008dd"; ctx.beginPath(); ctx.arc(pos[0], pos[1], 31, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = "#ff3344"; ctx.fillText("☠", pos[0], pos[1] + 1);
           });
@@ -4494,15 +4497,11 @@ const JOY_KNOB_R = 22;
 const FIRE_BTN_R = 46;
 const FIRE_BTN_X = CANVAS_W - 80;
 const FIRE_BTN_Y = CANVAS_H - 90;
-const ULTI_BTN_X = CANVAS_W - 340;
-const ULTI_BTN_Y = CANVAS_H - 195;
 const ULTI_BTN_R = 36;
 const ULTI_MAX = 300;
 const ULTI_DURATION = 600;
 const LASER_MAX = 520;
 const LASER_DURATION = 600;
-const LASER_BTN_X = CANVAS_W - 210;
-const LASER_BTN_Y = CANVAS_H - 90;
 const LASER_BTN_R = 36;
 const STEALTH_MAX = 520;
 const STEALTH_DURATION = 600;
@@ -4512,24 +4511,16 @@ const POISON_MISSILE_SPEED = 10.5;
 const POISON_DURATION = 300;
 const POISON_TICK_INTERVAL = 60;
 const POISON_TICK_DAMAGE = 3;
-const POISON_MISSILE_BTN_X = FIRE_BTN_X;
-const POISON_MISSILE_BTN_Y = CANVAS_H - 195;
 const POISON_MISSILE_BTN_R = 36;
 const ABSORBER_MAX = ULTI_MAX;
 const ABSORBER_DURATION = 600;
 const ABSORBER_CHARGE_RATE = 0.045;
 const ABSORBER_SHIELD_WIDTH = 24;
 const ABSORBER_SHIELD_PADDING = 5;
-const ABSORBER_BTN_X = CANVAS_W - 420;
-const ABSORBER_BTN_Y = CANVAS_H - 195;
 const ABSORBER_BTN_R = 36;
-const STEALTH_BTN_X = CANVAS_W - 210;
-const STEALTH_BTN_Y = CANVAS_H - 90;
 const STEALTH_BTN_R = 36;
 const HEAL_MAX = 520;
 const HEAL_DURATION = 120;
-const HEAL_BTN_X = CANVAS_W - 210;
-const HEAL_BTN_Y = CANVAS_H - 195;
 const HEAL_BTN_R = 36;
 const ULTIMATE_MAX = STEALTH_MAX;
 const ULTIMATE_DURATION = 600;
@@ -4538,9 +4529,19 @@ const ULTIMATE_DOT_INTERVAL = 60;
 const ULTIMATE_DOT_DAMAGE = 8;
 const ULTIMATE_HEAL = 3;
 const ULTIMATE_SLOW_FACTOR = 0.45;
-const ULTIMATE_BTN_X = CANVAS_W - 340;
-const ULTIMATE_BTN_Y = CANVAS_H - 90;
 const ULTIMATE_BTN_R = 38;
+
+const ULTI_SLOT_POSITIONS: readonly [number, number][] = [
+  [CANVAS_W - 420, CANVAS_H - 195],
+  [CANVAS_W - 340, CANVAS_H - 195],
+  [CANVAS_W - 210, CANVAS_H - 195],
+  [CANVAS_W - 340, CANVAS_H - 90],
+  [CANVAS_W - 210, CANVAS_H - 90],
+];
+
+function getUltiButtonPosition(loadout: UltiLoadoutId[], id: UltiLoadoutId): [number, number] | null {
+  return ULTI_SLOT_POSITIONS[loadout.indexOf(id)] ?? null;
+}
 
 type ActiveUltiCountdown = { key: string; remaining: number; color: string };
 
@@ -4603,6 +4604,14 @@ function drawVirtualControls(
 ) {
   ctx.save();
   ctx.globalAlpha = 0.45;
+  const position = (id: UltiLoadoutId) => getUltiButtonPosition(ultiLoadout, id) ?? [0, 0];
+  const [ultiX, ultiY] = position("jet");
+  const [laserX, laserY] = position("laser");
+  const [stealthX, stealthY] = position("stealth_ulti");
+  const [healX, healY] = position("heal_ulti");
+  const [poisonX, poisonY] = position("poison_missiles_ulti");
+  const [absorberX, absorberY] = position("absorber_ulti");
+  const [ultimateX, ultimateY] = position("ultimate_ulti");
 
   // ── Joystick hint (left zone) — always show base when inactive ──
   const baseX = js.active ? js.centerX : 110;
@@ -4657,7 +4666,7 @@ function drawVirtualControls(
   const ultiGlow = ultiReady ? (0.55 + 0.45 * Math.sin(Date.now() / 200)) : 0.45;
   ctx.globalAlpha = ultiGlow;
   ctx.beginPath();
-  ctx.arc(ULTI_BTN_X, ULTI_BTN_Y, ULTI_BTN_R, 0, Math.PI * 2);
+  ctx.arc(ultiX, ultiY, ULTI_BTN_R, 0, Math.PI * 2);
   ctx.fillStyle   = ultimaActive > 0 ? "#ff00ff55" : ultiReady ? "#cc00ff44" : "#44004422";
   ctx.strokeStyle = ultimaActive > 0 ? "#ff00ffcc" : ultiReady ? "#cc00ffcc" : "#88008866";
   ctx.lineWidth = 2.5;
@@ -4667,7 +4676,7 @@ function drawVirtualControls(
   if (ultimaActive === 0 && ultimaCharge < ULTI_MAX) {
     const pct = ultimaCharge / ULTI_MAX;
     ctx.beginPath();
-    ctx.arc(ULTI_BTN_X, ULTI_BTN_Y, ULTI_BTN_R - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+    ctx.arc(ultiX, ultiY, ULTI_BTN_R - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
     ctx.strokeStyle = "#aa00ff";
     ctx.lineWidth = 4;
     ctx.stroke();
@@ -4678,7 +4687,7 @@ function drawVirtualControls(
   ctx.font = `bold ${ultiReady ? 12 : 10}px 'Inter', sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(ultimaActive > 0 ? `${Math.ceil(ultimaActive / 60)}s` : "ULTI", ULTI_BTN_X, ULTI_BTN_Y);
+  ctx.fillText(ultimaActive > 0 ? `${Math.ceil(ultimaActive / 60)}s` : "ULTI", ultiX, ultiY);
   }
 
   // ── LASER button ──
@@ -4687,7 +4696,7 @@ function drawVirtualControls(
   const laserGlow = laserReady ? (0.55 + 0.45 * Math.sin(Date.now() / 180)) : 0.45;
   ctx.globalAlpha = laserGlow;
   ctx.beginPath();
-  ctx.arc(LASER_BTN_X, LASER_BTN_Y, LASER_BTN_R, 0, Math.PI * 2);
+  ctx.arc(laserX, laserY, LASER_BTN_R, 0, Math.PI * 2);
   ctx.fillStyle   = laserActive > 0 ? "#ff880055" : laserReady ? "#ff660044" : "#44110022";
   ctx.strokeStyle = laserActive > 0 ? "#ffaa00cc" : laserReady ? "#ff8800cc" : "#88440066";
   ctx.lineWidth = 2.5;
@@ -4696,7 +4705,7 @@ function drawVirtualControls(
   if (laserActive === 0 && laserCharge < LASER_MAX) {
     const lp = laserCharge / LASER_MAX;
     ctx.beginPath();
-    ctx.arc(LASER_BTN_X, LASER_BTN_Y, LASER_BTN_R - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * lp);
+    ctx.arc(laserX, laserY, LASER_BTN_R - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * lp);
     ctx.strokeStyle = "#ff6600"; ctx.lineWidth = 4; ctx.stroke();
   }
 
@@ -4704,26 +4713,26 @@ function drawVirtualControls(
   ctx.fillStyle = laserReady ? "#ffaa00" : "#cc8844";
   ctx.font = `bold ${laserReady ? 11 : 9}px 'Inter', sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(laserActive > 0 ? `${Math.ceil(laserActive / 60)}s` : "LASER", LASER_BTN_X, LASER_BTN_Y);
+  ctx.fillText(laserActive > 0 ? `${Math.ceil(laserActive / 60)}s` : "LASER", laserX, laserY);
   }
 
   // ── STEALTH button ──
   if (unlocks.includes("absorber_ulti") && ultiLoadout.includes("absorber_ulti")) {
     const ready = absorberCharge >= ABSORBER_MAX && absorberActive === 0;
     ctx.globalAlpha = ready ? 0.95 : 0.48;
-    ctx.beginPath(); ctx.arc(ABSORBER_BTN_X, ABSORBER_BTN_Y, ABSORBER_BTN_R, 0, Math.PI * 2);
+    ctx.beginPath(); ctx.arc(absorberX, absorberY, ABSORBER_BTN_R, 0, Math.PI * 2);
     ctx.fillStyle = absorberActive > 0 ? "#ff35c477" : ready ? "#ff55cf44" : "#3c082f33";
     ctx.strokeStyle = ready || absorberActive > 0 ? "#ff79df" : "#7c2968";
     ctx.lineWidth = 3; ctx.fill(); ctx.stroke();
     if (absorberActive === 0 && !ready) {
       ctx.beginPath();
-      ctx.arc(ABSORBER_BTN_X, ABSORBER_BTN_Y, ABSORBER_BTN_R - 4, -Math.PI / 2,
+      ctx.arc(absorberX, absorberY, ABSORBER_BTN_R - 4, -Math.PI / 2,
         -Math.PI / 2 + Math.PI * 2 * absorberCharge / ABSORBER_MAX);
       ctx.strokeStyle = "#ff55cf"; ctx.lineWidth = 4; ctx.stroke();
     }
     ctx.globalAlpha = 1; ctx.fillStyle = "#ffd0f4"; ctx.font = "bold 9px 'Inter', sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(absorberActive > 0 ? `${Math.ceil(absorberActive / 60)}s` : "ABS", ABSORBER_BTN_X, ABSORBER_BTN_Y);
+    ctx.fillText(absorberActive > 0 ? `${Math.ceil(absorberActive / 60)}s` : "ABS", absorberX, absorberY);
   }
 
   // ── STEALTH button ──
@@ -4732,7 +4741,7 @@ function drawVirtualControls(
     const stealthGlow = stealthReady ? (0.55 + 0.45 * Math.sin(Date.now() / 160)) : 0.45;
     ctx.globalAlpha = stealthGlow;
     ctx.beginPath();
-    ctx.arc(STEALTH_BTN_X, STEALTH_BTN_Y, STEALTH_BTN_R, 0, Math.PI * 2);
+    ctx.arc(stealthX, stealthY, STEALTH_BTN_R, 0, Math.PI * 2);
     ctx.fillStyle   = stealthActive > 0 ? "#00ffff33" : stealthReady ? "#00ddcc44" : "#00222222";
     ctx.strokeStyle = stealthActive > 0 ? "#00ffffcc" : stealthReady ? "#00ddcccc" : "#00888866";
     ctx.lineWidth = 2.5;
@@ -4741,7 +4750,7 @@ function drawVirtualControls(
   if (stealthActive === 0 && stealthCharge < STEALTH_MAX) {
     const sp = stealthCharge / STEALTH_MAX;
     ctx.beginPath();
-    ctx.arc(STEALTH_BTN_X, STEALTH_BTN_Y, STEALTH_BTN_R - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * sp);
+    ctx.arc(stealthX, stealthY, STEALTH_BTN_R - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * sp);
     ctx.strokeStyle = "#00ccbb"; ctx.lineWidth = 4; ctx.stroke();
   }
 
@@ -4749,7 +4758,7 @@ function drawVirtualControls(
   ctx.fillStyle = stealthActive > 0 ? "#00ffff" : stealthReady ? "#00ddcc" : "#339988";
   ctx.font = `bold ${stealthReady ? 10 : 9}px 'Inter', sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(stealthActive > 0 ? `${Math.ceil(stealthActive / 60)}s` : "STEALTH", STEALTH_BTN_X, STEALTH_BTN_Y);
+  ctx.fillText(stealthActive > 0 ? `${Math.ceil(stealthActive / 60)}s` : "STEALTH", stealthX, stealthY);
   }
 
   // ── HEAL button ──
@@ -4758,7 +4767,7 @@ function drawVirtualControls(
     const healGlowA = healReady ? (0.55 + 0.45 * Math.sin(Date.now() / 160)) : 0.45;
     ctx.globalAlpha = healGlowA;
     ctx.beginPath();
-    ctx.arc(HEAL_BTN_X, HEAL_BTN_Y, HEAL_BTN_R, 0, Math.PI * 2);
+    ctx.arc(healX, healY, HEAL_BTN_R, 0, Math.PI * 2);
     ctx.fillStyle   = healActive > 0 ? "#ff006633" : healReady ? "#ff224444" : "#220a0a22";
     ctx.strokeStyle = healActive > 0 ? "#ff0066cc" : healReady ? "#ff2244cc" : "#88222266";
     ctx.lineWidth = 2.5;
@@ -4767,50 +4776,50 @@ function drawVirtualControls(
   if (healActive === 0 && healCharge < HEAL_MAX) {
     const hp2 = healCharge / HEAL_MAX;
     ctx.beginPath();
-    ctx.arc(HEAL_BTN_X, HEAL_BTN_Y, HEAL_BTN_R - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * hp2);
+    ctx.arc(healX, healY, HEAL_BTN_R - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * hp2);
     ctx.strokeStyle = "#ff4466"; ctx.lineWidth = 4; ctx.stroke();
   }
 
   if (unlocks.includes("poison_missiles_ulti") && ultiLoadout.includes("poison_missiles_ulti")) {
     const ready = poisonMissileCharge >= POISON_MISSILE_MAX;
     ctx.globalAlpha = ready ? 0.9 : 0.45;
-    ctx.beginPath(); ctx.arc(POISON_MISSILE_BTN_X, POISON_MISSILE_BTN_Y, POISON_MISSILE_BTN_R, 0, Math.PI * 2);
+    ctx.beginPath(); ctx.arc(poisonX, poisonY, POISON_MISSILE_BTN_R, 0, Math.PI * 2);
     ctx.fillStyle = ready ? "#7a101066" : "#24060644";
     ctx.strokeStyle = ready ? "#ff3030" : "#782020";
     ctx.lineWidth = 2.5; ctx.fill(); ctx.stroke();
     if (!ready) {
       ctx.beginPath();
-      ctx.arc(POISON_MISSILE_BTN_X, POISON_MISSILE_BTN_Y, POISON_MISSILE_BTN_R - 4, -Math.PI / 2,
+      ctx.arc(poisonX, poisonY, POISON_MISSILE_BTN_R - 4, -Math.PI / 2,
         -Math.PI / 2 + Math.PI * 2 * poisonMissileCharge / POISON_MISSILE_MAX);
       ctx.strokeStyle = "#ff3030"; ctx.lineWidth = 4; ctx.stroke();
     }
     ctx.globalAlpha = ready ? 1 : 0.6; ctx.fillStyle = "#ff6868"; ctx.font = "bold 10px 'Inter', sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("GIFT", POISON_MISSILE_BTN_X, POISON_MISSILE_BTN_Y);
+    ctx.fillText("GIFT", poisonX, poisonY);
   }
 
   if (unlocks.includes("ultimate_ulti") && ultiLoadout.includes("ultimate_ulti")) {
     const ready = ultimateCharge >= ULTIMATE_MAX && ultimateActive === 0;
     ctx.globalAlpha = ready ? 0.9 : 0.5;
-    ctx.beginPath(); ctx.arc(ULTIMATE_BTN_X, ULTIMATE_BTN_Y, ULTIMATE_BTN_R, 0, Math.PI * 2);
+    ctx.beginPath(); ctx.arc(ultimateX, ultimateY, ULTIMATE_BTN_R, 0, Math.PI * 2);
     ctx.fillStyle = ultimateActive > 0 ? "#0088ff88" : "#001b4433";
     ctx.strokeStyle = ready || ultimateActive > 0 ? "#45d8ff" : "#17608a";
     ctx.lineWidth = 3; ctx.fill(); ctx.stroke();
     if (ultimateActive === 0 && ultimateCharge < ULTIMATE_MAX) {
       ctx.beginPath();
-      ctx.arc(ULTIMATE_BTN_X, ULTIMATE_BTN_Y, ULTIMATE_BTN_R - 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ultimateCharge / ULTIMATE_MAX);
+      ctx.arc(ultimateX, ultimateY, ULTIMATE_BTN_R - 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ultimateCharge / ULTIMATE_MAX);
       ctx.strokeStyle = "#22aaff"; ctx.lineWidth = 4; ctx.stroke();
     }
     ctx.globalAlpha = 1; ctx.fillStyle = "#8eeaff"; ctx.font = "bold 10px 'Inter', sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(ultimateActive > 0 ? `${Math.ceil(ultimateActive / 60)}s` : "ULTIMATE", ULTIMATE_BTN_X, ULTIMATE_BTN_Y);
+    ctx.fillText(ultimateActive > 0 ? `${Math.ceil(ultimateActive / 60)}s` : "ULTIMATE", ultimateX, ultimateY);
   }
 
   ctx.globalAlpha = healReady ? 0.95 : 0.55;
   ctx.fillStyle = healActive > 0 ? "#ff6699" : healReady ? "#ff4466" : "#884455";
   ctx.font = `bold ${healReady ? 10 : 9}px 'Inter', sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(healActive > 0 ? `${Math.ceil(healActive / 60)}s` : "HEAL ❤", HEAL_BTN_X, HEAL_BTN_Y);
+  ctx.fillText(healActive > 0 ? `${Math.ceil(healActive / 60)}s` : "HEAL ❤", healX, healY);
   }
 
   ctx.restore();
