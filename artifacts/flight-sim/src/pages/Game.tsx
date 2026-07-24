@@ -117,6 +117,8 @@ interface Enemy {
 }
 
 const isBossEnemy = (enemy: Enemy) => enemy.type === "boss" || enemy.type === "overlord" || enemy.type === "titan";
+const BOSS_HEALTH_MULTIPLIER = 1.3;
+const increasedBossHealth = (hp: number) => Math.round(hp * BOSS_HEALTH_MULTIPLIER);
 const isTitanInvulnerable = (enemy: Enemy) => enemy.type === "titan" &&
   ((enemy.titanShieldTimer ?? 0) > 0 || (enemy.titanDashTimer ?? 0) > 0);
 
@@ -1782,7 +1784,7 @@ export default function Game() {
     if (isBossLevel && enemiesRef.current.filter(isBossEnemy).length === 0) {
       const isSuperBoss = level >= 12 && timeRef.current % (bossInterval * 4) < 5;
       type = "boss";
-      hp   = isSuperBoss ? bossHpBase * 3 : bossHpBase;
+      hp   = increasedBossHealth(isSuperBoss ? bossHpBase * 3 : bossHpBase);
       w    = isSuperBoss ? 130 : 90;
       h    = isSuperBoss ? 102 : 68;
       vx   = isSuperBoss ? -rand(0.4, 0.9) : -rand(0.6, 1.2);
@@ -2586,7 +2588,7 @@ export default function Game() {
         titanBossFiredRef.current.add(gs.level);
         // An evolved milestone Overlord has 1.5x its initial HP. The Titan has exactly 15x that value.
         const overlordHp = Math.round((80 + gs.level * 12) * 1.5);
-        const titanHp = overlordHp * 15;
+        const titanHp = increasedBossHealth(overlordHp * 15);
         enemiesRef.current = [];
         bulletsRef.current = bulletsRef.current.filter(b => b.fromPlayer);
         enemiesRef.current.push({
@@ -2620,7 +2622,7 @@ export default function Game() {
           enemiesRef.current.filter(isBossEnemy).length === 0) {
         milestoneBossFiredRef.current.add(gs.level);
         const ml = gs.level;
-        const mbHp = 80 + ml * 12;
+        const mbHp = increasedBossHealth(80 + ml * 12);
         enemiesRef.current.push({
           x: CANVAS_W + 20,
           y: rand(40, CANVAS_H - 100),
