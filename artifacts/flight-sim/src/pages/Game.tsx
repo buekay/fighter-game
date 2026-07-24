@@ -3104,7 +3104,7 @@ export default function Game() {
             audioRef.current.effect("hit", settingsRef.current.soundVolume);
             return true;
           }
-          const collisionDamage = (e.titanDashTimer ?? 0) > 0 ? 5 : 1;
+          const collisionDamage = (e.titanDashTimer ?? 0) > 0 ? 10 : 1;
           runStatsRef.current.damageTaken += collisionDamage;
           checkAchievements();
           const nextLifeState = applyPlayerDamage(gs, collisionDamage);
