@@ -3207,8 +3207,8 @@ export default function Game() {
           }
         }
 
-        // The laser device only activates once it has reached the middle.
-        if (e.type === "laserdevice" && e.vx === 0) {
+        // The laser device stays active from the moment it enters the battlefield.
+        if (e.type === "laserdevice") {
           drawLaserDeviceBeam(ctx, e, timeRef.current);
           const beamX = e.x + e.width / 2 - LASER_DEVICE_BEAM_WIDTH / 2;
           const playerTouchesUpperBeam = rectHit(
