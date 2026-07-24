@@ -174,7 +174,7 @@ const BACKGROUND_TRANSITION_MS = 1100;
 const TITAN_SHIELD_COOLDOWN = 15 * 60;
 const TITAN_SHIELD_DURATION = 5 * 60;
 const TITAN_DASH_COOLDOWN = 10 * 60;
-const LASER_DEVICE_CHANCE = 0.04;
+const LASER_DEVICE_CHANCE = 0.10;
 const LASER_DEVICE_SHIELD_HP = 5;
 const LASER_DEVICE_DAMAGE = 5;
 const LASER_DEVICE_BEAM_WIDTH = 12;
@@ -979,7 +979,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
   ctx.save();
   ctx.translate(e.x + e.width / 2, e.y + e.height / 2);
   ctx.rotate(Math.PI); // facing left
-  const visualScale = isBossEnemy(e) ? 1.06 : e.type === "gunship" || e.type === "sentinel" ? 1.14 : 1.22;
+  const visualScale = e.type === "boss" ? 1.14 : isBossEnemy(e) ? 1.06 : e.type === "gunship" || e.type === "sentinel" ? 1.14 : 1.22;
   ctx.scale(visualScale, visualScale);
 
   const now = performance.now();
@@ -1900,7 +1900,7 @@ export default function Game() {
       color = isSuperBoss ? "#ff00cc" : "#cc00ff";
     } else if (level >= 4 && roll < LASER_DEVICE_CHANCE &&
         !enemiesRef.current.some(enemy => enemy.type === "laserdevice" && !enemy.dead)) {
-      type = "laserdevice"; hp = 8 + level * 2; w = 52; h = 58; vx = -rand(1.1, 1.5); pts = 100; color = "#777c82";
+      type = "laserdevice"; hp = (8 + level * 2) * 3; w = 52; h = 58; vx = -rand(1.1, 1.5); pts = 100; color = "#777c82";
     } else if (level >= 7 && roll < 0.10) {
       type = "gunship"; hp = 8 + level * 2; w = 64; h = 46; vx = -rand(0.5, 1.0); pts = 80; color = "#ff6600";
     } else if (level >= 12 && roll < 0.15) {
