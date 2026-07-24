@@ -304,15 +304,15 @@ const JET_SKINS = [
 type JetSkin = typeof JET_SKINS[number];
 
 const DRONE_SKINS = [
-  { id: "drone_violet", name: "Amethyst-Wächter", body: "#24153c", stroke: "#b86cff", core: "#f0d5ff", cost: 0, rarity: "rare" },
-  { id: "drone_ember", name: "Aschenfalke", body: "#3b1608", stroke: "#ff6a28", core: "#ffe0a8", cost: 25000, rarity: "rare" },
-  { id: "drone_ion", name: "Ionensturm", body: "#092a38", stroke: "#22dfff", core: "#d9fbff", cost: 50000, rarity: "rare" },
-  { id: "drone_phantom", name: "Nachtgeist", body: "#171224", stroke: "#e94cff", core: "#ffffff", cost: 80000, rarity: "epic" },
-  { id: "drone_solar", name: "Sonnenlanze", body: "#332a05", stroke: "#ffe34c", core: "#fffbd1", cost: 120000, rarity: "legendary" },
-  { id: "drone_frost", name: "Frostklinge", body: "#10273b", stroke: "#9ee8ff", core: "#ffffff", cost: 80000, rarity: "epic" },
-  { id: "drone_venom", name: "Vipernauge", body: "#102b16", stroke: "#66ff55", core: "#eaffd9", cost: 120000, rarity: "legendary" },
-  { id: "drone_nova", name: "Nova-Kern", body: "#351018", stroke: "#ff4f72", core: "#fff0b8", cost: 200000, rarity: "ultraLegendary" },
-  { id: "drone_void", name: "Leerenläufer", body: "#080914", stroke: "#6574ff", core: "#dfe4ff", cost: 200000, rarity: "ultraLegendary" },
+  { id: "drone_violet", name: "Amethyst-Wächter", body: "#24153c", stroke: "#b86cff", core: "#f0d5ff", cost: 0, rarity: "rare", ultiName: "Amethyst-Bastion", ultiDesc: "Verstärkt den Schild und verdoppelt den Drohnenschaden." },
+  { id: "drone_ember", name: "Aschenfalke", body: "#3b1608", stroke: "#ff6a28", core: "#ffe0a8", cost: 25000, rarity: "rare", ultiName: "Glutsturm", ultiDesc: "Verbrennt alle Gegner und verdoppelt den Drohnenschaden." },
+  { id: "drone_ion", name: "Ionensturm", body: "#092a38", stroke: "#22dfff", core: "#d9fbff", cost: 50000, rarity: "rare", ultiName: "Ionen-Kaskade", ultiDesc: "Kettenenergie trifft fortlaufend alle Gegner." },
+  { id: "drone_phantom", name: "Nachtgeist", body: "#171224", stroke: "#e94cff", core: "#ffffff", cost: 80000, rarity: "epic", ultiName: "Phantomkern", ultiDesc: "Macht den Piloten unverwundbar und überlädt die Drohne." },
+  { id: "drone_solar", name: "Sonnenlanze", body: "#332a05", stroke: "#ffe34c", core: "#fffbd1", cost: 120000, rarity: "legendary", ultiName: "Solar-Salve", ultiDesc: "Dreifache Drohnen-Feuerrate und dreifacher Schaden." },
+  { id: "drone_frost", name: "Frostklinge", body: "#10273b", stroke: "#9ee8ff", core: "#ffffff", cost: 80000, rarity: "epic", ultiName: "Kryo-Impuls", ultiDesc: "Friert alle Gegner während der kombinierten Ulti ein." },
+  { id: "drone_venom", name: "Vipernauge", body: "#102b16", stroke: "#66ff55", core: "#eaffd9", cost: 120000, rarity: "legendary", ultiName: "Toxische Wolke", ultiDesc: "Vergiftet alle Gegner und überlädt die Drohnenkanonen." },
+  { id: "drone_nova", name: "Nova-Kern", body: "#351018", stroke: "#ff4f72", core: "#fff0b8", cost: 200000, rarity: "ultraLegendary", ultiName: "Supernova", ultiDesc: "Eine dauerhafte Nova-Welle fügt allen Gegnern hohen Schaden zu." },
+  { id: "drone_void", name: "Leerenläufer", body: "#080914", stroke: "#6574ff", core: "#dfe4ff", cost: 200000, rarity: "ultraLegendary", ultiName: "Leerenbruch", ultiDesc: "Löscht Projektile, verlangsamt Gegner und verstärkt die Drohne." },
 ] as const;
 type DroneSkin = typeof DRONE_SKINS[number];
 
@@ -1717,7 +1717,15 @@ export default function Game() {
     ]
       .filter(id => activeUnlocksRef.current.includes(id)).length;
     const drone = getDroneStats(persistentDroneUpgrades + droneLevelRef.current - 1, runUpgradesRef.current.drone);
-    const droneFireRate = 280 * drone.fireRateMultiplier;
+    const droneUltiActive = ultimaActiveRef.current > 0;
+    const droneUltiId = activeDroneSkinRef.current.id;
+    const droneFireMultiplier = droneUltiActive
+      ? droneUltiId === "drone_solar" ? 0.33 : 0.5
+      : 1;
+    const droneDamageMultiplier = droneUltiActive
+      ? droneUltiId === "drone_solar" || droneUltiId === "drone_nova" ? 3 : 2
+      : 1;
+    const droneFireRate = 280 * drone.fireRateMultiplier * droneFireMultiplier;
 
     if (now - lastDroneFireRef.current >= droneFireRate) {
       lastDroneFireRef.current = now;
@@ -1726,7 +1734,7 @@ export default function Game() {
       const offsets = drone.guns === 3 ? [-7, 0, 7] : drone.guns === 2 ? [-4, 4] : [0];
       offsets.forEach(offset => bulletsRef.current.push({
         x: droneX + 22, y: droneY + offset, vx: BASE_BULLET_SPEED, vy: 0,
-        fromPlayer: true, damage: drone.damage + runUpgradesRef.current.damage,
+        fromPlayer: true, damage: (drone.damage + runUpgradesRef.current.damage) * droneDamageMultiplier,
         color: activeDroneSkinRef.current.stroke,
       }));
     }
@@ -1936,6 +1944,35 @@ export default function Game() {
     return true;
   }, []);
 
+  const activateCombinedJetAndDroneUlti = useCallback(() => {
+    if (ultimaChargeRef.current < ULTI_MAX || ultimaActiveRef.current > 0 || !activeUltiLoadoutRef.current.includes("jet")) return false;
+    ultimaActiveRef.current = ULTI_DURATION;
+    ultimaChargeRef.current = 0;
+
+    if (activeUltiSkinRef.current.id === "jade") stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
+    if (["steel", "jade"].includes(activeUltiSkinRef.current.id)) {
+      shieldTimerRef.current = ULTI_DURATION;
+      playerShieldHpRef.current = activeUltiSkinRef.current.id === "steel" ? 12 : 6;
+    }
+    if (activeUltiSkinRef.current.id === "solaris") {
+      stateRef.current.hp = stateRef.current.maxHp;
+      shieldTimerRef.current = ULTI_DURATION;
+      playerShieldHpRef.current = 8;
+    }
+
+    // Every drone contributes its own ultimate to the aircraft ultimate.
+    const droneId = activeDroneSkinRef.current.id;
+    if (droneId === "drone_violet") {
+      shieldTimerRef.current = Math.max(shieldTimerRef.current, ULTI_DURATION);
+      playerShieldHpRef.current += 4;
+    }
+    if (droneId === "drone_phantom") invincibleRef.current = Math.max(invincibleRef.current, ULTI_DURATION);
+    if (droneId === "drone_void") bulletsRef.current = bulletsRef.current.filter(bullet => bullet.fromPlayer);
+
+    syncDisplay();
+    return true;
+  }, [syncDisplay]);
+
   useEffect(() => {
     initStars();
     initCity();
@@ -2007,21 +2044,7 @@ export default function Game() {
       }
       if ((e.key === "q" || e.key === "Q") && down && stateRef.current.started &&
           !stateRef.current.gameOver && !stateRef.current.paused) {
-        if (ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0 && activeUltiLoadoutRef.current.includes("jet")) {
-          ultimaActiveRef.current = ULTI_DURATION;
-          ultimaChargeRef.current = 0;
-          if (activeUltiSkinRef.current.id === "jade") stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
-          if (["steel", "jade"].includes(activeUltiSkinRef.current.id)) {
-            shieldTimerRef.current = ULTI_DURATION;
-            playerShieldHpRef.current = activeUltiSkinRef.current.id === "steel" ? 12 : 6;
-          }
-          if (activeUltiSkinRef.current.id === "solaris") {
-            stateRef.current.hp = stateRef.current.maxHp;
-            shieldTimerRef.current = ULTI_DURATION;
-            playerShieldHpRef.current = 8;
-          }
-          syncDisplay();
-        }
+        activateCombinedJetAndDroneUlti();
       }
       if ((e.key === "e" || e.key === "E") && down && stateRef.current.started &&
           !stateRef.current.gameOver && !stateRef.current.paused) {
@@ -2126,18 +2149,7 @@ export default function Game() {
             laserActiveRef.current = LASER_DURATION;
             laserChargeRef.current = 0;
           } else if (du <= ULTI_BTN_R + 12 && ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0 && activeUltiLoadoutRef.current.includes("jet")) {
-            ultimaActiveRef.current = ULTI_DURATION;
-            ultimaChargeRef.current = 0;
-            if (activeUltiSkinRef.current.id === "jade") stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
-            if (["steel", "jade"].includes(activeUltiSkinRef.current.id)) {
-              shieldTimerRef.current = ULTI_DURATION;
-              playerShieldHpRef.current = activeUltiSkinRef.current.id === "steel" ? 12 : 6;
-            }
-            if (activeUltiSkinRef.current.id === "solaris") {
-              stateRef.current.hp = stateRef.current.maxHp;
-              shieldTimerRef.current = ULTI_DURATION;
-              playerShieldHpRef.current = 8;
-            }
+            activateCombinedJetAndDroneUlti();
             syncDisplay();
           } else if (!touchFireRef.current.active) {
             if (tutorialStageRef.current === 1) {
@@ -2702,6 +2714,7 @@ export default function Game() {
         }
         if (ultimaActiveRef.current > 0 && !isTitanInvulnerable(e)) {
           const aircraftId = activeUltiSkinRef.current.id;
+          const droneId = activeDroneSkinRef.current.id;
           const blackHoleActive = aircraftId === "galaxy" || aircraftId === "n1";
           if (blackHoleActive) {
             const targetX = CANVAS_W * .58;
@@ -2716,6 +2729,15 @@ export default function Game() {
           if (aircraftId === "neon") e.hp -= .14 * dtScale;
           if (aircraftId === "lava") e.hp -= .18 * dtScale;
           if (aircraftId === "shadow" && ultimaActiveRef.current < 3) e.hp -= 14;
+          if (droneId === "drone_ember") e.hp -= .08 * dtScale;
+          if (droneId === "drone_ion") e.hp -= .10 * dtScale;
+          if (droneId === "drone_frost") e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
+          if (droneId === "drone_venom") {
+            e.poisonTimer = Math.max(e.poisonTimer ?? 0, ultimaActiveRef.current);
+            e.poisonTickTimer = Math.min(e.poisonTickTimer ?? POISON_TICK_INTERVAL, POISON_TICK_INTERVAL);
+          }
+          if (droneId === "drone_nova") e.hp -= .14 * dtScale;
+          if (droneId === "drone_void") e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimaActiveRef.current);
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points * (aircraftId === "gold" ? 2 : 1);
@@ -3338,7 +3360,13 @@ export default function Game() {
       }
       const droneX = playerRef.current.x + PLAYER_W / 2;
       const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22);
+      ctx.save();
+      if (ultimaActiveRef.current > 0) {
+        ctx.shadowColor = activeDroneSkinRef.current.stroke;
+        ctx.shadowBlur = 28 + 8 * Math.sin(timeRef.current * .25);
+      }
       drawCombatDrone(ctx, droneX, droneY, timeRef.current, activeDroneSkinRef.current);
+      ctx.restore();
 
       // Keep the remaining duration of every active ultimate visible above the pilot.
       drawActiveUltiCountdowns(ctx, playerRef.current.x, playerRef.current.y, [
@@ -4210,6 +4238,8 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
             <div className="w-8 h-4 rounded-full" style={{ background: s.body, border: `2px solid ${s.stroke}`, boxShadow: `0 0 8px ${s.stroke}` }} />
             <div className="text-xs font-bold">{s.name}</div>
             <div className="text-[9px] font-black" style={shopRarityLabelStyle(s.rarity)}>{rarity.label}</div>
+            <div className="text-[9px] font-black" style={{ color: s.stroke }}>{s.ultiName}</div>
+            <div className="text-[8px] leading-tight text-slate-400">{s.ultiDesc}</div>
             <div className="text-[10px] font-bold text-violet-300">Level {droneLevels[s.id] ?? 1}</div>
             {owned ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div> :
               <div className={`text-xs font-bold ${canAfford && levelUnlocked ? "text-amber-300" : "text-slate-500"}`}>{!levelUnlocked ? `🔒 Level ${SHOP_RARITY_MIN_LEVEL[s.rarity]}` : `${canAfford ? "💰" : "🔒"} ${formatLockedSkinPrice(s.cost)}`}</div>}
