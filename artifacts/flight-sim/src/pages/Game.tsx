@@ -312,7 +312,7 @@ const DRONE_SKINS = [
   { id: "drone_frost", name: "Frostklinge", body: "#10273b", stroke: "#9ee8ff", core: "#ffffff", cost: 80000, rarity: "epic", ultiName: "Kryo-Impuls", ultiDesc: "Friert alle Gegner während der kombinierten Ulti ein." },
   { id: "drone_venom", name: "Vipernauge", body: "#102b16", stroke: "#66ff55", core: "#eaffd9", cost: 120000, rarity: "legendary", ultiName: "Toxische Wolke", ultiDesc: "Vergiftet alle Gegner und überlädt die Drohnenkanonen." },
   { id: "drone_nova", name: "Nova-Kern", body: "#351018", stroke: "#ff4f72", core: "#fff0b8", cost: 200000, rarity: "ultraLegendary", ultiName: "Supernova", ultiDesc: "Eine dauerhafte Nova-Welle fügt allen Gegnern hohen Schaden zu." },
-  { id: "drone_void", name: "Leerenläufer", body: "#080914", stroke: "#6574ff", core: "#dfe4ff", cost: 200000, rarity: "ultraLegendary", ultiName: "Leerenbruch", ultiDesc: "Löscht Projektile, verlangsamt Gegner und verstärkt die Drohne." },
+  { id: "drone_void", name: "Leerenläufer", body: "#080914", stroke: "#6574ff", core: "#dfe4ff", cost: 200000, rarity: "ultraLegendary", ultiName: "Dimensionsriss", ultiDesc: "Reißt die Dimension auf und entreißt allen Gegnern sofort Lebensenergie." },
 ] as const;
 type DroneSkin = typeof DRONE_SKINS[number];
 
@@ -1967,7 +1967,14 @@ export default function Game() {
       playerShieldHpRef.current += 4;
     }
     if (droneId === "drone_phantom") invincibleRef.current = Math.max(invincibleRef.current, ULTI_DURATION);
-    if (droneId === "drone_void") bulletsRef.current = bulletsRef.current.filter(bullet => bullet.fromPlayer);
+    if (droneId === "drone_void") {
+      enemiesRef.current.forEach(enemy => {
+        if (enemy.dead || enemy.hp <= 0 || isTitanInvulnerable(enemy)) return;
+        const ruptureDamage = isBossEnemy(enemy) ? Math.min(20, enemy.maxHp * .15) : enemy.hp * .35;
+        enemy.hp = Math.max(1, enemy.hp - ruptureDamage);
+        spawnExplosion(particlesRef.current, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, false);
+      });
+    }
 
     syncDisplay();
     return true;
@@ -2737,7 +2744,6 @@ export default function Game() {
             e.poisonTickTimer = Math.min(e.poisonTickTimer ?? POISON_TICK_INTERVAL, POISON_TICK_INTERVAL);
           }
           if (droneId === "drone_nova") e.hp -= .14 * dtScale;
-          if (droneId === "drone_void") e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimaActiveRef.current);
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points * (aircraftId === "gold" ? 2 : 1);
@@ -4239,7 +4245,6 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
             <div className="text-xs font-bold">{s.name}</div>
             <div className="text-[9px] font-black" style={shopRarityLabelStyle(s.rarity)}>{rarity.label}</div>
             <div className="text-[9px] font-black" style={{ color: s.stroke }}>{s.ultiName}</div>
-            <div className="text-[8px] leading-tight text-slate-400">{s.ultiDesc}</div>
             <div className="text-[10px] font-bold text-violet-300">Level {droneLevels[s.id] ?? 1}</div>
             {owned ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div> :
               <div className={`text-xs font-bold ${canAfford && levelUnlocked ? "text-amber-300" : "text-slate-500"}`}>{!levelUnlocked ? `🔒 Level ${SHOP_RARITY_MIN_LEVEL[s.rarity]}` : `${canAfford ? "💰" : "🔒"} ${formatLockedSkinPrice(s.cost)}`}</div>}
