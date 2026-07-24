@@ -247,6 +247,23 @@ const EMPTY_RUN_UPGRADES: Record<RunUpgradeId, number> = {
   rapid_fire: 0, damage: 0, max_hp: 0, drone: 0, critical: 0, shield: 0,
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function finiteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function loadStringArray(key: string): string[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem(key) ?? "[]") as unknown;
+    return Array.isArray(saved) ? saved.filter((value): value is string => typeof value === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 function saveGame(gs: GameState, runUpgrades: Record<RunUpgradeId, number>, upgradeLevel: number) {
   try {
     const data: SaveData = {
@@ -263,7 +280,43 @@ function saveGame(gs: GameState, runUpgrades: Record<RunUpgradeId, number>, upgr
 function loadSave(): SaveData | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
-    return raw ? (JSON.parse(raw) as SaveData) : null;
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as unknown;
+    if (!isRecord(saved)) return null;
+
+    const score = finiteNumber(saved.score);
+    const level = finiteNumber(saved.level);
+    const hp = finiteNumber(saved.hp);
+    const maxHp = finiteNumber(saved.maxHp);
+    const weaponTier = finiteNumber(saved.weaponTier);
+    const speed = finiteNumber(saved.speed);
+    const lives = finiteNumber(saved.lives);
+    const savedAt = finiteNumber(saved.savedAt);
+    if ([score, level, hp, maxHp, weaponTier, speed, lives, savedAt].some(value => value === null)) return null;
+
+    const savedRunUpgrades = isRecord(saved.runUpgrades) ? saved.runUpgrades : null;
+    const runUpgrades = savedRunUpgrades
+      ? Object.fromEntries(
+          Object.keys(EMPTY_RUN_UPGRADES).map(id => [
+            id,
+            Math.max(0, Math.floor(finiteNumber(savedRunUpgrades[id]) ?? 0)),
+          ]),
+        ) as Record<RunUpgradeId, number>
+      : undefined;
+
+    return {
+      score: Math.max(0, Math.floor(score!)),
+      level: Math.max(1, Math.min(MAX_LEVEL, Math.floor(level!))),
+      hp: Math.max(0, hp!),
+      maxHp: Math.max(1, maxHp!),
+      weaponTier: Math.max(0, Math.min(WEAPON_TIERS.length - 1, Math.floor(weaponTier!))),
+      speed: Math.max(0.1, speed!),
+      lives: Math.max(0, Math.floor(lives!)),
+      savedAt: Math.max(0, savedAt!),
+      runUpgrades,
+      upgradeLevel: Math.max(0, Math.floor(finiteNumber(saved.upgradeLevel) ?? 0)),
+      aircraftLevel: getAircraftUpgradeStats(finiteNumber(saved.aircraftLevel) ?? 1).level,
+    };
   } catch { return null; }
 }
 
@@ -450,7 +503,7 @@ const ACHIEVEMENTS: Achievement[] = [
   { id: "damage_sponge", icon: "🔧", name: "Stahlgewitter überlebt", description: "Überstehe 200 Schadenspunkte in einem Einsatz", target: 200, reward: 50000, stat: "damageTaken" },
   { id: "phoenix", icon: "🔥", name: "Phönix", description: "Überstehe 300 Schadenspunkte in einem Einsatz", target: 300, reward: 80000, stat: "damageTaken" },
 ];
-function loadAchievements(): string[] { try { return JSON.parse(localStorage.getItem(ACHIEVEMENT_KEY) ?? "[]") as string[]; } catch { return []; } }
+function loadAchievements(): string[] { return loadStringArray(ACHIEVEMENT_KEY); }
 function saveAchievements(ids: string[]) { try { localStorage.setItem(ACHIEVEMENT_KEY, JSON.stringify(ids)); } catch {} }
 function saveHighScore(s: number) { try { if (s > loadHighScore()) localStorage.setItem(HS_KEY, String(s)); } catch {} }
 function loadHighScore(): number  { try { return parseInt(localStorage.getItem(HS_KEY) ?? "0", 10) || 0; } catch { return 0; } }
@@ -480,18 +533,20 @@ function loadSkin(): string       { try { return localStorage.getItem(SKIN_KEY) 
 function saveDroneSkin(id: string) { try { localStorage.setItem(DRONE_SKIN_KEY, id); } catch {} }
 function loadDroneSkin(): string   { try { return localStorage.getItem(DRONE_SKIN_KEY) ?? "drone_violet"; } catch { return "drone_violet"; } }
 function addUnlock(id: string)    { try { const u = loadUnlocks(); if (!u.includes(id)) localStorage.setItem(UNLOCKS_KEY, JSON.stringify([...u, id])); } catch {} }
-function loadUnlocks(): string[]  { try { return JSON.parse(localStorage.getItem(UNLOCKS_KEY) ?? "[]") as string[]; } catch { return []; } }
+function loadUnlocks(): string[]  { return loadStringArray(UNLOCKS_KEY); }
 function loadAircraftLevels(): Record<string, number> {
   try {
-    const saved = JSON.parse(localStorage.getItem(AIRCRAFT_LEVELS_KEY) ?? "{}") as Record<string, number>;
-    return Object.fromEntries(Object.entries(saved).map(([id, level]) => [id, getAircraftUpgradeStats(level).level]));
+    const saved = JSON.parse(localStorage.getItem(AIRCRAFT_LEVELS_KEY) ?? "{}") as unknown;
+    if (!isRecord(saved)) return {};
+    return Object.fromEntries(Object.entries(saved).map(([id, level]) => [id, getAircraftUpgradeStats(finiteNumber(level) ?? 1).level]));
   } catch { return {}; }
 }
 function saveAircraftLevels(levels: Record<string, number>) { try { localStorage.setItem(AIRCRAFT_LEVELS_KEY, JSON.stringify(levels)); } catch {} }
 function loadDroneLevels(): Record<string, number> {
   try {
-    const saved = JSON.parse(localStorage.getItem(DRONE_LEVELS_KEY) ?? "{}") as Record<string, number>;
-    return Object.fromEntries(Object.entries(saved).map(([id, level]) => [id, Math.max(1, Math.min(10, Math.floor(level))) ]));
+    const saved = JSON.parse(localStorage.getItem(DRONE_LEVELS_KEY) ?? "{}") as unknown;
+    if (!isRecord(saved)) return {};
+    return Object.fromEntries(Object.entries(saved).map(([id, level]) => [id, Math.max(1, Math.min(10, Math.floor(finiteNumber(level) ?? 1))) ]));
   } catch { return {}; }
 }
 function saveDroneLevels(levels: Record<string, number>) { try { localStorage.setItem(DRONE_LEVELS_KEY, JSON.stringify(levels)); } catch {} }
@@ -508,8 +563,21 @@ function addPilotKill(): number {
 }
 function getPilotLevelFromKills(kills = loadPilotKills()) { return getPilotLevelForScore(kills * 1000); }
 function loadSettings(): GameSettings {
-  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Partial<GameSettings> }; }
-  catch { return DEFAULT_SETTINGS; }
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as unknown;
+    if (!isRecord(saved)) return DEFAULT_SETTINGS;
+    const languages: GameSettings["language"][] = ["de", "en", "tr", "fr", "es"];
+    const touchModes: GameSettings["touchControls"][] = ["auto", "always", "never"];
+    return {
+      language: languages.includes(saved.language as GameSettings["language"]) ? saved.language as GameSettings["language"] : DEFAULT_SETTINGS.language,
+      tutorial: typeof saved.tutorial === "boolean" ? saved.tutorial : DEFAULT_SETTINGS.tutorial,
+      reducedMotion: typeof saved.reducedMotion === "boolean" ? saved.reducedMotion : DEFAULT_SETTINGS.reducedMotion,
+      highContrast: typeof saved.highContrast === "boolean" ? saved.highContrast : DEFAULT_SETTINGS.highContrast,
+      touchControls: touchModes.includes(saved.touchControls as GameSettings["touchControls"]) ? saved.touchControls as GameSettings["touchControls"] : DEFAULT_SETTINGS.touchControls,
+      soundVolume: Math.max(0, Math.min(1, finiteNumber(saved.soundVolume) ?? DEFAULT_SETTINGS.soundVolume)),
+      musicVolume: Math.max(0, Math.min(1, finiteNumber(saved.musicVolume) ?? DEFAULT_SETTINGS.musicVolume)),
+    };
+  } catch { return DEFAULT_SETTINGS; }
 }
 function saveSettings(settings: GameSettings) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} }
 
@@ -1611,6 +1679,7 @@ export default function Game() {
     runUpgradesRef.current[upgrade.id] += 1;
     if (upgrade.id === "max_hp") { stateRef.current.maxHp += 3; stateRef.current.hp = stateRef.current.maxHp; }
     if (upgrade.id === "shield") { shieldTimerRef.current = 600; playerShieldHpRef.current = PLAYER_SHIELD_HP; }
+    upgradeLevelRef.current = stateRef.current.level;
     saveGame(stateRef.current, runUpgradesRef.current, upgradeLevelRef.current);
     saveExistsRef.current = true;
     setRunUpgradeChoices([]); stateRef.current.paused = false; audioRef.current.effect("upgrade", settingsRef.current.soundVolume); syncDisplay();
@@ -1921,6 +1990,14 @@ export default function Game() {
       lives:      save?.lives  ?? (unlocks.includes("extra_life") ? 4 : 3),
       gameOver: false, started: true, paused: false,
     };
+    const pendingRunUpgrade = fromSave &&
+      stateRef.current.level >= 5 &&
+      stateRef.current.level % 5 === 0 &&
+      upgradeLevelRef.current !== stateRef.current.level;
+    if (pendingRunUpgrade) {
+      setRunUpgradeChoices([...RUN_UPGRADES].sort(() => Math.random() - 0.5).slice(0, 3));
+      stateRef.current.paused = true;
+    }
     playerRef.current = { x: 60, y: CANVAS_H / 2 - PLAYER_H / 2 };
     bulletsRef.current = [];
     enemiesRef.current = [];
@@ -2491,14 +2568,14 @@ export default function Game() {
           snapshot.getContext("2d")?.drawImage(canvas, 0, 0);
           backgroundTransitionRef.current = { snapshot, elapsed: 0 };
         }
+        const gainedLevels = nextLevel - gs.level;
         gs.level = nextLevel;
         const tierIndex = Math.min(nextLevel - 1, WEAPON_TIERS.length - 1);
         gs.weaponTier = Math.max(gs.weaponTier, tierIndex);
-        gs.speed = 3.2 + (nextLevel - 1) * 0.25 + (activeUnlocksRef.current.includes("speed_item") ? 0.5 : 0) + aircraftUpgradeRef.current.speedBonus;
+        gs.speed += gainedLevels * 0.25;
         saveGame(gs, runUpgradesRef.current, upgradeLevelRef.current);
         saveExistsRef.current = true;
         if (nextLevel >= 5 && nextLevel % 5 === 0 && upgradeLevelRef.current !== nextLevel) {
-          upgradeLevelRef.current = nextLevel;
           const choices = [...RUN_UPGRADES].sort(() => Math.random() - 0.5).slice(0, 3);
           setRunUpgradeChoices(choices); gs.paused = true; syncDisplay();
         }
@@ -3009,8 +3086,25 @@ export default function Game() {
 
         // Enemy-player collision
         const playerTouchesEnemy = rectHit(playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H, e.x, e.y, e.width, e.height);
-        if (e.type === "titan" && playerTouchesEnemy && invincibleRef.current <= 0 && stealthActiveRef.current <= 0) {
+        if (e.type === "titan" && playerTouchesEnemy && invincibleRef.current <= 0 &&
+            stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0) {
+          const protection = applyPlayerHitProtection({
+            shieldTimer: shieldTimerRef.current,
+            shieldHp: playerShieldHpRef.current,
+            invincibleTimer: invincibleRef.current,
+            stealthTimer: stealthActiveRef.current,
+          });
+          shieldTimerRef.current = protection.shieldTimer;
+          playerShieldHpRef.current = protection.shieldHp;
+          if (protection.protected) {
+            invincibleRef.current = 90;
+            spawnExplosion(particlesRef.current, playerRef.current.x + PLAYER_W / 2, playerRef.current.y + PLAYER_H / 2, false);
+            audioRef.current.effect("hit", settingsRef.current.soundVolume);
+            return true;
+          }
           const collisionDamage = (e.titanDashTimer ?? 0) > 0 ? 5 : 1;
+          runStatsRef.current.damageTaken += collisionDamage;
+          checkAchievements();
           const nextLifeState = applyPlayerDamage(gs, collisionDamage);
           gs.hp = nextLifeState.hp;
           gs.lives = nextLifeState.lives;
@@ -3050,6 +3144,8 @@ export default function Game() {
             return !e.dead;
           }
           const collDmg = e.ramDamage ?? (collidedWithBoss ? 1 : activeUnlocksRef.current.includes("armor") ? 0.5 : 1);
+          runStatsRef.current.damageTaken += collDmg;
+          checkAchievements();
           const nextLifeState = applyPlayerDamage(gs, collDmg);
           gs.hp = nextLifeState.hp;
           gs.lives = nextLifeState.lives;
@@ -3205,7 +3301,7 @@ export default function Game() {
             shieldTimerRef.current = 300;
             playerShieldHpRef.current = PLAYER_SHIELD_HP;
           }
-          if (p.type === "speed") gs.speed = Math.min(6, gs.speed + 0.5);
+          if (p.type === "speed") gs.speed = Math.max(gs.speed, Math.min(6, gs.speed + 0.5));
           if (p.type === "speedboost") speedBoostRef.current = 480;
           syncDisplay();
           return false;
@@ -3924,7 +4020,7 @@ function HangarOverlay({
             );
           })}
         </div>
-        <div className="flex items-center gap-2 mt-1">
+        <div className="hangar-drone-skins flex items-center justify-center gap-2 mt-1">
           <span className="text-slate-500 text-xs">Drohne:</span>
           {DRONE_SKINS.map(s => {
             const owned = s.cost === 0 || unlockedItems.includes(s.id);
@@ -4499,7 +4595,7 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
           </div>
         </div>
 
-        <div className="sticky bottom-0 mt-5 bg-gradient-to-t from-[#040c1c] via-[#040c1c] to-transparent pt-4 pb-1 text-center">
+        <div className="mt-5 border-t border-slate-800/80 bg-[#040c1c] pt-4 pb-1 text-center">
           <button autoFocus onClick={onDone} className="pause-primary min-h-12 w-full max-w-md rounded-xl px-6 py-3 font-black tracking-widest">
             {translated(language, "VERSTANDEN – ZUM HANGAR", "GOT IT — GO TO HANGAR")}
           </button>

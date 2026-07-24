@@ -107,6 +107,12 @@ input:focus-visible {
 
   .hangar-skins button { flex: 0 0 26px; width: 26px !important; height: 26px !important; }
 
+  .hangar-drone-skins {
+    max-width: 100%;
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
   .hangar-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -229,10 +235,11 @@ input:focus-visible {
 @media (max-height: 500px) and (orientation: landscape) {
   .hangar-main {
     display: grid;
-    grid-template-columns: minmax(190px, 0.8fr) minmax(300px, 1.4fr);
+    grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.6fr);
     grid-template-rows: auto auto 1fr auto;
     column-gap: 16px;
     align-items: center;
+    overflow-y: auto;
   }
 
   .hangar-main > :nth-child(1),
@@ -251,6 +258,8 @@ input:focus-visible {
     grid-column: 1;
     grid-row: 1 / span 4;
     gap: 3px;
+    width: auto;
+    max-width: 100%;
     min-width: 0;
   }
 
@@ -260,9 +269,15 @@ input:focus-visible {
   }
 
   .hangar-skins {
+    width: min(220px, 100%);
     max-width: 220px;
     flex-wrap: wrap;
     justify-content: center;
+    gap: 5px;
+  }
+
+  .hangar-drone-skins {
+    width: min(230px, 100%);
     gap: 5px;
   }
 
