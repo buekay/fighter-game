@@ -79,7 +79,7 @@ interface Enemy {
   vx: number; vy: number;
   hp: number; maxHp: number;
   width: number; height: number;
-  type: "scout" | "fighter" | "bomber" | "boss" | "overlord" | "titan" | "interceptor" | "gunship" | "tiefighter" | "emeraldtiefighter" | "plasmawing" | "sentinel";
+  type: "scout" | "fighter" | "bomber" | "boss" | "overlord" | "titan" | "interceptor" | "gunship" | "tiefighter" | "emeraldtiefighter" | "plasmawing" | "sentinel" | "laserdevice";
   shootCooldown: number;
   points: number;
   color: string;
@@ -114,10 +114,12 @@ interface Enemy {
   titanReinforcementsSpawned?: boolean;
   ramDamage?: number;
   trackPlayerRam?: boolean;
+  isGolden?: boolean;
 }
 
 const isBossEnemy = (enemy: Enemy) => enemy.type === "boss" || enemy.type === "overlord" || enemy.type === "titan";
 const BOSS_HEALTH_MULTIPLIER = 1.3;
+const GOLDEN_ENEMY_CHANCE = 0.05;
 const increasedBossHealth = (hp: number) => Math.round(hp * BOSS_HEALTH_MULTIPLIER);
 const isTitanInvulnerable = (enemy: Enemy) => enemy.type === "titan" &&
   ((enemy.titanShieldTimer ?? 0) > 0 || (enemy.titanDashTimer ?? 0) > 0);
@@ -172,6 +174,10 @@ const BACKGROUND_TRANSITION_MS = 1100;
 const TITAN_SHIELD_COOLDOWN = 15 * 60;
 const TITAN_SHIELD_DURATION = 5 * 60;
 const TITAN_DASH_COOLDOWN = 10 * 60;
+const LASER_DEVICE_CHANCE = 0.04;
+const LASER_DEVICE_SHIELD_HP = 5;
+const LASER_DEVICE_DAMAGE = 5;
+const LASER_DEVICE_BEAM_WIDTH = 12;
 
 const SHOP_RARITIES: Record<ShopRarity, { label: string; color: string; glow: string }> = {
   rare:      { label: "SELTEN",    color: "#a8b0ba", glow: "#d6dbe166" },
@@ -978,6 +984,16 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
 
   const now = performance.now();
   const pulse = 0.72 + Math.sin(now * 0.009 + e.x * 0.03) * 0.18;
+  if (e.isGolden) {
+    const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, Math.max(e.width, e.height) * .72);
+    glow.addColorStop(0, "rgba(255,245,120,0.22)");
+    glow.addColorStop(.58, "rgba(255,215,0,0.12)");
+    glow.addColorStop(1, "rgba(255,200,0,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, e.width * .7, e.height * (.8 + pulse * .15), 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
   const hullGradient = (dark: string, mid: string, highlight = e.color) => {
     const gradient = ctx.createLinearGradient(-e.width / 2, -e.height / 2, e.width / 2, e.height / 2);
     gradient.addColorStop(0, dark);
@@ -1021,8 +1037,8 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
     drawEngine(-14, 0, 7);
   }
 
-  ctx.shadowColor = e.color;
-  ctx.shadowBlur = 9;
+  ctx.shadowColor = e.isGolden ? "#ffe45c" : e.color;
+  ctx.shadowBlur = e.isGolden ? 22 + pulse * 10 : 9;
 
   switch (e.type) {
     case "scout": {
@@ -1244,6 +1260,71 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       ctx.fillStyle=e.color; ctx.fillRect(-bW/2,-e.height/2-8,bW*(e.hp/e.maxHp),bH);
       break;
     }
+    case "laserdevice": {
+      // A stationary, heavily armored laser generator with emitters on both ends.
+      const devicePulse = .65 + Math.sin(now * .018) * .35;
+      ctx.shadowColor = "#ff1d2e";
+      ctx.shadowBlur = 8 + devicePulse * 9;
+      ctx.beginPath();
+      ctx.roundRect(-19, -22, 38, 44, 7);
+      ctx.fillStyle = hullGradient("#050608", "#282c31", "#60656b");
+      ctx.fill();
+      ctx.strokeStyle = "#858b92";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#0a0b0d";
+      ctx.fillRect(-13, -15, 26, 30);
+      ctx.strokeStyle = "#42474d";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-13, -15, 26, 30);
+      [-1, 1].forEach(side => {
+        const emitterY = side * 24;
+        ctx.beginPath();
+        ctx.moveTo(-12, emitterY - side * 8);
+        ctx.lineTo(12, emitterY - side * 8);
+        ctx.lineTo(8, emitterY);
+        ctx.lineTo(-8, emitterY);
+        ctx.closePath();
+        ctx.fillStyle = "#111317";
+        ctx.fill();
+        ctx.strokeStyle = "#747a80";
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, emitterY, 4 + devicePulse, 0, Math.PI * 2);
+        ctx.fillStyle = "#fff";
+        ctx.shadowColor = "#ff1028";
+        ctx.shadowBlur = 14;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+      ctx.beginPath();
+      ctx.arc(0, 0, 8, 0, Math.PI * 2);
+      ctx.fillStyle = "#111318";
+      ctx.fill();
+      ctx.strokeStyle = "#9ba1a7";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, 0, 3 + devicePulse, 0, Math.PI * 2);
+      ctx.fillStyle = "#ff2438";
+      ctx.fill();
+      if ((e.shieldHp ?? 0) > 0) {
+        ctx.beginPath();
+        ctx.arc(0, 0, 31, 0, Math.PI * 2);
+        ctx.fillStyle = "#58d8ff12";
+        ctx.fill();
+        ctx.strokeStyle = "#73ddffbb";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      const bW = e.width * .9, bH = 4;
+      ctx.fillStyle = "#26282c";
+      ctx.fillRect(-bW / 2, -e.height / 2 - 9, bW, bH);
+      ctx.fillStyle = "#ff6b24";
+      ctx.fillRect(-bW / 2, -e.height / 2 - 9, bW * (e.hp / e.maxHp), bH);
+      break;
+    }
     case "tiefighter":
     case "emeraldtiefighter": {
       const tg = e.color;
@@ -1400,6 +1481,33 @@ function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
   ctx.fillStyle = p.color;
   ctx.fill();
+  ctx.restore();
+}
+
+function drawLaserDeviceBeam(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
+  const beamX = e.x + e.width / 2;
+  const upperHeight = Math.max(0, e.y);
+  const lowerY = e.y + e.height;
+  const lowerHeight = Math.max(0, CANVAS_H - lowerY);
+  const flicker = .78 + Math.sin(time * .55) * .22;
+
+  ctx.save();
+  ctx.globalAlpha = .2 * flicker;
+  ctx.fillStyle = "#ff001d";
+  ctx.shadowColor = "#ff001d";
+  ctx.shadowBlur = 28;
+  ctx.fillRect(beamX - 11, 0, 22, upperHeight);
+  ctx.fillRect(beamX - 11, lowerY, 22, lowerHeight);
+  ctx.globalAlpha = .62 * flicker;
+  ctx.shadowBlur = 14;
+  ctx.fillStyle = "#ff1830";
+  ctx.fillRect(beamX - LASER_DEVICE_BEAM_WIDTH / 2, 0, LASER_DEVICE_BEAM_WIDTH, upperHeight);
+  ctx.fillRect(beamX - LASER_DEVICE_BEAM_WIDTH / 2, lowerY, LASER_DEVICE_BEAM_WIDTH, lowerHeight);
+  ctx.globalAlpha = flicker;
+  ctx.shadowBlur = 5;
+  ctx.fillStyle = "#fff5f5";
+  ctx.fillRect(beamX - 2, 0, 4, upperHeight);
+  ctx.fillRect(beamX - 2, lowerY, 4, lowerHeight);
   ctx.restore();
 }
 
@@ -1790,6 +1898,9 @@ export default function Game() {
       vx   = isSuperBoss ? -rand(0.4, 0.9) : -rand(0.6, 1.2);
       pts  = isSuperBoss ? 600 : 100;
       color = isSuperBoss ? "#ff00cc" : "#cc00ff";
+    } else if (level >= 4 && roll < LASER_DEVICE_CHANCE &&
+        !enemiesRef.current.some(enemy => enemy.type === "laserdevice" && !enemy.dead)) {
+      type = "laserdevice"; hp = 8 + level * 2; w = 52; h = 58; vx = -rand(1.1, 1.5); pts = 100; color = "#777c82";
     } else if (level >= 7 && roll < 0.10) {
       type = "gunship"; hp = 8 + level * 2; w = 64; h = 46; vx = -rand(0.5, 1.0); pts = 80; color = "#ff6600";
     } else if (level >= 12 && roll < 0.15) {
@@ -1808,10 +1919,13 @@ export default function Game() {
       type = "fighter"; hp = 2 + Math.floor(level / 2); w = 48; h = 28; vx = -rand(1.8, 3.2); pts = 30; color = "#ffcc00";
     }
 
+    const isGolden = !["boss", "overlord", "titan", "laserdevice"].includes(type) && Math.random() < GOLDEN_ENEMY_CHANCE;
+    if (isGolden) hp *= 2;
+
     // After level 5 enemies award bonus score so levels go faster
     if (level > 5) pts = Math.round(pts * (1 + (level - 5) * 0.18));
 
-    const y = rand(20, CANVAS_H - h - 20);
+    const y = type === "laserdevice" ? CANVAS_H / 2 - h / 2 : rand(20, CANVAS_H - h - 20);
     const enemy: Enemy = {
       x: CANVAS_W + 20, y,
       vx, vy: 0,
@@ -1822,8 +1936,9 @@ export default function Game() {
       points: pts, color,
       angle: 0,
       oscillate: type === "plasmawing" ? 1.6 : type === "scout" ? rand(-0.4, 0.4) : 0,
-      shieldHp: type === "sentinel" ? 6 : type === "emeraldtiefighter" ? 4 : type === "tiefighter" ? 2 : 0,
+      shieldHp: type === "laserdevice" ? LASER_DEVICE_SHIELD_HP : type === "sentinel" ? 6 : type === "emeraldtiefighter" ? 4 : type === "tiefighter" ? 2 : 0,
       bossAge: type === "boss" ? 0 : undefined,
+      isGolden,
     };
     enemiesRef.current.push(enemy);
 
@@ -2935,6 +3050,15 @@ export default function Game() {
         e.y += e.vy * dtScale * statusSpeed;
         if (e.oscillate) e.y += Math.sin(timeRef.current * 0.04) * Math.abs(e.oscillate) * 0.8 * dtScale * statusSpeed;
         e.y = clamp(e.y, 0, CANVAS_H - e.height);
+        if (e.type === "laserdevice") {
+          const centerX = CANVAS_W / 2 - e.width / 2;
+          if (e.x <= centerX) {
+            e.x = centerX;
+            e.y = CANVAS_H / 2 - e.height / 2;
+            e.vx = 0;
+            e.vy = 0;
+          }
+        }
 
         // Boss movement
         if (isBossEnemy(e)) {
@@ -3050,8 +3174,8 @@ export default function Game() {
         if (e.x + e.width < -20) return false;
 
         // Enemy shooting
-        if ((e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;
-        if (e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
+        if (e.type !== "laserdevice" && (e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;
+        if (e.type !== "laserdevice" && e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
           const bossPhase = isBossEnemy(e) ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
           e.shootCooldown = e.type === "overlord" || e.type === "titan" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
           if (e.type === "tiefighter" || e.type === "emeraldtiefighter" || e.type === "plasmawing") {
@@ -3080,6 +3204,55 @@ export default function Game() {
                 color: e.type === "titan" ? e.color : e.type === "overlord" ? "#6fe9ff" : e.type === "boss" && bossPhase === 3 ? "#ff3300" : undefined,
               });
             }
+          }
+        }
+
+        // The laser device only activates once it has reached the middle.
+        if (e.type === "laserdevice" && e.vx === 0) {
+          drawLaserDeviceBeam(ctx, e, timeRef.current);
+          const beamX = e.x + e.width / 2 - LASER_DEVICE_BEAM_WIDTH / 2;
+          const playerTouchesUpperBeam = rectHit(
+            playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H,
+            beamX, 0, LASER_DEVICE_BEAM_WIDTH, e.y,
+          );
+          const playerTouchesLowerBeam = rectHit(
+            playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H,
+            beamX, e.y + e.height, LASER_DEVICE_BEAM_WIDTH, CANVAS_H - e.y - e.height,
+          );
+          if ((playerTouchesUpperBeam || playerTouchesLowerBeam) &&
+              invincibleRef.current <= 0 && stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0) {
+            const protection = applyPlayerHitProtection({
+              shieldTimer: shieldTimerRef.current,
+              shieldHp: playerShieldHpRef.current,
+              invincibleTimer: invincibleRef.current,
+              stealthTimer: stealthActiveRef.current,
+            });
+            shieldTimerRef.current = protection.shieldTimer;
+            playerShieldHpRef.current = protection.shieldHp;
+            invincibleRef.current = protection.protected ? 90 : 140;
+            spawnExplosion(
+              particlesRef.current,
+              playerRef.current.x + PLAYER_W / 2,
+              playerRef.current.y + PLAYER_H / 2,
+              !protection.protected,
+            );
+            audioRef.current.effect("hit", settingsRef.current.soundVolume);
+            if (!protection.protected) {
+              runStatsRef.current.damageTaken += LASER_DEVICE_DAMAGE;
+              checkAchievements();
+              const nextLifeState = applyPlayerDamage(gs, LASER_DEVICE_DAMAGE);
+              gs.hp = nextLifeState.hp;
+              gs.lives = nextLifeState.lives;
+              gs.gameOver = nextLifeState.gameOver;
+              if (gs.gameOver) {
+                clearSave();
+                saveHighScore(gs.score);
+                addLeaderboardEntry(playerNameRef.current, gs.score);
+                addCoins(calculateCoinReward(gs.score));
+                saveExistsRef.current = false;
+              }
+            }
+            syncDisplay();
           }
         }
 
