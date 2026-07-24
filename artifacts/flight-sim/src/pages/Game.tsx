@@ -2214,7 +2214,7 @@ export default function Game() {
         ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
         starsRef.current.forEach(s => {
-          if (!settingsRef.current.reducedMotion) s.x -= s.speed * 2.8;
+          if (!settingsRef.current.reducedMotion) s.x -= s.speed * 2.8 * BACKGROUND_SPEED_MULTIPLIER;
           if (s.x < -12) { s.x = CANVAS_W + 12; s.y = rand(0, CANVAS_H); }
           ctx.globalAlpha = 0.35 + s.brightness * 0.65;
           ctx.fillStyle = s.size > 1.6 ? "#c9dcff" : "#ffffff";
@@ -2231,7 +2231,7 @@ export default function Game() {
         ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
         starsRef.current.slice(0, 14).forEach(s => {
-          if (!settingsRef.current.reducedMotion) s.x -= s.speed * 0.32;
+          if (!settingsRef.current.reducedMotion) s.x -= s.speed * 0.32 * BACKGROUND_SPEED_MULTIPLIER;
           if (s.x < -120) { s.x = CANVAS_W + 120; s.y = rand(18, CANVAS_H * 0.38); }
           const cw = 50 + s.size * 28, ch = 18 + s.size * 7;
           ctx.save();
@@ -2253,7 +2253,7 @@ export default function Game() {
           ctx.fillStyle = cloudGrad;
           ctx.fillRect(0, cloudTop + 26, CANVAS_W, CANVAS_H - cloudTop);
 
-          const drift = settingsRef.current.reducedMotion ? 0 : (timeRef.current * 0.3) % 150;
+          const drift = settingsRef.current.reducedMotion ? 0 : (timeRef.current * 0.3 * BACKGROUND_SPEED_MULTIPLIER) % 150;
           for (let x = -110 - drift; x < CANVAS_W + 130; x += 105) {
             const y = cloudTop + Math.sin((x + drift) * 0.025) * 10;
             ctx.fillStyle = "#f8fdffff";
@@ -2285,8 +2285,8 @@ export default function Game() {
         }
       };
       if (cityBackground) {
-        drawCityLayer(cityFarRef.current,  0.55, "#2c3f62");
-        drawCityLayer(cityNearRef.current, 1.55, "#1a2840");
+        drawCityLayer(cityFarRef.current,  0.55 * BACKGROUND_SPEED_MULTIPLIER, "#2c3f62");
+        drawCityLayer(cityNearRef.current, 1.55 * BACKGROUND_SPEED_MULTIPLIER, "#1a2840");
       }
 
       const backgroundTransition = backgroundTransitionRef.current;
@@ -2929,7 +2929,7 @@ export default function Game() {
           syncDisplay();
         }
         const absorberShieldHit = absorberActiveRef.current > 0 &&
-          rectHit(playerRef.current.x + PLAYER_W - 2, playerRef.current.y - ABSORBER_SHIELD_PADDING,
+          rectHit(playerRef.current.x + PLAYER_W - 2 + ABSORBER_SHIELD_FORWARD_OFFSET, playerRef.current.y - ABSORBER_SHIELD_PADDING,
             ABSORBER_SHIELD_WIDTH, PLAYER_H + ABSORBER_SHIELD_PADDING * 2,
             e.x, e.y, e.width, e.height);
         if (absorberShieldHit && e.type !== "titan") {
@@ -3040,7 +3040,7 @@ export default function Game() {
       bulletsRef.current = bulletsRef.current.filter(b => {
         if (b.fromPlayer) return true;
         const bw = 8, bh = 8;
-        const shieldX = playerRef.current.x + PLAYER_W - 2;
+        const shieldX = playerRef.current.x + PLAYER_W - 2 + ABSORBER_SHIELD_FORWARD_OFFSET;
         const shieldY = playerRef.current.y - ABSORBER_SHIELD_PADDING;
         if (absorberActiveRef.current > 0 && b.vx < 0 &&
             rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh, shieldX, shieldY,
@@ -3222,7 +3222,7 @@ export default function Game() {
         ctx.restore();
       }
       if (absorberActiveRef.current > 0) {
-        const shieldX = playerRef.current.x + PLAYER_W + 9;
+        const shieldX = playerRef.current.x + PLAYER_W + 9 + ABSORBER_SHIELD_FORWARD_OFFSET;
         const shieldY = playerRef.current.y + PLAYER_H / 2;
         const shieldTop = shieldY - PLAYER_H * 0.62;
         const shieldBottom = shieldY + PLAYER_H * 0.62;
@@ -4517,6 +4517,8 @@ const ABSORBER_DURATION = 600;
 const ABSORBER_CHARGE_RATE = 0.045;
 const ABSORBER_SHIELD_WIDTH = 24;
 const ABSORBER_SHIELD_PADDING = 5;
+const ABSORBER_SHIELD_FORWARD_OFFSET = 5;
+const BACKGROUND_SPEED_MULTIPLIER = 2;
 const ABSORBER_BTN_R = 36;
 const STEALTH_BTN_R = 36;
 const HEAL_MAX = 520;
