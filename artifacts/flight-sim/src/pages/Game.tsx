@@ -313,6 +313,7 @@ const DRONE_SKINS = [
   { id: "drone_venom", name: "Vipernauge", body: "#102b16", stroke: "#66ff55", core: "#eaffd9", cost: 120000, rarity: "legendary", ultiName: "Toxische Wolke", ultiDesc: "Vergiftet alle Gegner und überlädt die Drohnenkanonen." },
   { id: "drone_nova", name: "Nova-Kern", body: "#351018", stroke: "#ff4f72", core: "#fff0b8", cost: 200000, rarity: "ultraLegendary", ultiName: "Supernova", ultiDesc: "Eine dauerhafte Nova-Welle fügt allen Gegnern hohen Schaden zu." },
   { id: "drone_void", name: "Leerenläufer", body: "#080914", stroke: "#6574ff", core: "#dfe4ff", cost: 200000, rarity: "ultraLegendary", ultiName: "Dimensionsriss", ultiDesc: "Reißt die Dimension auf und entreißt allen Gegnern sofort Lebensenergie." },
+  { id: "drone_omega", name: "Seraph", body: "#eef2ff", stroke: "#67e8f9", core: "#f9a8d4", cost: 500000, rarity: "ultimate", ultiName: "Omega-Protokoll", ultiDesc: "Aktiviert einen Titanenschild, friert alle Gegner ein und vervierfacht Drohnenschaden und Feuerrate." },
 ] as const;
 type DroneSkin = typeof DRONE_SKINS[number];
 
@@ -1328,18 +1329,70 @@ function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
   ctx.restore();
 }
 
-function drawCombatDrone(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, skin: DroneSkin = DRONE_SKINS[0]) {
+function drawCombatDrone(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, skin: DroneSkin = DRONE_SKINS[0], level = 1) {
+  const visualLevel = Math.max(1, Math.floor(level));
+  const tier = Math.min(4, Math.floor((visualLevel - 1) / 3));
+  const guns = getDroneStats(visualLevel - 1).guns;
+  const pulse = 0.5 + Math.sin(time * 0.14) * 0.5;
   ctx.save();
   ctx.translate(x, y + Math.sin(time * 0.08) * 4);
-  ctx.shadowColor = skin.stroke; ctx.shadowBlur = 16;
+
+  // High-level drones carry a rotating energy stabilizer behind the hull.
+  if (tier >= 3) {
+    ctx.save();
+    ctx.rotate(time * 0.018);
+    ctx.setLineDash([4, 5]);
+    ctx.beginPath(); ctx.arc(0, 0, 14 + pulse * 2, 0, Math.PI * 2);
+    ctx.strokeStyle = skin.stroke + "aa"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.restore();
+  }
+
+  // Each visual tier adds broader, more aggressive wing geometry.
+  if (tier >= 1) {
+    ctx.beginPath();
+    ctx.moveTo(5, -7); ctx.lineTo(-7 - tier * 2, -12 - tier); ctx.lineTo(-13, -5);
+    ctx.moveTo(5, 7); ctx.lineTo(-7 - tier * 2, 12 + tier); ctx.lineTo(-13, 5);
+    ctx.strokeStyle = skin.stroke; ctx.lineWidth = 2 + tier * 0.25; ctx.stroke();
+  }
+
+  ctx.shadowColor = skin.stroke; ctx.shadowBlur = 16 + tier * 3;
   ctx.beginPath();
-  ctx.moveTo(16, 0); ctx.lineTo(2, -8); ctx.lineTo(-13, -5); ctx.lineTo(-18, 0); ctx.lineTo(-13, 5); ctx.lineTo(2, 8); ctx.closePath();
+  ctx.moveTo(16 + tier, 0); ctx.lineTo(2, -8 - tier); ctx.lineTo(-13 - tier, -5 - tier * .4); ctx.lineTo(-18 - tier, 0); ctx.lineTo(-13 - tier, 5 + tier * .4); ctx.lineTo(2, 8 + tier); ctx.closePath();
   ctx.fillStyle = skin.body; ctx.fill(); ctx.strokeStyle = skin.stroke; ctx.lineWidth = 2; ctx.stroke();
-  ctx.beginPath(); ctx.arc(3, 0, 4, 0, Math.PI * 2); ctx.fillStyle = skin.core; ctx.fill();
-  ctx.fillStyle = skin.stroke; ctx.fillRect(13, -1.5, 10, 3);
-  const glow = ctx.createRadialGradient(-16, 0, 1, -16, 0, 12);
+
+  // Armour seams make intermediate upgrades visible even before the silhouette changes.
+  if (visualLevel >= 2) {
+    ctx.beginPath();
+    ctx.moveTo(-10, -4); ctx.lineTo(1, -6 - tier); ctx.lineTo(10, 0); ctx.lineTo(1, 6 + tier); ctx.lineTo(-10, 4);
+    ctx.strokeStyle = skin.stroke + "88"; ctx.lineWidth = 1; ctx.stroke();
+  }
+  if (visualLevel >= 5) {
+    ctx.fillStyle = skin.stroke + "55";
+    ctx.fillRect(-9, -8 - tier, 3, 4);
+    ctx.fillRect(-9, 4 + tier, 3, 4);
+  }
+
+  ctx.beginPath(); ctx.arc(3, 0, 4 + tier * .65, 0, Math.PI * 2);
+  ctx.fillStyle = skin.core; ctx.fill();
+  if (visualLevel >= 8) {
+    ctx.beginPath(); ctx.arc(3, 0, 7 + pulse * 1.5, 0, Math.PI * 2);
+    ctx.strokeStyle = skin.core + "bb"; ctx.lineWidth = 1; ctx.stroke();
+  }
+
+  // The weapon model mirrors the actual one-, two- or three-gun drone stats.
+  ctx.fillStyle = skin.stroke;
+  const gunOffsets = guns === 3 ? [-5, 0, 5] : guns === 2 ? [-3.5, 3.5] : [0];
+  gunOffsets.forEach(offset => ctx.fillRect(12 + tier, offset - 1.2, 11 + tier, 2.4));
+
+  const engineX = -16 - tier;
+  const glow = ctx.createRadialGradient(engineX, 0, 1, engineX, 0, 12 + tier * 2);
   glow.addColorStop(0, skin.stroke + "aa"); glow.addColorStop(1, "transparent");
-  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(-16, 0, 12, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(engineX, 0, 12 + tier * 2, 0, Math.PI * 2); ctx.fill();
+  if (tier >= 2) {
+    ctx.fillStyle = skin.core;
+    ctx.beginPath(); ctx.arc(engineX, -4.5, 1.5 + pulse, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(engineX, 4.5, 1.5 + pulse, 0, Math.PI * 2); ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -1720,10 +1773,10 @@ export default function Game() {
     const droneUltiActive = ultimaActiveRef.current > 0;
     const droneUltiId = activeDroneSkinRef.current.id;
     const droneFireMultiplier = droneUltiActive
-      ? droneUltiId === "drone_solar" ? 0.33 : 0.5
+      ? droneUltiId === "drone_omega" ? 0.25 : droneUltiId === "drone_solar" ? 0.33 : 0.5
       : 1;
     const droneDamageMultiplier = droneUltiActive
-      ? droneUltiId === "drone_solar" || droneUltiId === "drone_nova" ? 3 : 2
+      ? droneUltiId === "drone_omega" ? 4 : droneUltiId === "drone_solar" || droneUltiId === "drone_nova" ? 3 : 2
       : 1;
     const droneFireRate = 280 * drone.fireRateMultiplier * droneFireMultiplier;
 
@@ -1967,6 +2020,10 @@ export default function Game() {
       playerShieldHpRef.current += 4;
     }
     if (droneId === "drone_phantom") invincibleRef.current = Math.max(invincibleRef.current, ULTI_DURATION);
+    if (droneId === "drone_omega") {
+      shieldTimerRef.current = Math.max(shieldTimerRef.current, ULTI_DURATION);
+      playerShieldHpRef.current = Math.max(playerShieldHpRef.current, 12);
+    }
     if (droneId === "drone_void") {
       enemiesRef.current.forEach(enemy => {
         if (enemy.dead || enemy.hp <= 0 || isTitanInvulnerable(enemy)) return;
@@ -2634,7 +2691,7 @@ export default function Game() {
           enemiesRef.current.push({
             x: CANVAS_W + 30 + index * 45,
             y: clamp(playerRef.current.y + offset, 18, CANVAS_H - 42),
-            vx: -6.5, vy: 0,
+            vx: -13, vy: 0,
             hp: 8, maxHp: 8,
             width: 48, height: 26,
             type: "scout",
@@ -2739,6 +2796,7 @@ export default function Game() {
           if (droneId === "drone_ember") e.hp -= .08 * dtScale;
           if (droneId === "drone_ion") e.hp -= .10 * dtScale;
           if (droneId === "drone_frost") e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
+          if (droneId === "drone_omega") e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
           if (droneId === "drone_venom") {
             e.poisonTimer = Math.max(e.poisonTimer ?? 0, ultimaActiveRef.current);
             e.poisonTickTimer = Math.min(e.poisonTickTimer ?? POISON_TICK_INTERVAL, POISON_TICK_INTERVAL);
@@ -2784,8 +2842,8 @@ export default function Game() {
           const dx = playerRef.current.x + PLAYER_W / 2 - (e.x + e.width / 2);
           const dy = playerRef.current.y + PLAYER_H / 2 - (e.y + e.height / 2);
           const distance = Math.max(1, Math.hypot(dx, dy));
-          e.vx = dx / distance * 6.5;
-          e.vy = dy / distance * 6.5;
+          e.vx = dx / distance * 13;
+          e.vy = dy / distance * 13;
         }
         e.x += e.vx * dtScale * statusSpeed;
         e.y += e.vy * dtScale * statusSpeed;
@@ -3371,7 +3429,10 @@ export default function Game() {
         ctx.shadowColor = activeDroneSkinRef.current.stroke;
         ctx.shadowBlur = 28 + 8 * Math.sin(timeRef.current * .25);
       }
-      drawCombatDrone(ctx, droneX, droneY, timeRef.current, activeDroneSkinRef.current);
+      const droneVisualLevel = droneLevelRef.current
+        + ["drone_mk2", "drone_mk3", "drone_mk4", "drone_mk5", "drone_mk6", "drone_mk7", "drone_mk8"].filter(id => activeUnlocksRef.current.includes(id)).length
+        + runUpgradesRef.current.drone;
+      drawCombatDrone(ctx, droneX, droneY, timeRef.current, activeDroneSkinRef.current, droneVisualLevel);
       ctx.restore();
 
       // Keep the remaining duration of every active ultimate visible above the pilot.
@@ -3736,8 +3797,8 @@ function HangarOverlay({
     gg.addColorStop(0, skin.glow + "44"); gg.addColorStop(1, "transparent");
     ctx.fillStyle = gg; ctx.fillRect(0, 0, 240, 140);
     drawPlayerJet(ctx, 90, 56, 5, false, skin, undefined, aircraftLevels[skin.id] ?? 1);
-    drawCombatDrone(ctx, 105, 38, 0, DRONE_SKINS.find(s => s.id === selectedDroneSkin) ?? DRONE_SKINS[0]);
-  }, [activeSkinId, skin, selectedDroneSkin, aircraftLevels]);
+    drawCombatDrone(ctx, 105, 38, 0, DRONE_SKINS.find(s => s.id === selectedDroneSkin) ?? DRONE_SKINS[0], droneLevels[selectedDroneSkin] ?? 1);
+  }, [activeSkinId, skin, selectedDroneSkin, aircraftLevels, droneLevels]);
 
   if (view === "briefing") {
     return (
@@ -4240,7 +4301,16 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
           const rarity = SHOP_RARITIES[s.rarity];
           return <button key={s.id} onClick={() => owned ? onDroneSkinSelect(s.id) : canAfford && levelUnlocked ? onUnlockDroneSkin(s.id) : undefined} disabled={!owned && !levelUnlocked}
             className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all active:scale-95"
-            style={{ background: active ? s.stroke + "22" : "rgba(255,255,255,0.05)", border: `1px solid ${s.stroke}55`, borderLeft: `4px solid ${rarity.color}`, opacity: !owned && (!canAfford || !levelUnlocked) ? .45 : 1 }}>
+            style={{
+              background: s.rarity === "ultimate"
+                ? "linear-gradient(110deg, rgba(248,250,252,.16), rgba(103,232,249,.10), rgba(249,168,212,.12), rgba(253,230,138,.10))"
+                : active ? s.stroke + "22" : "rgba(255,255,255,0.05)",
+              border: `1px solid ${s.stroke}55`,
+              borderLeft: `4px solid ${rarity.color}`,
+              borderRight: `4px solid ${rarity.color}`,
+              boxShadow: SHOP_RARITY_ORDER[s.rarity] >= SHOP_RARITY_ORDER.legendary ? shopRarityGlow(s.rarity, 12) : undefined,
+              opacity: !owned && (!canAfford || !levelUnlocked) ? .45 : 1,
+            }}>
             <div className="w-8 h-4 rounded-full" style={{ background: s.body, border: `2px solid ${s.stroke}`, boxShadow: `0 0 8px ${s.stroke}` }} />
             <div className="text-xs font-bold">{s.name}</div>
             <div className="text-[9px] font-black" style={shopRarityLabelStyle(s.rarity)}>{rarity.label}</div>
