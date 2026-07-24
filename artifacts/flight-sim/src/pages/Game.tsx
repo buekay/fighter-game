@@ -501,7 +501,11 @@ function loadName(): string       { try { return localStorage.getItem(NAME_KEY) 
 function saveBulletColor(c: string) { try { localStorage.setItem(BULLET_COLOR_KEY, c); } catch {} }
 function loadBulletColor(): string  { try { return localStorage.getItem(BULLET_COLOR_KEY) ?? "#00ffff"; } catch { return "#00ffff"; } }
 function loadPilotKills(): number { try { return Math.max(0, Number(localStorage.getItem(PILOT_KILLS_KEY)) || 0); } catch { return 0; } }
-function addPilotKill() { try { localStorage.setItem(PILOT_KILLS_KEY, String(loadPilotKills() + 1)); } catch {} }
+function addPilotKill(): number {
+  const kills = loadPilotKills() + 1;
+  try { localStorage.setItem(PILOT_KILLS_KEY, String(kills)); } catch {}
+  return kills;
+}
 function getPilotLevelFromKills(kills = loadPilotKills()) { return getPilotLevelForScore(kills * 1000); }
 function loadSettings(): GameSettings {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Partial<GameSettings> }; }
@@ -1540,6 +1544,7 @@ export default function Game() {
   const n1ShieldTimerRef = useRef(0);
   const playerShieldHpRef = useRef(0);
   const bestScoreRef = useRef(loadHighScore());
+  const pilotLevelRef = useRef(getPilotLevelFromKills());
   const activeBulletColorRef = useRef(loadBulletColor());
   const playerNameRef = useRef(loadName());
   const [selectedSkin, setSelectedSkin] = useState(() => loadSkin());
@@ -1575,6 +1580,7 @@ export default function Game() {
   const syncDisplay = useCallback(() => {
     setDisplayState({ ...stateRef.current });
     setHighScore(loadHighScore());
+    setCoins(loadCoins());
   }, []);
 
   const updateSettings = useCallback((next: GameSettings) => {
@@ -1895,6 +1901,7 @@ export default function Game() {
     n1ShieldTimerRef.current = 0;
     playerShieldHpRef.current = 0;
     bestScoreRef.current = loadHighScore();
+    pilotLevelRef.current = getPilotLevelFromKills();
     runUpgradesRef.current = save?.runUpgrades
       ? { ...EMPTY_RUN_UPGRADES, ...save.runUpgrades }
       : { ...EMPTY_RUN_UPGRADES };
@@ -2747,7 +2754,7 @@ export default function Game() {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points;
             runStatsRef.current.kills += 1;
-            addPilotKill();
+            pilotLevelRef.current = getPilotLevelFromKills(addPilotKill());
             if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
             e.dead = true;
             checkAchievements();
@@ -2806,7 +2813,7 @@ export default function Game() {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points * (aircraftId === "gold" ? 2 : 1);
             runStatsRef.current.kills += 1;
-            addPilotKill();
+            pilotLevelRef.current = getPilotLevelFromKills(addPilotKill());
             if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
             e.dead = true;
             checkAchievements();
@@ -2825,7 +2832,7 @@ export default function Game() {
             if (e.hp <= 0) {
               gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
               runStatsRef.current.kills += 1;
-              addPilotKill();
+              pilotLevelRef.current = getPilotLevelFromKills(addPilotKill());
               if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
               e.dead = true;
               checkAchievements();
@@ -3087,7 +3094,7 @@ export default function Game() {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
             runStatsRef.current.kills += 1;
-            addPilotKill();
+            pilotLevelRef.current = getPilotLevelFromKills(addPilotKill());
             if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
             checkAchievements();
             audioRef.current.effect("explosion", settingsRef.current.soundVolume);
@@ -3251,7 +3258,7 @@ export default function Game() {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
             runStatsRef.current.kills += 1;
-            addPilotKill();
+            pilotLevelRef.current = getPilotLevelFromKills(addPilotKill());
             if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
             checkAchievements(); audioRef.current.effect("explosion", settingsRef.current.soundVolume);
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (isBossEnemy(e) ? 25 : 4));
@@ -3463,7 +3470,7 @@ export default function Game() {
       if (gs.score > bestScoreRef.current) { bestScoreRef.current = gs.score; saveHighScore(gs.score); }
 
       // ── HUD ──
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, bestScoreRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current);
 
       // ── Virtual controls overlay ──
       if (showVirtualControlsRef.current) {
@@ -4932,7 +4939,7 @@ function drawVirtualControls(
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, bestScore: number, unlocks: string[], ultiLoadout: UltiLoadoutId[]) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[]) {
   ctx.save();
   ctx.textBaseline = "top";
 
@@ -4999,6 +5006,10 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     ctx.textAlign = "right";
     ctx.fillText(`BEST: ${bestScore.toLocaleString("de-DE")}`, CANVAS_W - 8, 39);
   }
+  ctx.fillStyle = "#67e8f9";
+  ctx.font = "bold 10px 'Inter', sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText(`PILOT-LEVEL ${pilotLevel}`, CANVAS_W - 8, 52);
 
   const drawUltBar = (
     label: string, key: string,
