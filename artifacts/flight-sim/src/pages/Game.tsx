@@ -382,6 +382,7 @@ const SKIN_KEY    = "fighter-command-skin";
 const DRONE_SKIN_KEY = "fighter-command-drone-skin";
 const HS_KEY      = "fighter-command-hs";
 const COINS_KEY   = "fighter-command-coins";
+const GEMS_KEY    = "fighter-command-gems";
 const STARTING_COINS = 30_000;
 const DAILY_CHEST_KEY = "fighter-command-daily-chest";
 const DAILY_CHEST_REWARDS = [10_000, 15_000] as const;
@@ -630,6 +631,9 @@ function loadHighScore(): number  { try { return parseInt(localStorage.getItem(H
 function addCoins(n: number)      { try { localStorage.setItem(COINS_KEY, String(loadCoins() + n)); } catch {} }
 function setCoinsAbsolute(n: number) { try { localStorage.setItem(COINS_KEY, String(n)); } catch {} }
 function spendCoins(n: number)    { try { const c = loadCoins(); if (c >= n) localStorage.setItem(COINS_KEY, String(c - n)); } catch {} }
+function addGems(n: number)       { try { localStorage.setItem(GEMS_KEY, String(loadGems() + n)); } catch {} }
+function spendGems(n: number)     { try { const gems = loadGems(); if (gems >= n) localStorage.setItem(GEMS_KEY, String(gems - n)); } catch {} }
+function loadGems(): number       { try { return Math.max(0, parseInt(localStorage.getItem(GEMS_KEY) ?? "0", 10) || 0); } catch { return 0; } }
 function loadCoins(): number      {
   try {
     const savedCoins = localStorage.getItem(COINS_KEY);
@@ -1927,6 +1931,7 @@ export default function Game() {
   const [selectedSkin, setSelectedSkin] = useState(() => loadSkin());
   const [selectedDroneSkin, setSelectedDroneSkin] = useState(() => loadDroneSkin());
   const [coins, setCoins] = useState(() => loadCoins());
+  const [gems, setGems] = useState(() => loadGems());
   const [aircraftLevels, setAircraftLevels] = useState<Record<string, number>>(() => loadAircraftLevels());
   const [droneLevels, setDroneLevels] = useState<Record<string, number>>(() => loadDroneLevels());
   const aircraftUpgradeRef = useRef(getAircraftUpgradeStats(loadAircraftLevels()[loadSkin()] ?? 1));
@@ -1969,6 +1974,7 @@ export default function Game() {
     setDisplayState({ ...stateRef.current });
     setHighScore(loadHighScore());
     setCoins(loadCoins());
+    setGems(loadGems());
   }, []);
 
   const updateSettings = useCallback((next: GameSettings) => {
@@ -2065,7 +2071,9 @@ export default function Game() {
     }
     saveHighScore(gs.score);
     addLeaderboardEntry(playerNameRef.current, gs.score);
-    addCoins(Math.round(calculateCoinReward(gs.score) * getModeCoinMultiplier(activeModeRef.current)));
+    const creditReward = Math.round(calculateCoinReward(gs.score) * getModeCoinMultiplier(activeModeRef.current));
+    addCoins(creditReward);
+    addGems(Math.floor(creditReward / 100));
     syncDisplay();
   }, [syncDisplay]);
 
@@ -3141,7 +3149,8 @@ export default function Game() {
         ctx.fillText("🏆 Score gespeichert — Rangliste im Hangar!", CANVAS_W/2, CANVAS_H/2+62);
         ctx.fillStyle = "#ffd966"; ctx.font = "bold 16px 'Inter', sans-serif";
         const modeReward = Math.round(calculateCoinReward(gs.score) * getModeCoinMultiplier(activeModeRef.current));
-        ctx.fillText(`Belohnung: +${modeReward.toLocaleString("de-DE")} Credits`, CANVAS_W/2, CANVAS_H/2+86);
+        const gemReward = Math.floor(modeReward / 100);
+        ctx.fillText(`Belohnung: +${modeReward.toLocaleString("de-DE")} Credits · +${gemReward.toLocaleString("de-DE")} Juwelen`, CANVAS_W/2, CANVAS_H/2+86);
         const sLeft = Math.max(0, Math.ceil((200 - gameOverCountdownRef.current) / 60));
         ctx.fillStyle = sLeft > 0 ? "#666" : "#ffcc00";
         ctx.font = "13px 'Inter', sans-serif";
@@ -4608,26 +4617,28 @@ export default function Game() {
 
   const handleAircraftUpgrade = () => {
     const currentLevel = aircraftLevels[selectedSkin] ?? 1;
-    const cost = getAircraftUpgradeCost(currentLevel);
-    if (cost === null || loadCoins() < cost) return;
+    const creditCost = getAircraftUpgradeCost(currentLevel);
+    const cost = creditCost === null ? null : Math.ceil(creditCost / 100);
+    if (cost === null || loadGems() < cost) return;
     const next = { ...aircraftLevels, [selectedSkin]: currentLevel + 1 };
-    spendCoins(cost);
+    spendGems(cost);
     saveAircraftLevels(next);
     setAircraftLevels(next);
-    setCoins(loadCoins());
+    setGems(loadGems());
     aircraftUpgradeRef.current = getAircraftUpgradeStats(currentLevel + 1);
     audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
   };
 
   const handleDroneUpgrade = () => {
     const currentLevel = droneLevels[selectedDroneSkin] ?? 1;
-    const cost = getDroneUpgradeCost(currentLevel);
-    if (cost === null || loadCoins() < cost) return;
+    const creditCost = getDroneUpgradeCost(currentLevel);
+    const cost = creditCost === null ? null : Math.ceil(creditCost / 100);
+    if (cost === null || loadGems() < cost) return;
     const next = { ...droneLevels, [selectedDroneSkin]: currentLevel + 1 };
-    spendCoins(cost);
+    spendGems(cost);
     saveDroneLevels(next);
     setDroneLevels(next);
-    setCoins(loadCoins());
+    setGems(loadGems());
     droneLevelRef.current = currentLevel + 1;
     audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
   };
@@ -4765,6 +4776,7 @@ export default function Game() {
             selectedDroneSkin={selectedDroneSkin}
             selectedGameMode={selectedGameMode}
             coins={coins}
+            gems={gems}
             highScore={highScore}
             unlockedItems={unlockedItems}
             aircraftLevels={aircraftLevels}
@@ -4860,11 +4872,11 @@ export default function Game() {
 // ─── Hangar Overlay ───────────────────────────────────────────────────────────
 
 function HangarOverlay({
-  selectedSkin, ultiLoadout, selectedDroneSkin, selectedGameMode, coins, highScore, unlockedItems, aircraftLevels, droneLevels, hasSave, saveData,
+  selectedSkin, ultiLoadout, selectedDroneSkin, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, hasSave, saveData,
   onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
-  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedGameMode: GameMode; coins: number; highScore: number;
+  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
   unlockedItems: string[]; hasSave: boolean; saveData: { level: number; score: number; weaponTier: number } | null;
@@ -4922,7 +4934,7 @@ function HangarOverlay({
   if (view === "upgrades") {
     return (
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
-        <ShopScreen coins={coins} playerLevel={getPilotLevelFromKills()} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} selectedSkin={selectedSkin} ultiLoadout={ultiLoadout} selectedDroneSkin={selectedDroneSkin}
+        <ShopScreen coins={coins} gems={gems} playerLevel={getPilotLevelFromKills()} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} selectedSkin={selectedSkin} ultiLoadout={ultiLoadout} selectedDroneSkin={selectedDroneSkin}
           onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect}
           onUltiLoadoutChange={onUltiLoadoutChange} onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} onDailyChestClaim={onDailyChestClaim} />
       </div>
@@ -4962,7 +4974,8 @@ function HangarOverlay({
             title={translated(language, "Höchstes erreichtes Spielerlevel", "Highest player level reached")}>
             🛡 PILOT-LEVEL {getPilotLevelFromKills()}
           </div>
-          <div className="text-yellow-300 font-bold text-sm">⭐ {highScore.toLocaleString("de-DE")}</div>
+          <div className="text-cyan-300 font-bold text-sm" title="Juwelen für Flugzeug- und Drohnen-Upgrades">💎 {gems.toLocaleString("de-DE")} Juwelen</div>
+          <div className="text-slate-300 font-bold text-sm">⭐ {highScore.toLocaleString("de-DE")} Highscore</div>
           <div className="text-amber-400 font-bold text-sm" title={translated(language, "Verfügbare Credits", "Available credits")}>💰 {coins.toLocaleString(localeFor(language))} Credits</div>
           <button onClick={() => setView("leaderboard")}
             className="text-xs font-bold px-2 py-0.5 rounded"
@@ -5202,8 +5215,8 @@ function ShopStarfield() {
   );
 }
 
-function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLevels, selectedSkin, ultiLoadout, selectedDroneSkin, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim }: {
-  coins: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string;
+function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, selectedSkin, ultiLoadout, selectedDroneSkin, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim }: {
+  coins: number; gems: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string;
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
   onBack: () => void; onBuy: (id: string) => void;
@@ -5219,17 +5232,17 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
   const [dailyChestCelebrating, setDailyChestCelebrating] = useState(false);
   const [dailyChestReward, setDailyChestReward] = useState<number | null>(null);
   const [bulletColor, setBulletColor] = useState(() => loadBulletColor());
-  const [pendingPurchase, setPendingPurchase] = useState<{ name: string; cost: number; action: () => void } | null>(null);
+  const [pendingPurchase, setPendingPurchase] = useState<{ name: string; cost: number; currency: "credits" | "gems"; action: () => void } | null>(null);
   const [purchaseCelebration, setPurchaseCelebration] = useState<{ name: string; nonce: number } | null>(null);
   const dailyChestTimers = useRef<number[]>([]);
   useEffect(() => () => dailyChestTimers.current.forEach(window.clearTimeout), []);
 
-  const requestPurchase = (name: string, cost: number, action: () => void) => {
-    setPendingPurchase({ name, cost, action });
+  const requestPurchase = (name: string, cost: number, action: () => void, currency: "credits" | "gems" = "credits") => {
+    setPendingPurchase({ name, cost, currency, action });
   };
 
   const confirmPurchase = () => {
-    if (!pendingPurchase || coins < pendingPurchase.cost) return;
+    if (!pendingPurchase || (pendingPurchase.currency === "gems" ? gems : coins) < pendingPurchase.cost) return;
     const purchasedName = pendingPurchase.name;
     pendingPurchase.action();
     setPendingPurchase(null);
@@ -5254,10 +5267,12 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
   };
   const selectedJet = JET_SKINS.find(s => s.id === selectedSkin) ?? JET_SKINS[0];
   const aircraftStats = getAircraftUpgradeStats(aircraftLevels[selectedSkin] ?? 1);
-  const aircraftUpgradeCost = getAircraftUpgradeCost(aircraftStats.level);
+  const aircraftCreditCost = getAircraftUpgradeCost(aircraftStats.level);
+  const aircraftUpgradeCost = aircraftCreditCost === null ? null : Math.ceil(aircraftCreditCost / 100);
   const selectedDrone = DRONE_SKINS.find(s => s.id === selectedDroneSkin) ?? DRONE_SKINS[0];
   const droneLevel = droneLevels[selectedDroneSkin] ?? 1;
-  const droneUpgradeCost = getDroneUpgradeCost(droneLevel);
+  const droneCreditCost = getDroneUpgradeCost(droneLevel);
+  const droneUpgradeCost = droneCreditCost === null ? null : Math.ceil(droneCreditCost / 100);
   const mkUpgrades = ["drone_mk2", "drone_mk3", "drone_mk4", "drone_mk5", "drone_mk6", "drone_mk7", "drone_mk8"].filter(id => unlockedItems.includes(id)).length;
   const droneStats = getDroneStats(mkUpgrades + droneLevel - 1);
   return (
@@ -5266,12 +5281,12 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
       {pendingPurchase && (
         <div className="purchase-confirmation fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4" role="dialog" aria-modal="true" aria-labelledby="purchase-title">
           <div className="w-full max-w-sm rounded-3xl border border-amber-300/70 bg-[#090d1d]/95 p-6 text-center shadow-[0_0_45px_#fbbf2444]">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-amber-300/60 bg-amber-400/10 text-4xl shadow-[0_0_25px_#fbbf2444]">💰</div>
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-amber-300/60 bg-amber-400/10 text-4xl shadow-[0_0_25px_#fbbf2444]">{pendingPurchase.currency === "gems" ? "💎" : "💰"}</div>
             <div className="mt-4 text-[10px] font-black uppercase tracking-[.28em] text-amber-300">Kauf bestätigen</div>
             <h3 id="purchase-title" className="mt-2 text-2xl font-black text-white">Bist du sicher?</h3>
             <p className="mt-2 text-sm text-slate-300">
               Möchtest du <b className="text-white">{pendingPurchase.name}</b> für{" "}
-              <b className="text-amber-300">{pendingPurchase.cost.toLocaleString("de-DE")} Credits</b> kaufen?
+              <b className="text-amber-300">{pendingPurchase.cost.toLocaleString("de-DE")} {pendingPurchase.currency === "gems" ? "Juwelen" : "Credits"}</b> kaufen?
             </p>
             <div className="mt-6 grid grid-cols-2 gap-3">
               <button autoFocus onClick={() => setPendingPurchase(null)} className="rounded-xl border border-slate-500 bg-slate-800/80 px-4 py-3 font-black text-slate-200 transition hover:bg-slate-700">
@@ -5302,7 +5317,8 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
         <button onClick={onBack} className="text-slate-400 hover:text-white text-xl font-bold px-2">←</button>
         <h2 className="font-bold text-xl tracking-wide" style={{ textShadow: "0 0 12px #00cfff88" }}>SHOP</h2>
         <span className="rounded-full border border-cyan-400/50 bg-cyan-950/60 px-2.5 py-1 text-xs font-black text-cyan-300">PILOT-LEVEL {playerLevel}</span>
-        <span className="ml-auto text-amber-300 font-bold text-sm">💰 {coins.toLocaleString("de-DE")}</span>
+        <span className="ml-auto text-cyan-300 font-bold text-sm">💎 {gems.toLocaleString("de-DE")}</span>
+        <span className="text-amber-300 font-bold text-sm">💰 {coins.toLocaleString("de-DE")}</span>
       </div>
 
       <button
@@ -5379,10 +5395,10 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
           {aircraftUpgradeCost === null ? (
             <span className="shrink-0 rounded-lg border border-emerald-400/50 px-3 py-2 text-xs font-black text-emerald-300">MAX</span>
           ) : (
-            <button onClick={() => requestPurchase(`${selectedJet.name} auf Level ${aircraftStats.level + 1}`, aircraftUpgradeCost, onAircraftUpgrade)} disabled={coins < aircraftUpgradeCost}
+            <button onClick={() => requestPurchase(`${selectedJet.name} auf Level ${aircraftStats.level + 1}`, aircraftUpgradeCost, onAircraftUpgrade, "gems")} disabled={gems < aircraftUpgradeCost}
               className="shrink-0 rounded-lg px-3 py-2 text-xs font-black transition active:scale-95 disabled:opacity-40"
               style={{ background: "rgba(8,90,120,.65)", border: "1px solid #22d3ee", color: "#a5f3fc" }}>
-              LEVEL {aircraftStats.level + 1}<br />💰 {aircraftUpgradeCost.toLocaleString("de-DE")}
+              LEVEL {aircraftStats.level + 1}<br />💎 {aircraftUpgradeCost.toLocaleString("de-DE")}
             </button>
           )}
         </div>
@@ -5405,10 +5421,10 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
           {droneUpgradeCost === null ? (
             <span className="shrink-0 rounded-lg border border-emerald-400/50 px-3 py-2 text-xs font-black text-emerald-300">MAX</span>
           ) : (
-            <button onClick={() => requestPurchase(`${selectedDrone.name} auf Level ${droneLevel + 1}`, droneUpgradeCost, onDroneUpgrade)} disabled={coins < droneUpgradeCost}
+            <button onClick={() => requestPurchase(`${selectedDrone.name} auf Level ${droneLevel + 1}`, droneUpgradeCost, onDroneUpgrade, "gems")} disabled={gems < droneUpgradeCost}
               className="shrink-0 rounded-lg px-3 py-2 text-xs font-black transition active:scale-95 disabled:opacity-40"
               style={{ background: "rgba(80,25,120,.65)", border: "1px solid #c084fc", color: "#e9d5ff" }}>
-              LEVEL {droneLevel + 1}<br />💰 {droneUpgradeCost.toLocaleString("de-DE")}
+              LEVEL {droneLevel + 1}<br />💎 {droneUpgradeCost.toLocaleString("de-DE")}
             </button>
           )}
         </div>
@@ -5629,21 +5645,21 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
     { icon: "📦", title: "Power-ups", text: "Zerstörte Gegner können nützliche Pick-ups hinterlassen: Heilung stellt HP wieder her, Schilde geben zusätzlichen Schutz und Tempo-Boosts machen deinen Jet vorübergehend schneller. Berühre ein Symbol mit deinem Jet, bevor es vom Bildschirm verschwindet." },
     { icon: "⚡", title: "Waffen & Fähigkeiten", text: "Halte die Feuertaste gedrückt oder aktiviere optional Auto-Fire in den Einstellungen. Vor dem Start rüstest du höchstens zwei Spezialfähigkeiten aus; sobald eine Anzeige voll ist, aktivierst du sie mit der eingeblendeten Taste oder dem Touch-Knopf." },
     { icon: "⬆", title: "Fortschritt", text: "Nach abgeschlossenen Sektoren pausiert das Gefecht und du wählst eines von drei Upgrades für den aktuellen Lauf. Diese Boni gelten bis zum Missionsende. Checkpoints speichern Level, Punktzahl und Waffenstufe, sodass du einen unterbrochenen Einsatz später über „Weiterspielen“ fortsetzen kannst." },
-    { icon: "💰", title: "Credits & Hangar", text: "Nach dem Missionsende wird jeder erzielte Punkt in einen Credit umgewandelt. Credits bleiben dauerhaft erhalten. Im Hangar-Shop investierst du sie in Jet- und Drohnen-Upgrades, neue Skins und weitere Vorteile; abgeschlossene Erfolge zahlen zusätzliche Belohnungen aus." },
+    { icon: "💎", title: "Credits, Juwelen & Hangar", text: "Nach dem Missionsende wird jeder erzielte Punkt in einen Credit umgewandelt. Zusätzlich erhältst du je 100 Einsatz-Credits ein Juwel. Flugzeug- und Drohnen-Level bezahlst du mit Juwelen; Skins und weitere Shopartikel weiterhin mit Credits." },
   ] : language === "tr" ? [
     { icon: "🎯", title: "Görevin", text: "Uçağını giderek zorlaşan ve otomatik kayan sektörlerde yönlendir. Düşmanlardan ve mermilerden kaç, hedefleri vur ve mümkün olduğunca çok puan topla. Puanın arttıkça pilot seviyen yükselir; bölüm sonu savaşları görevin büyük aşamalarını belirler." },
     { icon: "❤", title: "Hayatta kalma", text: "Her düşman isabeti HP'ni azaltır. HP sıfıra düştüğünde bir can kaybeder ve tam enerjiyle geri dönersin. Son canından sonra görev biter. Aktif kalkan önce hasarı emer, ancak kaçınmak hâlâ en güvenli taktiktir." },
     { icon: "📦", title: "Güçlendirmeler", text: "Yok edilen düşmanlar yararlı güçlendirmeler bırakabilir: sağlık HP'ni yeniler, kalkanlar ek koruma sağlar ve hız takviyeleri uçağını geçici olarak hızlandırır. Simgeler ekrandan çıkmadan önce uçağınla onlara dokun." },
     { icon: "⚡", title: "Silahlar ve özel yetenekler", text: "Kesintisiz ateş etmek için ateş kontrolünü basılı tut. Savaş sırasında uçağına özel 10 saniyelik yetenek ile lazer, gizlilik ve iyileştirme dolar. Gösterge dolduğunda ekrandaki tuşla yeteneği etkinleştir." },
     { icon: "⬆", title: "İlerleme", text: "Sektörleri tamamladıktan sonra savaş durur ve mevcut görev için üç geliştirmeden birini seçersin. Bu bonuslar görev sonuna kadar geçerlidir. Kontrol noktaları seviyeni, puanını ve silah kademeni kaydeder; böylece göreve daha sonra Devam Et ile dönebilirsin." },
-    { icon: "💰", title: "Krediler ve hangar", text: "Görev sonunda kazandığın her puan bir krediye dönüşür. Krediler kalıcıdır. Hangar mağazasında uçak ve drone geliştirmeleri, yeni görünümler ve diğer avantajlar satın alabilir; başarılarla ek ödüller kazanabilirsin." },
+    { icon: "💎", title: "Krediler, mücevherler ve hangar", text: "Görev sonunda her puan bir krediye dönüşür ve her 100 görev kredisi için bir mücevher kazanırsın. Uçak ve drone seviyeleri mücevherlerle; görünümler ve diğer mağaza ürünleri kredilerle alınır." },
   ] : [
     { icon: "🎯", title: "Your mission", text: "Pilot your jet through automatically scrolling sectors that become progressively harder. Dodge enemies and projectiles, shoot down targets, and score as many points as possible. Your pilot level rises with your score, while boss fights mark the major milestones of a mission." },
     { icon: "❤", title: "Survival", text: "Every enemy hit reduces your HP. When HP reaches zero, you lose a life and return at full health. The mission ends after your final life. An active shield absorbs damage first, but dodging remains your safest tactic." },
     { icon: "📦", title: "Power-ups", text: "Destroyed enemies may leave useful pick-ups behind: health restores HP, shields provide extra protection, and speed boosts temporarily make your jet faster. Touch an icon with your jet before it leaves the screen." },
     { icon: "⚡", title: "Weapons & abilities", text: "Hold the fire control or optionally enable auto-fire in Settings. Equip up to two special abilities before launch; once a meter is full, activate it with the displayed key or touch button." },
     { icon: "⬆", title: "Progress", text: "After clearing sectors, combat pauses and you choose one of three upgrades for the current run. These bonuses last until the mission ends. Checkpoints save your level, score, and weapon tier so you can resume an interrupted mission later with Continue." },
-    { icon: "💰", title: "Credits & hangar", text: "At the end of a mission, every point you scored becomes one credit. Credits are kept permanently. Spend them in the hangar shop on aircraft and drone upgrades, new skins, and other advantages; achievements grant additional rewards." },
+    { icon: "💎", title: "Credits, gems & hangar", text: "At the end of a mission, every point becomes one credit, and every 100 mission credits also earn one gem. Aircraft and drone levels cost gems; skins and other shop items continue to cost credits." },
   ];
   const keyboardHelp = language === "de" ? [
     ["WASD / Pfeile", "Bewegen"],
