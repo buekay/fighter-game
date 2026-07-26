@@ -397,15 +397,15 @@ const JET_SKINS = [
   { id: "gold", name: "Midas", body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 50000, rarity: "rare", ultiName: "Goldrausch", ultiDesc: "Doppelte Punkte und deutlich schnellere Feuerrate." },
   { id: "shadow", name: "Nyx", body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 50000, rarity: "rare", ultiName: "Phantomflug", ultiDesc: "Unsichtbar und unverwundbar; endet mit einer Schockwelle." },
   { id: "crimson", name: "Ravena", body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 50000, rarity: "rare", ultiName: "Blutrausch", ultiDesc: "Doppelter Schaden und massiv erhöhte Feuerrate." },
-  { id: "galaxy", name: "Orion", body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 80000, rarity: "epic", ultiName: "Schwarzes Loch", ultiDesc: "Zieht Gegner zur Mitte und beschädigt sie dauerhaft." },
-  { id: "neon", name: "Voltara", body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 80000, rarity: "epic", ultiName: "Kettenblitz", ultiDesc: "Blitze springen fortlaufend durch alle Gegner." },
-  { id: "arctic", name: "Boreas", body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 80000, rarity: "epic", ultiName: "Absoluter Nullpunkt", ultiDesc: "Friert Gegner und gegnerische Projektile vollständig ein." },
-  { id: "lava", name: "Vulkara", body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 80000, rarity: "epic", ultiName: "Vulkanausbruch", ultiDesc: "Explosive Lavawellen verursachen hohen Flächenschaden." },
-  { id: "xwing", name: "X-Wing", body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 120000, rarity: "legendary", ultiName: "Rebellenangriff", ultiDesc: "Zwei verbündete X-Wings greifen mit dir gemeinsam an." },
-  { id: "tiefighter", name: "TIE Fighter", body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 120000, rarity: "legendary", ultiName: "Imperialer Schwarm", ultiDesc: "Vier TIE-Jäger umkreisen dich und feuern gemeinsam." },
-  { id: "n1", name: "Naboo-Sternjäger", body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 200000, rarity: "ultraLegendary", ultiName: "Naboo-Blitz", ultiDesc: "Unverwundbar: Naboo-Blitz, Schwarzes Loch und gezielte X-Wing-Feuerbälle zugleich." },
-  { id: "solaris", name: "Solaris Prime", body: "#4a1900", stroke: "#ff8a00", glow: "#fff06a", cost: 500000, rarity: "ultimate", ultiName: "Phönix-Protokoll", ultiDesc: "Repariert den Jet vollständig, aktiviert einen Schild und verstärkt Kanonen und Feuerrate massiv." },
-  { id: "voidreaper", name: "Void Reaper", body: "#10052d", stroke: "#6d28d9", glow: "#e879f9", cost: 500000, rarity: "ultimate", ultiName: "Nullzone", ultiDesc: "Löscht gegnerische Projektile, verlangsamt alle Gegner und verdoppelt deinen Waffenschaden." },
+  { id: "galaxy", name: "Orion", body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 100000, rarity: "epic", ultiName: "Schwarzes Loch", ultiDesc: "Zieht Gegner zur Mitte und beschädigt sie dauerhaft." },
+  { id: "neon", name: "Voltara", body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 100000, rarity: "epic", ultiName: "Kettenblitz", ultiDesc: "Blitze springen fortlaufend durch alle Gegner." },
+  { id: "arctic", name: "Boreas", body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 100000, rarity: "epic", ultiName: "Absoluter Nullpunkt", ultiDesc: "Friert Gegner und gegnerische Projektile vollständig ein." },
+  { id: "lava", name: "Vulkara", body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 100000, rarity: "epic", ultiName: "Vulkanausbruch", ultiDesc: "Explosive Lavawellen verursachen hohen Flächenschaden." },
+  { id: "xwing", name: "X-Wing", body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 200000, rarity: "legendary", ultiName: "Rebellenangriff", ultiDesc: "Zwei verbündete X-Wings greifen mit dir gemeinsam an." },
+  { id: "tiefighter", name: "TIE Fighter", body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 200000, rarity: "legendary", ultiName: "Imperialer Schwarm", ultiDesc: "Vier TIE-Jäger umkreisen dich und feuern gemeinsam." },
+  { id: "n1", name: "Naboo-Sternjäger", body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 400000, rarity: "ultraLegendary", ultiName: "Naboo-Blitz", ultiDesc: "Unverwundbar: Naboo-Blitz, Schwarzes Loch und gezielte X-Wing-Feuerbälle zugleich." },
+  { id: "solaris", name: "Solaris Prime", body: "#4a1900", stroke: "#ff8a00", glow: "#fff06a", cost: 1000000, rarity: "ultimate", ultiName: "Phönix-Protokoll", ultiDesc: "Repariert den Jet vollständig, aktiviert einen Schild und verstärkt Kanonen und Feuerrate massiv." },
+  { id: "voidreaper", name: "Void Reaper", body: "#10052d", stroke: "#6d28d9", glow: "#e879f9", cost: 1000000, rarity: "ultimate", ultiName: "Nullzone", ultiDesc: "Löscht gegnerische Projektile, verlangsamt alle Gegner und verdoppelt deinen Waffenschaden." },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
@@ -413,13 +413,13 @@ const DRONE_SKINS = [
   { id: "drone_violet", name: "Amethyst-Wächter", body: "#24153c", stroke: "#b86cff", core: "#f0d5ff", cost: 0, rarity: "rare", ultiName: "Amethyst-Bastion", ultiDesc: "Verstärkt den Schild und verdoppelt den Drohnenschaden." },
   { id: "drone_ember", name: "Aschenfalke", body: "#3b1608", stroke: "#ff6a28", core: "#ffe0a8", cost: 25000, rarity: "rare", ultiName: "Glutsturm", ultiDesc: "Verbrennt alle Gegner und verdoppelt den Drohnenschaden." },
   { id: "drone_ion", name: "Ionensturm", body: "#092a38", stroke: "#22dfff", core: "#d9fbff", cost: 50000, rarity: "rare", ultiName: "Ionen-Kaskade", ultiDesc: "Kettenenergie trifft fortlaufend alle Gegner." },
-  { id: "drone_phantom", name: "Nachtgeist", body: "#171224", stroke: "#e94cff", core: "#ffffff", cost: 80000, rarity: "epic", ultiName: "Phantomkern", ultiDesc: "Macht den Piloten unverwundbar und überlädt die Drohne." },
-  { id: "drone_solar", name: "Sonnenlanze", body: "#332a05", stroke: "#ffe34c", core: "#fffbd1", cost: 120000, rarity: "legendary", ultiName: "Solar-Salve", ultiDesc: "Dreifache Drohnen-Feuerrate und dreifacher Schaden." },
-  { id: "drone_frost", name: "Frostklinge", body: "#10273b", stroke: "#9ee8ff", core: "#ffffff", cost: 80000, rarity: "epic", ultiName: "Kryo-Impuls", ultiDesc: "Friert alle Gegner während der kombinierten Ulti ein." },
-  { id: "drone_venom", name: "Vipernauge", body: "#102b16", stroke: "#66ff55", core: "#eaffd9", cost: 120000, rarity: "legendary", ultiName: "Toxische Wolke", ultiDesc: "Vergiftet alle Gegner und überlädt die Drohnenkanonen." },
-  { id: "drone_nova", name: "Nova-Kern", body: "#351018", stroke: "#ff4f72", core: "#fff0b8", cost: 200000, rarity: "ultraLegendary", ultiName: "Supernova", ultiDesc: "Eine dauerhafte Nova-Welle fügt allen Gegnern hohen Schaden zu." },
-  { id: "drone_void", name: "Leerenläufer", body: "#080914", stroke: "#6574ff", core: "#dfe4ff", cost: 200000, rarity: "ultraLegendary", ultiName: "Dimensionsriss", ultiDesc: "Reißt die Dimension auf und entreißt allen Gegnern sofort Lebensenergie." },
-  { id: "drone_omega", name: "Seraph", body: "#eef2ff", stroke: "#67e8f9", core: "#f9a8d4", cost: 500000, rarity: "ultimate", ultiName: "Omega-Protokoll", ultiDesc: "Aktiviert einen Titanenschild, friert alle Gegner ein und vervierfacht Drohnenschaden und Feuerrate." },
+  { id: "drone_phantom", name: "Nachtgeist", body: "#171224", stroke: "#e94cff", core: "#ffffff", cost: 100000, rarity: "epic", ultiName: "Phantomkern", ultiDesc: "Macht den Piloten unverwundbar und überlädt die Drohne." },
+  { id: "drone_solar", name: "Sonnenlanze", body: "#332a05", stroke: "#ffe34c", core: "#fffbd1", cost: 200000, rarity: "legendary", ultiName: "Solar-Salve", ultiDesc: "Dreifache Drohnen-Feuerrate und dreifacher Schaden." },
+  { id: "drone_frost", name: "Frostklinge", body: "#10273b", stroke: "#9ee8ff", core: "#ffffff", cost: 100000, rarity: "epic", ultiName: "Kryo-Impuls", ultiDesc: "Friert alle Gegner während der kombinierten Ulti ein." },
+  { id: "drone_venom", name: "Vipernauge", body: "#102b16", stroke: "#66ff55", core: "#eaffd9", cost: 200000, rarity: "legendary", ultiName: "Toxische Wolke", ultiDesc: "Vergiftet alle Gegner und überlädt die Drohnenkanonen." },
+  { id: "drone_nova", name: "Nova-Kern", body: "#351018", stroke: "#ff4f72", core: "#fff0b8", cost: 400000, rarity: "ultraLegendary", ultiName: "Supernova", ultiDesc: "Eine dauerhafte Nova-Welle fügt allen Gegnern hohen Schaden zu." },
+  { id: "drone_void", name: "Leerenläufer", body: "#080914", stroke: "#6574ff", core: "#dfe4ff", cost: 400000, rarity: "ultraLegendary", ultiName: "Dimensionsriss", ultiDesc: "Reißt die Dimension auf und entreißt allen Gegnern sofort Lebensenergie." },
+  { id: "drone_omega", name: "Seraph", body: "#eef2ff", stroke: "#67e8f9", core: "#f9a8d4", cost: 1000000, rarity: "ultimate", ultiName: "Omega-Protokoll", ultiDesc: "Aktiviert einen Titanenschild, friert alle Gegner ein und vervierfacht Drohnenschaden und Feuerrate." },
 ] as const;
 type DroneSkin = typeof DRONE_SKINS[number];
 
@@ -434,26 +434,26 @@ interface ShopItem {
 
 const SHOP_ITEMS: readonly ShopItem[] = [
   { id: "drone_mk2",     name: "Drohne MK II",      desc: "+1 Drohnenschaden und 12% schnelleres Feuer",      cost: 50000,  rarity: "rare" },
-  { id: "drone_mk3",     name: "Drohne MK III",     desc: "Zwei Kanonen und nochmals 12% schnelleres Feuer", cost: 80000,  rarity: "epic", requires: "drone_mk2" },
-  { id: "drone_mk4",     name: "Drohne MK IV",      desc: "+1 Drohnenschaden und nochmals 12% schneller",    cost: 120000, rarity: "legendary", requires: "drone_mk3" },
-  { id: "drone_mk5",     name: "Drohne MK V",       desc: "Hochleistungsantrieb: nochmals 12% schneller",     cost: 120000, rarity: "legendary", requires: "drone_mk4" },
-  { id: "drone_mk6",     name: "Drohne MK VI",      desc: "Drei Kanonen, +1 Schaden und nochmals 12% schneller", cost: 200000, rarity: "ultraLegendary", requires: "drone_mk5" },
-  { id: "drone_mk7",     name: "Drohne MK VII",     desc: "Quantenkühlung: nochmals 12% schnelleres Feuer",  cost: 200000, rarity: "ultraLegendary", requires: "drone_mk6" },
-  { id: "drone_mk8",     name: "Drohne MK VIII",    desc: "+1 Drohnenschaden bei maximaler Feuerrate",       cost: 200000, rarity: "ultraLegendary", requires: "drone_mk7" },
+  { id: "drone_mk3",     name: "Drohne MK III",     desc: "Zwei Kanonen und nochmals 12% schnelleres Feuer", cost: 100000, rarity: "epic", requires: "drone_mk2" },
+  { id: "drone_mk4",     name: "Drohne MK IV",      desc: "+1 Drohnenschaden und nochmals 12% schneller",    cost: 200000, rarity: "legendary", requires: "drone_mk3" },
+  { id: "drone_mk5",     name: "Drohne MK V",       desc: "Hochleistungsantrieb: nochmals 12% schneller",     cost: 200000, rarity: "legendary", requires: "drone_mk4" },
+  { id: "drone_mk6",     name: "Drohne MK VI",      desc: "Drei Kanonen, +1 Schaden und nochmals 12% schneller", cost: 400000, rarity: "ultraLegendary", requires: "drone_mk5" },
+  { id: "drone_mk7",     name: "Drohne MK VII",      desc: "Quantenkühlung: nochmals 12% schnelleres Feuer",  cost: 400000, rarity: "ultraLegendary", requires: "drone_mk6" },
+  { id: "drone_mk8",     name: "Drohne MK VIII",     desc: "+1 Drohnenschaden bei maximaler Feuerrate",       cost: 400000, rarity: "ultraLegendary", requires: "drone_mk7" },
   { id: "ulti_boost",    name: "Ulti-Boost",       desc: "Ultis laden 50% schneller",                      cost: 50000,  rarity: "rare" },
   { id: "extra_life",    name: "+1 Leben",          desc: "Starte mit 4 statt 3 Leben",                     cost: 50000,  rarity: "rare" },
   { id: "weapon_head",   name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                        cost: 50000,  rarity: "rare" },
   { id: "clone_upgrade", name: "Flugzeug-Ulti ⬆", desc: "Die Flugzeug-Ulti lädt 25% schneller", cost: 50000, rarity: "rare" },
   { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 50000,  rarity: "rare" },
-  { id: "clone_laser", name: "Flügelmann-Laser", desc: "Beschworene Flügelmänner kopieren den Laser", cost: 80000, rarity: "epic" },
-  { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 120000, rarity: "legendary" },
-  { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 120000, rarity: "legendary" },
-  { id: "poison_missiles_ulti", name: "Gift-Raketen-Ulti ☣", desc: "3 Lenkraketen: 20 Schaden + 5 Sek. Gift [Taste T]", cost: 120000, rarity: "legendary" },
-  { id: "absorber_ulti", name: "Absorber-Ulti ◖", desc: "10 Sek. unzerstörbares pinkes Frontschild; Treffer erhöhen den Schaden auf 2×, 4×, dann 8× [Taste F]", cost: 200000, rarity: "ultraLegendary" },
-  { id: "ultimate_ulti", name: "Ultimate Ulti ⚡", desc: "10 Sek. Titanenschild, 2× Schaden, Frost & Kettenblitze [Taste U]", cost: 500000, rarity: "ultimate" },
+  { id: "clone_laser", name: "Flügelmann-Laser", desc: "Beschworene Flügelmänner kopieren den Laser", cost: 100000, rarity: "epic" },
+  { id: "stealth_ulti",  name: "Stealth-Ulti 👁",  desc: "10 Sek. unsichtbar & unverwundbar  [Taste R]",    cost: 200000, rarity: "legendary" },
+  { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 200000, rarity: "legendary" },
+  { id: "poison_missiles_ulti", name: "Gift-Raketen-Ulti ☣", desc: "3 Lenkraketen: 20 Schaden + 5 Sek. Gift [Taste T]", cost: 200000, rarity: "legendary" },
+  { id: "absorber_ulti", name: "Absorber-Ulti ◖", desc: "10 Sek. unzerstörbares pinkes Frontschild; Treffer erhöhen den Schaden auf 2×, 4×, dann 8× [Taste F]", cost: 400000, rarity: "ultraLegendary" },
+  { id: "ultimate_ulti", name: "Ultimate Ulti ⚡", desc: "10 Sek. Titanenschild, 2× Schaden, Frost & Kettenblitze [Taste U]", cost: 1000000, rarity: "ultimate" },
   { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 50000,  rarity: "rare" },
   { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 50000,  rarity: "rare" },
-  { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 80000,  rarity: "epic" },
+  { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 100000, rarity: "epic" },
 ] as const;
 const SORTED_SHOP_ITEMS = [...SHOP_ITEMS].sort(
   (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity],
@@ -2579,6 +2579,10 @@ export default function Game() {
     milestoneBossFiredRef.current = new Set();
     titanBossFiredRef.current = new Set();
     saveExistsRef.current = !!loadSave();
+    if (mode === "classic") {
+      saveGame(stateRef.current, runUpgradesRef.current, upgradeLevelRef.current);
+      saveExistsRef.current = true;
+    }
     setPauseView("menu");
     const shouldTeach = settingsRef.current.tutorial && !tutorialSeen() && !fromSave;
     tutorialStageRef.current = shouldTeach ? 0 : -1;

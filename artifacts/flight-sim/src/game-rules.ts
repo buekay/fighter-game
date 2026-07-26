@@ -159,6 +159,7 @@ export const MOBILE_CONTROL_HELP = [
   "GIFT -> Gift-Raketen-Ulti (T)",
 ] as const;
 const EARLY_MILESTONE_BOSS_LEVELS = new Set([3, 5, 8, 10, 12, 15, 18]);
+const LEVEL_SCORE_MULTIPLIER = 1.5;
 const BASE_LEVEL_THRESHOLDS = [
   0, 150, 350, 600, 900, 1300, 1800, 2400, 3100, 4000,
   5100, 6400, 7900, 9600, 11500, 13700, 16200, 19000, 22200, 25800,
@@ -176,12 +177,13 @@ export function getLevelThreshold(level: number): number {
   const clampedLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
 
   if (clampedLevel <= BASE_LEVEL_THRESHOLDS.length) {
-    return BASE_LEVEL_THRESHOLDS[clampedLevel - 1];
+    return Math.round(BASE_LEVEL_THRESHOLDS[clampedLevel - 1] * LEVEL_SCORE_MULTIPLIER);
   }
 
   const previous = BASE_LEVEL_THRESHOLDS[BASE_LEVEL_THRESHOLDS.length - 1];
   const span = clampedLevel - BASE_LEVEL_THRESHOLDS.length;
-  return previous + Math.round(70000 * span + 2800 * span * span);
+  const threshold = previous + Math.round(70000 * span + 2800 * span * span);
+  return Math.round(threshold * LEVEL_SCORE_MULTIPLIER);
 }
 
 export function getLevelForScore(score: number): number {
@@ -202,6 +204,7 @@ const PILOT_LEVEL_ANCHORS = [
   { level: 15, score: 100_000 },
   { level: 20, score: 150_000 },
 ] as const;
+const PILOT_LEVEL_THRESHOLD_MULTIPLIER = 4;
 
 export function getPilotLevelThreshold(level: number): number {
   const safeLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
@@ -211,11 +214,14 @@ export function getPilotLevelThreshold(level: number): number {
     const upper = PILOT_LEVEL_ANCHORS[i];
     if (safeLevel <= upper.level) {
       const progress = (safeLevel - lower.level) / (upper.level - lower.level);
-      return Math.round(lower.score + (upper.score - lower.score) * progress);
+      return Math.round(
+        (lower.score + (upper.score - lower.score) * progress) *
+          PILOT_LEVEL_THRESHOLD_MULTIPLIER,
+      );
     }
   }
 
-  return 150_000 + (safeLevel - 20) * 10_000;
+  return (150_000 + (safeLevel - 20) * 10_000) * PILOT_LEVEL_THRESHOLD_MULTIPLIER;
 }
 
 export function getPilotLevelForScore(score: number): number {

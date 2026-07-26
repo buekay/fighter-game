@@ -64,22 +64,25 @@ assert.deepEqual(applyPlayerDamage(damagedOnLastLife, 3), {
 });
 
 assert.equal(getLevelForScore(getLevelThreshold(1)), 1);
+assert.equal(getLevelThreshold(2), 225);
+assert.equal(getLevelThreshold(10), 6_000);
+assert.equal(getLevelThreshold(100), 14_622_000);
 assert.equal(getLevelForScore(getLevelThreshold(250)), 250);
 assert.equal(getLevelForScore(getLevelThreshold(500)), 500);
 assert.equal(getLevelForScore(getLevelThreshold(500) + 999_999_999), 500);
 
 assert.equal(getPilotLevelForScore(0), 1);
-assert.equal(getPilotLevelThreshold(5), 30_000);
-assert.equal(getPilotLevelThreshold(10), 50_000);
-assert.equal(getPilotLevelThreshold(15), 100_000);
-assert.equal(getPilotLevelThreshold(20), 150_000);
-assert.equal(getPilotLevelThreshold(25), 200_000);
-assert.equal(getPilotLevelForScore(29_999), 4);
-assert.equal(getPilotLevelForScore(30_000), 5);
-assert.equal(getPilotLevelForScore(49_999), 9);
-assert.equal(getPilotLevelForScore(50_000), 10);
-assert.equal(getPilotLevelForScore(100_000), 15);
-assert.equal(getPilotLevelForScore(150_000), 20);
+assert.equal(getPilotLevelThreshold(5), 120_000);
+assert.equal(getPilotLevelThreshold(10), 200_000);
+assert.equal(getPilotLevelThreshold(15), 400_000);
+assert.equal(getPilotLevelThreshold(20), 600_000);
+assert.equal(getPilotLevelThreshold(25), 800_000);
+assert.equal(getPilotLevelForScore(119_999), 4);
+assert.equal(getPilotLevelForScore(120_000), 5);
+assert.equal(getPilotLevelForScore(199_999), 9);
+assert.equal(getPilotLevelForScore(200_000), 10);
+assert.equal(getPilotLevelForScore(400_000), 15);
+assert.equal(getPilotLevelForScore(600_000), 20);
 
 assert.equal(isBossEligibleLevel(19), true);
 assert.equal(isBossEligibleLevel(20), true);
