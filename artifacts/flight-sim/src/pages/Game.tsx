@@ -24,6 +24,7 @@ import {
   isBossEligibleLevel,
   isLaserDeviceEligibleLevel,
   isMilestoneBossLevel,
+  isTitanBossLevel,
   shouldUseAboveCloudsBackground,
   shouldUseCityBackground,
   shouldUseSpaceBackground,
@@ -178,7 +179,9 @@ interface GameSettings {
 }
 
 type RunUpgradeId = "rapid_fire" | "damage" | "max_hp" | "drone" | "critical" | "shield" |
-  "missile_mastery" | "chain_lightning" | "cryo_rounds" | "glass_cannon" | "vampiric" | "graze_core";
+  "missile_mastery" | "chain_lightning" | "cryo_rounds" | "glass_cannon" | "vampiric" | "graze_core" |
+  "afterburner" | "extra_life" | "repair_nanites" | "bounty_hunter" | "boss_hunter" |
+  "kinetic_accelerator" | "reactive_armor" | "salvager" | "flux_capacitor" | "shield_matrix";
 interface RunUpgrade { id: RunUpgradeId; icon: string; name: string; description: string }
 interface RunStats {
   kills: number;
@@ -196,7 +199,7 @@ interface Achievement { id: string; icon: string; name: string; description: str
 interface FloatingText { x: number; y: number; text: string; color: string; life: number; maxLife: number }
 type MissionType = "kills" | "combo" | "near_miss" | "flawless_boss";
 interface Mission { type: MissionType; title: string; target: number; reward: number; completed: boolean }
-interface ActiveWave { id: number; name: string; active: boolean }
+interface ActiveWave { id: number; name: string; active: boolean; isMajor: boolean }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -292,6 +295,8 @@ const EMPTY_RUN_UPGRADES: Record<RunUpgradeId, number> = {
   rapid_fire: 0, damage: 0, max_hp: 0, drone: 0, critical: 0, shield: 0,
   missile_mastery: 0, chain_lightning: 0, cryo_rounds: 0, glass_cannon: 0,
   vampiric: 0, graze_core: 0,
+  afterburner: 0, extra_life: 0, repair_nanites: 0, bounty_hunter: 0, boss_hunter: 0,
+  kinetic_accelerator: 0, reactive_armor: 0, salvager: 0, flux_capacitor: 0, shield_matrix: 0,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -377,8 +382,9 @@ const SKIN_KEY    = "fighter-command-skin";
 const DRONE_SKIN_KEY = "fighter-command-drone-skin";
 const HS_KEY      = "fighter-command-hs";
 const COINS_KEY   = "fighter-command-coins";
+const STARTING_COINS = 30_000;
 const DAILY_CHEST_KEY = "fighter-command-daily-chest";
-const DAILY_CHEST_REWARD = 10_000;
+const DAILY_CHEST_REWARDS = [10_000, 15_000] as const;
 const UNLOCKS_KEY = "fighter-command-unlocks";
 const AIRCRAFT_LEVELS_KEY = "fighter-command-aircraft-levels";
 const DRONE_LEVELS_KEY = "fighter-command-drone-levels";
@@ -495,7 +501,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   reducedMotion: false,
   highContrast: false,
   touchControls: "auto",
-  autoFire: true,
+  autoFire: false,
   joystickSize: 1,
   joystickSensitivity: 1,
   keyBindings: DEFAULT_KEY_BINDINGS,
@@ -525,6 +531,16 @@ const RUN_UPGRADES: RunUpgrade[] = [
   { id: "glass_cannon", icon: "☄", name: "Glaskanone", description: "Massiv mehr Schaden, aber 2 weniger maximale HP" },
   { id: "vampiric", icon: "🩸", name: "Energieernte", description: "Jeder 15. Abschuss repariert 1 HP" },
   { id: "graze_core", icon: "🌀", name: "Risiko-Reaktor", description: "Near Misses laden beide Ultis deutlich auf" },
+  { id: "afterburner", icon: "🔥", name: "Nachbrenner", description: "+0,4 Bewegungsgeschwindigkeit" },
+  { id: "extra_life", icon: "💚", name: "Rettungskapsel", description: "+1 zusätzliches Leben" },
+  { id: "repair_nanites", icon: "🔧", name: "Reparatur-Naniten", description: "Jeder 10. Abschuss repariert 1 HP" },
+  { id: "bounty_hunter", icon: "💰", name: "Kopfgeld-Protokoll", description: "+25% Punkte für Abschüsse" },
+  { id: "boss_hunter", icon: "👹", name: "Bossbrecher", description: "+30% Schaden gegen Bosse" },
+  { id: "kinetic_accelerator", icon: "➶", name: "Kinetik-Beschleuniger", description: "Geschosse fliegen 20% schneller" },
+  { id: "reactive_armor", icon: "🧱", name: "Reaktivpanzerung", description: "15% weniger eingehender Schaden" },
+  { id: "salvager", icon: "🧲", name: "Bergungsdrohne", description: "+10% Chance auf Power-ups" },
+  { id: "flux_capacitor", icon: "🔋", name: "Flux-Kondensator", description: "Beide Ultis laden 25% schneller" },
+  { id: "shield_matrix", icon: "🔷", name: "Schildmatrix", description: "Schilde erhalten +2 Trefferpunkte" },
 ];
 
 function createMission(index = 0): Mission {
@@ -614,7 +630,16 @@ function loadHighScore(): number  { try { return parseInt(localStorage.getItem(H
 function addCoins(n: number)      { try { localStorage.setItem(COINS_KEY, String(loadCoins() + n)); } catch {} }
 function setCoinsAbsolute(n: number) { try { localStorage.setItem(COINS_KEY, String(n)); } catch {} }
 function spendCoins(n: number)    { try { const c = loadCoins(); if (c >= n) localStorage.setItem(COINS_KEY, String(c - n)); } catch {} }
-function loadCoins(): number      { try { return parseInt(localStorage.getItem(COINS_KEY) ?? "0", 10) || 0; } catch { return 0; } }
+function loadCoins(): number      {
+  try {
+    const savedCoins = localStorage.getItem(COINS_KEY);
+    if (savedCoins === null) return STARTING_COINS;
+    const coins = parseInt(savedCoins, 10);
+    return Number.isFinite(coins) ? coins : STARTING_COINS;
+  } catch {
+    return STARTING_COINS;
+  }
+}
 function getLocalDateKey(date = new Date()): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -637,13 +662,14 @@ function getEffectiveGameModeRules(mode: GameMode) {
 function canClaimDailyChest(): boolean {
   try { return localStorage.getItem(DAILY_CHEST_KEY) !== getLocalDateKey(); } catch { return false; }
 }
-function claimDailyChest(): boolean {
-  if (!canClaimDailyChest()) return false;
+function claimDailyChest(): number | null {
+  if (!canClaimDailyChest()) return null;
   try {
-    addCoins(DAILY_CHEST_REWARD);
+    const reward = DAILY_CHEST_REWARDS[Math.random() < 0.5 ? 0 : 1];
+    addCoins(reward);
     localStorage.setItem(DAILY_CHEST_KEY, getLocalDateKey());
-    return true;
-  } catch { return false; }
+    return reward;
+  } catch { return null; }
 }
 function saveSkin(id: string)     { try { localStorage.setItem(SKIN_KEY, id); } catch {} }
 function loadSkin(): string       { try { return localStorage.getItem(SKIN_KEY) ?? "steel"; } catch { return "steel"; } }
@@ -1148,7 +1174,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
     drawEngine(-61, -35, 15, e.color); drawEngine(-61, 0, 12, "#ff4fd8"); drawEngine(-61, 35, 15, e.color);
   } else if (e.type === "overlord") {
     drawEngine(-43, -26, 12); drawEngine(-43, 26, 12);
-  } else if (e.type === "boss") {
+  } else if (e.type === "boss" && !e.bossEngineDisabled) {
     drawEngine(-29, -18, 9); drawEngine(-29, 18, 9);
   } else if (e.type === "bomber" || e.type === "gunship" || e.type === "sentinel") {
     drawEngine(-22, -8, 7); drawEngine(-22, 8, 7);
@@ -1485,6 +1511,43 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
     }
   }
 
+  if (isBossEnemy(e)) {
+    const drawDetachableModule = (y: number, kind: "cannon" | "engine") => {
+      const moduleX = -e.width * .2;
+      const moduleWidth = Math.max(20, e.width * .22);
+      const moduleHeight = Math.max(11, e.height * .13);
+      ctx.save();
+      ctx.translate(moduleX, y);
+      ctx.shadowColor = kind === "cannon" ? "#ff4668" : "#64e8ff";
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.roundRect(-moduleWidth / 2, -moduleHeight / 2, moduleWidth, moduleHeight, 4);
+      ctx.fillStyle = kind === "cannon"
+        ? hullGradient("#19040b", "#7c1735", "#ff4668")
+        : hullGradient("#03141c", "#0e5064", "#64e8ff");
+      ctx.fill();
+      ctx.strokeStyle = kind === "cannon" ? "#ff7890" : "#a8f5ff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      if (kind === "cannon") {
+        ctx.fillStyle = "#fff1f4";
+        ctx.fillRect(moduleWidth * .3, -moduleHeight * .28, moduleWidth * .55, 3);
+        ctx.fillRect(moduleWidth * .3, moduleHeight * .28 - 3, moduleWidth * .55, 3);
+      } else {
+        drawEngine(-moduleWidth * .55, 0, Math.max(8, moduleHeight * .7), "#64e8ff");
+        ctx.beginPath();
+        ctx.arc(moduleWidth * .15, 0, moduleHeight * .24, 0, Math.PI * 2);
+        ctx.fillStyle = "#e8fdff";
+        ctx.fill();
+      }
+      ctx.restore();
+    };
+
+    // Rotation makes positive local Y the visually upper module on screen.
+    if (!e.bossCannonsDisabled) drawDetachableModule(e.height * .34, "cannon");
+    if (!e.bossEngineDisabled) drawDetachableModule(-e.height * .34, "engine");
+  }
+
   if ((e.poisonTimer ?? 0) > 0) {
     const poisonPulse = 0.5 + Math.sin(performance.now() * 0.018) * 0.5;
     ctx.globalCompositeOperation = "source-atop";
@@ -1805,6 +1868,7 @@ export default function Game() {
   const movementStunRef = useRef(0);
   const comboRef = useRef(0);
   const comboTimerRef = useRef(0);
+  const comboMilestoneRef = useRef({ combo: 0, timer: 0 });
   const nearMissCooldownRef = useRef(0);
   const screenShakeRef = useRef(0);
   const slowMotionRef = useRef(0);
@@ -1941,6 +2005,9 @@ export default function Game() {
     runStatsRef.current.flawlessKills += 1;
     comboRef.current += 1;
     comboTimerRef.current = 150;
+    if (comboRef.current % 100 === 0) {
+      comboMilestoneRef.current = { combo: comboRef.current, timer: 150 };
+    }
     runStatsRef.current.maxCombo = Math.max(runStatsRef.current.maxCombo, comboRef.current);
     const comboMultiplier = Math.min(4, 1 + Math.floor(comboRef.current / 10) * .25);
     stateRef.current.score += Math.round(enemy.points * (comboMultiplier - 1));
@@ -1955,6 +2022,11 @@ export default function Game() {
       stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + runUpgradesRef.current.vampiric);
       floatingTextsRef.current.push({ x: playerRef.current.x, y: playerRef.current.y, text: "+HP ENERGIEERNTE", color: "#ff6688", life: 70, maxLife: 70 });
     }
+    if (runUpgradesRef.current.repair_nanites > 0 && runStatsRef.current.kills % 10 === 0) {
+      stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + runUpgradesRef.current.repair_nanites);
+      floatingTextsRef.current.push({ x: playerRef.current.x, y: playerRef.current.y, text: "+HP NANITEN", color: "#67e8f9", life: 70, maxLife: 70 });
+    }
+    stateRef.current.score += Math.round(enemy.points * runUpgradesRef.current.bounty_hunter * .25);
     if (enemy.isGolden) {
       const reward = 750 + stateRef.current.level * 100;
       addCoins(reward);
@@ -1977,6 +2049,7 @@ export default function Game() {
     runStatsRef.current.flawlessKills = 0;
     comboRef.current = 0;
     comboTimerRef.current = 0;
+    comboMilestoneRef.current = { combo: 0, timer: 0 };
     nearMissCooldownRef.current = 0;
     screenShakeRef.current = Math.max(screenShakeRef.current, 10);
     checkAchievements();
@@ -1999,7 +2072,10 @@ export default function Game() {
   const chooseRunUpgrade = useCallback((upgrade: RunUpgrade) => {
     runUpgradesRef.current[upgrade.id] += 1;
     if (upgrade.id === "max_hp") { stateRef.current.maxHp += 3; stateRef.current.hp = stateRef.current.maxHp; }
-    if (upgrade.id === "shield") { shieldTimerRef.current = 600; playerShieldHpRef.current = PLAYER_SHIELD_HP; }
+    if (upgrade.id === "shield") { shieldTimerRef.current = 600; playerShieldHpRef.current = PLAYER_SHIELD_HP + runUpgradesRef.current.shield_matrix * 2; }
+    if (upgrade.id === "shield_matrix" && shieldTimerRef.current > 0) { playerShieldHpRef.current += 2; }
+    if (upgrade.id === "afterburner") { stateRef.current.speed += .4; }
+    if (upgrade.id === "extra_life") { stateRef.current.lives += 1; }
     if (upgrade.id === "glass_cannon") {
       stateRef.current.maxHp = Math.max(3, stateRef.current.maxHp - 2);
       stateRef.current.hp = Math.min(stateRef.current.hp, stateRef.current.maxHp);
@@ -2254,8 +2330,11 @@ export default function Game() {
   const spawnFormationWave = useCallback((level: number) => {
     const waveId = ++waveSequenceRef.current;
     const pattern = waveId % 3;
-    const name = pattern === 0 ? "V-FORMATION" : pattern === 1 ? "BOMBER-ESKORTE" : "ABFANGSCHWARM";
-    const count = pattern === 1 ? 5 : 7;
+    const isMajor = waveId % 5 === 0;
+    const name = isMajor
+      ? "MASSIVER GEGNERANGRIFF"
+      : pattern === 0 ? "V-FORMATION" : pattern === 1 ? "BOMBER-ESKORTE" : "ABFANGSCHWARM";
+    const count = isMajor ? 12 : pattern === 1 ? 5 : 7;
     const centerY = rand(150, CANVAS_H - 150);
     for (let index = 0; index < count; index++) {
       const isBomber = pattern === 1 && index === 0;
@@ -2282,9 +2361,11 @@ export default function Game() {
         waveId,
       });
     }
-    activeWaveRef.current = { id: waveId, name, active: true };
-    waveBannerRef.current = { text: `⚠ ${name}`, timer: 120 };
-    audioRef.current.effect("boss", settingsRef.current.soundVolume * .6);
+    activeWaveRef.current = { id: waveId, name, active: true, isMajor };
+    if (isMajor) {
+      waveBannerRef.current = { text: `⚠ ${name} · ${count} GEGNER`, timer: 150 };
+      audioRef.current.effect("boss", settingsRef.current.soundVolume * .6);
+    }
   }, []);
 
   const fireBullets = useCallback((now: number) => {
@@ -2349,11 +2430,11 @@ export default function Game() {
     const offsets = gunOffsets[Math.min(tier.guns - 1, gunOffsets.length - 1)];
 
     offsets.forEach((oy, i) => {
-      let vx = BASE_BULLET_SPEED;
+      let vx = BASE_BULLET_SPEED * Math.pow(1.2, runUpgradesRef.current.kinetic_accelerator);
       let vy = 0;
       if (tier.spread && offsets.length > 1) {
         const spread = (i - (offsets.length - 1) / 2) * 0.12;
-        vy = spread * BASE_BULLET_SPEED;
+        vy = spread * vx;
       }
       bulletsRef.current.push({
         x: px, y: py + oy,
@@ -2480,6 +2561,7 @@ export default function Game() {
     movementStunRef.current = 0;
     comboRef.current = 0;
     comboTimerRef.current = 0;
+    comboMilestoneRef.current = { combo: 0, timer: 0 };
     screenShakeRef.current = 0;
     slowMotionRef.current = 0;
     waveTimerRef.current = 0;
@@ -3193,8 +3275,8 @@ export default function Game() {
         }
       }
 
-      // ── Titan: exclusive boss fight at every tenth level ──
-      if (activeModeRef.current !== "boss_rush" && gs.level % 10 === 0 && !titanBossFiredRef.current.has(gs.level)) {
+      // ── Titan: exclusive boss fight every tenth level, starting at level 20 ──
+      if (activeModeRef.current !== "boss_rush" && isTitanBossLevel(gs.level) && !titanBossFiredRef.current.has(gs.level)) {
         titanBossFiredRef.current.add(gs.level);
         // An evolved milestone Overlord has 1.5x its initial HP. The Titan has exactly 15x that value.
         const overlordHp = Math.round((80 + gs.level * 12) * 1.5);
@@ -3232,7 +3314,7 @@ export default function Game() {
       const titanActive = enemiesRef.current.some(e => e.type === "titan" && !e.dead);
 
       // ── Milestone boss: spawn a mega-boss when entering key levels ──
-      if (activeModeRef.current !== "boss_rush" && !titanActive && gs.level % 10 !== 0 && isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
+      if (activeModeRef.current !== "boss_rush" && !titanActive && !isTitanBossLevel(gs.level) && isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
           enemiesRef.current.filter(isBossEnemy).length === 0) {
         milestoneBossFiredRef.current.add(gs.level);
         const ml = gs.level;
@@ -3287,8 +3369,10 @@ export default function Game() {
         activeWaveRef.current.active = false;
         addCoins(500);
         gs.score += 500;
-        waveBannerRef.current = { text: "WELLE GESCHAFFT · +500", timer: 130 };
-        audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
+        if (activeWaveRef.current.isMajor) {
+          waveBannerRef.current = { text: "GROSSANGRIFF ABGEWEHRT · +500", timer: 130 };
+          audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
+        }
       }
 
       // ── Update bullets ──
@@ -3360,7 +3444,8 @@ export default function Game() {
       } else if (ultimaChargeRef.current < ULTI_MAX) {
         const cloneMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
         const cloneBonus = activeUnlocksRef.current.includes("clone_upgrade") ? 1.25 : 1;
-        ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + 0.09 * cloneMult * cloneBonus * dtScale);
+        const fluxBonus = 1 + runUpgradesRef.current.flux_capacitor * .25;
+        ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + 0.09 * cloneMult * cloneBonus * fluxBonus * dtScale);
       }
       // ── Laser charge & countdown ──
       if (laserActiveRef.current > 0) {
@@ -3368,7 +3453,8 @@ export default function Game() {
       } else if (laserChargeRef.current < LASER_MAX) {
         const laserMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
         const laserBonus = activeUnlocksRef.current.includes("laser_upgrade") ? 1.25 : 1;
-        laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + 0.10 * laserMult * laserBonus * dtScale);
+        const fluxBonus = 1 + runUpgradesRef.current.flux_capacitor * .25;
+        laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + 0.10 * laserMult * laserBonus * fluxBonus * dtScale);
       }
       // ── Stealth charge & countdown ──
       if (stealthActiveRef.current > 0) {
@@ -3766,8 +3852,9 @@ export default function Game() {
             );
             audioRef.current.effect("hit", settingsRef.current.soundVolume);
             if (!protection.protected) {
-              recordPlayerDamage(LASER_DEVICE_DAMAGE);
-              const nextLifeState = applyPlayerDamage(gs, LASER_DEVICE_DAMAGE);
+              const laserDamage = LASER_DEVICE_DAMAGE * Math.pow(.85, runUpgradesRef.current.reactive_armor);
+              recordPlayerDamage(laserDamage);
+              const nextLifeState = applyPlayerDamage(gs, laserDamage);
               gs.hp = nextLifeState.hp;
               gs.lives = nextLifeState.lives;
               gs.gameOver = nextLifeState.gameOver;
@@ -3810,17 +3897,6 @@ export default function Game() {
               ctx.fillText(label, e.x + e.width * .18 + 12, cy - 4);
             }
           }
-          const warning = e.shootCooldown < 22 || ((e.specialAttackTimer ?? 999) < 35);
-          if (warning) {
-            ctx.globalAlpha = .35 + .3 * Math.sin(timeRef.current * .5);
-            ctx.strokeStyle = "#ff3344";
-            ctx.lineWidth = 3;
-            ctx.setLineDash([10, 8]);
-            ctx.beginPath();
-            ctx.moveTo(e.x, e.y + e.height / 2);
-            ctx.lineTo(playerRef.current.x + PLAYER_W / 2, playerRef.current.y + PLAYER_H / 2);
-            ctx.stroke();
-          }
           ctx.restore();
         }
 
@@ -3842,7 +3918,8 @@ export default function Game() {
             audioRef.current.effect("hit", settingsRef.current.soundVolume);
             return true;
           }
-          const collisionDamage = (e.titanDashTimer ?? 0) > 0 ? 10 : 1;
+          const collisionDamage = ((e.titanDashTimer ?? 0) > 0 ? 10 : 1) *
+            Math.pow(.85, runUpgradesRef.current.reactive_armor);
           recordPlayerDamage(collisionDamage);
           const nextLifeState = applyPlayerDamage(gs, collisionDamage);
           gs.hp = nextLifeState.hp;
@@ -3882,10 +3959,11 @@ export default function Game() {
             e.dead = collidedWithBoss ? e.hp <= 0 : true;
             return !e.dead;
           }
-          const collDmg = e.ramDamage ?? (e.type === "boss"
+          const rawCollisionDamage = e.ramDamage ?? (e.type === "boss"
             ? getNormalBossDamage(1, gs.level)
             : collidedWithBoss ? 1
             : activeUnlocksRef.current.includes("armor") ? 0.5 : 1);
+          const collDmg = rawCollisionDamage * Math.pow(.85, runUpgradesRef.current.reactive_armor);
           recordPlayerDamage(collDmg);
           const nextLifeState = applyPlayerDamage(gs, collDmg);
           gs.hp = nextLifeState.hp;
@@ -3923,19 +4001,48 @@ export default function Game() {
               weakpointMultiplier = 1.6;
               if (e.bossTopPartHp === 0 && !e.bossCannonsDisabled) {
                 e.bossCannonsDisabled = true;
+                spawnExplosion(particlesRef.current, e.x + e.width * .3, e.y + e.height * .26, true);
+                for (let fragment = 0; fragment < 10; fragment++) {
+                  particlesRef.current.push({
+                    x: e.x + e.width * .3,
+                    y: e.y + e.height * .26,
+                    vx: rand(-5.5, -1.5),
+                    vy: rand(-4, 4),
+                    life: rand(42, 76),
+                    maxLife: 76,
+                    color: fragment % 2 === 0 ? "#ff4668" : "#9aa4b5",
+                    radius: rand(2, 5),
+                  });
+                }
                 waveBannerRef.current = { text: "BOSS-KANONEN ZERSTÖRT", timer: 100 };
+                screenShakeRef.current = Math.max(screenShakeRef.current, 11);
               }
             } else if (relativeY > .58 && (e.bossBottomPartHp ?? 0) > 0) {
               e.bossBottomPartHp = Math.max(0, (e.bossBottomPartHp ?? 0) - rawPartDamage);
               weakpointMultiplier = 1.6;
               if (e.bossBottomPartHp === 0 && !e.bossEngineDisabled) {
                 e.bossEngineDisabled = true;
+                spawnExplosion(particlesRef.current, e.x + e.width * .3, e.y + e.height * .74, true);
+                for (let fragment = 0; fragment < 10; fragment++) {
+                  particlesRef.current.push({
+                    x: e.x + e.width * .3,
+                    y: e.y + e.height * .74,
+                    vx: rand(-6, -2),
+                    vy: rand(-4, 4),
+                    life: rand(42, 76),
+                    maxLife: 76,
+                    color: fragment % 2 === 0 ? "#64e8ff" : "#9aa4b5",
+                    radius: rand(2, 5),
+                  });
+                }
                 waveBannerRef.current = { text: "BOSS-ANTRIEB ZERSTÖRT", timer: 100 };
+                screenShakeRef.current = Math.max(screenShakeRef.current, 11);
               }
             }
           }
+          const bossHunterMultiplier = isBossEnemy(e) ? 1 + runUpgradesRef.current.boss_hunter * .3 : 1;
           const dealtDamage = b.damage * (critical ? 3 : 1) * aircraftDamage * absorberDamage *
-            (ultimateActiveRef.current > 0 ? 2 : 1) * weakpointMultiplier;
+            (ultimateActiveRef.current > 0 ? 2 : 1) * weakpointMultiplier * bossHunterMultiplier;
           const damageResult = isTitanInvulnerable(e)
             ? { hp: e.hp, shieldHp: e.shieldHp ?? 0, absorbedByShield: true, destroyed: false }
             : applyEnemyDamage(e, dealtDamage);
@@ -3988,12 +4095,15 @@ export default function Game() {
             if (isBossEnemy(e)) {
               powerUpsRef.current.push({ x: e.x + e.width / 2, y: e.y + e.height / 2, type: "health", vy: 1.2 });
               stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + 50);
-              if (runUpgradesRef.current.shield > 0) { shieldTimerRef.current = 600; playerShieldHpRef.current = PLAYER_SHIELD_HP; }
+              if (runUpgradesRef.current.shield > 0) {
+                shieldTimerRef.current = 600;
+                playerShieldHpRef.current = PLAYER_SHIELD_HP + runUpgradesRef.current.shield_matrix * 2;
+              }
             }
             healChargeRef.current = Math.min(HEAL_MAX, healChargeRef.current +
               (isBossEnemy(e) ? 60 : e.type === "bomber" ? 28 : e.type === "fighter" ? 14 : 8));
             // Power-up chance
-            if (Math.random() < 0.20) {
+            if (Math.random() < Math.min(.8, 0.20 + runUpgradesRef.current.salvager * .10)) {
               const roll2 = Math.random();
               const pType: PowerUp["type"] = roll2 < 0.12 ? "speedboost" : roll2 < 0.45 ? "health" : roll2 < 0.72 ? "shield" : "speed";
               powerUpsRef.current.push({
@@ -4064,9 +4174,10 @@ export default function Game() {
           return false;
         }
         const protectedBulletDamage = activeUnlocksRef.current.includes("armor") ? Math.max(0.5, b.damage * 0.5) : b.damage;
-        const bulletDmg = b.normalBossProjectile
+        const rawBulletDamage = b.normalBossProjectile
           ? getNormalBossDamage(protectedBulletDamage, gs.level)
           : protectedBulletDamage;
+        const bulletDmg = rawBulletDamage * Math.pow(.85, runUpgradesRef.current.reactive_armor);
         if (activeUnlocksRef.current.includes("armor")) {
           audioRef.current.tone(120, .08, settingsRef.current.soundVolume * .2, "square");
         }
@@ -4410,13 +4521,15 @@ export default function Game() {
       ctx.fillStyle = "#18263c"; ctx.fillRect(22, 135, 235, 4);
       ctx.fillStyle = mission.completed ? "#4ade80" : "#38bdf8";
       ctx.fillRect(22, 135, 235 * Math.min(1, progress / mission.target), 4);
-      if (comboRef.current >= 2) {
-        const comboMultiplier = Math.min(4, 1 + Math.floor(comboRef.current / 10) * .25);
+      if (comboMilestoneRef.current.timer > 0) {
+        comboMilestoneRef.current.timer = Math.max(0, comboMilestoneRef.current.timer - dtScale);
+        const milestoneCombo = comboMilestoneRef.current.combo;
+        const comboMultiplier = Math.min(4, 1 + Math.floor(milestoneCombo / 10) * .25);
         ctx.textAlign = "center";
-        ctx.fillStyle = comboRef.current >= 25 ? "#ffe45c" : "#ffffff";
+        ctx.fillStyle = "#ffe45c";
         ctx.shadowColor = "#ff7a18"; ctx.shadowBlur = 12;
-        ctx.font = `bold ${Math.min(34, 20 + comboRef.current / 5)}px 'Inter', sans-serif`;
-        ctx.fillText(`${comboRef.current}× COMBO · SCORE ×${comboMultiplier.toFixed(2)}`, CANVAS_W / 2, 96);
+        ctx.font = "bold 34px 'Inter', sans-serif";
+        ctx.fillText(`${milestoneCombo}× MEGA-COMBO · SCORE ×${comboMultiplier.toFixed(2)}`, CANVAS_W / 2, 96);
       }
       if (waveBannerRef.current.timer > 0) {
         waveBannerRef.current.timer = Math.max(0, waveBannerRef.current.timer - dtScale);
@@ -4515,11 +4628,12 @@ export default function Game() {
     audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
   };
 
-  const handleDailyChestClaim = (): boolean => {
-    if (!claimDailyChest()) return false;
+  const handleDailyChestClaim = (): number | null => {
+    const reward = claimDailyChest();
+    if (reward === null) return null;
     setCoins(loadCoins());
     audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
-    return true;
+    return reward;
   };
 
   const handleBuy = (itemId: string) => {
@@ -4755,7 +4869,7 @@ function HangarOverlay({
   onSkinSelect: (id: string) => void; onUltiLoadoutChange: (ids: UltiLoadoutId[]) => void; onDroneSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void; onUnlockDroneSkin: (id: string) => void;
   onAircraftUpgrade: () => void;
   onDroneUpgrade: () => void;
-  onDailyChestClaim: () => boolean;
+  onDailyChestClaim: () => number | null;
   onAdminActivate: () => void;
   fullscreenSupported: boolean; isFullscreen: boolean; onFullscreenToggle: () => void;
   settings: GameSettings; onSettingsChange: (settings: GameSettings) => void;
@@ -5094,11 +5208,12 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
   onUnlockDroneSkin: (id: string) => void; onDroneSkinSelect: (id: string) => void;
   onAircraftUpgrade: () => void;
   onDroneUpgrade: () => void;
-  onDailyChestClaim: () => boolean;
+  onDailyChestClaim: () => number | null;
 }) {
   const [dailyChestAvailable, setDailyChestAvailable] = useState(() => canClaimDailyChest());
   const [dailyChestOpening, setDailyChestOpening] = useState(false);
   const [dailyChestCelebrating, setDailyChestCelebrating] = useState(false);
+  const [dailyChestReward, setDailyChestReward] = useState<number | null>(null);
   const [bulletColor, setBulletColor] = useState(() => loadBulletColor());
   const [pendingPurchase, setPendingPurchase] = useState<{ name: string; cost: number; action: () => void } | null>(null);
   const [purchaseCelebration, setPurchaseCelebration] = useState<{ name: string; nonce: number } | null>(null);
@@ -5119,7 +5234,10 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
   };
 
   const openDailyChest = () => {
-    if (!dailyChestAvailable || dailyChestOpening || !onDailyChestClaim()) return;
+    if (!dailyChestAvailable || dailyChestOpening) return;
+    const reward = onDailyChestClaim();
+    if (reward === null) return;
+    setDailyChestReward(reward);
     setDailyChestOpening(true);
     dailyChestTimers.current.push(window.setTimeout(() => {
       setDailyChestAvailable(false);
@@ -5194,12 +5312,12 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
         {dailyChestCelebrating && (
           <span className="pointer-events-none absolute inset-0" aria-hidden="true">
             {[0, 1, 2, 3, 4, 5, 6].map(i => <span key={i} className="daily-chest-coin" style={{ "--coin-x": `${(i - 3) * 25}px`, "--coin-y": `${-48 - Math.abs(i - 3) * 5}px`, animationDelay: `${i * 35}ms` } as React.CSSProperties}>●</span>)}
-            <span className="daily-chest-reward">+10.000</span>
+            <span className="daily-chest-reward">+{dailyChestReward?.toLocaleString("de-DE")}</span>
           </span>
         )}
         <span className="min-w-0 flex-1">
           <span className="block text-[10px] font-black uppercase tracking-[.22em] text-amber-300">Tägliche Truhe</span>
-          <span className="block font-black text-white">{dailyChestOpening ? "Truhe wird geöffnet …" : dailyChestAvailable ? "+10.000 Credits abholen" : "Heute bereits abgeholt"}</span>
+          <span className="block font-black text-white">{dailyChestOpening ? "Truhe wird geöffnet …" : dailyChestAvailable ? "Tägliche Belohnung abholen" : "Heute bereits abgeholt"}</span>
           <span className="block text-xs text-slate-300">{dailyChestAvailable ? "Jeden Tag wartet eine neue Belohnung auf dich." : "Morgen ist die nächste Truhe verfügbar."}</span>
         </span>
         <span className={`rounded-lg px-3 py-2 text-xs font-black ${dailyChestAvailable ? "bg-amber-400 text-slate-950" : "bg-slate-700 text-slate-300"}`}>
@@ -5505,7 +5623,7 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
     { icon: "🎯", title: "Dein Auftrag", text: "Steuere deinen Jet durch automatisch scrollende, immer schwierigere Sektoren. Weiche Feinden und Geschossen aus, schieße Gegner ab und sammle möglichst viele Punkte. Mit deiner Punktzahl steigt auch dein Pilot-Level; Bosskämpfe markieren die großen Etappen eines Einsatzes." },
     { icon: "❤", title: "Überleben", text: "Jeder gegnerische Treffer zieht dir HP ab. Fallen deine HP auf null, verlierst du ein Leben und kehrst mit voller Energie zurück. Nach dem letzten Leben ist der Einsatz beendet. Ein aktiver Schild fängt Schaden zuerst ab – Ausweichen bleibt trotzdem die sicherste Taktik." },
     { icon: "📦", title: "Power-ups", text: "Zerstörte Gegner können nützliche Pick-ups hinterlassen: Heilung stellt HP wieder her, Schilde geben zusätzlichen Schutz und Tempo-Boosts machen deinen Jet vorübergehend schneller. Berühre ein Symbol mit deinem Jet, bevor es vom Bildschirm verschwindet." },
-    { icon: "⚡", title: "Waffen & Fähigkeiten", text: "Der Jet feuert standardmäßig automatisch. Vor dem Start rüstest du höchstens zwei Spezialfähigkeiten aus; sobald eine Anzeige voll ist, aktivierst du sie mit der eingeblendeten Taste oder dem Touch-Knopf." },
+    { icon: "⚡", title: "Waffen & Fähigkeiten", text: "Halte die Feuertaste gedrückt oder aktiviere optional Auto-Fire in den Einstellungen. Vor dem Start rüstest du höchstens zwei Spezialfähigkeiten aus; sobald eine Anzeige voll ist, aktivierst du sie mit der eingeblendeten Taste oder dem Touch-Knopf." },
     { icon: "⬆", title: "Fortschritt", text: "Nach abgeschlossenen Sektoren pausiert das Gefecht und du wählst eines von drei Upgrades für den aktuellen Lauf. Diese Boni gelten bis zum Missionsende. Checkpoints speichern Level, Punktzahl und Waffenstufe, sodass du einen unterbrochenen Einsatz später über „Weiterspielen“ fortsetzen kannst." },
     { icon: "💰", title: "Credits & Hangar", text: "Nach dem Missionsende wird jeder erzielte Punkt in einen Credit umgewandelt. Credits bleiben dauerhaft erhalten. Im Hangar-Shop investierst du sie in Jet- und Drohnen-Upgrades, neue Skins und weitere Vorteile; abgeschlossene Erfolge zahlen zusätzliche Belohnungen aus." },
   ] : language === "tr" ? [
@@ -5519,7 +5637,7 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
     { icon: "🎯", title: "Your mission", text: "Pilot your jet through automatically scrolling sectors that become progressively harder. Dodge enemies and projectiles, shoot down targets, and score as many points as possible. Your pilot level rises with your score, while boss fights mark the major milestones of a mission." },
     { icon: "❤", title: "Survival", text: "Every enemy hit reduces your HP. When HP reaches zero, you lose a life and return at full health. The mission ends after your final life. An active shield absorbs damage first, but dodging remains your safest tactic." },
     { icon: "📦", title: "Power-ups", text: "Destroyed enemies may leave useful pick-ups behind: health restores HP, shields provide extra protection, and speed boosts temporarily make your jet faster. Touch an icon with your jet before it leaves the screen." },
-    { icon: "⚡", title: "Weapons & abilities", text: "The jet fires automatically by default. Equip up to two special abilities before launch; once a meter is full, activate it with the displayed key or touch button." },
+    { icon: "⚡", title: "Weapons & abilities", text: "Hold the fire control or optionally enable auto-fire in Settings. Equip up to two special abilities before launch; once a meter is full, activate it with the displayed key or touch button." },
     { icon: "⬆", title: "Progress", text: "After clearing sectors, combat pauses and you choose one of three upgrades for the current run. These bonuses last until the mission ends. Checkpoints save your level, score, and weapon tier so you can resume an interrupted mission later with Continue." },
     { icon: "💰", title: "Credits & hangar", text: "At the end of a mission, every point you scored becomes one credit. Credits are kept permanently. Spend them in the hangar shop on aircraft and drone upgrades, new skins, and other advantages; achievements grant additional rewards." },
   ];
@@ -5572,7 +5690,7 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
             <h3 className="text-xs font-black uppercase tracking-[.2em] text-violet-300">{translated(language, "Touch-Steuerung", "Touch controls")}</h3>
             <div className="mt-3 space-y-2 text-xs text-slate-300">
               <p><strong className="text-white">{translated(language, "Links ziehen:", "Drag left:")}</strong> {translated(language, "Jet mit dem virtuellen Joystick bewegen.", "Move the jet with the virtual joystick.")}</p>
-              <p><strong className="text-white">AUTO-FIRE:</strong> Standardmäßig aktiv; optional in den Einstellungen abschaltbar.</p>
+              <p><strong className="text-white">AUTO-FIRE:</strong> Optional in den Einstellungen aktivierbar.</p>
               <p><strong className="text-white">FÄHIGKEIT 1 · 2:</strong> Die zwei ausgerüsteten Knöpfe antippen, sobald sie bereit sind.</p>
             </div>
           </div>

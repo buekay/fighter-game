@@ -238,6 +238,10 @@ export function isMilestoneBossLevel(level: number): boolean {
   return EARLY_MILESTONE_BOSS_LEVELS.has(level) || (level >= 20 && level % 5 === 0);
 }
 
+export function isTitanBossLevel(level: number): boolean {
+  return level >= 20 && level % 10 === 0;
+}
+
 export function isLaserDeviceEligibleLevel(level: number): boolean {
   return level >= LASER_DEVICE_MIN_LEVEL;
 }

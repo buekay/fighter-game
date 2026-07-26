@@ -24,6 +24,7 @@ import {
   isBossEligibleLevel,
   isLaserDeviceEligibleLevel,
   isMilestoneBossLevel,
+  isTitanBossLevel,
   MOBILE_CONTROL_HELP,
   PLAYER_SHIELD_HP,
   shouldUseAboveCloudsBackground,
@@ -93,6 +94,11 @@ assert.equal(isMilestoneBossLevel(20), true);
 assert.equal(isMilestoneBossLevel(21), false);
 assert.equal(isMilestoneBossLevel(25), true);
 assert.equal(isMilestoneBossLevel(500), true);
+
+assert.equal(isTitanBossLevel(10), false);
+assert.equal(isTitanBossLevel(19), false);
+assert.equal(isTitanBossLevel(20), true);
+assert.equal(isTitanBossLevel(30), true);
 
 assert.equal(isLaserDeviceEligibleLevel(9), false);
 assert.equal(isLaserDeviceEligibleLevel(10), true);
