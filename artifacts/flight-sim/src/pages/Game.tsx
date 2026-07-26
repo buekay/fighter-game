@@ -12,20 +12,23 @@ import {
   getAircraftUpgradeCost,
   getAircraftUpgradeStats,
   getEnemySpawnRate,
+  GAME_MODES,
+  getDailyChallengeRules,
+  getGameModeRules,
+  getModeCoinMultiplier,
   getLevelForScore,
   getNormalBossDamage,
   getPilotLevelForScore,
   getLevelThreshold,
   HEAL_ULTI_RESTORE,
-  KEYBOARD_CONTROL_HELP,
   isBossEligibleLevel,
   isLaserDeviceEligibleLevel,
   isMilestoneBossLevel,
-  MOBILE_CONTROL_HELP,
   shouldUseAboveCloudsBackground,
   shouldUseCityBackground,
   shouldUseSpaceBackground,
   shouldShowVirtualControls,
+  type GameMode,
 } from "../game-rules";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -76,6 +79,7 @@ interface Bullet {
   stunFrames?: number;
   isPoisonMissile?: boolean;
   normalBossProjectile?: boolean;
+  nearMissed?: boolean;
 }
 
 interface Enemy {
@@ -119,6 +123,12 @@ interface Enemy {
   ramDamage?: number;
   trackPlayerRam?: boolean;
   isGolden?: boolean;
+  goldenTimer?: number;
+  waveId?: number;
+  bossTopPartHp?: number;
+  bossBottomPartHp?: number;
+  bossCannonsDisabled?: boolean;
+  bossEngineDisabled?: boolean;
 }
 
 const isBossEnemy = (enemy: Enemy) => enemy.type === "boss" || enemy.type === "overlord" || enemy.type === "titan";
@@ -150,20 +160,43 @@ interface GameState {
   paused: boolean;
 }
 
+type KeyBindingAction = "up" | "down" | "left" | "right" | "fire" | "pause" | "ability1" | "ability2";
+type KeyBindings = Record<KeyBindingAction, string>;
+
 interface GameSettings {
   language: "de" | "en" | "tr" | "fr" | "es";
   tutorial: boolean;
   reducedMotion: boolean;
   highContrast: boolean;
   touchControls: "auto" | "always" | "never";
+  autoFire: boolean;
+  joystickSize: number;
+  joystickSensitivity: number;
+  keyBindings: KeyBindings;
   soundVolume: number;
   musicVolume: number;
 }
 
-type RunUpgradeId = "rapid_fire" | "damage" | "max_hp" | "drone" | "critical" | "shield";
+type RunUpgradeId = "rapid_fire" | "damage" | "max_hp" | "drone" | "critical" | "shield" |
+  "missile_mastery" | "chain_lightning" | "cryo_rounds" | "glass_cannon" | "vampiric" | "graze_core";
 interface RunUpgrade { id: RunUpgradeId; icon: string; name: string; description: string }
-interface RunStats { kills: number; bosses: number; damageTaken: number; powerUps: number }
+interface RunStats {
+  kills: number;
+  bosses: number;
+  damageTaken: number;
+  powerUps: number;
+  flawlessKills: number;
+  perfectBosses: number;
+  fullHealthPickups: number;
+  maxCombo: number;
+  nearMisses: number;
+  missions: number;
+}
 interface Achievement { id: string; icon: string; name: string; description: string; target: number; reward: number; stat: keyof RunStats }
+interface FloatingText { x: number; y: number; text: string; color: string; life: number; maxLife: number }
+type MissionType = "kills" | "combo" | "near_miss" | "flawless_boss";
+interface Mission { type: MissionType; title: string; target: number; reward: number; completed: boolean }
+interface ActiveWave { id: number; name: string; active: boolean }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -257,6 +290,8 @@ interface SaveData {
 
 const EMPTY_RUN_UPGRADES: Record<RunUpgradeId, number> = {
   rapid_fire: 0, damage: 0, max_hp: 0, drone: 0, critical: 0, shield: 0,
+  missile_mastery: 0, chain_lightning: 0, cryo_rounds: 0, glass_cannon: 0,
+  vampiric: 0, graze_core: 0,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -432,9 +467,9 @@ function loadUltiLoadout(): UltiLoadoutId[] {
   const available = ULTI_LOADOUT_OPTIONS.filter(option => !option.requires || loadUnlocks().includes(option.requires)).map(option => option.id);
   try {
     const saved = JSON.parse(localStorage.getItem(ULTI_LOADOUT_KEY) ?? "null") as unknown;
-    if (!Array.isArray(saved)) return available;
-    return saved.filter((id): id is UltiLoadoutId => typeof id === "string" && available.includes(id as UltiLoadoutId)).slice(0, 5);
-  } catch { return available; }
+    if (!Array.isArray(saved)) return available.slice(0, 2);
+    return saved.filter((id): id is UltiLoadoutId => typeof id === "string" && available.includes(id as UltiLoadoutId)).slice(0, 2);
+  } catch { return available.slice(0, 2); }
 }
 function saveUltiLoadout(ids: UltiLoadoutId[]) { try { localStorage.setItem(ULTI_LOADOUT_KEY, JSON.stringify(ids)); } catch {} }
 
@@ -444,15 +479,38 @@ const PILOT_KILLS_KEY  = "fighter-command-pilot-kills";
 const SETTINGS_KEY     = "fighter-command-settings";
 const TUTORIAL_KEY     = "fighter-command-tutorial-seen";
 const BRIEFING_KEY     = "fighter-command-briefing-seen";
+const DEFAULT_KEY_BINDINGS: KeyBindings = {
+  up: "KeyW",
+  down: "KeyS",
+  left: "KeyA",
+  right: "KeyD",
+  fire: "Space",
+  pause: "KeyP",
+  ability1: "Digit1",
+  ability2: "Digit2",
+};
 const DEFAULT_SETTINGS: GameSettings = {
   language: "de",
   tutorial: true,
   reducedMotion: false,
   highContrast: false,
   touchControls: "auto",
+  autoFire: true,
+  joystickSize: 1,
+  joystickSensitivity: 1,
+  keyBindings: DEFAULT_KEY_BINDINGS,
   soundVolume: 0.65,
   musicVolume: 0.25,
 };
+
+function formatKeyCode(code: string): string {
+  if (code === "Space") return "SPACE";
+  if (code === "Escape") return "ESC";
+  if (code.startsWith("Key")) return code.slice(3);
+  if (code.startsWith("Digit")) return code.slice(5);
+  if (code.startsWith("Arrow")) return ({ ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→" } as Record<string, string>)[code] ?? code;
+  return code;
+}
 
 const RUN_UPGRADES: RunUpgrade[] = [
   { id: "rapid_fire", icon: "⚡", name: "Overdrive", description: "20% schneller feuern (stapelbar)" },
@@ -461,7 +519,30 @@ const RUN_UPGRADES: RunUpgrade[] = [
   { id: "drone", icon: "🛸", name: "Drohnen-Overclock", description: "Drohne wird für diesen Einsatz eine Stufe stärker" },
   { id: "critical", icon: "🎯", name: "Zielcomputer", description: "15% Chance auf dreifachen Schaden" },
   { id: "shield", icon: "🛡", name: "Notfallschild", description: "Sofort ein Schild; lädt nach Bossen neu" },
+  { id: "missile_mastery", icon: "🚀", name: "Raketenlabor", description: "Raketen feuern schneller und verursachen +4 Schaden" },
+  { id: "chain_lightning", icon: "🌩", name: "Tesla-Munition", description: "Treffer können auf einen zweiten Gegner überspringen" },
+  { id: "cryo_rounds", icon: "❄", name: "Kryo-Geschosse", description: "Treffer verlangsamen Gegner gelegentlich" },
+  { id: "glass_cannon", icon: "☄", name: "Glaskanone", description: "Massiv mehr Schaden, aber 2 weniger maximale HP" },
+  { id: "vampiric", icon: "🩸", name: "Energieernte", description: "Jeder 15. Abschuss repariert 1 HP" },
+  { id: "graze_core", icon: "🌀", name: "Risiko-Reaktor", description: "Near Misses laden beide Ultis deutlich auf" },
 ];
+
+function createMission(index = 0): Mission {
+  const missions: Omit<Mission, "completed">[] = [
+    { type: "kills", title: "Zerstöre 30 Gegner", target: 30, reward: 5000 },
+    { type: "combo", title: "Erreiche eine 20er-Combo", target: 20, reward: 6500 },
+    { type: "near_miss", title: "Schaffe 8 Near Misses", target: 8, reward: 7000 },
+    { type: "flawless_boss", title: "Besiege einen Boss ohne Treffer", target: 1, reward: 9000 },
+  ];
+  return { ...missions[index % missions.length], completed: false };
+}
+
+function missionProgress(mission: Mission, stats: RunStats): number {
+  if (mission.type === "kills") return stats.kills;
+  if (mission.type === "combo") return stats.maxCombo;
+  if (mission.type === "near_miss") return stats.nearMisses;
+  return stats.perfectBosses;
+}
 const ACHIEVEMENT_KEY = "fighter-command-achievements";
 const ACHIEVEMENTS: Achievement[] = [
   { id: "first_sortie", icon: "✈", name: "Erster Einsatz", description: "Besiege 10 Gegner", target: 10, reward: 500, stat: "kills" },
@@ -514,6 +595,17 @@ const ACHIEVEMENTS: Achievement[] = [
   { id: "flying_fortress", icon: "🏰", name: "Fliegende Festung", description: "Überstehe 150 Schadenspunkte in einem Einsatz", target: 150, reward: 32000, stat: "damageTaken" },
   { id: "damage_sponge", icon: "🔧", name: "Stahlgewitter überlebt", description: "Überstehe 200 Schadenspunkte in einem Einsatz", target: 200, reward: 50000, stat: "damageTaken" },
   { id: "phoenix", icon: "🔥", name: "Phönix", description: "Überstehe 300 Schadenspunkte in einem Einsatz", target: 300, reward: 80000, stat: "damageTaken" },
+  { id: "clean_sweep", icon: "✨", name: "Saubere Arbeit", description: "Besiege 25 Gegner in Folge, ohne Schaden zu nehmen", target: 25, reward: 3500, stat: "flawlessKills" },
+  { id: "untouchable_ace", icon: "🦅", name: "Unberührbares Ass", description: "Besiege 100 Gegner in Folge, ohne Schaden zu nehmen", target: 100, reward: 12000, stat: "flawlessKills" },
+  { id: "perfect_boss", icon: "💎", name: "Perfekter Bosskampf", description: "Besiege einen Boss, ohne im Kampf Schaden zu nehmen", target: 1, reward: 6000, stat: "perfectBosses" },
+  { id: "perfect_boss_trio", icon: "👑", name: "Makelloser Bossjäger", description: "Gewinne drei Bosskämpfe in einem Einsatz ohne Schaden", target: 3, reward: 18000, stat: "perfectBosses" },
+  { id: "full_health_salvage", icon: "🧲", name: "Mutige Bergung", description: "Sammle fünf Power-ups bei voller Gesundheit", target: 5, reward: 4000, stat: "fullHealthPickups" },
+  { id: "combo_25", icon: "🔥", name: "Kettenreaktion", description: "Erreiche eine 25er-Combo", target: 25, reward: 5000, stat: "maxCombo" },
+  { id: "combo_75", icon: "🌋", name: "Unaufhaltsam", description: "Erreiche eine 75er-Combo", target: 75, reward: 18000, stat: "maxCombo" },
+  { id: "near_miss_10", icon: "🌀", name: "Haarscharf", description: "Schaffe 10 Near Misses in einem Einsatz", target: 10, reward: 4500, stat: "nearMisses" },
+  { id: "near_miss_50", icon: "🪽", name: "Projektiltänzer", description: "Schaffe 50 Near Misses in einem Einsatz", target: 50, reward: 18000, stat: "nearMisses" },
+  { id: "mission_first", icon: "📡", name: "Befehl ausgeführt", description: "Schließe ein Missionsziel ab", target: 1, reward: 4000, stat: "missions" },
+  { id: "mission_five", icon: "🎖", name: "Elite-Einsatzkraft", description: "Schließe fünf Missionsziele in einem Einsatz ab", target: 5, reward: 20000, stat: "missions" },
 ];
 function loadAchievements(): string[] { return loadStringArray(ACHIEVEMENT_KEY); }
 function saveAchievements(ids: string[]) { try { localStorage.setItem(ACHIEVEMENT_KEY, JSON.stringify(ids)); } catch {} }
@@ -528,6 +620,19 @@ function getLocalDateKey(date = new Date()): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+function getEffectiveGameModeRules(mode: GameMode) {
+  const base = getGameModeRules(mode);
+  if (mode !== "daily") return base;
+  const daily = getDailyChallengeRules(getLocalDateKey());
+  return {
+    ...base,
+    label: `Tagesmission: ${daily.name}`,
+    description: daily.description,
+    durationSeconds: daily.durationSeconds,
+    startingLives: daily.startingLives,
+    spawnRateMultiplier: daily.spawnRateMultiplier,
+  };
 }
 function canClaimDailyChest(): boolean {
   try { return localStorage.getItem(DAILY_CHEST_KEY) !== getLocalDateKey(); } catch { return false; }
@@ -580,12 +685,23 @@ function loadSettings(): GameSettings {
     if (!isRecord(saved)) return DEFAULT_SETTINGS;
     const languages: GameSettings["language"][] = ["de", "en", "tr", "fr", "es"];
     const touchModes: GameSettings["touchControls"][] = ["auto", "always", "never"];
+    const savedBindings = isRecord(saved.keyBindings) ? saved.keyBindings : {};
+    const keyBindings = Object.fromEntries(
+      Object.entries(DEFAULT_KEY_BINDINGS).map(([action, fallback]) => [
+        action,
+        typeof savedBindings[action] === "string" ? savedBindings[action] : fallback,
+      ]),
+    ) as KeyBindings;
     return {
       language: languages.includes(saved.language as GameSettings["language"]) ? saved.language as GameSettings["language"] : DEFAULT_SETTINGS.language,
       tutorial: typeof saved.tutorial === "boolean" ? saved.tutorial : DEFAULT_SETTINGS.tutorial,
       reducedMotion: typeof saved.reducedMotion === "boolean" ? saved.reducedMotion : DEFAULT_SETTINGS.reducedMotion,
       highContrast: typeof saved.highContrast === "boolean" ? saved.highContrast : DEFAULT_SETTINGS.highContrast,
       touchControls: touchModes.includes(saved.touchControls as GameSettings["touchControls"]) ? saved.touchControls as GameSettings["touchControls"] : DEFAULT_SETTINGS.touchControls,
+      autoFire: typeof saved.autoFire === "boolean" ? saved.autoFire : DEFAULT_SETTINGS.autoFire,
+      joystickSize: Math.max(0.8, Math.min(1.4, finiteNumber(saved.joystickSize) ?? DEFAULT_SETTINGS.joystickSize)),
+      joystickSensitivity: Math.max(0.65, Math.min(1.5, finiteNumber(saved.joystickSensitivity) ?? DEFAULT_SETTINGS.joystickSensitivity)),
+      keyBindings,
       soundVolume: Math.max(0, Math.min(1, finiteNumber(saved.soundVolume) ?? DEFAULT_SETTINGS.soundVolume)),
       musicVolume: Math.max(0, Math.min(1, finiteNumber(saved.musicVolume) ?? DEFAULT_SETTINGS.musicVolume)),
     };
@@ -687,7 +803,6 @@ function localeFor(language: GameSettings["language"]) {
 }
 function tutorialSeen(): boolean { try { return localStorage.getItem(TUTORIAL_KEY) === "1"; } catch { return false; } }
 function markTutorialSeen() { try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch {} }
-function briefingSeen(): boolean { try { return localStorage.getItem(BRIEFING_KEY) === "1"; } catch { return false; } }
 function markBriefingSeen() { try { localStorage.setItem(BRIEFING_KEY, "1"); } catch {} }
 
 const LEADERBOARD_KEY = "fighter-command-lb";
@@ -1677,19 +1792,35 @@ export default function Game() {
   const bulletsRef = useRef<Bullet[]>([]);
   const enemiesRef = useRef<Enemy[]>([]);
   const particlesRef = useRef<Particle[]>([]);
+  const floatingTextsRef = useRef<FloatingText[]>([]);
   const starsRef = useRef<Star[]>([]);
   const powerUpsRef = useRef<PowerUp[]>([]);
   const enemySpawnTimerRef = useRef(0);
   const timeRef = useRef(0);
+  const runElapsedMsRef = useRef(0);
+  const bossRushSpawnTimerRef = useRef(0);
   const displaySyncTimerRef = useRef(0);
   const shieldTimerRef = useRef(0);
   const invincibleRef = useRef(0);
   const movementStunRef = useRef(0);
+  const comboRef = useRef(0);
+  const comboTimerRef = useRef(0);
+  const nearMissCooldownRef = useRef(0);
+  const screenShakeRef = useRef(0);
+  const slowMotionRef = useRef(0);
+  const waveTimerRef = useRef(0);
+  const waveSequenceRef = useRef(0);
+  const activeWaveRef = useRef<ActiveWave | null>(null);
+  const waveBannerRef = useRef({ text: "", timer: 0 });
+  const titanWarningRef = useRef(0);
+  const missionRef = useRef<Mission>({ type: "kills", title: "Zerstöre 30 Gegner", target: 30, reward: 5000, completed: false });
 
   // ── Touch / virtual controls ──
   const joystickRef = useRef({ active: false, id: -1, centerX: 0, centerY: 0, curX: 0, curY: 0 });
   const touchFireRef = useRef({ active: false, id: -1 });
   const showVirtualControlsRef = useRef(false);
+  const gamepadInputRef = useRef({ x: 0, y: 0, firing: false });
+  const gamepadButtonsRef = useRef<boolean[]>([]);
 
   // ── Ultima ──
   const ultimaChargeRef = useRef(0);
@@ -1746,9 +1877,20 @@ export default function Game() {
   const [pauseView, setPauseView] = useState<"menu" | "settings">("menu");
   const [tutorialStage, setTutorialStage] = useState(-1);
   const [showVirtualControls, setShowVirtualControls] = useState(false);
+  const [isPortraitPhone, setIsPortraitPhone] = useState(false);
+  const isPortraitPhoneRef = useRef(false);
   const audioRef = useRef(new GameAudio());
-  const runUpgradesRef = useRef<Record<RunUpgradeId, number>>({ rapid_fire: 0, damage: 0, max_hp: 0, drone: 0, critical: 0, shield: 0 });
-  const runStatsRef = useRef<RunStats>({ kills: 0, bosses: 0, damageTaken: 0, powerUps: 0 });
+  const runUpgradesRef = useRef<Record<RunUpgradeId, number>>({ ...EMPTY_RUN_UPGRADES });
+  const runStatsRef = useRef<RunStats>({
+    kills: 0, bosses: 0, damageTaken: 0, powerUps: 0,
+    flawlessKills: 0, perfectBosses: 0, fullHealthPickups: 0,
+    maxCombo: 0, nearMisses: 0, missions: 0,
+  });
+  const bossDamageStartRef = useRef(0);
+  const activeModeRef = useRef<GameMode>("classic");
+  const [selectedGameMode, setSelectedGameMode] = useState<GameMode>("classic");
+  const runResultRef = useRef<"game_over" | "complete">("game_over");
+  const rewardGrantedRef = useRef(false);
   const [runUpgradeChoices, setRunUpgradeChoices] = useState<RunUpgrade[]>([]);
   const upgradeLevelRef = useRef(0);
   const [achievementToast, setAchievementToast] = useState<Achievement | null>(null);
@@ -1781,21 +1923,92 @@ export default function Game() {
 
   const checkAchievements = useCallback(() => {
     const owned = loadAchievements();
-    const unlocked = ACHIEVEMENTS.find(a => !owned.includes(a.id) && runStatsRef.current[a.stat] >= a.target);
-    if (!unlocked) return;
-    const next = [...owned, unlocked.id];
-    saveAchievements(next); addCoins(unlocked.reward); setAchievements(next); setCoins(loadCoins());
-    setAchievementToast(unlocked); audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
-    window.setTimeout(() => setAchievementToast(current => current?.id === unlocked.id ? null : current), 3500);
+    const unlocked = ACHIEVEMENTS.filter(a => !owned.includes(a.id) && runStatsRef.current[a.stat] >= a.target);
+    if (unlocked.length === 0) return;
+    const next = [...owned, ...unlocked.map(achievement => achievement.id)];
+    saveAchievements(next);
+    addCoins(unlocked.reduce((reward, achievement) => reward + achievement.reward, 0));
+    setAchievements(next);
+    setCoins(loadCoins());
+    const toastAchievement = unlocked[unlocked.length - 1];
+    setAchievementToast(toastAchievement);
+    audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
+    window.setTimeout(() => setAchievementToast(current => current?.id === toastAchievement.id ? null : current), 3500);
   }, []);
+
+  const registerKill = useCallback((enemy: Enemy) => {
+    runStatsRef.current.kills += 1;
+    runStatsRef.current.flawlessKills += 1;
+    comboRef.current += 1;
+    comboTimerRef.current = 150;
+    runStatsRef.current.maxCombo = Math.max(runStatsRef.current.maxCombo, comboRef.current);
+    const comboMultiplier = Math.min(4, 1 + Math.floor(comboRef.current / 10) * .25);
+    stateRef.current.score += Math.round(enemy.points * (comboMultiplier - 1));
+    pilotLevelRef.current = getPilotLevelFromKills(addPilotKill());
+    floatingTextsRef.current.push({
+      x: enemy.x + enemy.width / 2, y: enemy.y,
+      text: comboRef.current >= 2 ? `${comboRef.current}× COMBO` : `+${enemy.points}`,
+      color: comboRef.current >= 10 ? "#ffcc33" : "#ffffff", life: 55, maxLife: 55,
+    });
+    screenShakeRef.current = Math.max(screenShakeRef.current, isBossEnemy(enemy) ? 16 : 3);
+    if (runUpgradesRef.current.vampiric > 0 && runStatsRef.current.kills % 15 === 0) {
+      stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + runUpgradesRef.current.vampiric);
+      floatingTextsRef.current.push({ x: playerRef.current.x, y: playerRef.current.y, text: "+HP ENERGIEERNTE", color: "#ff6688", life: 70, maxLife: 70 });
+    }
+    if (enemy.isGolden) {
+      const reward = 750 + stateRef.current.level * 100;
+      addCoins(reward);
+      stateRef.current.score += reward;
+      setCoins(loadCoins());
+      waveBannerRef.current = { text: `GOLDJAGD +${reward} CREDITS`, timer: 150 };
+    }
+    if (isBossEnemy(enemy)) {
+      runStatsRef.current.bosses += 1;
+      if (runStatsRef.current.damageTaken === bossDamageStartRef.current) {
+        runStatsRef.current.perfectBosses += 1;
+      }
+      slowMotionRef.current = 28;
+    }
+    checkAchievements();
+  }, [checkAchievements]);
+
+  const recordPlayerDamage = useCallback((damage: number) => {
+    runStatsRef.current.damageTaken += damage;
+    runStatsRef.current.flawlessKills = 0;
+    comboRef.current = 0;
+    comboTimerRef.current = 0;
+    nearMissCooldownRef.current = 0;
+    screenShakeRef.current = Math.max(screenShakeRef.current, 10);
+    checkAchievements();
+  }, [checkAchievements]);
+
+  const grantRunReward = useCallback(() => {
+    if (rewardGrantedRef.current) return;
+    rewardGrantedRef.current = true;
+    const gs = stateRef.current;
+    if (activeModeRef.current === "classic") {
+      clearSave();
+      saveExistsRef.current = false;
+    }
+    saveHighScore(gs.score);
+    addLeaderboardEntry(playerNameRef.current, gs.score);
+    addCoins(Math.round(calculateCoinReward(gs.score) * getModeCoinMultiplier(activeModeRef.current)));
+    syncDisplay();
+  }, [syncDisplay]);
 
   const chooseRunUpgrade = useCallback((upgrade: RunUpgrade) => {
     runUpgradesRef.current[upgrade.id] += 1;
     if (upgrade.id === "max_hp") { stateRef.current.maxHp += 3; stateRef.current.hp = stateRef.current.maxHp; }
     if (upgrade.id === "shield") { shieldTimerRef.current = 600; playerShieldHpRef.current = PLAYER_SHIELD_HP; }
+    if (upgrade.id === "glass_cannon") {
+      stateRef.current.maxHp = Math.max(3, stateRef.current.maxHp - 2);
+      stateRef.current.hp = Math.min(stateRef.current.hp, stateRef.current.maxHp);
+    }
     upgradeLevelRef.current = stateRef.current.level;
-    saveGame(stateRef.current, runUpgradesRef.current, upgradeLevelRef.current);
-    saveExistsRef.current = true;
+    if (activeModeRef.current === "classic") {
+      saveGame(stateRef.current, runUpgradesRef.current, upgradeLevelRef.current);
+      saveExistsRef.current = true;
+    }
     setRunUpgradeChoices([]); stateRef.current.paused = false; audioRef.current.effect("upgrade", settingsRef.current.soundVolume); syncDisplay();
   }, [syncDisplay]);
 
@@ -1836,6 +2049,43 @@ export default function Game() {
       document.removeEventListener("webkitfullscreenchange", syncFullscreen);
     };
   }, []);
+
+  useEffect(() => {
+    const updateOrientation = () => {
+      const portrait = window.innerWidth <= 700 && window.innerHeight > window.innerWidth;
+      isPortraitPhoneRef.current = portrait;
+      setIsPortraitPhone(portrait);
+    };
+    updateOrientation();
+    window.addEventListener("resize", updateOrientation);
+    window.addEventListener("orientationchange", updateOrientation);
+    return () => {
+      window.removeEventListener("resize", updateOrientation);
+      window.removeEventListener("orientationchange", updateOrientation);
+    };
+  }, []);
+
+  useEffect(() => {
+    const pauseIfPlaying = () => {
+      const gs = stateRef.current;
+      if (!gs.started || gs.gameOver || gs.paused) return;
+      gs.paused = true;
+      keysRef.current.clear();
+      touchFireRef.current.active = false;
+      joystickRef.current.active = false;
+      setPauseView("menu");
+      syncDisplay();
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) pauseIfPlaying();
+    };
+    window.addEventListener("blur", pauseIfPlaying);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("blur", pauseIfPlaying);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [syncDisplay]);
 
   const toggleFullscreen = useCallback(async () => {
     const fullscreenDocument = document as FullscreenDocument;
@@ -1943,7 +2193,11 @@ export default function Game() {
       shieldHp: type === "laserdevice" ? LASER_DEVICE_SHIELD_HP : type === "sentinel" ? 6 : type === "emeraldtiefighter" ? 4 : type === "tiefighter" ? 2 : 0,
       bossAge: type === "boss" ? 0 : undefined,
       isGolden,
+      goldenTimer: isGolden ? 600 : undefined,
+      bossTopPartHp: type === "boss" ? Math.max(5, Math.round(hp * .12)) : undefined,
+      bossBottomPartHp: type === "boss" ? Math.max(5, Math.round(hp * .12)) : undefined,
     };
+    if (isBossEnemy(enemy)) bossDamageStartRef.current = runStatsRef.current.damageTaken;
     enemiesRef.current.push(enemy);
 
     if (type === "emeraldtiefighter") {
@@ -1957,9 +2211,86 @@ export default function Game() {
     }
   }, []);
 
+  const spawnBossRushEnemy = useCallback((bossNumber: number) => {
+    const power = Math.max(1, bossNumber);
+    const titan = power % 5 === 0;
+    const overlord = !titan && power % 3 === 0;
+    const type: Enemy["type"] = titan ? "titan" : overlord ? "overlord" : "boss";
+    const hp = increasedBossHealth((titan ? 520 : overlord ? 240 : 100) + power * (titan ? 70 : 32));
+    const width = titan ? 158 : overlord ? 138 : 112;
+    const height = titan ? 136 : overlord ? 104 : 86;
+    if (titan) titanWarningRef.current = 180;
+    enemiesRef.current.push({
+      x: CANVAS_W + 24,
+      y: CANVAS_H / 2 - height / 2,
+      vx: titan ? -.55 : -.75,
+      vy: 0,
+      hp,
+      maxHp: hp,
+      width,
+      height,
+      type,
+      shootCooldown: titan ? 14 : 18,
+      points: 900 + power * 350,
+      color: titan ? "#ff3fd2" : overlord ? "#ff4fc8" : "#ff2200",
+      angle: 0,
+      oscillate: 0,
+      bossAge: type === "boss" ? 0 : undefined,
+      missileTimer: titan ? 180 : undefined,
+      specialAttackTimer: titan || overlord ? 150 : undefined,
+      titanShieldCooldown: titan ? TITAN_SHIELD_COOLDOWN : undefined,
+      titanShieldTimer: titan ? 0 : undefined,
+      titanHealTimer: titan ? 60 : undefined,
+      titanDashCooldown: titan ? TITAN_DASH_COOLDOWN : undefined,
+      titanDashTimer: titan ? 0 : undefined,
+      titanReinforcementsSpawned: titan ? false : undefined,
+      bossTopPartHp: Math.max(8, Math.round(hp * .12)),
+      bossBottomPartHp: Math.max(8, Math.round(hp * .12)),
+    });
+    bossDamageStartRef.current = runStatsRef.current.damageTaken;
+    audioRef.current.effect("boss", settingsRef.current.soundVolume);
+  }, []);
+
+  const spawnFormationWave = useCallback((level: number) => {
+    const waveId = ++waveSequenceRef.current;
+    const pattern = waveId % 3;
+    const name = pattern === 0 ? "V-FORMATION" : pattern === 1 ? "BOMBER-ESKORTE" : "ABFANGSCHWARM";
+    const count = pattern === 1 ? 5 : 7;
+    const centerY = rand(150, CANVAS_H - 150);
+    for (let index = 0; index < count; index++) {
+      const isBomber = pattern === 1 && index === 0;
+      const type: Enemy["type"] = isBomber ? "bomber" : level >= 5 && pattern === 2 ? "interceptor" : "fighter";
+      const width = isBomber ? 56 : type === "interceptor" ? 36 : 48;
+      const height = isBomber ? 40 : type === "interceptor" ? 22 : 28;
+      const row = pattern === 0 ? Math.abs(index - Math.floor(count / 2)) : Math.floor(index / 2);
+      const side = index % 2 === 0 ? -1 : 1;
+      const y = pattern === 0
+        ? centerY + (index - Math.floor(count / 2)) * 52
+        : centerY + side * (35 + row * 45);
+      const hp = isBomber ? 8 + level : type === "interceptor" ? 2 : 3 + Math.floor(level / 3);
+      enemiesRef.current.push({
+        x: CANVAS_W + 50 + row * 65,
+        y: clamp(y, 90, CANVAS_H - height - 25),
+        vx: isBomber ? -1.1 : type === "interceptor" ? -4.3 : -2.5,
+        vy: 0,
+        hp, maxHp: hp, width, height, type,
+        shootCooldown: rand(65, 115),
+        points: isBomber ? 110 : 45,
+        color: isBomber ? "#ff7800" : "#ffd23f",
+        angle: 0,
+        oscillate: pattern === 2 ? 1.2 : 0,
+        waveId,
+      });
+    }
+    activeWaveRef.current = { id: waveId, name, active: true };
+    waveBannerRef.current = { text: `⚠ ${name}`, timer: 120 };
+    audioRef.current.effect("boss", settingsRef.current.soundVolume * .6);
+  }, []);
+
   const fireBullets = useCallback((now: number) => {
     const gs = stateRef.current;
     const tier = WEAPON_TIERS[gs.weaponTier];
+    const buildDamageMultiplier = 1 + runUpgradesRef.current.glass_cannon * .65;
     const persistentDroneUpgrades = [
       "drone_mk2", "drone_mk3", "drone_mk4", "drone_mk5",
       "drone_mk6", "drone_mk7", "drone_mk8",
@@ -1983,7 +2314,7 @@ export default function Game() {
       const offsets = drone.guns === 3 ? [-7, 0, 7] : drone.guns === 2 ? [-4, 4] : [0];
       offsets.forEach(offset => bulletsRef.current.push({
         x: droneX + 22, y: droneY + offset, vx: BASE_BULLET_SPEED, vy: 0,
-        fromPlayer: true, damage: (drone.damage + runUpgradesRef.current.damage) * droneDamageMultiplier,
+        fromPlayer: true, damage: (drone.damage + runUpgradesRef.current.damage) * droneDamageMultiplier * buildDamageMultiplier,
         color: activeDroneSkinRef.current.stroke,
       }));
     }
@@ -2028,7 +2359,7 @@ export default function Game() {
         x: px, y: py + oy,
         vx, vy,
         fromPlayer: true,
-        damage: tier.bulletDmg + runUpgradesRef.current.damage + aircraftUpgradeRef.current.damageBonus,
+        damage: (tier.bulletDmg + runUpgradesRef.current.damage + aircraftUpgradeRef.current.damageBonus) * buildDamageMultiplier,
         color: activeBulletColorRef.current,
       });
     });
@@ -2053,21 +2384,25 @@ export default function Game() {
     }
 
     // Missiles
-    if (tier.missile && now - lastMissileRef.current > 1800) {
+    const missileCooldown = 1800 * Math.pow(.72, runUpgradesRef.current.missile_mastery);
+    if (tier.missile && now - lastMissileRef.current > missileCooldown) {
       lastMissileRef.current = now;
       const target = enemiesRef.current[0] ?? null;
       bulletsRef.current.push({
         x: px, y: py,
         vx: 7, vy: 0,
-        fromPlayer: true, damage: 4 + aircraftUpgradeRef.current.damageBonus,
+        fromPlayer: true, damage: (4 + aircraftUpgradeRef.current.damageBonus + runUpgradesRef.current.missile_mastery * 4) * buildDamageMultiplier,
         isMissile: true, missileTarget: target,
       });
     }
   }, []);
 
-  const startGame = useCallback((fromSave = false) => {
+  const startGame = useCallback((fromSave = false, requestedMode: GameMode = selectedGameMode) => {
     audioRef.current.unlock();
     const save = fromSave ? loadSave() : null;
+    const mode = fromSave ? "classic" : requestedMode;
+    const modeRules = getEffectiveGameModeRules(mode);
+    activeModeRef.current = mode;
     const unlocks = loadUnlocks();
     const aircraftStats = getAircraftUpgradeStats(loadAircraftLevels()[loadSkin()] ?? 1);
     droneLevelRef.current = loadDroneLevels()[loadDroneSkin()] ?? 1;
@@ -2095,7 +2430,12 @@ export default function Game() {
     runUpgradesRef.current = save?.runUpgrades
       ? { ...EMPTY_RUN_UPGRADES, ...save.runUpgrades }
       : { ...EMPTY_RUN_UPGRADES };
-    runStatsRef.current = { kills: 0, bosses: 0, damageTaken: 0, powerUps: 0 };
+    runStatsRef.current = {
+      kills: 0, bosses: 0, damageTaken: 0, powerUps: 0,
+      flawlessKills: 0, perfectBosses: 0, fullHealthPickups: 0,
+      maxCombo: 0, nearMisses: 0, missions: 0,
+    };
+    bossDamageStartRef.current = 0;
     upgradeLevelRef.current = save?.upgradeLevel ?? 0;
     setRunUpgradeChoices([]);
     const baseMaxHp = (unlocks.includes("max_hp") ? 15 : 10) + aircraftStats.maxHpBonus;
@@ -2108,12 +2448,12 @@ export default function Game() {
       shield:     0,
       speed:      save ? save.speed + aircraftStats.speedBonus - savedAircraftStats.speedBonus : baseSpeed,
       weaponTier: fromSave ? (save?.weaponTier ?? 0) : (unlocks.includes("weapon_head") ? 2 : 0),
-      lives:      save?.lives  ?? (unlocks.includes("extra_life") ? 4 : 3),
+      lives:      save?.lives  ?? modeRules.startingLives ?? (unlocks.includes("extra_life") ? 4 : 3),
       gameOver: false, started: true, paused: false,
     };
     const pendingRunUpgrade = fromSave &&
-      stateRef.current.level >= 5 &&
-      stateRef.current.level % 5 === 0 &&
+      stateRef.current.level >= 3 &&
+      stateRef.current.level % 3 === 0 &&
       upgradeLevelRef.current !== stateRef.current.level;
     if (pendingRunUpgrade) {
       setRunUpgradeChoices([...RUN_UPGRADES].sort(() => Math.random() - 0.5).slice(0, 3));
@@ -2123,9 +2463,14 @@ export default function Game() {
     bulletsRef.current = [];
     enemiesRef.current = [];
     particlesRef.current = [];
+    floatingTextsRef.current = [];
     powerUpsRef.current = [];
     enemySpawnTimerRef.current = 0;
     timeRef.current = 0;
+    runElapsedMsRef.current = 0;
+    bossRushSpawnTimerRef.current = 0;
+    runResultRef.current = "game_over";
+    rewardGrantedRef.current = false;
     lastFireRef.current = 0;
     lastDroneFireRef.current = 0;
     lastWingmanFireRef.current = 0;
@@ -2133,6 +2478,16 @@ export default function Game() {
     shieldTimerRef.current = 0;
     invincibleRef.current = 0;
     movementStunRef.current = 0;
+    comboRef.current = 0;
+    comboTimerRef.current = 0;
+    screenShakeRef.current = 0;
+    slowMotionRef.current = 0;
+    waveTimerRef.current = 0;
+    waveSequenceRef.current = 0;
+    activeWaveRef.current = null;
+    waveBannerRef.current = { text: "MISSION GESTARTET", timer: 120 };
+    titanWarningRef.current = 0;
+    missionRef.current = createMission(0);
     ultimaChargeRef.current = ULTI_MAX;
     ultimaActiveRef.current = 0;
     laserChargeRef.current = LASER_MAX;
@@ -2147,11 +2502,11 @@ export default function Game() {
     tutorialStageRef.current = shouldTeach ? 0 : -1;
     setTutorialStage(shouldTeach ? 0 : -1);
     syncDisplay();
-  }, [syncDisplay]);
+  }, [selectedGameMode, syncDisplay]);
 
   const returnToHangar = useCallback(() => {
     const gs = stateRef.current;
-    if (gs.score > 0) saveGame(gs, runUpgradesRef.current, upgradeLevelRef.current);
+    if (gs.score > 0 && activeModeRef.current === "classic") saveGame(gs, runUpgradesRef.current, upgradeLevelRef.current);
     gs.started = false;
     gs.paused = false;
     keysRef.current.clear();
@@ -2242,85 +2597,97 @@ export default function Game() {
     return true;
   }, [syncDisplay]);
 
+  const activateAbility = useCallback((id: UltiLoadoutId | undefined) => {
+    if (!id || !stateRef.current.started || stateRef.current.gameOver || stateRef.current.paused) return false;
+    const titanDashing = enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0);
+    if (titanDashing) return false;
+
+    if (id === "jet") return activateCombinedJetAndDroneUlti();
+    if (id === "laser" && laserChargeRef.current >= LASER_MAX && laserActiveRef.current === 0) {
+      laserActiveRef.current = LASER_DURATION;
+      laserChargeRef.current = 0;
+      return true;
+    }
+    if (id === "stealth_ulti" && stealthChargeRef.current >= STEALTH_MAX && stealthActiveRef.current === 0 &&
+        activeUnlocksRef.current.includes(id)) {
+      stealthActiveRef.current = STEALTH_DURATION;
+      stealthChargeRef.current = 0;
+      return true;
+    }
+    if (id === "heal_ulti" && healChargeRef.current >= HEAL_MAX && healActiveRef.current === 0 &&
+        activeUnlocksRef.current.includes(id)) {
+      stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + HEAL_ULTI_RESTORE);
+      healActiveRef.current = HEAL_DURATION;
+      healChargeRef.current = 0;
+      syncDisplay();
+      return true;
+    }
+    if (id === "poison_missiles_ulti" && poisonMissileChargeRef.current >= POISON_MISSILE_MAX &&
+        activeUnlocksRef.current.includes(id) && firePoisonMissiles()) {
+      poisonMissileChargeRef.current = 0;
+      return true;
+    }
+    if (id === "absorber_ulti" && absorberChargeRef.current >= ABSORBER_MAX && absorberActiveRef.current === 0 &&
+        activeUnlocksRef.current.includes(id)) {
+      absorberActiveRef.current = ABSORBER_DURATION;
+      absorberChargeRef.current = 0;
+      absorberHitsRef.current = 0;
+      return true;
+    }
+    if (id === "ultimate_ulti" && ultimateChargeRef.current >= ULTIMATE_MAX && ultimateActiveRef.current === 0 &&
+        activeUnlocksRef.current.includes(id)) {
+      ultimateActiveRef.current = ULTIMATE_DURATION;
+      ultimateChargeRef.current = 0;
+      stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + ULTIMATE_HEAL);
+      syncDisplay();
+      return true;
+    }
+    return false;
+  }, [activateCombinedJetAndDroneUlti, firePoisonMissiles, syncDisplay]);
+
   useEffect(() => {
     initStars();
     initCity();
     const onKey = (e: KeyboardEvent, down: boolean) => {
-      keysRef.current[down ? "add" : "delete"](e.key);
-      const titanDashing = enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0);
-      if (down && titanDashing && ["q", "e", "r", "h", "t", "f", "u"].includes(e.key.toLowerCase())) {
-        keysRef.current.delete(e.key);
-        return;
+      const method = down ? "add" : "delete";
+      keysRef.current[method](e.key);
+      keysRef.current[method](e.code);
+      const bindings = settingsRef.current.keyBindings;
+      const movementCodes = [bindings.up, bindings.down, bindings.left, bindings.right, "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+      if (down && tutorialStageRef.current === 0 && movementCodes.includes(e.code)) {
+        if (settingsRef.current.autoFire) {
+          tutorialStageRef.current = 2;
+          setTutorialStage(2);
+          window.setTimeout(finishTutorial, 1100);
+        } else {
+          tutorialStageRef.current = 1;
+          setTutorialStage(1);
+        }
       }
-      if (down && tutorialStageRef.current === 0 && ["w", "a", "s", "d", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
-        tutorialStageRef.current = 1; setTutorialStage(1);
-      }
-      if (down && tutorialStageRef.current === 1 && e.key === " ") {
+      if (down && tutorialStageRef.current === 1 && e.code === bindings.fire) {
         tutorialStageRef.current = 2; setTutorialStage(2);
-        window.setTimeout(finishTutorial, 1400);
+        window.setTimeout(finishTutorial, 1100);
       }
-      if (e.key === " " && !stateRef.current.started) startGame(saveExistsRef.current);
+      if (down && e.code === bindings.fire && !stateRef.current.started) {
+        const shouldContinueClassicSave = saveExistsRef.current && selectedGameMode === "classic";
+        startGame(shouldContinueClassicSave, selectedGameMode);
+      }
       if ((e.key === "n" || e.key === "N") && !stateRef.current.started && down) {
         clearSave(); saveExistsRef.current = false; startGame(false);
       }
-      if ((e.key === "p" || e.key === "P") && down) {
+      if (down && (e.code === bindings.pause || e.code === "Escape")) {
+        e.preventDefault();
         if (stateRef.current.started && !stateRef.current.gameOver) {
           stateRef.current.paused = !stateRef.current.paused;
+          setPauseView("menu");
           syncDisplay();
         }
       }
-      if ((e.key === "r" || e.key === "R") && down && stateRef.current.started &&
-          !stateRef.current.gameOver && !stateRef.current.paused) {
-        if (stealthChargeRef.current >= STEALTH_MAX && stealthActiveRef.current === 0
-            && activeUnlocksRef.current.includes("stealth_ulti") && activeUltiLoadoutRef.current.includes("stealth_ulti")) {
-          stealthActiveRef.current = STEALTH_DURATION;
-          stealthChargeRef.current = 0;
-        }
+      if (down && e.code === bindings.ability1) {
+        activateAbility(activeUltiLoadoutRef.current[0]);
       }
-      if ((e.key === "h" || e.key === "H") && down && stateRef.current.started &&
-          !stateRef.current.gameOver && !stateRef.current.paused) {
-        if (healChargeRef.current >= HEAL_MAX && healActiveRef.current === 0
-            && activeUnlocksRef.current.includes("heal_ulti") && activeUltiLoadoutRef.current.includes("heal_ulti")) {
-          stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + HEAL_ULTI_RESTORE);
-          healActiveRef.current = HEAL_DURATION;
-          healChargeRef.current = 0;
-          syncDisplay();
-        }
-      }
-      if ((e.key === "t" || e.key === "T") && down && stateRef.current.started &&
-          !stateRef.current.gameOver && !stateRef.current.paused &&
-          poisonMissileChargeRef.current >= POISON_MISSILE_MAX &&
-          activeUnlocksRef.current.includes("poison_missiles_ulti") &&
-          activeUltiLoadoutRef.current.includes("poison_missiles_ulti") && firePoisonMissiles()) {
-        poisonMissileChargeRef.current = 0;
-      }
-      if ((e.key === "f" || e.key === "F") && down && stateRef.current.started &&
-          !stateRef.current.gameOver && !stateRef.current.paused &&
-          absorberChargeRef.current >= ABSORBER_MAX && absorberActiveRef.current === 0 &&
-          activeUnlocksRef.current.includes("absorber_ulti") && activeUltiLoadoutRef.current.includes("absorber_ulti")) {
-        absorberActiveRef.current = ABSORBER_DURATION;
-        absorberChargeRef.current = 0;
-        absorberHitsRef.current = 0;
-      }
-      if ((e.key === "u" || e.key === "U") && down && stateRef.current.started &&
-          !stateRef.current.gameOver && !stateRef.current.paused &&
-          ultimateChargeRef.current >= ULTIMATE_MAX && ultimateActiveRef.current === 0 &&
-          activeUnlocksRef.current.includes("ultimate_ulti") && activeUltiLoadoutRef.current.includes("ultimate_ulti")) {
-        ultimateActiveRef.current = ULTIMATE_DURATION;
-        ultimateChargeRef.current = 0;
-        stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + ULTIMATE_HEAL);
-        syncDisplay();
-      }
-      if ((e.key === "q" || e.key === "Q") && down && stateRef.current.started &&
-          !stateRef.current.gameOver && !stateRef.current.paused) {
-        activateCombinedJetAndDroneUlti();
-      }
-      if ((e.key === "e" || e.key === "E") && down && stateRef.current.started &&
-          !stateRef.current.gameOver && !stateRef.current.paused) {
-        if (laserChargeRef.current >= LASER_MAX && laserActiveRef.current === 0 && activeUltiLoadoutRef.current.includes("laser")) {
-          laserActiveRef.current = LASER_DURATION;
-          laserChargeRef.current = 0;
-        }
+      if (down && e.code === bindings.ability2) {
+        activateAbility(activeUltiLoadoutRef.current[1]);
       }
     };
     const onKeyDown = (e: KeyboardEvent) => onKey(e, true);
@@ -2332,7 +2699,56 @@ export default function Game() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [finishTutorial, firePoisonMissiles, initCity, initStars, startGame, syncDisplay]);
+  }, [activateAbility, finishTutorial, initCity, initStars, startGame, syncDisplay]);
+
+  useEffect(() => {
+    let gamepadFrame = 0;
+    const pollGamepad = () => {
+      gamepadFrame = window.requestAnimationFrame(pollGamepad);
+      const pad = navigator.getGamepads?.().find(candidate => candidate?.connected) ?? null;
+      if (!pad) {
+        gamepadInputRef.current = { x: 0, y: 0, firing: false };
+        gamepadButtonsRef.current = [];
+        return;
+      }
+
+      const deadZone = 0.18;
+      const axisX = Math.abs(pad.axes[0] ?? 0) >= deadZone ? pad.axes[0] ?? 0 : 0;
+      const axisY = Math.abs(pad.axes[1] ?? 0) >= deadZone ? pad.axes[1] ?? 0 : 0;
+      gamepadInputRef.current = {
+        x: axisX,
+        y: axisY,
+        firing: Boolean(pad.buttons[0]?.pressed || pad.buttons[7]?.pressed),
+      };
+      if (tutorialStageRef.current === 0 && (axisX !== 0 || axisY !== 0)) {
+        if (settingsRef.current.autoFire) {
+          tutorialStageRef.current = 2;
+          setTutorialStage(2);
+          window.setTimeout(finishTutorial, 1100);
+        } else {
+          tutorialStageRef.current = 1;
+          setTutorialStage(1);
+        }
+      } else if (tutorialStageRef.current === 1 && gamepadInputRef.current.firing) {
+        tutorialStageRef.current = 2;
+        setTutorialStage(2);
+        window.setTimeout(finishTutorial, 1100);
+      }
+
+      const previous = gamepadButtonsRef.current;
+      const pressedOnce = (index: number) => Boolean(pad.buttons[index]?.pressed) && !previous[index];
+      if (pressedOnce(9) && stateRef.current.started && !stateRef.current.gameOver) {
+        stateRef.current.paused = !stateRef.current.paused;
+        setPauseView("menu");
+        syncDisplay();
+      }
+      if (pressedOnce(4)) activateAbility(activeUltiLoadoutRef.current[0]);
+      if (pressedOnce(5)) activateAbility(activeUltiLoadoutRef.current[1]);
+      gamepadButtonsRef.current = pad.buttons.map(button => button.pressed);
+    };
+    pollGamepad();
+    return () => window.cancelAnimationFrame(gamepadFrame);
+  }, [activateAbility, finishTutorial, syncDisplay]);
 
   useEffect(() => {
     const pointerQuery = window.matchMedia?.("(pointer: coarse)");
@@ -2368,7 +2784,16 @@ export default function Game() {
         const t = e.changedTouches[i];
         const { x, y } = toCanvas(t.clientX, t.clientY);
         if (x < CANVAS_W / 2) {
-          if (tutorialStageRef.current === 0) { tutorialStageRef.current = 1; setTutorialStage(1); }
+          if (tutorialStageRef.current === 0) {
+            if (settingsRef.current.autoFire) {
+              tutorialStageRef.current = 2;
+              setTutorialStage(2);
+              window.setTimeout(finishTutorial, 1100);
+            } else {
+              tutorialStageRef.current = 1;
+              setTutorialStage(1);
+            }
+          }
           // Left half → joystick
           if (!joystickRef.current.active) {
             joystickRef.current = { active: true, id: t.identifier, centerX: x, centerY: y, curX: x, curY: y };
@@ -2420,9 +2845,9 @@ export default function Game() {
           } else if (du <= ULTI_BTN_R + 12 && ultimaChargeRef.current >= ULTI_MAX && ultimaActiveRef.current === 0 && activeUltiLoadoutRef.current.includes("jet")) {
             activateCombinedJetAndDroneUlti();
             syncDisplay();
-          } else if (!touchFireRef.current.active) {
+          } else if (!settingsRef.current.autoFire && !touchFireRef.current.active) {
             if (tutorialStageRef.current === 1) {
-              tutorialStageRef.current = 2; setTutorialStage(2); window.setTimeout(finishTutorial, 1400);
+              tutorialStageRef.current = 2; setTutorialStage(2); window.setTimeout(finishTutorial, 1100);
             }
             touchFireRef.current = { active: true, id: t.identifier };
           }
@@ -2603,6 +3028,10 @@ export default function Game() {
         return; // Hangar React overlay handles this screen
       }
 
+      if (isPortraitPhoneRef.current) {
+        return;
+      }
+
       if (gs.paused) {
         return;
       }
@@ -2613,9 +3042,10 @@ export default function Game() {
         ctx.fillStyle = "rgba(4,12,28,0.84)";
         ctx.beginPath(); ctx.roundRect(CANVAS_W/2-260, CANVAS_H/2-78, 520, 195, 14); ctx.fill();
         ctx.textAlign = "center";
-        ctx.fillStyle = "#ff4444"; ctx.font = "bold 52px 'Inter', sans-serif";
-        ctx.shadowColor = "#ff4444"; ctx.shadowBlur = 20;
-        ctx.fillText("GAME OVER", CANVAS_W/2, CANVAS_H/2-36);
+        const completed = runResultRef.current === "complete";
+        ctx.fillStyle = completed ? "#4ade80" : "#ff4444"; ctx.font = "bold 46px 'Inter', sans-serif";
+        ctx.shadowColor = completed ? "#4ade80" : "#ff4444"; ctx.shadowBlur = 20;
+        ctx.fillText(completed ? "MISSION GESCHAFFT" : "GAME OVER", CANVAS_W/2, CANVAS_H/2-36);
         ctx.shadowBlur = 0;
         ctx.fillStyle = "#fff"; ctx.font = "24px 'Inter', sans-serif";
         ctx.fillText(`Score: ${gs.score.toLocaleString("de-DE")}`, CANVAS_W/2, CANVAS_H/2+10);
@@ -2624,13 +3054,14 @@ export default function Game() {
         ctx.fillStyle = "#ffcc44"; ctx.font = "13px 'Inter', sans-serif";
         ctx.fillText("🏆 Score gespeichert — Rangliste im Hangar!", CANVAS_W/2, CANVAS_H/2+62);
         ctx.fillStyle = "#ffd966"; ctx.font = "bold 16px 'Inter', sans-serif";
-        ctx.fillText(`Belohnung: +${calculateCoinReward(gs.score).toLocaleString("de-DE")} Credits`, CANVAS_W/2, CANVAS_H/2+86);
+        const modeReward = Math.round(calculateCoinReward(gs.score) * getModeCoinMultiplier(activeModeRef.current));
+        ctx.fillText(`Belohnung: +${modeReward.toLocaleString("de-DE")} Credits`, CANVAS_W/2, CANVAS_H/2+86);
         const sLeft = Math.max(0, Math.ceil((200 - gameOverCountdownRef.current) / 60));
         ctx.fillStyle = sLeft > 0 ? "#666" : "#ffcc00";
         ctx.font = "13px 'Inter', sans-serif";
-        ctx.fillText(sLeft > 0 ? `Zurück zum Hangar in ${sLeft}s …  (SPACE zum Überspringen)` : "Zum Hangar …", CANVAS_W/2, CANVAS_H/2+72);
+        ctx.fillText(sLeft > 0 ? `Zurück zum Hangar in ${sLeft}s …  (SPACE zum Überspringen)` : "Zum Hangar …", CANVAS_W/2, CANVAS_H/2+110);
         ctx.restore();
-        if (keysRef.current.has(" ") || gameOverCountdownRef.current > 200) {
+        if (keysRef.current.has(settingsRef.current.keyBindings.fire) || gameOverCountdownRef.current > 200) {
           gameOverCountdownRef.current = 0;
           gs.started = false; gs.gameOver = false;
           syncDisplay();
@@ -2638,14 +3069,66 @@ export default function Game() {
         return;
       }
 
+      const tutorialActive = tutorialStageRef.current >= 0;
+      if (tutorialActive) {
+        enemiesRef.current = [];
+        bulletsRef.current = bulletsRef.current.filter(bullet => bullet.fromPlayer);
+        enemySpawnTimerRef.current = 0;
+        bossRushSpawnTimerRef.current = 0;
+        invincibleRef.current = Math.max(invincibleRef.current, 10);
+      } else {
+        runElapsedMsRef.current += dt;
+      }
+      const modeRules = getEffectiveGameModeRules(activeModeRef.current);
+      if (modeRules.durationSeconds !== null && runElapsedMsRef.current >= modeRules.durationSeconds * 1000) {
+        runResultRef.current = "complete";
+        gs.gameOver = true;
+        grantRunReward();
+        return;
+      }
+
       audioRef.current.updateMusic(gs.level, settingsRef.current.musicVolume, dtScale);
+
+      if (screenShakeRef.current > 0 && !settingsRef.current.reducedMotion) {
+        const strength = screenShakeRef.current;
+        canvas.style.transform = `translate(${rand(-strength, strength)}px, ${rand(-strength, strength)}px)`;
+        screenShakeRef.current = Math.max(0, screenShakeRef.current - 1.4 * dtScale);
+      } else {
+        canvas.style.transform = "";
+      }
+      if (slowMotionRef.current > 0) {
+        slowMotionRef.current = Math.max(0, slowMotionRef.current - dtScale);
+        if (Math.floor(slowMotionRef.current) % 2 === 0) return;
+      }
+      if (comboTimerRef.current > 0) {
+        comboTimerRef.current = Math.max(0, comboTimerRef.current - dtScale);
+        if (comboTimerRef.current === 0) comboRef.current = 0;
+      }
+      nearMissCooldownRef.current = Math.max(0, nearMissCooldownRef.current - dtScale);
+      const activeMission = missionRef.current;
+      if (!activeMission.completed && missionProgress(activeMission, runStatsRef.current) >= activeMission.target) {
+        activeMission.completed = true;
+        addCoins(activeMission.reward);
+        runStatsRef.current.missions += 1;
+        checkAchievements();
+        waveBannerRef.current = { text: `MISSION ERFÜLLT · +${activeMission.reward}`, timer: 180 };
+        audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
+        window.setTimeout(() => {
+          missionRef.current = createMission(runStatsRef.current.missions);
+          waveBannerRef.current = { text: "NEUES MISSIONSZIEL", timer: 100 };
+        }, 2200);
+      }
 
       // ── Input & Player Movement ──
       const n1UltiSpeed = activeUltiSkinRef.current.id === "n1" && ultimaActiveRef.current > 0 ? 2 : 1;
       const speedMult = (activeSkinRef.current?.id === "n1" ? 1.15 : 1) * n1UltiSpeed * (speedBoostRef.current > 0 ? 2 : 1);
       const spd = gs.speed * speedMult;
       const js = joystickRef.current;
-      const JOY_RADIUS = 70;
+      const JOY_RADIUS = 70 * settingsRef.current.joystickSize;
+      const touchSensitivity = settingsRef.current.joystickSensitivity;
+      const gamepad = gamepadInputRef.current;
+      const bindings = settingsRef.current.keyBindings;
+      const keyPressed = (action: KeyBindingAction) => keysRef.current.has(bindings[action]);
 
       movementStunRef.current = Math.max(0, movementStunRef.current - dtScale);
       if (movementStunRef.current <= 0 && js.active) {
@@ -2654,25 +3137,29 @@ export default function Game() {
         const d = Math.hypot(dx, dy);
         const norm = Math.min(d, JOY_RADIUS) / JOY_RADIUS;
         if (d > 8) {
-          playerRef.current.x = clamp(playerRef.current.x + (dx / d) * norm * spd * 0.8 * dtScale, 0, CANVAS_W * 0.75);
-          playerRef.current.y = clamp(playerRef.current.y + (dy / d) * norm * spd * dtScale,       0, CANVAS_H - PLAYER_H);
+          playerRef.current.x = clamp(playerRef.current.x + (dx / d) * norm * spd * 0.8 * touchSensitivity * dtScale, 0, CANVAS_W * 0.75);
+          playerRef.current.y = clamp(playerRef.current.y + (dy / d) * norm * spd * touchSensitivity * dtScale,       0, CANVAS_H - PLAYER_H);
         }
       } else if (movementStunRef.current <= 0) {
-        if (keysRef.current.has("ArrowUp") || keysRef.current.has("w") || keysRef.current.has("W")) {
+        if (keyPressed("up") || keysRef.current.has("ArrowUp")) {
           playerRef.current.y = clamp(playerRef.current.y - spd * dtScale, 0, CANVAS_H - PLAYER_H);
         }
-        if (keysRef.current.has("ArrowDown") || keysRef.current.has("s") || keysRef.current.has("S")) {
+        if (keyPressed("down") || keysRef.current.has("ArrowDown")) {
           playerRef.current.y = clamp(playerRef.current.y + spd * dtScale, 0, CANVAS_H - PLAYER_H);
         }
-        if (keysRef.current.has("ArrowLeft") || keysRef.current.has("a") || keysRef.current.has("A")) {
+        if (keyPressed("left") || keysRef.current.has("ArrowLeft")) {
           playerRef.current.x = clamp(playerRef.current.x - spd * 0.8 * dtScale, 0, CANVAS_W - PLAYER_W);
         }
-        if (keysRef.current.has("ArrowRight") || keysRef.current.has("d") || keysRef.current.has("D")) {
+        if (keyPressed("right") || keysRef.current.has("ArrowRight")) {
           playerRef.current.x = clamp(playerRef.current.x + spd * 0.8 * dtScale, 0, CANVAS_W * 0.75);
+        }
+        if (gamepad.x !== 0 || gamepad.y !== 0) {
+          playerRef.current.x = clamp(playerRef.current.x + gamepad.x * spd * 0.8 * dtScale, 0, CANVAS_W * 0.75);
+          playerRef.current.y = clamp(playerRef.current.y + gamepad.y * spd * dtScale, 0, CANVAS_H - PLAYER_H);
         }
       }
 
-      const firing = keysRef.current.has(" ") || touchFireRef.current.active;
+      const firing = settingsRef.current.autoFire || keyPressed("fire") || touchFireRef.current.active || gamepad.firing;
       if (firing) fireBullets(timestamp);
 
       // ── Level / Weapon tier ──
@@ -2691,25 +3178,30 @@ export default function Game() {
         }
         const gainedLevels = nextLevel - gs.level;
         gs.level = nextLevel;
+        waveBannerRef.current = { text: `LEVEL ${nextLevel} · WAFFEN VERBESSERT`, timer: 110 };
+        screenShakeRef.current = Math.max(screenShakeRef.current, 5);
         const tierIndex = Math.min(nextLevel - 1, WEAPON_TIERS.length - 1);
         gs.weaponTier = Math.max(gs.weaponTier, tierIndex);
         gs.speed += gainedLevels * 0.25;
-        saveGame(gs, runUpgradesRef.current, upgradeLevelRef.current);
-        saveExistsRef.current = true;
-        if (nextLevel >= 5 && nextLevel % 5 === 0 && upgradeLevelRef.current !== nextLevel) {
+        if (activeModeRef.current === "classic") {
+          saveGame(gs, runUpgradesRef.current, upgradeLevelRef.current);
+          saveExistsRef.current = true;
+        }
+        if (nextLevel >= 3 && nextLevel % 3 === 0 && upgradeLevelRef.current !== nextLevel) {
           const choices = [...RUN_UPGRADES].sort(() => Math.random() - 0.5).slice(0, 3);
           setRunUpgradeChoices(choices); gs.paused = true; syncDisplay();
         }
       }
 
       // ── Titan: exclusive boss fight at every tenth level ──
-      if (gs.level % 10 === 0 && !titanBossFiredRef.current.has(gs.level)) {
+      if (activeModeRef.current !== "boss_rush" && gs.level % 10 === 0 && !titanBossFiredRef.current.has(gs.level)) {
         titanBossFiredRef.current.add(gs.level);
         // An evolved milestone Overlord has 1.5x its initial HP. The Titan has exactly 15x that value.
         const overlordHp = Math.round((80 + gs.level * 12) * 1.5);
         const titanHp = increasedBossHealth(overlordHp * 15);
         enemiesRef.current = [];
         bulletsRef.current = bulletsRef.current.filter(b => b.fromPlayer);
+        titanWarningRef.current = 180;
         enemiesRef.current.push({
           x: CANVAS_W + 25,
           y: CANVAS_H / 2 - 68,
@@ -2730,14 +3222,17 @@ export default function Game() {
           titanDashCooldown: TITAN_DASH_COOLDOWN,
           titanDashTimer: 0,
           titanReinforcementsSpawned: false,
+          bossTopPartHp: Math.max(10, Math.round(titanHp * .10)),
+          bossBottomPartHp: Math.max(10, Math.round(titanHp * .10)),
         });
+        bossDamageStartRef.current = runStatsRef.current.damageTaken;
         audioRef.current.effect("boss", settingsRef.current.soundVolume);
       }
 
       const titanActive = enemiesRef.current.some(e => e.type === "titan" && !e.dead);
 
       // ── Milestone boss: spawn a mega-boss when entering key levels ──
-      if (!titanActive && gs.level % 10 !== 0 && isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
+      if (activeModeRef.current !== "boss_rush" && !titanActive && gs.level % 10 !== 0 && isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
           enemiesRef.current.filter(isBossEnemy).length === 0) {
         milestoneBossFiredRef.current.add(gs.level);
         const ml = gs.level;
@@ -2756,16 +3251,44 @@ export default function Game() {
           angle: 0,
           oscillate: 0,
           bossAge: 0,
+          bossTopPartHp: Math.max(8, Math.round(mbHp * .12)),
+          bossBottomPartHp: Math.max(8, Math.round(mbHp * .12)),
         });
+        bossDamageStartRef.current = runStatsRef.current.damageTaken;
         audioRef.current.effect("boss", settingsRef.current.soundVolume);
       }
 
       // ── Spawn enemies ──
-      const spawnRate = getEnemySpawnRate(gs.level);
-      enemySpawnTimerRef.current += dtScale;
-      if (!titanActive && enemySpawnTimerRef.current >= spawnRate) {
+      if (tutorialActive) {
         enemySpawnTimerRef.current = 0;
-        spawnEnemy(gs.level);
+        bossRushSpawnTimerRef.current = 0;
+      } else if (activeModeRef.current === "boss_rush") {
+        bossRushSpawnTimerRef.current += dtScale;
+        if (!enemiesRef.current.some(enemy => isBossEnemy(enemy) && !enemy.dead) && bossRushSpawnTimerRef.current >= 90) {
+          bossRushSpawnTimerRef.current = 0;
+          spawnBossRushEnemy(runStatsRef.current.bosses + 1);
+        }
+      } else {
+        const spawnRate = getEnemySpawnRate(gs.level) * getEffectiveGameModeRules(activeModeRef.current).spawnRateMultiplier;
+        enemySpawnTimerRef.current += dtScale;
+        waveTimerRef.current += dtScale;
+        if (!titanActive && waveTimerRef.current >= 780 && !activeWaveRef.current?.active) {
+          waveTimerRef.current = 0;
+          spawnFormationWave(gs.level);
+        }
+        if (!titanActive && enemySpawnTimerRef.current >= spawnRate) {
+          enemySpawnTimerRef.current = 0;
+          spawnEnemy(gs.level);
+        }
+      }
+
+      if (activeWaveRef.current?.active &&
+          !enemiesRef.current.some(enemy => enemy.waveId === activeWaveRef.current?.id && !enemy.dead)) {
+        activeWaveRef.current.active = false;
+        addCoins(500);
+        gs.score += 500;
+        waveBannerRef.current = { text: "WELLE GESCHAFFT · +500", timer: 130 };
+        audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
       }
 
       // ── Update bullets ──
@@ -2951,11 +3474,8 @@ export default function Game() {
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points;
-            runStatsRef.current.kills += 1;
-            pilotLevelRef.current = getPilotLevelFromKills(addPilotKill());
-            if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
+            registerKill(e);
             e.dead = true;
-            checkAchievements();
             audioRef.current.effect("explosion", settingsRef.current.soundVolume);
             syncDisplay();
             return false;
@@ -3010,11 +3530,8 @@ export default function Game() {
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points * (aircraftId === "gold" ? 2 : 1);
-            runStatsRef.current.kills += 1;
-            pilotLevelRef.current = getPilotLevelFromKills(addPilotKill());
-            if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
+            registerKill(e);
             e.dead = true;
-            checkAchievements();
             audioRef.current.effect("explosion", settingsRef.current.soundVolume);
             syncDisplay();
             return false;
@@ -3029,11 +3546,8 @@ export default function Game() {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
             if (e.hp <= 0) {
               gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
-              runStatsRef.current.kills += 1;
-              pilotLevelRef.current = getPilotLevelFromKills(addPilotKill());
-              if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
+              registerKill(e);
               e.dead = true;
-              checkAchievements();
               audioRef.current.effect("explosion", settingsRef.current.soundVolume);
               syncDisplay();
               return false;
@@ -3042,7 +3556,12 @@ export default function Game() {
         }
         e.ultimateFreezeTimer = Math.max(0, (e.ultimateFreezeTimer ?? 0) - dtScale);
         e.ultimateSlowTimer = Math.max(0, (e.ultimateSlowTimer ?? 0) - dtScale);
-        const statusSpeed = (e.ultimateFreezeTimer ?? 0) > 0 ? 0 : (e.ultimateSlowTimer ?? 0) > 0 ? ULTIMATE_SLOW_FACTOR : 1;
+        const statusSpeed = ((e.ultimateFreezeTimer ?? 0) > 0 ? 0 : (e.ultimateSlowTimer ?? 0) > 0 ? ULTIMATE_SLOW_FACTOR : 1) *
+          (e.bossEngineDisabled ? .62 : 1);
+        if (e.isGolden) {
+          e.goldenTimer = Math.max(0, (e.goldenTimer ?? 600) - dtScale);
+          if (e.goldenTimer <= 0) e.vx = -8;
+        }
         if (e.trackPlayerRam) {
           const dx = playerRef.current.x + PLAYER_W / 2 - (e.x + e.width / 2);
           const dy = playerRef.current.y + PLAYER_H / 2 - (e.y + e.height / 2);
@@ -3181,7 +3700,8 @@ export default function Game() {
         if (e.type !== "laserdevice" && (e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;
         if (e.type !== "laserdevice" && e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
           const bossPhase = isBossEnemy(e) ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
-          e.shootCooldown = e.type === "overlord" || e.type === "titan" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
+          const baseCooldown = e.type === "overlord" || e.type === "titan" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
+          e.shootCooldown = baseCooldown * (e.bossCannonsDisabled ? 1.8 : 1);
           if (e.type === "tiefighter" || e.type === "emeraldtiefighter" || e.type === "plasmawing") {
             // TIE Fighter: aimed shot toward player
             const px = playerRef.current.x + PLAYER_W / 2;
@@ -3197,7 +3717,9 @@ export default function Game() {
               stunFrames: e.type === "emeraldtiefighter" ? 120 : undefined,
             });
           } else {
-            const shotCount = isBossEnemy(e) ? (bossPhase === 3 ? 7 : bossPhase === 2 ? 5 : 3) : e.type === "bomber" ? 2 : 1;
+            const shotCount = isBossEnemy(e)
+              ? Math.max(1, (bossPhase === 3 ? 7 : bossPhase === 2 ? 5 : 3) - (e.bossCannonsDisabled ? 2 : 0))
+              : e.type === "bomber" ? 2 : 1;
             for (let s = 0; s < shotCount; s++) {
               const spread = (s - (shotCount - 1) / 2) * 0.25;
               bulletsRef.current.push({
@@ -3244,19 +3766,12 @@ export default function Game() {
             );
             audioRef.current.effect("hit", settingsRef.current.soundVolume);
             if (!protection.protected) {
-              runStatsRef.current.damageTaken += LASER_DEVICE_DAMAGE;
-              checkAchievements();
+              recordPlayerDamage(LASER_DEVICE_DAMAGE);
               const nextLifeState = applyPlayerDamage(gs, LASER_DEVICE_DAMAGE);
               gs.hp = nextLifeState.hp;
               gs.lives = nextLifeState.lives;
               gs.gameOver = nextLifeState.gameOver;
-              if (gs.gameOver) {
-                clearSave();
-                saveHighScore(gs.score);
-                addLeaderboardEntry(playerNameRef.current, gs.score);
-                addCoins(calculateCoinReward(gs.score));
-                saveExistsRef.current = false;
-              }
+              if (gs.gameOver) grantRunReward();
             }
             syncDisplay();
           }
@@ -3264,6 +3779,50 @@ export default function Game() {
 
         // Draw enemy
         drawEnemy(ctx, e);
+        if (e.isGolden) {
+          ctx.save();
+          ctx.textAlign = "center";
+          ctx.font = "bold 11px 'Inter', sans-serif";
+          ctx.fillStyle = "#ffe45c";
+          ctx.shadowColor = "#ffcc00";
+          ctx.shadowBlur = 8;
+          ctx.fillText(`GOLD · ${Math.max(0, Math.ceil((e.goldenTimer ?? 0) / 60))}s`, e.x + e.width / 2, e.y - 9);
+          ctx.restore();
+        }
+        if (isBossEnemy(e)) {
+          const topAlive = (e.bossTopPartHp ?? 0) > 0;
+          const bottomAlive = (e.bossBottomPartHp ?? 0) > 0;
+          ctx.save();
+          for (const [cy, alive, label] of [
+            [e.y + e.height * .26, topAlive, "KANONE"],
+            [e.y + e.height * .74, bottomAlive, "ANTRIEB"],
+          ] as const) {
+            ctx.beginPath();
+            ctx.arc(e.x + e.width * .18, cy, 8, 0, Math.PI * 2);
+            ctx.fillStyle = alive ? "#ff3344aa" : "#223344aa";
+            ctx.strokeStyle = alive ? "#ffffff" : "#667788";
+            ctx.lineWidth = 2;
+            ctx.fill(); ctx.stroke();
+            if (alive) {
+              ctx.font = "bold 8px 'Inter', sans-serif";
+              ctx.textAlign = "left";
+              ctx.fillStyle = "#ffffff";
+              ctx.fillText(label, e.x + e.width * .18 + 12, cy - 4);
+            }
+          }
+          const warning = e.shootCooldown < 22 || ((e.specialAttackTimer ?? 999) < 35);
+          if (warning) {
+            ctx.globalAlpha = .35 + .3 * Math.sin(timeRef.current * .5);
+            ctx.strokeStyle = "#ff3344";
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 8]);
+            ctx.beginPath();
+            ctx.moveTo(e.x, e.y + e.height / 2);
+            ctx.lineTo(playerRef.current.x + PLAYER_W / 2, playerRef.current.y + PLAYER_H / 2);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
 
         // Enemy-player collision
         const playerTouchesEnemy = rectHit(playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H, e.x, e.y, e.width, e.height);
@@ -3284,8 +3843,7 @@ export default function Game() {
             return true;
           }
           const collisionDamage = (e.titanDashTimer ?? 0) > 0 ? 10 : 1;
-          runStatsRef.current.damageTaken += collisionDamage;
-          checkAchievements();
+          recordPlayerDamage(collisionDamage);
           const nextLifeState = applyPlayerDamage(gs, collisionDamage);
           gs.hp = nextLifeState.hp;
           gs.lives = nextLifeState.lives;
@@ -3293,7 +3851,7 @@ export default function Game() {
           invincibleRef.current = 90;
           spawnExplosion(particlesRef.current, playerRef.current.x + PLAYER_W / 2, playerRef.current.y + PLAYER_H / 2, true);
           audioRef.current.effect("hit", settingsRef.current.soundVolume);
-          if (gs.gameOver) { clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(calculateCoinReward(gs.score)); saveExistsRef.current = false; }
+          if (gs.gameOver) grantRunReward();
           syncDisplay();
         }
         const absorberShieldHit = absorberActiveRef.current > 0 &&
@@ -3328,8 +3886,7 @@ export default function Game() {
             ? getNormalBossDamage(1, gs.level)
             : collidedWithBoss ? 1
             : activeUnlocksRef.current.includes("armor") ? 0.5 : 1);
-          runStatsRef.current.damageTaken += collDmg;
-          checkAchievements();
+          recordPlayerDamage(collDmg);
           const nextLifeState = applyPlayerDamage(gs, collDmg);
           gs.hp = nextLifeState.hp;
           gs.lives = nextLifeState.lives;
@@ -3337,7 +3894,7 @@ export default function Game() {
           invincibleRef.current = 140;
           spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, !collidedWithBoss || e.hp <= 0);
           e.dead = collidedWithBoss ? e.hp <= 0 : true;
-          if (gs.gameOver) { clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(calculateCoinReward(gs.score)); saveExistsRef.current = false; syncDisplay(); }
+          if (gs.gameOver) grantRunReward();
           syncDisplay();
           return !e.dead;
         }
@@ -3357,26 +3914,70 @@ export default function Game() {
             : 1;
           const absorberDamage = absorberActiveRef.current > 0 && absorberHitsRef.current > 0
             ? Math.pow(2, absorberHitsRef.current) : 1;
+          let weakpointMultiplier = 1;
+          if (isBossEnemy(e)) {
+            const relativeY = (b.y - e.y) / e.height;
+            const rawPartDamage = Math.max(1, b.damage);
+            if (relativeY < .42 && (e.bossTopPartHp ?? 0) > 0) {
+              e.bossTopPartHp = Math.max(0, (e.bossTopPartHp ?? 0) - rawPartDamage);
+              weakpointMultiplier = 1.6;
+              if (e.bossTopPartHp === 0 && !e.bossCannonsDisabled) {
+                e.bossCannonsDisabled = true;
+                waveBannerRef.current = { text: "BOSS-KANONEN ZERSTÖRT", timer: 100 };
+              }
+            } else if (relativeY > .58 && (e.bossBottomPartHp ?? 0) > 0) {
+              e.bossBottomPartHp = Math.max(0, (e.bossBottomPartHp ?? 0) - rawPartDamage);
+              weakpointMultiplier = 1.6;
+              if (e.bossBottomPartHp === 0 && !e.bossEngineDisabled) {
+                e.bossEngineDisabled = true;
+                waveBannerRef.current = { text: "BOSS-ANTRIEB ZERSTÖRT", timer: 100 };
+              }
+            }
+          }
+          const dealtDamage = b.damage * (critical ? 3 : 1) * aircraftDamage * absorberDamage *
+            (ultimateActiveRef.current > 0 ? 2 : 1) * weakpointMultiplier;
           const damageResult = isTitanInvulnerable(e)
             ? { hp: e.hp, shieldHp: e.shieldHp ?? 0, absorbedByShield: true, destroyed: false }
-            : applyEnemyDamage(e, b.damage * (critical ? 3 : 1) * aircraftDamage * absorberDamage * (ultimateActiveRef.current > 0 ? 2 : 1));
+            : applyEnemyDamage(e, dealtDamage);
           e.hp = damageResult.hp;
           e.shieldHp = damageResult.shieldHp;
+          floatingTextsRef.current.push({
+            x: b.x, y: b.y,
+            text: damageResult.absorbedByShield ? "BLOCK" : `${critical ? "KRIT " : ""}${Math.round(dealtDamage)}`,
+            color: damageResult.absorbedByShield ? "#66ddff" : critical ? "#ffe45c" : weakpointMultiplier > 1 ? "#ff6688" : "#ffffff",
+            life: 34, maxLife: 34,
+          });
+          if (runUpgradesRef.current.cryo_rounds > 0 && Math.random() < Math.min(.5, runUpgradesRef.current.cryo_rounds * .18)) {
+            e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, 90);
+          }
+          if (runUpgradesRef.current.chain_lightning > 0 && Math.random() < Math.min(.6, runUpgradesRef.current.chain_lightning * .2)) {
+            const chained = enemiesRef.current.find(other => other !== e && !other.dead && other.hp > 1 &&
+              Math.hypot(other.x - e.x, other.y - e.y) < 210);
+            if (chained) {
+              chained.hp = Math.max(1, chained.hp - 2 * runUpgradesRef.current.chain_lightning);
+              spawnExplosion(particlesRef.current, chained.x + chained.width / 2, chained.y + chained.height / 2, false);
+              floatingTextsRef.current.push({ x: chained.x, y: chained.y, text: "⚡ KETTE", color: "#72e8ff", life: 40, maxLife: 40 });
+            }
+          }
           if (b.isPoisonMissile && !isTitanInvulnerable(e)) {
             e.poisonTimer = POISON_DURATION;
             e.poisonTickTimer = POISON_TICK_INTERVAL;
           }
           if (ultimateActiveRef.current > 0 && !isTitanInvulnerable(e)) e.ultimateFreezeTimer = ultimateActiveRef.current;
           spawnExplosion(particlesRef.current, b.x, b.y, false);
-          audioRef.current.effect("hit", settingsRef.current.soundVolume);
+          if (critical) {
+            slowMotionRef.current = Math.max(slowMotionRef.current, 3);
+            audioRef.current.tone(920, .07, settingsRef.current.soundVolume * .28, "square");
+          } else if (damageResult.absorbedByShield) {
+            audioRef.current.tone(540, .06, settingsRef.current.soundVolume * .2, "sine");
+          } else {
+            audioRef.current.effect("hit", settingsRef.current.soundVolume);
+          }
           hit = true;
           if (damageResult.destroyed) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
-            runStatsRef.current.kills += 1;
-            pilotLevelRef.current = getPilotLevelFromKills(addPilotKill());
-            if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
-            checkAchievements();
+            registerKill(e);
             audioRef.current.effect("explosion", settingsRef.current.soundVolume);
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current +
               (isBossEnemy(e) ? 45 : e.type === "bomber" ? 20 : e.type === "fighter" ? 11 : 6));
@@ -3423,7 +4024,28 @@ export default function Game() {
           audioRef.current.effect("hit", settingsRef.current.soundVolume);
           return false;
         }
-        if (!rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh, playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H)) return true;
+        if (!rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh, playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H)) {
+          const nearDistance = Math.hypot(
+            b.x - (playerRef.current.x + PLAYER_W / 2),
+            b.y - (playerRef.current.y + PLAYER_H / 2),
+          );
+          if (!b.nearMissed && nearDistance < 43 && nearMissCooldownRef.current <= 0) {
+            b.nearMissed = true;
+            nearMissCooldownRef.current = 12;
+            runStatsRef.current.nearMisses += 1;
+            comboTimerRef.current = Math.max(comboTimerRef.current, 100);
+            const charge = 4 + runUpgradesRef.current.graze_core * 8;
+            ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + charge);
+            laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + charge);
+            floatingTextsRef.current.push({
+              x: playerRef.current.x + PLAYER_W, y: playerRef.current.y,
+              text: "NEAR MISS", color: "#67e8f9", life: 55, maxLife: 55,
+            });
+            audioRef.current.tone(760, .06, settingsRef.current.soundVolume * .18, "sine");
+            checkAchievements();
+          }
+          return true;
+        }
         if (ultimateActiveRef.current > 0) {
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           return false;
@@ -3438,14 +4060,17 @@ export default function Game() {
         playerShieldHpRef.current = protection.shieldHp;
         if (protection.protected) {
           spawnExplosion(particlesRef.current, b.x, b.y, false);
+          audioRef.current.tone(620, .08, settingsRef.current.soundVolume * .25, "sine");
           return false;
         }
         const protectedBulletDamage = activeUnlocksRef.current.includes("armor") ? Math.max(0.5, b.damage * 0.5) : b.damage;
         const bulletDmg = b.normalBossProjectile
           ? getNormalBossDamage(protectedBulletDamage, gs.level)
           : protectedBulletDamage;
-        runStatsRef.current.damageTaken += bulletDmg;
-        checkAchievements();
+        if (activeUnlocksRef.current.includes("armor")) {
+          audioRef.current.tone(120, .08, settingsRef.current.soundVolume * .2, "square");
+        }
+        recordPlayerDamage(bulletDmg);
         const nextLifeState = applyPlayerDamage(gs, bulletDmg);
         gs.hp = nextLifeState.hp;
         gs.lives = nextLifeState.lives;
@@ -3453,7 +4078,7 @@ export default function Game() {
         if (b.stunFrames) movementStunRef.current = b.stunFrames;
         invincibleRef.current = 100;
         spawnExplosion(particlesRef.current, b.x, b.y, false);
-        if (gs.gameOver) { clearSave(); saveHighScore(gs.score); addLeaderboardEntry(playerNameRef.current, gs.score); addCoins(calculateCoinReward(gs.score)); saveExistsRef.current = false; }
+        if (gs.gameOver) grantRunReward();
         syncDisplay();
         return false;
       });
@@ -3481,7 +4106,9 @@ export default function Game() {
         ctx.restore();
         // Pickup
         if (dist(playerRef.current, p) < 24) {
-          runStatsRef.current.powerUps += 1; checkAchievements();
+          runStatsRef.current.powerUps += 1;
+          if (gs.hp >= gs.maxHp) runStatsRef.current.fullHealthPickups += 1;
+          checkAchievements();
           audioRef.current.effect("pickup", settingsRef.current.soundVolume);
           if (p.type === "health") gs.hp = Math.min(gs.maxHp, gs.hp + 3);
           if (p.type === "shield") {
@@ -3502,6 +4129,20 @@ export default function Game() {
         p.life -= dtScale;
         drawParticle(ctx, p);
         return p.life > 0;
+      });
+      floatingTextsRef.current = floatingTextsRef.current.filter(item => {
+        item.y -= .65 * dtScale;
+        item.life -= dtScale;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, item.life / item.maxLife);
+        ctx.fillStyle = item.color;
+        ctx.shadowColor = item.color;
+        ctx.shadowBlur = 7;
+        ctx.font = "bold 12px 'Inter', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(item.text, item.x, item.y);
+        ctx.restore();
+        return item.life > 0;
       });
 
       // ── Laser beams ──
@@ -3540,10 +4181,8 @@ export default function Game() {
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
-            runStatsRef.current.kills += 1;
-            pilotLevelRef.current = getPilotLevelFromKills(addPilotKill());
-            if (isBossEnemy(e)) runStatsRef.current.bosses += 1;
-            checkAchievements(); audioRef.current.effect("explosion", settingsRef.current.soundVolume);
+            registerKill(e);
+            audioRef.current.effect("explosion", settingsRef.current.soundVolume);
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (isBossEnemy(e) ? 25 : 4));
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + (isBossEnemy(e) ? 30 : 5));
             stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + (isBossEnemy(e) ? 30 : 4));
@@ -3753,11 +4392,56 @@ export default function Game() {
       if (gs.score > bestScoreRef.current) { bestScoreRef.current = gs.score; saveHighScore(gs.score); }
 
       // ── HUD ──
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2)], activeModeRef.current, runElapsedMsRef.current);
+      const mission = missionRef.current;
+      const progress = Math.min(mission.target, missionProgress(mission, runStatsRef.current));
+      ctx.save();
+      ctx.fillStyle = "rgba(4,10,24,.82)";
+      ctx.beginPath(); ctx.roundRect(12, 94, 265, 50, 9); ctx.fill();
+      ctx.strokeStyle = mission.completed ? "#4ade80" : "#38bdf8";
+      ctx.stroke();
+      ctx.textAlign = "left";
+      ctx.fillStyle = mission.completed ? "#4ade80" : "#7dd3fc";
+      ctx.font = "bold 10px 'Inter', sans-serif";
+      ctx.fillText(mission.completed ? "MISSION ERFÜLLT" : "MISSIONSZIEL", 22, 102);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 12px 'Inter', sans-serif";
+      ctx.fillText(`${mission.title}  ${progress}/${mission.target}`, 22, 118);
+      ctx.fillStyle = "#18263c"; ctx.fillRect(22, 135, 235, 4);
+      ctx.fillStyle = mission.completed ? "#4ade80" : "#38bdf8";
+      ctx.fillRect(22, 135, 235 * Math.min(1, progress / mission.target), 4);
+      if (comboRef.current >= 2) {
+        const comboMultiplier = Math.min(4, 1 + Math.floor(comboRef.current / 10) * .25);
+        ctx.textAlign = "center";
+        ctx.fillStyle = comboRef.current >= 25 ? "#ffe45c" : "#ffffff";
+        ctx.shadowColor = "#ff7a18"; ctx.shadowBlur = 12;
+        ctx.font = `bold ${Math.min(34, 20 + comboRef.current / 5)}px 'Inter', sans-serif`;
+        ctx.fillText(`${comboRef.current}× COMBO · SCORE ×${comboMultiplier.toFixed(2)}`, CANVAS_W / 2, 96);
+      }
+      if (waveBannerRef.current.timer > 0) {
+        waveBannerRef.current.timer = Math.max(0, waveBannerRef.current.timer - dtScale);
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#ffffff";
+        ctx.shadowColor = "#00cfff"; ctx.shadowBlur = 20;
+        ctx.font = "bold 24px 'Inter', sans-serif";
+        ctx.fillText(waveBannerRef.current.text, CANVAS_W / 2, 155);
+      }
+      if (titanWarningRef.current > 0) {
+        titanWarningRef.current = Math.max(0, titanWarningRef.current - dtScale);
+        const pulse = .72 + Math.sin(timeRef.current * .28) * .28;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = `rgba(255, 18, 42, ${pulse})`;
+        ctx.shadowColor = "#ff001e";
+        ctx.shadowBlur = 22;
+        ctx.font = "900 34px 'Inter', sans-serif";
+        ctx.fillText("⚠ WARNING: TITAN APPROACHING ⚠", CANVAS_W / 2, 188);
+      }
+      ctx.restore();
 
       // ── Virtual controls overlay ──
       if (showVirtualControlsRef.current) {
-        drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current);
+        drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, settingsRef.current.autoFire, settingsRef.current.joystickSize, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current);
         if (enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0)) {
           ctx.save(); ctx.font = "bold 25px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
           activeUltiLoadoutRef.current.forEach(id => {
@@ -3779,7 +4463,7 @@ export default function Game() {
 
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [checkAchievements, fireBullets, spawnEnemy, startGame, syncDisplay]);
+  }, [checkAchievements, fireBullets, grantRunReward, recordPlayerDamage, registerKill, spawnBossRushEnemy, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
 
   const handleSkinSelect = (id: string) => {
     const skin = JET_SKINS.find(s => s.id === id);
@@ -3791,7 +4475,7 @@ export default function Game() {
   };
 
   const handleUltiLoadoutChange = (ids: UltiLoadoutId[]) => {
-    const next = ids.slice(0, 5);
+    const next = ids.slice(0, 2);
     setUltiLoadout(next);
     saveUltiLoadout(next);
     activeUltiLoadoutRef.current = next;
@@ -3895,6 +4579,20 @@ export default function Game() {
           style={{ objectFit: "contain", touchAction: "none" }}
           tabIndex={0}
         />
+        {displayState.started && isPortraitPhone && (
+          <div className="orientation-gate fixed inset-0 z-[70] flex items-center justify-center bg-[#030814]/95 p-6 text-center text-white">
+            <div className="max-w-sm rounded-3xl border border-cyan-400/60 bg-slate-950/95 p-7 shadow-[0_0_45px_#22d3ee33]">
+              <div className="text-6xl" aria-hidden="true">📱↻</div>
+              <h2 className="mt-4 text-2xl font-black">GERÄT DREHEN</h2>
+              <p className="mt-2 text-sm text-slate-300">Das Spielfeld ist im Querformat größer und leichter zu steuern. Die Mission wartet, bis du dein Gerät gedreht hast.</p>
+              {fullscreenSupported && (
+                <button onClick={toggleFullscreen} className="pause-primary mt-5 min-h-12 w-full rounded-xl px-5 py-3 font-black">
+                  ⛶ VOLLBILD ÖFFNEN
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         {achievementToast && (
           <div className="absolute left-1/2 top-4 z-50 w-[min(90%,390px)] -translate-x-1/2 rounded-xl border border-amber-300 bg-slate-950/95 p-3 text-center shadow-[0_0_30px_#ffcc0066]">
             <div className="text-xs font-black uppercase tracking-[.25em] text-amber-300">Erfolg freigeschaltet</div>
@@ -3947,6 +4645,7 @@ export default function Game() {
             selectedSkin={selectedSkin}
             ultiLoadout={ultiLoadout}
             selectedDroneSkin={selectedDroneSkin}
+            selectedGameMode={selectedGameMode}
             coins={coins}
             highScore={highScore}
             unlockedItems={unlockedItems}
@@ -3956,6 +4655,7 @@ export default function Game() {
             saveData={saveExistsRef.current ? loadSave() : null}
             onStart={() => startGame(saveExistsRef.current)}
             onNewGame={() => startGame(false)}
+            onGameModeChange={setSelectedGameMode}
             onSkinSelect={handleSkinSelect}
             onUltiLoadoutChange={handleUltiLoadoutChange}
             onDroneSkinSelect={handleDroneSkinSelect}
@@ -3995,7 +4695,7 @@ export default function Game() {
                   <button onClick={() => setPauseView("settings")} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⚙ EINSTELLUNGEN", "⚙ SETTINGS")}</button>
                   <button onClick={returnToHangar} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⌂ ZUM HANGAR", "⌂ RETURN TO HANGAR")}</button>
                 </div>
-                <div className="mt-4 text-xs text-slate-500">{translated(language, "P drücken, um weiterzuspielen", "Press P to resume")}</div>
+                <div className="mt-4 text-xs text-slate-500">ESC oder {formatKeyCode(settings.keyBindings.pause)} drücken, um weiterzuspielen</div>
               </div>
             )}
           </div>
@@ -4008,8 +4708,8 @@ export default function Game() {
               {tutorialStage === 0 && !showVirtualControls && (
                 <div className="mt-3 flex items-center justify-center gap-4">
                   <div className="grid grid-cols-3 gap-1" aria-label={translated(language, "WASD-Tasten", "WASD keys")}>
-                    <span /><kbd className="tutorial-key">W</kbd><span />
-                    <kbd className="tutorial-key">A</kbd><kbd className="tutorial-key">S</kbd><kbd className="tutorial-key">D</kbd>
+                    <span /><kbd className="tutorial-key">{formatKeyCode(settings.keyBindings.up)}</kbd><span />
+                    <kbd className="tutorial-key">{formatKeyCode(settings.keyBindings.left)}</kbd><kbd className="tutorial-key">{formatKeyCode(settings.keyBindings.down)}</kbd><kbd className="tutorial-key">{formatKeyCode(settings.keyBindings.right)}</kbd>
                   </div>
                   <span className="text-xs font-bold text-slate-400">{translated(language, "ODER", "OR")}</span>
                   <div className="grid grid-cols-3 gap-1" aria-label={translated(language, "Pfeiltasten", "Arrow keys")}>
@@ -4018,9 +4718,10 @@ export default function Game() {
                   </div>
                 </div>
               )}
-              {tutorialStage === 1 && !showVirtualControls && <kbd className="tutorial-space mt-3 inline-block">{translated(language, "LEERTASTE GEDRÜCKT HALTEN", "HOLD SPACE")}</kbd>}
+              {tutorialStage === 1 && !showVirtualControls && <kbd className="tutorial-space mt-3 inline-block">{formatKeyCode(settings.keyBindings.fire)} GEDRÜCKT HALTEN</kbd>}
               {showVirtualControls && tutorialStage < 2 && <div className="mt-2 text-sm font-bold text-slate-200">{tutorialStage === 0 ? translated(language, "Lege den Finger links auf den Joystick und ziehe ihn in eine Richtung.", "Place your finger on the joystick at the left and drag in any direction.") : translated(language, "Halte rechts den roten FIRE-Knopf gedrückt.", "Hold the red FIRE button on the right.")}</div>}
-              {tutorialStage === 2 && <div className="mt-2 text-sm text-slate-300">{translated(language, "Gut gemacht! Volle Spezialanzeigen leuchten auf. Nutze dann die angezeigte Taste oder den entsprechenden Touch-Knopf.", "Well done! Full ability meters light up. Then use the displayed key or matching touch button.")}</div>}
+              {tutorialStage === 2 && <div className="mt-2 text-sm text-slate-300">{settings.autoFire ? "Gut gemacht! Dein Jet feuert automatisch. Deine zwei ausgerüsteten Fähigkeiten nutzt du mit den eingeblendeten Tasten." : translated(language, "Gut gemacht! Volle Spezialanzeigen leuchten auf. Nutze dann die angezeigte Taste oder den entsprechenden Touch-Knopf.", "Well done! Full ability meters light up. Then use the displayed key or matching touch button.")}</div>}
+              {tutorialStage < 2 && <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-cyan-200">Sicheres Training · Gegner warten</div>}
               {tutorialStage < 2 && <div className="mt-2 text-xs font-bold text-emerald-300">{translated(language, "Probiere es jetzt aus, um fortzufahren.", "Try it now to continue.")}</div>}
               {tutorialStage < 2 && <button onClick={finishTutorial} className="mt-2 text-xs font-bold text-slate-400 underline underline-offset-4">{translated(language, "Training überspringen", "Skip training")}</button>}
             </div>
@@ -4031,7 +4732,7 @@ export default function Game() {
       </div>
       {displayState.started && !displayState.gameOver && (
         <div className="mt-2 text-xs text-gray-600 tracking-wider hidden sm:block">
-          WASD · SPACE — Schuss · Q — Jet-Ulti · E — Laser · R — Stealth · H — Heil · P — Pause
+          {formatKeyCode(settings.keyBindings.up)}{formatKeyCode(settings.keyBindings.left)}{formatKeyCode(settings.keyBindings.down)}{formatKeyCode(settings.keyBindings.right)} — Bewegen · {settings.autoFire ? "AUTO-FIRE" : `${formatKeyCode(settings.keyBindings.fire)} — Schuss`} · {formatKeyCode(settings.keyBindings.ability1)}/{formatKeyCode(settings.keyBindings.ability2)} — Fähigkeiten · ESC — Pause
         </div>
       )}
     </div>
@@ -4041,15 +4742,16 @@ export default function Game() {
 // ─── Hangar Overlay ───────────────────────────────────────────────────────────
 
 function HangarOverlay({
-  selectedSkin, ultiLoadout, selectedDroneSkin, coins, highScore, unlockedItems, aircraftLevels, droneLevels, hasSave, saveData,
-  onStart, onNewGame, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
+  selectedSkin, ultiLoadout, selectedDroneSkin, selectedGameMode, coins, highScore, unlockedItems, aircraftLevels, droneLevels, hasSave, saveData,
+  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
-  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; coins: number; highScore: number;
+  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedGameMode: GameMode; coins: number; highScore: number;
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
   unlockedItems: string[]; hasSave: boolean; saveData: { level: number; score: number; weaponTier: number } | null;
   onStart: () => void; onNewGame: () => void;
+  onGameModeChange: (mode: GameMode) => void;
   onSkinSelect: (id: string) => void; onUltiLoadoutChange: (ids: UltiLoadoutId[]) => void; onDroneSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void; onUnlockDroneSkin: (id: string) => void;
   onAircraftUpgrade: () => void;
   onDroneUpgrade: () => void;
@@ -4060,9 +4762,7 @@ function HangarOverlay({
   achievements: string[];
 }) {
   const language = settings.language;
-  const [view, setView] = useState<"main" | "briefing" | "upgrades" | "settings" | "leaderboard" | "achievements">(
-    () => settings.tutorial && !briefingSeen() ? "briefing" : "main",
-  );
+  const [view, setView] = useState<"main" | "briefing" | "upgrades" | "settings" | "leaderboard" | "achievements">("main");
   const [hoverSkin, setHoverSkin] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState(() => loadName());
   const [showAdmin, setShowAdmin] = useState(false);
@@ -4184,21 +4884,20 @@ function HangarOverlay({
         </div>
         {/* Colour picker dots */}
         <div className="hangar-skins flex max-w-full gap-2.5 mt-0.5 overflow-x-auto px-2 py-2">
-          {JET_SKINS.map(s => {
-            const owned = s.cost === 0 || unlockedItems.includes(s.id);
+          {JET_SKINS.filter(s => s.cost === 0 || unlockedItems.includes(s.id)).map(s => {
             const active = s.id === selectedSkin;
             const previewing = s.id === hoverSkin;
             return (
               <button key={s.id}
-                onClick={() => owned ? onSkinSelect(s.id) : setView("upgrades")}
+                onClick={() => onSkinSelect(s.id)}
                 onMouseEnter={() => setHoverSkin(s.id)}
                 onMouseLeave={() => setHoverSkin(null)}
-                aria-label={owned ? `${s.name} auswählen` : `${s.name}, gesperrt, ${s.cost.toLocaleString("de-DE")} Credits`}
-                title={owned ? s.name : `${s.name} — 🔒 ${s.cost.toLocaleString("de-DE")} Credits`}
+                aria-label={`${s.name} auswählen`}
+                title={s.name}
+                className="hangar-skin-button"
                 style={{
-                  width: 22, height: 22, borderRadius: "50%", background: s.glow,
+                  width: 38, height: 38, minWidth: 38, borderRadius: "50%", background: s.glow,
                   border: previewing ? `3px solid #fff` : active ? "3px solid #fff" : `2px solid ${s.glow}66`,
-                  opacity: owned ? 1 : 0.3,
                   boxShadow: previewing ? `0 0 14px ${s.glow}, 0 0 4px #fff8` : active ? `0 0 10px ${s.glow}` : "none",
                   transform: previewing ? "scale(1.25)" : "scale(1)",
                   transition: "transform 0.12s, box-shadow 0.12s",
@@ -4209,12 +4908,12 @@ function HangarOverlay({
         </div>
         <div className="hangar-drone-skins flex items-center justify-center gap-2 mt-1">
           <span className="text-slate-500 text-xs">Drohne:</span>
-          {DRONE_SKINS.map(s => {
-            const owned = s.cost === 0 || unlockedItems.includes(s.id);
-            return <button key={s.id} onClick={() => owned ? onDroneSkinSelect(s.id) : setView("upgrades")}
-              aria-label={owned ? `${s.name} Drohnen-Skin auswählen` : `${s.name} Drohnen-Skin gesperrt`}
-              title={owned ? s.name : `${s.name} — 🔒 ${s.cost.toLocaleString("de-DE")} Credits`}
-              style={{ width: 20, height: 20, borderRadius: "50%", background: s.stroke, opacity: owned ? 1 : .3,
+          {DRONE_SKINS.filter(s => s.cost === 0 || unlockedItems.includes(s.id)).map(s => {
+            return <button key={s.id} onClick={() => onDroneSkinSelect(s.id)}
+              aria-label={`${s.name} Drohnen-Skin auswählen`}
+              title={s.name}
+              className="hangar-skin-button"
+              style={{ width: 38, height: 38, minWidth: 38, borderRadius: "50%", background: s.stroke,
                 border: selectedDroneSkin === s.id ? "3px solid #fff" : `2px solid ${s.stroke}66`,
                 boxShadow: selectedDroneSkin === s.id ? `0 0 10px ${s.stroke}` : "none" }} />;
           })}
@@ -4237,6 +4936,37 @@ function HangarOverlay({
         )}
       </div>
 
+      {/* ── Game mode selection ── */}
+      <div className="w-full">
+        <div className="mb-1 text-center text-[10px] font-black uppercase tracking-[.24em] text-violet-300">Spielmodus</div>
+        <div className="grid grid-cols-5 gap-1.5">
+          {GAME_MODES.map(mode => {
+            const active = mode.id === selectedGameMode;
+            return (
+              <button
+                key={mode.id}
+                onClick={() => onGameModeChange(mode.id)}
+                title={mode.description}
+                className="min-w-0 rounded-lg px-1.5 py-1.5 text-center transition active:scale-95"
+                style={{
+                  background: active ? "rgba(109,40,217,.42)" : "rgba(255,255,255,.045)",
+                  border: `1px solid ${active ? "#a78bfa" : "#334155"}`,
+                  color: active ? "#ede9fe" : "#94a3b8",
+                  boxShadow: active ? "0 0 14px #8b5cf633" : "none",
+                }}
+              >
+                <span className="block text-base">{mode.icon}</span>
+                <span className="block truncate text-[10px] font-black">{mode.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-1 text-center text-[10px] text-slate-400">
+          {getEffectiveGameModeRules(selectedGameMode).description}
+          {getModeCoinMultiplier(selectedGameMode) > 1 && ` · ${getModeCoinMultiplier(selectedGameMode)}× Credits`}
+        </div>
+      </div>
+
       {/* ── Bottom buttons ── */}
       <div className="hangar-actions w-full flex gap-2">
         <button onClick={() => setView("upgrades")}
@@ -4255,14 +4985,14 @@ function HangarOverlay({
               <button onClick={onNewGame}
                 className="w-full py-1.5 rounded-xl font-bold text-xs tracking-wider transition-all active:scale-95"
                 style={{ background: "rgba(20,20,30,0.7)", border: "1px solid #334466", color: "#667799" }}>
-                {translated(language, "NEU STARTEN", "NEW GAME")}
+                {getEffectiveGameModeRules(selectedGameMode).icon} {getEffectiveGameModeRules(selectedGameMode).label.toUpperCase()} STARTEN
               </button>
             </>
           ) : (
             <button onClick={onStart}
               className="w-full py-3 rounded-xl font-bold text-lg tracking-widest transition-all active:scale-95"
               style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #00cfff", color: "#00cfff", textShadow: "0 0 10px #00cfff88" }}>
-              {translated(language, "▶ STARTEN", "▶ START")}
+              ▶ {getEffectiveGameModeRules(selectedGameMode).label.toUpperCase()} STARTEN
             </button>
           )}
         </div>
@@ -4370,8 +5100,23 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
   const [dailyChestOpening, setDailyChestOpening] = useState(false);
   const [dailyChestCelebrating, setDailyChestCelebrating] = useState(false);
   const [bulletColor, setBulletColor] = useState(() => loadBulletColor());
+  const [pendingPurchase, setPendingPurchase] = useState<{ name: string; cost: number; action: () => void } | null>(null);
+  const [purchaseCelebration, setPurchaseCelebration] = useState<{ name: string; nonce: number } | null>(null);
   const dailyChestTimers = useRef<number[]>([]);
   useEffect(() => () => dailyChestTimers.current.forEach(window.clearTimeout), []);
+
+  const requestPurchase = (name: string, cost: number, action: () => void) => {
+    setPendingPurchase({ name, cost, action });
+  };
+
+  const confirmPurchase = () => {
+    if (!pendingPurchase || coins < pendingPurchase.cost) return;
+    const purchasedName = pendingPurchase.name;
+    pendingPurchase.action();
+    setPendingPurchase(null);
+    setPurchaseCelebration({ name: purchasedName, nonce: Date.now() });
+    dailyChestTimers.current.push(window.setTimeout(() => setPurchaseCelebration(null), 1500));
+  };
 
   const openDailyChest = () => {
     if (!dailyChestAvailable || dailyChestOpening || !onDailyChestClaim()) return;
@@ -4396,6 +5141,41 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
   return (
     <div className="relative flex flex-col h-full p-4 gap-3 overflow-y-auto select-none text-white">
       <ShopStarfield />
+      {pendingPurchase && (
+        <div className="purchase-confirmation fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4" role="dialog" aria-modal="true" aria-labelledby="purchase-title">
+          <div className="w-full max-w-sm rounded-3xl border border-amber-300/70 bg-[#090d1d]/95 p-6 text-center shadow-[0_0_45px_#fbbf2444]">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-amber-300/60 bg-amber-400/10 text-4xl shadow-[0_0_25px_#fbbf2444]">💰</div>
+            <div className="mt-4 text-[10px] font-black uppercase tracking-[.28em] text-amber-300">Kauf bestätigen</div>
+            <h3 id="purchase-title" className="mt-2 text-2xl font-black text-white">Bist du sicher?</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              Möchtest du <b className="text-white">{pendingPurchase.name}</b> für{" "}
+              <b className="text-amber-300">{pendingPurchase.cost.toLocaleString("de-DE")} Credits</b> kaufen?
+            </p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button autoFocus onClick={() => setPendingPurchase(null)} className="rounded-xl border border-slate-500 bg-slate-800/80 px-4 py-3 font-black text-slate-200 transition hover:bg-slate-700">
+                ABBRECHEN
+              </button>
+              <button onClick={confirmPurchase} className="purchase-confirm-button rounded-xl border border-amber-200 bg-amber-400 px-4 py-3 font-black text-slate-950 transition hover:bg-amber-300 active:scale-95">
+                KAUFEN
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {purchaseCelebration && (
+        <div key={purchaseCelebration.nonce} className="purchase-celebration pointer-events-none fixed inset-0 z-50 grid place-items-center" role="status" aria-live="polite">
+          <div className="purchase-flash absolute inset-0" />
+          <div className="purchase-success relative rounded-3xl border border-emerald-300/80 bg-slate-950/95 px-8 py-6 text-center shadow-[0_0_60px_#34d39977]">
+            <div className="purchase-check mx-auto grid h-20 w-20 place-items-center rounded-full bg-emerald-400 text-5xl font-black text-slate-950">✓</div>
+            <div className="mt-4 text-[11px] font-black uppercase tracking-[.3em] text-emerald-300">Kauf erfolgreich</div>
+            <div className="mt-1 text-xl font-black text-white">{purchaseCelebration.name}</div>
+            <div className="purchase-spark purchase-spark-a">✦</div>
+            <div className="purchase-spark purchase-spark-b">✦</div>
+            <div className="purchase-spark purchase-spark-c">✦</div>
+            <div className="purchase-spark purchase-spark-d">✦</div>
+          </div>
+        </div>
+      )}
       <div className="relative z-10 flex items-center gap-3 shrink-0">
         <button onClick={onBack} className="text-slate-400 hover:text-white text-xl font-bold px-2">←</button>
         <h2 className="font-bold text-xl tracking-wide" style={{ textShadow: "0 0 12px #00cfff88" }}>SHOP</h2>
@@ -4449,9 +5229,13 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
             const owned = opt.color === "#00ffff" || unlockedItems.includes(unlockId);
             const active = bulletColor === opt.color;
             return <button key={opt.color} disabled={!owned && coins < 5000} onClick={() => {
-              if (!owned) onBuy(unlockId);
-              setBulletColor(opt.color);
-              saveBulletColor(opt.color);
+              const activateColor = () => {
+                if (!owned) onBuy(unlockId);
+                setBulletColor(opt.color);
+                saveBulletColor(opt.color);
+              };
+              if (!owned) requestPurchase(`Schussfarbe ${opt.label}`, 5000, activateColor);
+              else activateColor();
             }} className="rounded-xl p-2 text-center text-[10px] font-bold transition active:scale-95 disabled:opacity-35"
               style={{ border: active ? "2px solid white" : `1px solid ${opt.color}66`, background: `${opt.color}16`, boxShadow: active ? `0 0 14px ${opt.color}` : undefined }}>
               <span className="mx-auto mb-1 block h-7 w-7 rounded-full" style={{ background: opt.color, boxShadow: `0 0 9px ${opt.color}` }} />
@@ -4473,7 +5257,7 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
           {aircraftUpgradeCost === null ? (
             <span className="shrink-0 rounded-lg border border-emerald-400/50 px-3 py-2 text-xs font-black text-emerald-300">MAX</span>
           ) : (
-            <button onClick={onAircraftUpgrade} disabled={coins < aircraftUpgradeCost}
+            <button onClick={() => requestPurchase(`${selectedJet.name} auf Level ${aircraftStats.level + 1}`, aircraftUpgradeCost, onAircraftUpgrade)} disabled={coins < aircraftUpgradeCost}
               className="shrink-0 rounded-lg px-3 py-2 text-xs font-black transition active:scale-95 disabled:opacity-40"
               style={{ background: "rgba(8,90,120,.65)", border: "1px solid #22d3ee", color: "#a5f3fc" }}>
               LEVEL {aircraftStats.level + 1}<br />💰 {aircraftUpgradeCost.toLocaleString("de-DE")}
@@ -4499,7 +5283,7 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
           {droneUpgradeCost === null ? (
             <span className="shrink-0 rounded-lg border border-emerald-400/50 px-3 py-2 text-xs font-black text-emerald-300">MAX</span>
           ) : (
-            <button onClick={onDroneUpgrade} disabled={coins < droneUpgradeCost}
+            <button onClick={() => requestPurchase(`${selectedDrone.name} auf Level ${droneLevel + 1}`, droneUpgradeCost, onDroneUpgrade)} disabled={coins < droneUpgradeCost}
               className="shrink-0 rounded-lg px-3 py-2 text-xs font-black transition active:scale-95 disabled:opacity-40"
               style={{ background: "rgba(80,25,120,.65)", border: "1px solid #c084fc", color: "#e9d5ff" }}>
               LEVEL {droneLevel + 1}<br />💰 {droneUpgradeCost.toLocaleString("de-DE")}
@@ -4523,7 +5307,7 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
           const rarity = SHOP_RARITIES[s.rarity];
           return (
             <button key={s.id}
-              onClick={() => owned ? onSkinSelect(s.id) : canAfford && levelUnlocked ? onUnlockSkin(s.id) : undefined}
+              onClick={() => owned ? onSkinSelect(s.id) : canAfford && levelUnlocked ? requestPurchase(`Jet-Skin ${s.name}`, s.cost, () => onUnlockSkin(s.id)) : undefined}
               disabled={!owned && !levelUnlocked}
               className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all active:scale-95"
               style={{
@@ -4552,7 +5336,7 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
       </div>
 
       <div className="relative z-10 flex items-center justify-between text-slate-400 text-xs uppercase tracking-widest mt-1">
-        <span>Ulti-Loadout</span><span className="text-violet-300">{ultiLoadout.length}/5 belegt</span>
+        <span>Ulti-Loadout</span><span className="text-violet-300">{ultiLoadout.length}/2 belegt</span>
       </div>
       <div className="relative z-10 rounded-2xl border border-violet-400/40 bg-violet-950/20 p-3">
         <div className="mb-2 text-[10px] text-slate-400">Entferne Ultis, ändere ihre Reihenfolge oder setze neu gekaufte Ultis ein.</div>
@@ -4567,7 +5351,7 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
               <button onClick={() => onUltiLoadoutChange(ultiLoadout.filter(item => item !== id))} className="rounded px-2 py-1 text-red-300" aria-label={`${option.name} entfernen`}>✕</button>
             </div>;
           })}
-          {Array.from({ length: 5 - ultiLoadout.length }, (_, index) => (
+          {Array.from({ length: 2 - ultiLoadout.length }, (_, index) => (
             <div key={`empty-${index}`} className="flex items-center gap-2 rounded-xl border border-dashed border-slate-600/70 bg-black/10 p-2 text-slate-500">
               <span className="w-12 text-xs font-black">SLOT {ultiLoadout.length + index + 1}</span>
               <span className="flex-1 text-sm">Leer</span>
@@ -4576,7 +5360,7 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {ULTI_LOADOUT_OPTIONS.filter(option => (!option.requires || unlockedItems.includes(option.requires)) && !ultiLoadout.includes(option.id)).map(option =>
-            <button key={option.id} onClick={() => onUltiLoadoutChange([...ultiLoadout, option.id])} disabled={ultiLoadout.length >= 5} className="rounded-lg border border-cyan-500/40 bg-cyan-950/40 px-3 py-2 text-xs font-bold text-cyan-200 disabled:opacity-30">+ {option.name}</button>
+            <button key={option.id} onClick={() => onUltiLoadoutChange([...ultiLoadout, option.id])} disabled={ultiLoadout.length >= 2} className="rounded-lg border border-cyan-500/40 bg-cyan-950/40 px-3 py-2 text-xs font-bold text-cyan-200 disabled:opacity-30">+ {option.name}</button>
           )}
         </div>
       </div>
@@ -4589,7 +5373,7 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
           const canAfford = coins >= s.cost;
           const levelUnlocked = isShopRarityUnlocked(s.rarity, playerLevel);
           const rarity = SHOP_RARITIES[s.rarity];
-          return <button key={s.id} onClick={() => owned ? onDroneSkinSelect(s.id) : canAfford && levelUnlocked ? onUnlockDroneSkin(s.id) : undefined} disabled={!owned && !levelUnlocked}
+          return <button key={s.id} onClick={() => owned ? onDroneSkinSelect(s.id) : canAfford && levelUnlocked ? requestPurchase(`Drohnen-Skin ${s.name}`, s.cost, () => onUnlockDroneSkin(s.id)) : undefined} disabled={!owned && !levelUnlocked}
             className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all active:scale-95"
             style={{
               background: s.rarity === "ultimate"
@@ -4645,7 +5429,7 @@ function ShopScreen({ coins, playerLevel, unlockedItems, aircraftLevels, droneLe
                   ? <span className="text-slate-500 text-xs font-bold shrink-0">🔒 Level {SHOP_RARITY_MIN_LEVEL[item.rarity]}</span>
                 : !prerequisiteMet
                   ? <span className="text-slate-500 text-xs font-bold shrink-0">🔒 Vorstufe</span>
-                : <button onClick={() => canAfford && onBuy(item.id)} disabled={!canAfford}
+                : <button onClick={() => canAfford && requestPurchase(item.name, item.cost, () => onBuy(item.id))} disabled={!canAfford}
                     className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-40"
                     style={{ background: "rgba(80,50,0,0.6)", border: "1px solid #aa8800", color: "#ffcc44" }}>
                     💰 {item.cost.toLocaleString("de-DE")}
@@ -4721,7 +5505,7 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
     { icon: "🎯", title: "Dein Auftrag", text: "Steuere deinen Jet durch automatisch scrollende, immer schwierigere Sektoren. Weiche Feinden und Geschossen aus, schieße Gegner ab und sammle möglichst viele Punkte. Mit deiner Punktzahl steigt auch dein Pilot-Level; Bosskämpfe markieren die großen Etappen eines Einsatzes." },
     { icon: "❤", title: "Überleben", text: "Jeder gegnerische Treffer zieht dir HP ab. Fallen deine HP auf null, verlierst du ein Leben und kehrst mit voller Energie zurück. Nach dem letzten Leben ist der Einsatz beendet. Ein aktiver Schild fängt Schaden zuerst ab – Ausweichen bleibt trotzdem die sicherste Taktik." },
     { icon: "📦", title: "Power-ups", text: "Zerstörte Gegner können nützliche Pick-ups hinterlassen: Heilung stellt HP wieder her, Schilde geben zusätzlichen Schutz und Tempo-Boosts machen deinen Jet vorübergehend schneller. Berühre ein Symbol mit deinem Jet, bevor es vom Bildschirm verschwindet." },
-    { icon: "⚡", title: "Waffen & Ultimates", text: "Halte die Feuertaste gedrückt, um ohne Unterbrechung zu schießen. Im Einsatz laden sich mehrere Spezialfähigkeiten auf: die individuelle 10-Sekunden-Jet-Ulti sowie Laser, Tarnung und Heilung. Sobald eine Anzeige voll ist, aktivierst du die Fähigkeit mit der eingeblendeten Taste." },
+    { icon: "⚡", title: "Waffen & Fähigkeiten", text: "Der Jet feuert standardmäßig automatisch. Vor dem Start rüstest du höchstens zwei Spezialfähigkeiten aus; sobald eine Anzeige voll ist, aktivierst du sie mit der eingeblendeten Taste oder dem Touch-Knopf." },
     { icon: "⬆", title: "Fortschritt", text: "Nach abgeschlossenen Sektoren pausiert das Gefecht und du wählst eines von drei Upgrades für den aktuellen Lauf. Diese Boni gelten bis zum Missionsende. Checkpoints speichern Level, Punktzahl und Waffenstufe, sodass du einen unterbrochenen Einsatz später über „Weiterspielen“ fortsetzen kannst." },
     { icon: "💰", title: "Credits & Hangar", text: "Nach dem Missionsende wird jeder erzielte Punkt in einen Credit umgewandelt. Credits bleiben dauerhaft erhalten. Im Hangar-Shop investierst du sie in Jet- und Drohnen-Upgrades, neue Skins und weitere Vorteile; abgeschlossene Erfolge zahlen zusätzliche Belohnungen aus." },
   ] : language === "tr" ? [
@@ -4735,16 +5519,28 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
     { icon: "🎯", title: "Your mission", text: "Pilot your jet through automatically scrolling sectors that become progressively harder. Dodge enemies and projectiles, shoot down targets, and score as many points as possible. Your pilot level rises with your score, while boss fights mark the major milestones of a mission." },
     { icon: "❤", title: "Survival", text: "Every enemy hit reduces your HP. When HP reaches zero, you lose a life and return at full health. The mission ends after your final life. An active shield absorbs damage first, but dodging remains your safest tactic." },
     { icon: "📦", title: "Power-ups", text: "Destroyed enemies may leave useful pick-ups behind: health restores HP, shields provide extra protection, and speed boosts temporarily make your jet faster. Touch an icon with your jet before it leaves the screen." },
-    { icon: "⚡", title: "Weapons & ultimates", text: "Hold the fire control to shoot continuously. Several special abilities charge during combat: your aircraft's unique 10-second ultimate, plus laser, stealth, and healing. Once a meter is full, activate the ability with the control shown on screen." },
+    { icon: "⚡", title: "Weapons & abilities", text: "The jet fires automatically by default. Equip up to two special abilities before launch; once a meter is full, activate it with the displayed key or touch button." },
     { icon: "⬆", title: "Progress", text: "After clearing sectors, combat pauses and you choose one of three upgrades for the current run. These bonuses last until the mission ends. Checkpoints save your level, score, and weapon tier so you can resume an interrupted mission later with Continue." },
     { icon: "💰", title: "Credits & hangar", text: "At the end of a mission, every point you scored becomes one credit. Credits are kept permanently. Spend them in the hangar shop on aircraft and drone upgrades, new skins, and other advantages; achievements grant additional rewards." },
   ];
-  const keyboardHelp = language === "de" ? KEYBOARD_CONTROL_HELP : language === "tr" ? [
-    ["WASD / Yön tuşları", "Hareket"], ["BOŞLUK", "Ateş et"], ["Q", "Uçak özel yeteneği"],
-    ["E", "Lazer özel yeteneği"], ["R", "Gizlilik özel yeteneği"], ["H", "İyileştirme özel yeteneği"], ["U", "Nihai özel yetenek"], ["P", "Duraklat"],
+  const keyboardHelp = language === "de" ? [
+    ["WASD / Pfeile", "Bewegen"],
+    ["AUTO", "Dauerfeuer"],
+    ["1", "Fähigkeit 1"],
+    ["2", "Fähigkeit 2"],
+    ["ESC", "Pause"],
+  ] as const : language === "tr" ? [
+    ["WASD / Oklar", "Hareket"],
+    ["AUTO", "Otomatik ateş"],
+    ["1", "Yetenek 1"],
+    ["2", "Yetenek 2"],
+    ["ESC", "Duraklat"],
   ] as const : [
-    ["WASD / Arrow keys", "Move"], ["SPACE", "Shoot"], ["Q", "Aircraft ultimate"],
-    ["E", "Laser ultimate"], ["R", "Stealth ultimate"], ["H", "Healing ultimate"], ["U", "Ultimate Ulti"], ["P", "Pause"],
+    ["WASD / Arrows", "Move"],
+    ["AUTO", "Auto-fire"],
+    ["1", "Ability 1"],
+    ["2", "Ability 2"],
+    ["ESC", "Pause"],
   ] as const;
 
   return (
@@ -4776,8 +5572,8 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
             <h3 className="text-xs font-black uppercase tracking-[.2em] text-violet-300">{translated(language, "Touch-Steuerung", "Touch controls")}</h3>
             <div className="mt-3 space-y-2 text-xs text-slate-300">
               <p><strong className="text-white">{translated(language, "Links ziehen:", "Drag left:")}</strong> {translated(language, "Jet mit dem virtuellen Joystick bewegen.", "Move the jet with the virtual joystick.")}</p>
-              <p><strong className="text-white">FIRE:</strong> {translated(language, "gedrückt halten, um dauerhaft zu schießen.", "hold to keep firing.")}</p>
-              <p><strong className="text-white">ULTI · LASER · STEALTH · HEAL:</strong> {translated(language, "antippen, sobald die jeweilige Fähigkeit bereit ist.", "tap once the corresponding ability is ready.")}</p>
+              <p><strong className="text-white">AUTO-FIRE:</strong> Standardmäßig aktiv; optional in den Einstellungen abschaltbar.</p>
+              <p><strong className="text-white">FÄHIGKEIT 1 · 2:</strong> Die zwei ausgerüsteten Knöpfe antippen, sobald sie bereit sind.</p>
             </div>
           </div>
         </div>
@@ -4798,21 +5594,10 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
 function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings; onChange: (settings: GameSettings) => void; onBack: () => void }) {
   const [name, setName] = useState(() => loadName());
   const language = settings.language;
-  const keyboardHelp = language === "de" ? KEYBOARD_CONTROL_HELP : language === "tr" ? [
-    ["WASD / Yön tuşları", "Hareket"], ["BOŞLUK", "Ateş et"], ["Q", "Uçak özel yeteneği"],
-    ["E", "Lazer özel yeteneği"], ["R", "Gizlilik özel yeteneği"], ["H", "İyileştirme özel yeteneği"], ["U", "Nihai özel yetenek"], ["P", "Duraklat"],
-  ] as const : [
-    ["WASD / Arrow keys", "Move"], ["SPACE", "Shoot"], ["Q", "Aircraft ultimate"],
-    ["E", "Laser ultimate"], ["R", "Stealth ultimate"], ["H", "Healing ultimate"], ["U", "Ultimate Ulti"], ["P", "Pause"],
-  ] as const;
-  const mobileHelp = language === "de" ? MOBILE_CONTROL_HELP : language === "tr" ? [
-    "Sol taraf -> Joystick (hareket)", "FIRE -> Ateş et", "ULTI -> Uçak özel yeteneği (Q)",
-    "LASER -> Lazer özel yeteneği (E)", "STEALTH -> Gizlilik özel yeteneği (R)", "HEAL -> İyileştirme özel yeteneği (H)",
-  ] as const : [
-    "Left side -> Joystick (move)", "FIRE -> Shoot", "ULTI -> Aircraft ultimate (Q)",
-    "LASER -> Laser ultimate (E)", "STEALTH -> Stealth ultimate (R)", "HEAL -> Healing ultimate (H)",
-  ] as const;
-  const toggle = (key: "tutorial" | "reducedMotion" | "highContrast") => onChange({ ...settings, [key]: !settings[key] });
+  const toggle = (key: "tutorial" | "reducedMotion" | "highContrast" | "autoFire") => onChange({ ...settings, [key]: !settings[key] });
+  const updateBinding = (action: KeyBindingAction, code: string) => {
+    onChange({ ...settings, keyBindings: { ...settings.keyBindings, [action]: code } });
+  };
   return (
     <div className="flex flex-col h-full p-4 gap-4 overflow-y-auto text-white select-none">
       <div className="flex items-center gap-3">
@@ -4828,6 +5613,7 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
           </select>
         </label>
         <SettingToggle label={translated(language, "Einführung anzeigen", "Show tutorial")} description={translated(language, "Erklärt Bewegung und Schießen beim ersten Start.", "Explains movement and shooting on the first start.")} checked={settings.tutorial} onClick={() => toggle("tutorial")} />
+        <SettingToggle label="Automatisches Dauerfeuer" description="Der Jet schießt selbstständig; FIRE bleibt optional." checked={settings.autoFire} onClick={() => toggle("autoFire")} />
         <SettingToggle label={translated(language, "Bewegung reduzieren", "Reduce motion")} description={translated(language, "Reduziert dekorative Effekte und Animationen.", "Reduces decorative effects and animations.")} checked={settings.reducedMotion} onClick={() => toggle("reducedMotion")} />
         <SettingToggle label={translated(language, "Hoher Kontrast", "High contrast")} description={translated(language, "Verstärkt Texte, Rahmen und Bedienelemente.", "Strengthens text, borders and controls.")} checked={settings.highContrast} onClick={() => toggle("highContrast")} />
         <VolumeSetting label={translated(language, "Soundeffekte", "Sound effects")} value={settings.soundVolume} onChange={value => onChange({ ...settings, soundVolume: value })} />
@@ -4839,21 +5625,24 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
             <option value="auto">{translated(language, "Automatisch", "Automatic")}</option><option value="always">{translated(language, "Immer anzeigen", "Always show")}</option><option value="never">{translated(language, "Nie anzeigen", "Never show")}</option>
           </select>
         </label>
+        <RangeSetting label="Joystick-Größe" value={settings.joystickSize} min={0.8} max={1.4} step={0.1} format={value => `${Math.round(value * 100)}%`} onChange={value => onChange({ ...settings, joystickSize: value })} />
+        <RangeSetting label="Joystick-Empfindlichkeit" value={settings.joystickSensitivity} min={0.65} max={1.5} step={0.05} format={value => `${Math.round(value * 100)}%`} onChange={value => onChange({ ...settings, joystickSensitivity: value })} />
       </div>
-      <div className="text-slate-500 text-xs uppercase tracking-widest">{translated(language, "Tastatur", "Keyboard")}</div>
-      <div className="flex flex-col gap-2">
-        {keyboardHelp.map(([key, desc]) => (
-          <div key={key} className="flex items-center gap-3">
-            <kbd className="px-2 py-1 rounded-md bg-slate-800 text-slate-200 text-xs font-mono min-w-[120px] text-center border border-slate-600">{key}</kbd>
-            <span className="text-slate-300 text-sm">{desc}</span>
-          </div>
-        ))}
+      <div className="text-slate-500 text-xs uppercase tracking-widest">Tastaturbelegung</div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <KeyBindingSetting label="Nach oben" value={settings.keyBindings.up} onChange={value => updateBinding("up", value)} />
+        <KeyBindingSetting label="Nach unten" value={settings.keyBindings.down} onChange={value => updateBinding("down", value)} />
+        <KeyBindingSetting label="Nach links" value={settings.keyBindings.left} onChange={value => updateBinding("left", value)} />
+        <KeyBindingSetting label="Nach rechts" value={settings.keyBindings.right} onChange={value => updateBinding("right", value)} />
+        <KeyBindingSetting label="Feuern" value={settings.keyBindings.fire} onChange={value => updateBinding("fire", value)} />
+        <KeyBindingSetting label="Pause" value={settings.keyBindings.pause} onChange={value => updateBinding("pause", value)} />
+        <KeyBindingSetting label="Fähigkeit 1" value={settings.keyBindings.ability1} onChange={value => updateBinding("ability1", value)} />
+        <KeyBindingSetting label="Fähigkeit 2" value={settings.keyBindings.ability2} onChange={value => updateBinding("ability2", value)} />
       </div>
-      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">{translated(language, "Mobil / Touch", "Mobile / Touch")}</div>
-      <div className="flex flex-col gap-1 text-slate-300 text-sm">
-        {mobileHelp.map((line) => (
-          <div key={line}>{line.replaceAll("->", "→")}</div>
-        ))}
+      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Gamepad & Touch</div>
+      <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-sm text-slate-300">
+        <div><strong className="text-white">Gamepad:</strong> linker Stick bewegt, A/RT feuert, LB/RB nutzt Fähigkeit 1/2, Menü pausiert.</div>
+        <div className="mt-1"><strong className="text-white">Touch:</strong> links ziehen zum Bewegen; die zwei großen Fähigkeitsknöpfe rechts antippen.</div>
       </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">{translated(language, "Piloten-Name", "Pilot name")}</div>
       <div className="flex items-center gap-2">
@@ -4874,6 +5663,40 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
 
 function VolumeSetting({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
   return <label className="rounded-xl border border-slate-700 bg-slate-900/70 p-3"><span className="flex justify-between text-sm font-bold"><span>{label}</span><span>{Math.round(value * 100)}%</span></span><input className="mt-3 w-full accent-cyan-400" type="range" min="0" max="1" step="0.05" value={value} onChange={e => onChange(Number(e.target.value))} /></label>;
+}
+
+function RangeSetting({ label, value, min, max, step, format, onChange }: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  format: (value: number) => string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
+      <span className="flex justify-between text-sm font-bold"><span>{label}</span><span>{format(value)}</span></span>
+      <input className="mt-3 w-full accent-cyan-400" type="range" min={min} max={max} step={step} value={value} onChange={event => onChange(Number(event.target.value))} />
+    </label>
+  );
+}
+
+const KEY_BINDING_OPTIONS = [
+  "KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+  "Space", "KeyQ", "KeyE", "KeyR", "KeyF", "KeyH", "KeyP", "Digit1", "Digit2", "Digit3", "Escape",
+] as const;
+
+function KeyBindingSetting({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2">
+      <span className="text-sm font-bold text-slate-200">{label}</span>
+      <select aria-label={`${label} belegen`} value={value} onChange={event => onChange(event.target.value)} className="min-h-10 rounded-lg border border-slate-600 bg-slate-800 px-3 text-sm font-black text-cyan-200">
+        {!KEY_BINDING_OPTIONS.includes(value as typeof KEY_BINDING_OPTIONS[number]) && <option value={value}>{formatKeyCode(value)}</option>}
+        {KEY_BINDING_OPTIONS.map(code => <option key={code} value={code}>{formatKeyCode(code)}</option>)}
+      </select>
+    </label>
+  );
 }
 
 function SettingToggle({ label, description, checked, onClick }: { label: string; description: string; checked: boolean; onClick: () => void }) {
@@ -4982,6 +5805,8 @@ function drawVirtualControls(
   ctx: CanvasRenderingContext2D,
   js: { active: boolean; centerX: number; centerY: number; curX: number; curY: number },
   fireActive: boolean,
+  autoFire: boolean,
+  joystickScale: number,
   ultimaCharge: number,
   ultimaActive: number,
   laserCharge: number,
@@ -5001,6 +5826,8 @@ function drawVirtualControls(
 ) {
   ctx.save();
   ctx.globalAlpha = 0.45;
+  const joystickBaseRadius = JOY_BASE_R * joystickScale;
+  const joystickKnobRadius = JOY_KNOB_R * joystickScale;
   const position = (id: UltiLoadoutId) => getUltiButtonPosition(ultiLoadout, id) ?? [0, 0];
   const [ultiX, ultiY] = position("jet");
   const [laserX, laserY] = position("laser");
@@ -5016,7 +5843,7 @@ function drawVirtualControls(
 
   // Base ring
   ctx.beginPath();
-  ctx.arc(baseX, baseY, JOY_BASE_R, 0, Math.PI * 2);
+  ctx.arc(baseX, baseY, joystickBaseRadius, 0, Math.PI * 2);
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 2;
   ctx.stroke();
@@ -5029,12 +5856,12 @@ function drawVirtualControls(
     const dx = js.curX - js.centerX;
     const dy = js.curY - js.centerY;
     const d = Math.hypot(dx, dy);
-    const clamped = Math.min(d, JOY_BASE_R - JOY_KNOB_R);
+    const clamped = Math.min(d, joystickBaseRadius - joystickKnobRadius);
     kx = js.centerX + (dx / (d || 1)) * clamped;
     ky = js.centerY + (dy / (d || 1)) * clamped;
   }
   ctx.beginPath();
-  ctx.arc(kx, ky, JOY_KNOB_R, 0, Math.PI * 2);
+  ctx.arc(kx, ky, joystickKnobRadius, 0, Math.PI * 2);
   ctx.fillStyle = js.active ? "#00cfff99" : "#ffffff44";
   ctx.fill();
   ctx.strokeStyle = "#ffffff66";
@@ -5042,20 +5869,22 @@ function drawVirtualControls(
   ctx.stroke();
 
   // ── Fire button (right zone) ──
-  ctx.beginPath();
-  ctx.arc(FIRE_BTN_X, FIRE_BTN_Y, FIRE_BTN_R, 0, Math.PI * 2);
-  ctx.fillStyle = fireActive ? "#ff443388" : "#ff443322";
-  ctx.fill();
-  ctx.strokeStyle = fireActive ? "#ff6644cc" : "#ff444466";
-  ctx.lineWidth = 2.5;
-  ctx.stroke();
+  if (!autoFire) {
+    ctx.beginPath();
+    ctx.arc(FIRE_BTN_X, FIRE_BTN_Y, FIRE_BTN_R, 0, Math.PI * 2);
+    ctx.fillStyle = fireActive ? "#ff443388" : "#ff443322";
+    ctx.fill();
+    ctx.strokeStyle = fireActive ? "#ff6644cc" : "#ff444466";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
 
-  ctx.globalAlpha = fireActive ? 0.95 : 0.5;
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 14px 'Inter', sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("FIRE", FIRE_BTN_X, FIRE_BTN_Y);
+    ctx.globalAlpha = fireActive ? 0.95 : 0.5;
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 14px 'Inter', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("FIRE", FIRE_BTN_X, FIRE_BTN_Y);
+  }
 
   // ── ULTI button ──
   if (ultiLoadout.includes("jet")) {
@@ -5222,7 +6051,7 @@ function drawVirtualControls(
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[]) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string], mode: GameMode, elapsedMs: number) {
   ctx.save();
   ctx.textBaseline = "top";
 
@@ -5247,6 +6076,12 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ctx.fillStyle = "#ffffff";
   ctx.font = "bold 13px 'Inter', sans-serif";
   ctx.fillText(WEAPON_TIERS[gs.weaponTier].name.toUpperCase(), CANVAS_W / 2, 22);
+  const modeRules = getEffectiveGameModeRules(mode);
+  const remaining = modeRules.durationSeconds === null ? null : Math.max(0, modeRules.durationSeconds - Math.floor(elapsedMs / 1000));
+  ctx.fillStyle = "#a78bfa";
+  ctx.font = "bold 10px 'Inter', sans-serif";
+  const timerText = remaining === null ? "" : ` · ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
+  ctx.fillText(`${modeRules.icon} ${modeRules.label.toUpperCase()}${timerText}`, CANVAS_W / 2, 48);
 
   // XP bar (progress to next level)
   const thresholds = LEVEL_THRESHOLDS;
@@ -5349,7 +6184,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     if (!item || (id !== "jet" && id !== "laser" && !unlocks.includes(id))) return;
     const column = Math.floor(slot / 3);
     const row = slot % 3;
-    drawUltBar(`${slot + 1} ${item.label}`, item.key, item.charge, item.max, item.active, item.duration,
+    drawUltBar(`${slot + 1} ${item.label}`, abilityKeys[slot] ?? item.key, item.charge, item.max, item.active, item.duration,
       16 + column * 190, 47 + row * 10, 108, 5, item.activeColors, item.chargeColors, item.color);
   });
 

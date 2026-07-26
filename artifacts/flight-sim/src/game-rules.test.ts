@@ -15,6 +15,10 @@ import {
   getAircraftUpgradeStats,
   getEnemySpawnRate,
   getNormalBossDamage,
+  GAME_MODES,
+  getGameModeRules,
+  getModeCoinMultiplier,
+  getDailyChallengeRules,
   HEAL_ULTI_RESTORE,
   KEYBOARD_CONTROL_HELP,
   isBossEligibleLevel,
@@ -176,6 +180,14 @@ assert.equal(shouldShowVirtualControls(false, true), true);
 assert.equal(shouldShowVirtualControls(true, false), true);
 
 assert.equal(HEAL_ULTI_RESTORE, 5);
+
+assert.deepEqual(GAME_MODES.map(mode => mode.id), ["classic", "blitz", "boss_rush", "one_life", "daily"]);
+assert.equal(getGameModeRules("blitz").durationSeconds, 300);
+assert.equal(getGameModeRules("one_life").startingLives, 1);
+assert.equal(getModeCoinMultiplier("classic"), 1);
+assert.equal(getModeCoinMultiplier("one_life"), 1.5);
+assert.deepEqual(getDailyChallengeRules("2026-07-26"), getDailyChallengeRules("2026-07-26"));
+assert.notDeepEqual(getDailyChallengeRules("2026-07-26"), getDailyChallengeRules("2026-07-27"));
 
 assert.equal(getAircraftUpgradeCost(1), 50000);
 assert.equal(getAircraftUpgradeCost(5), 1250000);

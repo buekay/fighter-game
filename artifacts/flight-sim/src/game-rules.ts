@@ -41,6 +41,56 @@ export const EARLY_GAME_LEVEL_LIMIT = 10;
 export const EARLY_GAME_ENEMY_SPAWN_MULTIPLIER = 2;
 export const EARLY_NORMAL_BOSS_DAMAGE_MULTIPLIER = 0.2;
 export const LASER_DEVICE_MIN_LEVEL = 10;
+
+export type GameMode = "classic" | "blitz" | "boss_rush" | "one_life" | "daily";
+
+export interface GameModeRules {
+  id: GameMode;
+  label: string;
+  icon: string;
+  description: string;
+  durationSeconds: number | null;
+  startingLives: number | null;
+  spawnRateMultiplier: number;
+}
+
+export const GAME_MODES: readonly GameModeRules[] = [
+  { id: "classic", label: "Klassisch", icon: "✈️", description: "Der normale endlose Einsatz mit Checkpoints.", durationSeconds: null, startingLives: null, spawnRateMultiplier: 1 },
+  { id: "blitz", label: "Blitzmission", icon: "⏱️", description: "Fünf Minuten, deutlich mehr Gegner und maximaler Score-Druck.", durationSeconds: 300, startingLives: null, spawnRateMultiplier: 0.62 },
+  { id: "boss_rush", label: "Boss-Rush", icon: "👹", description: "Ein Boss nach dem anderen. Keine gewöhnlichen Gegner.", durationSeconds: null, startingLives: null, spawnRateMultiplier: 1 },
+  { id: "one_life", label: "Ein Leben", icon: "💀", description: "Nur ein Leben, aber 50 % mehr Credits für deinen Mut.", durationSeconds: null, startingLives: 1, spawnRateMultiplier: 0.82 },
+  { id: "daily", label: "Tagesmission", icon: "☀️", description: "Die heutige feste Herausforderung: schneller und gefährlicher.", durationSeconds: 240, startingLives: 2, spawnRateMultiplier: 0.72 },
+] as const;
+
+export function getGameModeRules(mode: GameMode): GameModeRules {
+  return GAME_MODES.find(candidate => candidate.id === mode) ?? GAME_MODES[0];
+}
+
+export function getModeCoinMultiplier(mode: GameMode): number {
+  if (mode === "one_life") return 1.5;
+  if (mode === "boss_rush") return 1.25;
+  if (mode === "daily") return 1.35;
+  return 1;
+}
+
+export interface DailyChallengeRules {
+  name: string;
+  description: string;
+  durationSeconds: number;
+  startingLives: number;
+  spawnRateMultiplier: number;
+}
+
+const DAILY_CHALLENGES: readonly DailyChallengeRules[] = [
+  { name: "Feuersturm", description: "Extrem viele Gegner, fünf Minuten Zeit.", durationSeconds: 300, startingLives: 3, spawnRateMultiplier: 0.5 },
+  { name: "Glaskanone", description: "Nur ein Leben in einem kurzen Hochrisiko-Einsatz.", durationSeconds: 180, startingLives: 1, spawnRateMultiplier: 0.78 },
+  { name: "Belagerung", description: "Zwei Leben und vier Minuten Dauerfeuer.", durationSeconds: 240, startingLives: 2, spawnRateMultiplier: 0.62 },
+] as const;
+
+export function getDailyChallengeRules(dateKey: string): DailyChallengeRules {
+  const hash = [...dateKey].reduce((total, character) => total + character.charCodeAt(0), 0);
+  return DAILY_CHALLENGES[hash % DAILY_CHALLENGES.length];
+}
 export interface AircraftUpgradeStats {
   level: number;
   maxHpBonus: number;

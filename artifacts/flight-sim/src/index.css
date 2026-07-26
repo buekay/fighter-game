@@ -105,7 +105,13 @@ input:focus-visible {
     scrollbar-width: thin;
   }
 
-  .hangar-skins button { flex: 0 0 26px; width: 26px !important; height: 26px !important; }
+  .hangar-main button { min-height: 44px; }
+  .hangar-skins button,
+  .hangar-drone-skins button {
+    flex: 0 0 44px;
+    width: 44px !important;
+    height: 44px !important;
+  }
 
   .hangar-drone-skins {
     max-width: 100%;
@@ -190,6 +196,55 @@ input:focus-visible {
   text-shadow: 0 0 5px #f59e0b, 0 0 16px #f59e0b;
   animation: daily-chest-reward-pop 1.2s ease-out both;
 }
+
+@keyframes purchase-dialog-in {
+  from { opacity: 0; transform: translateY(14px) scale(.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes purchase-success-in {
+  0% { opacity: 0; transform: scale(.45) rotate(-5deg); }
+  55% { opacity: 1; transform: scale(1.08) rotate(1deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+@keyframes purchase-check-pop {
+  0% { transform: scale(0) rotate(-30deg); }
+  65% { transform: scale(1.18) rotate(5deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+@keyframes purchase-flash {
+  0% { opacity: 0; background: radial-gradient(circle, #fbbf2455, transparent 60%); }
+  30% { opacity: 1; }
+  100% { opacity: 0; background: radial-gradient(circle, #34d39933, transparent 65%); }
+}
+
+@keyframes purchase-spark {
+  0% { opacity: 0; transform: translate(0, 0) scale(.2) rotate(0); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--spark-x), var(--spark-y)) scale(1.4) rotate(120deg); }
+}
+
+.purchase-confirmation > div { animation: purchase-dialog-in .22s ease-out both; }
+.purchase-success { animation: purchase-success-in .48s cubic-bezier(.2,.9,.2,1.2) both; }
+.purchase-check { animation: purchase-check-pop .55s .12s cubic-bezier(.2,.9,.2,1.25) both; }
+.purchase-flash { animation: purchase-flash 1.25s ease-out both; }
+.purchase-spark {
+  --spark-x: 0px;
+  --spark-y: -80px;
+  position: absolute;
+  left: 50%;
+  top: 48%;
+  color: #fde68a;
+  font-size: 28px;
+  text-shadow: 0 0 10px #fbbf24;
+  animation: purchase-spark .9s .2s ease-out both;
+}
+.purchase-spark-a { --spark-x: -125px; --spark-y: -75px; }
+.purchase-spark-b { --spark-x: 115px; --spark-y: -90px; animation-delay: .28s; }
+.purchase-spark-c { --spark-x: -105px; --spark-y: 65px; animation-delay: .34s; }
+.purchase-spark-d { --spark-x: 120px; --spark-y: 55px; animation-delay: .4s; }
 
 .tutorial-key {
   display: grid;
@@ -281,9 +336,11 @@ input:focus-visible {
     gap: 5px;
   }
 
-  .hangar-skins button {
-    width: 18px !important;
-    height: 18px !important;
+  .hangar-skins button,
+  .hangar-drone-skins button {
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px;
   }
 
   .hangar-actions button {
