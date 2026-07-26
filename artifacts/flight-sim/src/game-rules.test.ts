@@ -13,9 +13,12 @@ import {
   getDroneUpgradeCost,
   getAircraftUpgradeCost,
   getAircraftUpgradeStats,
+  getEnemySpawnRate,
+  getNormalBossDamage,
   HEAL_ULTI_RESTORE,
   KEYBOARD_CONTROL_HELP,
   isBossEligibleLevel,
+  isLaserDeviceEligibleLevel,
   isMilestoneBossLevel,
   MOBILE_CONTROL_HELP,
   PLAYER_SHIELD_HP,
@@ -86,6 +89,19 @@ assert.equal(isMilestoneBossLevel(20), true);
 assert.equal(isMilestoneBossLevel(21), false);
 assert.equal(isMilestoneBossLevel(25), true);
 assert.equal(isMilestoneBossLevel(500), true);
+
+assert.equal(isLaserDeviceEligibleLevel(9), false);
+assert.equal(isLaserDeviceEligibleLevel(10), true);
+assert.equal(isLaserDeviceEligibleLevel(500), true);
+
+assert.equal(getEnemySpawnRate(1), 200);
+assert.equal(getEnemySpawnRate(9), 64);
+assert.equal(getEnemySpawnRate(10), 32);
+assert.equal(getEnemySpawnRate(50), 32);
+
+assert.ok(Math.abs(getNormalBossDamage(3, 9) - 0.6) < Number.EPSILON);
+assert.equal(getNormalBossDamage(1, 9), 0.2);
+assert.equal(getNormalBossDamage(3, 10), 3);
 
 assert.equal(shouldUseSpaceBackground(49), false);
 assert.equal(shouldUseSpaceBackground(50), true);

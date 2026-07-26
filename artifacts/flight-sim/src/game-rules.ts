@@ -37,6 +37,10 @@ export const COIN_REWARD_MULTIPLIER = 1;
 export const HEAL_ULTI_RESTORE = 5;
 export const MAX_AIRCRAFT_LEVEL = 10;
 export const MAX_DRONE_LEVEL = 10;
+export const EARLY_GAME_LEVEL_LIMIT = 10;
+export const EARLY_GAME_ENEMY_SPAWN_MULTIPLIER = 2;
+export const EARLY_NORMAL_BOSS_DAMAGE_MULTIPLIER = 0.2;
+export const LASER_DEVICE_MIN_LEVEL = 10;
 export interface AircraftUpgradeStats {
   level: number;
   maxHpBonus: number;
@@ -182,6 +186,23 @@ export function isBossEligibleLevel(level: number): boolean {
 
 export function isMilestoneBossLevel(level: number): boolean {
   return EARLY_MILESTONE_BOSS_LEVELS.has(level) || (level >= 20 && level % 5 === 0);
+}
+
+export function isLaserDeviceEligibleLevel(level: number): boolean {
+  return level >= LASER_DEVICE_MIN_LEVEL;
+}
+
+export function getEnemySpawnRate(level: number): number {
+  const baseSpawnRate = Math.max(32, 110 - level * 10);
+  return level < EARLY_GAME_LEVEL_LIMIT
+    ? baseSpawnRate * EARLY_GAME_ENEMY_SPAWN_MULTIPLIER
+    : baseSpawnRate;
+}
+
+export function getNormalBossDamage(damage: number, level: number): number {
+  return level < EARLY_GAME_LEVEL_LIMIT
+    ? damage * EARLY_NORMAL_BOSS_DAMAGE_MULTIPLIER
+    : damage;
 }
 
 export function shouldUseSpaceBackground(level: number): boolean {

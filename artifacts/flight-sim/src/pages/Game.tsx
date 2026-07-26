@@ -11,12 +11,15 @@ import {
   getDroneUpgradeCost,
   getAircraftUpgradeCost,
   getAircraftUpgradeStats,
+  getEnemySpawnRate,
   getLevelForScore,
+  getNormalBossDamage,
   getPilotLevelForScore,
   getLevelThreshold,
   HEAL_ULTI_RESTORE,
   KEYBOARD_CONTROL_HELP,
   isBossEligibleLevel,
+  isLaserDeviceEligibleLevel,
   isMilestoneBossLevel,
   MOBILE_CONTROL_HELP,
   shouldUseAboveCloudsBackground,
@@ -72,6 +75,7 @@ interface Bullet {
   color?: string;
   stunFrames?: number;
   isPoisonMissile?: boolean;
+  normalBossProjectile?: boolean;
 }
 
 interface Enemy {
@@ -1898,7 +1902,7 @@ export default function Game() {
       vx   = isSuperBoss ? -rand(0.4, 0.9) : -rand(0.6, 1.2);
       pts  = isSuperBoss ? 600 : 100;
       color = isSuperBoss ? "#ff00cc" : "#cc00ff";
-    } else if (level >= 4 && roll < LASER_DEVICE_CHANCE &&
+    } else if (isLaserDeviceEligibleLevel(level) && roll < LASER_DEVICE_CHANCE &&
         !enemiesRef.current.some(enemy => enemy.type === "laserdevice" && !enemy.dead)) {
       type = "laserdevice"; hp = (8 + level * 2) * 3; w = 52; h = 58; vx = -rand(1.1, 1.5); pts = 100; color = "#777c82";
     } else if (level >= 7 && roll < 0.10) {
@@ -2073,15 +2077,15 @@ export default function Game() {
     activeUltiLoadoutRef.current = loadUltiLoadout();
     activeBulletColorRef.current = loadBulletColor();
     playerNameRef.current = loadName();
-    stealthChargeRef.current = 0;
+    stealthChargeRef.current = STEALTH_MAX;
     stealthActiveRef.current = 0;
-    healChargeRef.current = 0;
+    healChargeRef.current = HEAL_MAX;
     healActiveRef.current = 0;
-    poisonMissileChargeRef.current = 0;
-    absorberChargeRef.current = 0;
+    poisonMissileChargeRef.current = POISON_MISSILE_MAX;
+    absorberChargeRef.current = ABSORBER_MAX;
     absorberActiveRef.current = 0;
     absorberHitsRef.current = 0;
-    ultimateChargeRef.current = 0;
+    ultimateChargeRef.current = ULTIMATE_MAX;
     ultimateActiveRef.current = 0;
     speedBoostRef.current = 0;
     n1ShieldTimerRef.current = 0;
@@ -2129,11 +2133,11 @@ export default function Game() {
     shieldTimerRef.current = 0;
     invincibleRef.current = 0;
     movementStunRef.current = 0;
-    ultimaChargeRef.current = 0;
+    ultimaChargeRef.current = ULTI_MAX;
     ultimaActiveRef.current = 0;
-    laserChargeRef.current = 0;
+    laserChargeRef.current = LASER_MAX;
     laserActiveRef.current = 0;
-    ultimateChargeRef.current = 0;
+    ultimateChargeRef.current = ULTIMATE_MAX;
     ultimateActiveRef.current = 0;
     milestoneBossFiredRef.current = new Set();
     titanBossFiredRef.current = new Set();
@@ -2757,7 +2761,7 @@ export default function Game() {
       }
 
       // ── Spawn enemies ──
-      const spawnRate = Math.max(32, 110 - gs.level * 10);
+      const spawnRate = getEnemySpawnRate(gs.level);
       enemySpawnTimerRef.current += dtScale;
       if (!titanActive && enemySpawnTimerRef.current >= spawnRate) {
         enemySpawnTimerRef.current = 0;
@@ -3200,7 +3204,9 @@ export default function Game() {
                 x: e.x, y: e.y + e.height / 2,
                 vx: -ENEMY_BULLET_SPEED + (isBossEnemy(e) ? -1 : 0),
                 vy: spread * ENEMY_BULLET_SPEED,
-                fromPlayer: false, damage: isBossEnemy(e) ? 3 : 2,
+                fromPlayer: false,
+                damage: isBossEnemy(e) ? 3 : 2,
+                normalBossProjectile: e.type === "boss",
                 color: e.type === "titan" ? e.color : e.type === "overlord" ? "#6fe9ff" : e.type === "boss" && bossPhase === 3 ? "#ff3300" : undefined,
               });
             }
@@ -3318,7 +3324,10 @@ export default function Game() {
             e.dead = collidedWithBoss ? e.hp <= 0 : true;
             return !e.dead;
           }
-          const collDmg = e.ramDamage ?? (collidedWithBoss ? 1 : activeUnlocksRef.current.includes("armor") ? 0.5 : 1);
+          const collDmg = e.ramDamage ?? (e.type === "boss"
+            ? getNormalBossDamage(1, gs.level)
+            : collidedWithBoss ? 1
+            : activeUnlocksRef.current.includes("armor") ? 0.5 : 1);
           runStatsRef.current.damageTaken += collDmg;
           checkAchievements();
           const nextLifeState = applyPlayerDamage(gs, collDmg);
@@ -3431,7 +3440,10 @@ export default function Game() {
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           return false;
         }
-        const bulletDmg = activeUnlocksRef.current.includes("armor") ? Math.max(0.5, b.damage * 0.5) : b.damage;
+        const protectedBulletDamage = activeUnlocksRef.current.includes("armor") ? Math.max(0.5, b.damage * 0.5) : b.damage;
+        const bulletDmg = b.normalBossProjectile
+          ? getNormalBossDamage(protectedBulletDamage, gs.level)
+          : protectedBulletDamage;
         runStatsRef.current.damageTaken += bulletDmg;
         checkAchievements();
         const nextLifeState = applyPlayerDamage(gs, bulletDmg);
