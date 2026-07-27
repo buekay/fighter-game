@@ -5684,7 +5684,7 @@ function WorkshopScreen({ build, droneRole, onBuildChange, onDroneRoleChange, on
 }) {
   const wing = WING_MODULES.find(module => module.id === build.wing) ?? WING_MODULES[0];
   const engine = ENGINE_MODULES.find(module => module.id === build.engine) ?? ENGINE_MODULES[0];
-  return <div className="hangar-layer flex h-full flex-col overflow-y-auto bg-[#040c1c] p-4 text-white">
+  return <div className="hangar-layer absolute inset-0 z-20 flex h-full flex-col overflow-y-auto bg-[#040c1c] p-4 text-white">
     <div className="mx-auto w-full max-w-4xl">
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="min-h-11 min-w-11 text-xl text-slate-300">←</button>
