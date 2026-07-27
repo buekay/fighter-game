@@ -42,7 +42,7 @@ export const EARLY_GAME_ENEMY_SPAWN_MULTIPLIER = 2;
 export const EARLY_NORMAL_BOSS_DAMAGE_MULTIPLIER = 0.2;
 export const LASER_DEVICE_MIN_LEVEL = 10;
 
-export type GameMode = "classic" | "blitz" | "boss_rush" | "one_life" | "daily";
+export type GameMode = "classic" | "blitz" | "boss_rush" | "one_life" | "protect" | "daily";
 
 export interface GameModeRules {
   id: GameMode;
@@ -59,6 +59,7 @@ export const GAME_MODES: readonly GameModeRules[] = [
   { id: "blitz", label: "Blitzmission", icon: "⏱️", description: "Fünf Minuten, deutlich mehr Gegner und maximaler Score-Druck.", durationSeconds: 300, startingLives: null, spawnRateMultiplier: 0.62 },
   { id: "boss_rush", label: "Boss-Rush", icon: "👹", description: "Ein Boss nach dem anderen. Keine gewöhnlichen Gegner.", durationSeconds: null, startingLives: null, spawnRateMultiplier: 1 },
   { id: "one_life", label: "Ein Leben", icon: "💀", description: "Nur ein Leben, aber 50 % mehr Credits für deinen Mut.", durationSeconds: null, startingLives: 1, spawnRateMultiplier: 0.82 },
+  { id: "protect", label: "Beschützen", icon: "📦", description: "Beschütze das Paket drei Minuten lang vor den Angreifern.", durationSeconds: 180, startingLives: 3, spawnRateMultiplier: 0.72 },
   { id: "daily", label: "Tagesmission", icon: "☀️", description: "Die heutige feste Herausforderung: schneller und gefährlicher.", durationSeconds: 240, startingLives: 2, spawnRateMultiplier: 0.72 },
 ] as const;
 
@@ -70,6 +71,7 @@ export function getModeCoinMultiplier(mode: GameMode): number {
   if (mode === "one_life") return 1.5;
   if (mode === "boss_rush") return 1.25;
   if (mode === "daily") return 1.35;
+  if (mode === "protect") return 1.4;
   return 1;
 }
 

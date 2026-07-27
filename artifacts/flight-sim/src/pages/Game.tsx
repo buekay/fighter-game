@@ -233,6 +233,8 @@ const LASER_DEVICE_DAMAGE = 5;
 const LASER_DEVICE_BEAM_WIDTH = 12;
 const WEAPON_CRATE_INTERVAL_MS = 20_000;
 const WEAPON_CRATE_DURATION_MS = 5_000;
+const PROTECT_PACKAGE_MAX_HP = 100;
+const PROTECT_PACKAGE = { x: 155, y: CANVAS_H / 2 - 34, width: 58, height: 68 } as const;
 const WEAPON_CRATES: readonly WeaponCrateDefinition[] = [
   { id: "falcon-rockets", name: "Falken-Raketen", rarity: "selten", kind: "rockets", color: "#60a5fa", fireRate: 720, damage: 9 },
   { id: "nova-laser", name: "Nova-Laser", rarity: "episch", kind: "laser", color: "#d946ef", fireRate: 105, damage: 3.2 },
@@ -243,6 +245,41 @@ const WEAPON_CRATE_RARITY_COLOR: Record<WeaponCrateRarity, string> = {
   episch: "#d946ef",
   legendär: "#fbbf24",
 };
+
+function drawProtectPackage(ctx: CanvasRenderingContext2D, hp: number, time: number) {
+  const { x, y, width, height } = PROTECT_PACKAGE;
+  const ratio = Math.max(0, hp / PROTECT_PACKAGE_MAX_HP);
+  ctx.save();
+  ctx.shadowColor = ratio > .35 ? "#38bdf8" : "#ff3344";
+  ctx.shadowBlur = 12 + Math.sin(time * .12) * 3;
+  ctx.fillStyle = "#16243a";
+  ctx.strokeStyle = ratio > .35 ? "#7dd3fc" : "#ff6677";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, 7);
+  ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = "#94a3b8";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x + 8, y + 8); ctx.lineTo(x + width - 8, y + height - 8);
+  ctx.moveTo(x + width - 8, y + 8); ctx.lineTo(x + 8, y + height - 8);
+  ctx.stroke();
+  ctx.fillStyle = "#fbbf24";
+  ctx.fillRect(x + width / 2 - 6, y - 5, 12, height + 10);
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "900 10px 'Inter', sans-serif";
+  ctx.fillText("PAKET", x + width / 2, y + height / 2 - 5);
+  ctx.fillStyle = "#101827";
+  ctx.fillRect(x - 5, y + height + 10, width + 10, 7);
+  ctx.fillStyle = ratio > .35 ? "#22c55e" : "#ef4444";
+  ctx.fillRect(x - 5, y + height + 10, (width + 10) * ratio, 7);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 10px 'Inter', sans-serif";
+  ctx.fillText(`${Math.ceil(hp)} HP`, x + width / 2, y + height + 22);
+  ctx.restore();
+}
 
 function drawWeaponCrate(
   ctx: CanvasRenderingContext2D,
@@ -597,7 +634,16 @@ const SHOP_ITEMS: readonly ShopItem[] = [
   { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 100000, rarity: "epic" },
 ] as const;
 const SORTED_SHOP_ITEMS = [...SHOP_ITEMS].sort(
-  (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity],
+  (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
+);
+const SORTED_WEAPONS = [...WEAPONS].sort(
+  (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
+);
+const SORTED_JET_SKINS = [...JET_SKINS].sort(
+  (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
+);
+const SORTED_DRONE_SKINS = [...DRONE_SKINS].sort(
+  (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
 );
 
 type UltiLoadoutId = "jet" | "laser" | "stealth_ulti" | "heal_ulti" | "poison_missiles_ulti" | "absorber_ulti" | "ultimate_ulti";
@@ -2050,6 +2096,8 @@ export default function Game() {
   const enemySpawnTimerRef = useRef(0);
   const timeRef = useRef(0);
   const runElapsedMsRef = useRef(0);
+  const protectPackageHpRef = useRef(PROTECT_PACKAGE_MAX_HP);
+  const protectPackageHitCooldownRef = useRef(0);
   const bossRushSpawnTimerRef = useRef(0);
   const displaySyncTimerRef = useRef(0);
   const shieldTimerRef = useRef(0);
@@ -2784,6 +2832,8 @@ export default function Game() {
     enemySpawnTimerRef.current = 0;
     timeRef.current = 0;
     runElapsedMsRef.current = 0;
+    protectPackageHpRef.current = PROTECT_PACKAGE_MAX_HP;
+    protectPackageHitCooldownRef.current = 0;
     bossRushSpawnTimerRef.current = 0;
     runResultRef.current = "game_over";
     rewardGrantedRef.current = false;
@@ -3407,6 +3457,7 @@ export default function Game() {
       }
       const modeRules = getEffectiveGameModeRules(activeModeRef.current);
       if (modeRules.durationSeconds !== null && runElapsedMsRef.current >= modeRules.durationSeconds * 1000) {
+        if (activeModeRef.current === "protect") gs.score += 10_000;
         runResultRef.current = "complete";
         gs.gameOver = true;
         grantRunReward();
@@ -3688,6 +3739,7 @@ export default function Game() {
       });
 
       // ── Update enemies ──
+      protectPackageHitCooldownRef.current = Math.max(0, protectPackageHitCooldownRef.current - dtScale);
       if (invincibleRef.current > 0) invincibleRef.current = Math.max(0, invincibleRef.current - dtScale);
       if (shieldTimerRef.current > 0) {
         shieldTimerRef.current = Math.max(0, shieldTimerRef.current - dtScale);
@@ -4161,6 +4213,25 @@ export default function Game() {
           ctx.restore();
         }
 
+        // In Beschützen mode, enemies that reach the package damage the objective.
+        if (activeModeRef.current === "protect" && protectPackageHitCooldownRef.current <= 0 &&
+            rectHit(PROTECT_PACKAGE.x, PROTECT_PACKAGE.y, PROTECT_PACKAGE.width, PROTECT_PACKAGE.height,
+              e.x, e.y, e.width, e.height)) {
+          const packageDamage = isBossEnemy(e) ? 25 : e.type === "bomber" ? 18 : 12;
+          protectPackageHpRef.current = Math.max(0, protectPackageHpRef.current - packageDamage);
+          protectPackageHitCooldownRef.current = 24;
+          spawnExplosion(particlesRef.current, PROTECT_PACKAGE.x + PROTECT_PACKAGE.width / 2,
+            PROTECT_PACKAGE.y + PROTECT_PACKAGE.height / 2, false);
+          audioRef.current.effect("hit", settingsRef.current.soundVolume);
+          e.dead = !isBossEnemy(e);
+          if (protectPackageHpRef.current <= 0) {
+            runResultRef.current = "game_over";
+            gs.gameOver = true;
+            grantRunReward();
+          }
+          return !e.dead;
+        }
+
         // Enemy-player collision
         const playerTouchesEnemy = rectHit(playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H, e.x, e.y, e.width, e.height);
         if (e.type === "titan" && playerTouchesEnemy && invincibleRef.current <= 0 &&
@@ -4385,6 +4456,19 @@ export default function Game() {
       bulletsRef.current = bulletsRef.current.filter(b => {
         if (b.fromPlayer) return true;
         const bw = 8, bh = 8;
+        if (activeModeRef.current === "protect" &&
+            rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh,
+              PROTECT_PACKAGE.x, PROTECT_PACKAGE.y, PROTECT_PACKAGE.width, PROTECT_PACKAGE.height)) {
+          protectPackageHpRef.current = Math.max(0, protectPackageHpRef.current - Math.max(2, b.damage * 2));
+          spawnExplosion(particlesRef.current, b.x, b.y, false);
+          audioRef.current.effect("hit", settingsRef.current.soundVolume);
+          if (protectPackageHpRef.current <= 0) {
+            runResultRef.current = "game_over";
+            gs.gameOver = true;
+            grantRunReward();
+          }
+          return false;
+        }
         const shieldX = playerRef.current.x + PLAYER_W - 2 + ABSORBER_SHIELD_FORWARD_OFFSET;
         const shieldY = playerRef.current.y - ABSORBER_SHIELD_PADDING;
         if (absorberActiveRef.current > 0 && b.vx < 0 &&
@@ -4765,6 +4849,10 @@ export default function Game() {
 
       // ── Max score tracking ──
       if (gs.score > bestScoreRef.current) { bestScoreRef.current = gs.score; saveHighScore(gs.score); }
+
+      if (activeModeRef.current === "protect") {
+        drawProtectPackage(ctx, protectPackageHpRef.current, timeRef.current);
+      }
 
       // ── HUD ──
       drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], activeModeRef.current, runElapsedMsRef.current);
@@ -5425,7 +5513,7 @@ function HangarOverlay({
       {/* ── Game mode selection ── */}
       <div className="w-full">
         <div className="mb-1 text-center text-[10px] font-black uppercase tracking-[.24em] text-violet-300">Spielmodus</div>
-        <div className="grid grid-cols-5 gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
           {GAME_MODES.map(mode => {
             const active = mode.id === selectedGameMode;
             return (
@@ -5586,6 +5674,15 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
   onWeaponUpgrade: (id: string) => void;
   onDailyChestClaim: () => number | null;
 }) {
+  type ShopSection = "weapons" | "levels" | "skins" | "ultis" | "upgrades";
+  const shopSections: readonly { id: ShopSection; icon: string; label: string; description: string }[] = [
+    { id: "weapons", icon: "🎯", label: "Waffen", description: "Kaufen, ausrüsten und verbessern" },
+    { id: "levels", icon: "⬆", label: "Level", description: "Jet und Drohne verstärken" },
+    { id: "skins", icon: "🎨", label: "Skins", description: "Aussehen auswählen" },
+    { id: "ultis", icon: "⚡", label: "Ultis", description: "Loadout zusammenstellen" },
+    { id: "upgrades", icon: "🔧", label: "Extras", description: "Dauerhafte Verbesserungen" },
+  ];
+  const [shopSection, setShopSection] = useState<ShopSection>("weapons");
   const [dailyChestAvailable, setDailyChestAvailable] = useState(() => canClaimDailyChest());
   const [dailyChestOpening, setDailyChestOpening] = useState(false);
   const [dailyChestCelebrating, setDailyChestCelebrating] = useState(false);
@@ -5716,12 +5813,37 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
         })}
       </div>
 
+      <nav className="relative z-10 grid grid-cols-5 gap-1 rounded-2xl border border-slate-700/80 bg-slate-950/80 p-1.5" aria-label="Shop-Bereiche">
+        {shopSections.map(section => {
+          const active = shopSection === section.id;
+          return (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => setShopSection(section.id)}
+              aria-pressed={active}
+              title={section.description}
+              className={`min-w-0 rounded-xl px-1 py-2 text-center transition ${active ? "bg-cyan-400 text-slate-950 shadow-[0_0_16px_#22d3ee66]" : "bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"}`}
+            >
+              <span className="block text-base leading-none">{section.icon}</span>
+              <span className="mt-1 block truncate text-[10px] font-black uppercase tracking-wide">{section.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+      <div className="relative z-10 rounded-xl border border-cyan-500/20 bg-cyan-950/20 px-3 py-2 text-xs text-slate-300">
+        <b className="text-cyan-300">{shopSections.find(section => section.id === shopSection)?.label}:</b>{" "}
+        {shopSections.find(section => section.id === shopSection)?.description}
+        <span className="ml-2 text-slate-500">Sortiert nach Seltenheit und Preis.</span>
+      </div>
+
+      {shopSection === "weapons" && (
       <div className="relative z-10">
         <div className="text-xs font-black uppercase tracking-[.2em] text-rose-300">Waffenarsenal</div>
         <div className="mt-1 text-xs text-slate-400">Kaufe Waffen mit Credits oder Juwelen, rüste bis zu zwei gleichzeitig aus und verbessere sie bis Level 10.</div>
         <div className="mt-2 text-[10px] font-black uppercase tracking-wider text-cyan-300">Waffenslots {selectedWeapons.length}/2 belegt</div>
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {WEAPONS.map(weapon => {
+          {SORTED_WEAPONS.map(weapon => {
             const owned = weapon.cost === 0 || unlockedItems.includes(`weapon_${weapon.id}`);
             const active = selectedWeapons.includes(weapon.id);
             const slot = active ? selectedWeapons.indexOf(weapon.id) + 1 : null;
@@ -5769,7 +5891,9 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
           })}
         </div>
       </div>
+      )}
 
+      {shopSection === "levels" && (<>
       <div className="relative z-10 rounded-2xl p-4" style={{ background: `${selectedJet.glow}12`, border: `1px solid ${selectedJet.glow}77`, boxShadow: `0 0 18px ${selectedJet.glow}22` }}>
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl" style={{ background: selectedJet.body, border: `2px solid ${selectedJet.glow}`, boxShadow: `0 0 12px ${selectedJet.glow}66` }}>✈</div>
@@ -5820,10 +5944,12 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
           <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">+{Math.round((1 - droneStats.fireRateMultiplier) * 100)}%</b>Feuerrate</div>
         </div>
       </div>
+      </>)}
 
+      {shopSection === "skins" && (<>
       <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest">Jet-Skins</div>
       <div className="relative z-10 grid grid-cols-3 gap-2 shrink-0">
-        {JET_SKINS.map(s => {
+        {SORTED_JET_SKINS.map(s => {
           const owned = s.cost === 0 || unlockedItems.includes(s.id);
           const active = s.id === selectedSkin;
           const canAfford = coins >= s.cost;
@@ -5858,7 +5984,9 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
           );
         })}
       </div>
+      </>)}
 
+      {shopSection === "ultis" && (<>
       <div className="relative z-10 flex items-center justify-between text-slate-400 text-xs uppercase tracking-widest mt-1">
         <span>Ulti-Loadout</span><span className="text-violet-300">{ultiLoadout.length}/{ULTI_LOADOUT_SLOTS} belegt</span>
       </div>
@@ -5888,10 +6016,12 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
           )}
         </div>
       </div>
+      </>)}
 
+      {shopSection === "skins" && (<>
       <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest mt-1">Drohnen-Skins</div>
       <div className="relative z-10 grid grid-cols-3 gap-2 shrink-0">
-        {DRONE_SKINS.map(s => {
+        {SORTED_DRONE_SKINS.map(s => {
           const owned = s.cost === 0 || unlockedItems.includes(s.id);
           const active = s.id === selectedDroneSkin;
           const canAfford = coins >= s.cost;
@@ -5919,7 +6049,9 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
           </button>;
         })}
       </div>
+      </>)}
 
+      {shopSection === "upgrades" && (<>
       <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest mt-1">Upgrades</div>
       <div className="relative z-10 flex flex-col gap-2">
         {SORTED_SHOP_ITEMS.map(item => {
@@ -5963,6 +6095,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
           );
         })}
       </div>
+      </>)}
     </div>
   );
 }

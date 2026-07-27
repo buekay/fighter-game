@@ -107,6 +107,10 @@ assert.equal(isLaserDeviceEligibleLevel(9), false);
 assert.equal(isLaserDeviceEligibleLevel(10), true);
 assert.equal(isLaserDeviceEligibleLevel(500), true);
 
+assert.equal(getGameModeRules("protect").durationSeconds, 180);
+assert.equal(getGameModeRules("protect").label, "Beschützen");
+assert.equal(getModeCoinMultiplier("protect"), 1.4);
+
 assert.equal(getEnemySpawnRate(1), 200);
 assert.equal(getEnemySpawnRate(9), 64);
 assert.equal(getEnemySpawnRate(10), 32);
@@ -190,7 +194,7 @@ assert.equal(shouldShowVirtualControls(true, false), true);
 
 assert.equal(HEAL_ULTI_RESTORE, 5);
 
-assert.deepEqual(GAME_MODES.map(mode => mode.id), ["classic", "blitz", "boss_rush", "one_life", "daily"]);
+assert.deepEqual(GAME_MODES.map(mode => mode.id), ["classic", "blitz", "boss_rush", "one_life", "protect", "daily"]);
 assert.equal(getGameModeRules("blitz").durationSeconds, 300);
 assert.equal(getGameModeRules("one_life").startingLives, 1);
 assert.equal(getModeCoinMultiplier("classic"), 1);
