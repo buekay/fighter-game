@@ -41,6 +41,26 @@ export const EARLY_GAME_LEVEL_LIMIT = 10;
 export const EARLY_GAME_ENEMY_SPAWN_MULTIPLIER = 2;
 export const EARLY_NORMAL_BOSS_DAMAGE_MULTIPLIER = 0.2;
 export const LASER_DEVICE_MIN_LEVEL = 10;
+export type EnemyVariant = "healer" | "shield" | "kamikaze" | "armored" | "swift" | "frenzied";
+
+export function selectEnemyVariant(
+  level: number,
+  enemyType: string,
+  specialistRoll: number,
+  eliteRoll: number,
+  variantRoll: number,
+): EnemyVariant | null {
+  const eligible = level >= 20 &&
+    !["boss", "overlord", "titan", "laserdevice", "emeraldtiefighter"].includes(enemyType);
+  if (!eligible) return null;
+  if (specialistRoll < .16) {
+    return variantRoll < .36 ? "healer" : variantRoll < .7 ? "shield" : "kamikaze";
+  }
+  if (eliteRoll < .10) {
+    return variantRoll < .34 ? "armored" : variantRoll < .67 ? "swift" : "frenzied";
+  }
+  return null;
+}
 
 export type GameMode = "classic" | "blitz" | "boss_rush" | "one_life" | "protect" | "daily";
 

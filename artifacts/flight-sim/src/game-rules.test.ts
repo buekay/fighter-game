@@ -31,6 +31,7 @@ import {
   shouldUseCityBackground,
   shouldUseSpaceBackground,
   shouldShowVirtualControls,
+  selectEnemyVariant,
   type EnemyDamageState,
   type LifeState,
 } from "./game-rules";
@@ -193,6 +194,16 @@ assert.equal(shouldShowVirtualControls(false, true), true);
 assert.equal(shouldShowVirtualControls(true, false), true);
 
 assert.equal(HEAL_ULTI_RESTORE, 5);
+
+assert.equal(selectEnemyVariant(19, "fighter", 0, 0, 0), null);
+assert.equal(selectEnemyVariant(20, "boss", 0, 0, 0), null);
+assert.equal(selectEnemyVariant(20, "fighter", .1, .9, .1), "healer");
+assert.equal(selectEnemyVariant(20, "fighter", .1, .9, .5), "shield");
+assert.equal(selectEnemyVariant(20, "fighter", .1, .9, .9), "kamikaze");
+assert.equal(selectEnemyVariant(20, "fighter", .5, .05, .1), "armored");
+assert.equal(selectEnemyVariant(20, "fighter", .5, .05, .5), "swift");
+assert.equal(selectEnemyVariant(20, "fighter", .5, .05, .9), "frenzied");
+assert.equal(selectEnemyVariant(20, "fighter", .5, .5, .5), null);
 
 assert.deepEqual(GAME_MODES.map(mode => mode.id), ["classic", "blitz", "boss_rush", "one_life", "protect", "daily"]);
 assert.equal(getGameModeRules("blitz").durationSeconds, 300);

@@ -29,6 +29,7 @@ import {
   shouldUseCityBackground,
   shouldUseSpaceBackground,
   shouldShowVirtualControls,
+  selectEnemyVariant,
   type GameMode,
 } from "../game-rules";
 
@@ -131,6 +132,10 @@ interface Enemy {
   bossBottomPartHp?: number;
   bossCannonsDisabled?: boolean;
   bossEngineDisabled?: boolean;
+  archetype?: "healer" | "shield" | "kamikaze";
+  eliteModifier?: "armored" | "swift" | "frenzied";
+  supportCooldown?: number;
+  baseShootCooldown?: number;
 }
 
 const isBossEnemy = (enemy: Enemy) => enemy.type === "boss" || enemy.type === "overlord" || enemy.type === "titan";
@@ -641,6 +646,48 @@ const DRONE_SKINS = [
   { id: "drone_omega", name: "Seraph", body: "#eef2ff", stroke: "#67e8f9", core: "#f9a8d4", cost: 1000000, rarity: "ultimate", ultiName: "Omega-Protokoll", ultiDesc: "Aktiviert einen Titanenschild, friert alle Gegner ein und vervierfacht Drohnenschaden und Feuerrate." },
 ] as const;
 type DroneSkin = typeof DRONE_SKINS[number];
+
+type WingModuleId = "balanced" | "striker" | "bulwark";
+type EngineModuleId = "ion" | "afterburner" | "phase";
+type DroneRoleId = "assault" | "guardian" | "repair" | "collector";
+interface AircraftBuild { wing: WingModuleId; engine: EngineModuleId }
+
+const AIRCRAFT_BUILD_KEY = "fighter-command-aircraft-build";
+const DRONE_ROLE_KEY = "fighter-command-drone-role";
+const WING_MODULES: readonly { id: WingModuleId; icon: string; name: string; description: string; hp: number; damage: number; fireRate: number }[] = [
+  { id: "balanced", icon: "◇", name: "Aegis-Flügel", description: "Ausgewogen und ohne Nachteile.", hp: 0, damage: 0, fireRate: 1 },
+  { id: "striker", icon: "≫", name: "Jäger-Flügel", description: "+25 % Schaden, aber −2 maximale HP.", hp: -2, damage: .25, fireRate: 1 },
+  { id: "bulwark", icon: "⬡", name: "Bollwerk-Flügel", description: "+5 maximale HP, aber 12 % langsameres Feuer.", hp: 5, damage: 0, fireRate: 1.12 },
+] as const;
+const ENGINE_MODULES: readonly { id: EngineModuleId; icon: string; name: string; description: string; speed: number; fireRate: number }[] = [
+  { id: "ion", icon: "◉", name: "Ionenantrieb", description: "Stabiler Standardantrieb.", speed: 0, fireRate: 1 },
+  { id: "afterburner", icon: "🔥", name: "Nachbrenner", description: "+0,8 Tempo, aber 8 % langsameres Feuer.", speed: .8, fireRate: 1.08 },
+  { id: "phase", icon: "✦", name: "Phasenantrieb", description: "+0,35 Tempo und 10 % schnelleres Feuer.", speed: .35, fireRate: .9 },
+] as const;
+const DRONE_ROLES: readonly { id: DroneRoleId; icon: string; name: string; description: string }[] = [
+  { id: "assault", icon: "⚔", name: "Angriff", description: "Schnelles Feuer und 35 % mehr Drohnenschaden." },
+  { id: "guardian", icon: "🛡", name: "Wächter", description: "Lädt regelmäßig einen Schutzpunkt nach." },
+  { id: "repair", icon: "✚", name: "Sanitäter", description: "Repariert alle 12 Sekunden einen HP." },
+  { id: "collector", icon: "◆", name: "Sammler", description: "Zielsuchende Schüsse und 25 % mehr Credits aus Ereignissen." },
+] as const;
+
+function loadAircraftBuild(): AircraftBuild {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(AIRCRAFT_BUILD_KEY) ?? "{}") as Partial<AircraftBuild>;
+    return {
+      wing: WING_MODULES.some(module => module.id === parsed.wing) ? parsed.wing! : "balanced",
+      engine: ENGINE_MODULES.some(module => module.id === parsed.engine) ? parsed.engine! : "ion",
+    };
+  } catch { return { wing: "balanced", engine: "ion" }; }
+}
+function saveAircraftBuild(build: AircraftBuild) { try { localStorage.setItem(AIRCRAFT_BUILD_KEY, JSON.stringify(build)); } catch {} }
+function loadDroneRole(): DroneRoleId {
+  try {
+    const saved = localStorage.getItem(DRONE_ROLE_KEY) as DroneRoleId | null;
+    return DRONE_ROLES.some(role => role.id === saved) ? saved! : "assault";
+  } catch { return "assault"; }
+}
+function saveDroneRole(role: DroneRoleId) { try { localStorage.setItem(DRONE_ROLE_KEY, role); } catch {} }
 
 interface ShopItem {
   id: string;
@@ -1359,6 +1406,25 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
 
   const now = performance.now();
   const pulse = 0.72 + Math.sin(now * 0.009 + e.x * 0.03) * 0.18;
+  const roleColor = e.archetype === "healer" ? "#55ff9a" : e.archetype === "shield" ? "#58d8ff" :
+    e.archetype === "kamikaze" ? "#ff3b45" : null;
+  if (roleColor) {
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.max(e.width, e.height) * .66 + pulse * 3, 0, Math.PI * 2);
+    ctx.strokeStyle = roleColor + "cc";
+    ctx.lineWidth = e.archetype === "kamikaze" ? 3 : 2;
+    ctx.setLineDash(e.archetype === "kamikaze" ? [3, 4] : [7, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  if (e.eliteModifier) {
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.max(e.width, e.height) * .76, 0, Math.PI * 2);
+    ctx.strokeStyle = e.eliteModifier === "armored" ? "#b9c5d6" :
+      e.eliteModifier === "swift" ? "#fff06a" : "#ff67c8";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
   if (e.isGolden) {
     const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, Math.max(e.width, e.height) * .72);
     glow.addColorStop(0, "rgba(255,245,120,0.22)");
@@ -1778,6 +1844,26 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
     if (!e.bossEngineDisabled) drawDetachableModule(-e.height * .34, "engine");
   }
 
+  if (e.archetype || e.eliteModifier) {
+    const roleIcon = e.archetype === "healer" ? "+" : e.archetype === "shield" ? "◆" :
+      e.archetype === "kamikaze" ? "!" : e.eliteModifier === "armored" ? "A" :
+      e.eliteModifier === "swift" ? "S" : "F";
+    const badgeColor = roleColor ?? (e.eliteModifier === "armored" ? "#b9c5d6" :
+      e.eliteModifier === "swift" ? "#fff06a" : "#ff67c8");
+    ctx.beginPath();
+    ctx.arc(0, -e.height / 2 - 9, 7, 0, Math.PI * 2);
+    ctx.fillStyle = "#06101a";
+    ctx.fill();
+    ctx.strokeStyle = badgeColor;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = badgeColor;
+    ctx.font = "bold 9px 'Inter', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(roleIcon, 0, -e.height / 2 - 9);
+  }
+
   if ((e.poisonTimer ?? 0) > 0) {
     const poisonPulse = 0.5 + Math.sin(performance.now() * 0.018) * 0.5;
     ctx.globalCompositeOperation = "source-atop";
@@ -1922,6 +2008,7 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
     ctx.shadowColor = bc; ctx.shadowBlur = 6;
     ctx.fill();
   }
+
   ctx.restore();
 }
 
@@ -2185,6 +2272,11 @@ export default function Game() {
   const activeSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadSkin()) ?? JET_SKINS[0]);
   const activeUltiSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadSkin()) ?? JET_SKINS[0]);
   const activeDroneSkinRef = useRef<DroneSkin>(DRONE_SKINS.find(s => s.id === loadDroneSkin()) ?? DRONE_SKINS[0]);
+  const aircraftBuildRef = useRef<AircraftBuild>(loadAircraftBuild());
+  const droneRoleRef = useRef<DroneRoleId>(loadDroneRole());
+  const droneSupportTimerRef = useRef(0);
+  const rareEventTimerRef = useRef(0);
+  const nextRareEventRef = useRef(rand(2100, 3300));
   const activeUnlocksRef = useRef<string[]>([]);
   const activeUltiLoadoutRef = useRef<UltiLoadoutId[]>(loadUltiLoadout());
   const stealthChargeRef = useRef(0);
@@ -2207,6 +2299,8 @@ export default function Game() {
   const playerNameRef = useRef(loadName());
   const [selectedSkin, setSelectedSkin] = useState(() => loadSkin());
   const [selectedDroneSkin, setSelectedDroneSkin] = useState(() => loadDroneSkin());
+  const [aircraftBuild, setAircraftBuild] = useState<AircraftBuild>(() => loadAircraftBuild());
+  const [droneRole, setDroneRole] = useState<DroneRoleId>(() => loadDroneRole());
   const [selectedWeaponCrate, setSelectedWeaponCrate] = useState(() => loadWeaponCrate());
   const [coins, setCoins] = useState(() => loadCoins());
   const [gems, setGems] = useState(() => loadGems());
@@ -2562,6 +2656,37 @@ export default function Game() {
       bossTopPartHp: type === "boss" ? Math.max(5, Math.round(hp * .12)) : undefined,
       bossBottomPartHp: type === "boss" ? Math.max(5, Math.round(hp * .12)) : undefined,
     };
+    const variant = selectEnemyVariant(level, type, Math.random(), Math.random(), Math.random());
+    if (variant === "healer" || variant === "shield" || variant === "kamikaze") {
+      enemy.archetype = variant;
+      enemy.supportCooldown = enemy.archetype === "healer" ? rand(100, 160) :
+        enemy.archetype === "shield" ? rand(130, 190) : 0;
+      if (enemy.archetype === "healer") {
+        enemy.hp = enemy.maxHp = Math.ceil(enemy.maxHp * 1.35);
+        enemy.points = Math.round(enemy.points * 1.6);
+        enemy.color = "#55ff9a";
+      } else if (enemy.archetype === "shield") {
+        enemy.hp = enemy.maxHp = Math.ceil(enemy.maxHp * 1.5);
+        enemy.points = Math.round(enemy.points * 1.7);
+        enemy.color = "#58d8ff";
+      } else {
+        enemy.hp = enemy.maxHp = Math.max(1, Math.ceil(enemy.maxHp * .8));
+        enemy.points = Math.round(enemy.points * 1.5);
+        enemy.color = "#ff3b45";
+        enemy.vx *= 1.2;
+        enemy.ramDamage = 3;
+      }
+    } else if (variant) {
+      enemy.eliteModifier = variant;
+      enemy.points *= 2;
+      if (enemy.eliteModifier === "armored") {
+        enemy.hp = enemy.maxHp = Math.ceil(enemy.maxHp * 2.25);
+      } else if (enemy.eliteModifier === "swift") {
+        enemy.vx *= 1.55;
+      } else {
+        enemy.shootCooldown *= .55;
+      }
+    }
     if (isBossEnemy(enemy)) bossDamageStartRef.current = runStatsRef.current.damageTaken;
     enemiesRef.current.push(enemy);
 
@@ -2659,6 +2784,9 @@ export default function Game() {
 
   const fireBullets = useCallback((now: number) => {
     const gs = stateRef.current;
+    const wingModule = WING_MODULES.find(module => module.id === aircraftBuildRef.current.wing) ?? WING_MODULES[0];
+    const engineModule = ENGINE_MODULES.find(module => module.id === aircraftBuildRef.current.engine) ?? ENGINE_MODULES[0];
+    const role = droneRoleRef.current;
     const buildDamageMultiplier = 1 + runUpgradesRef.current.glass_cannon * .65;
     const persistentDroneUpgrades = [
       "drone_mk2", "drone_mk3", "drone_mk4", "drone_mk5",
@@ -2674,17 +2802,22 @@ export default function Game() {
     const droneDamageMultiplier = droneUltiActive
       ? droneUltiId === "drone_omega" ? 4 : droneUltiId === "drone_solar" || droneUltiId === "drone_nova" ? 3 : 2
       : 1;
-    const droneFireRate = 280 * drone.fireRateMultiplier * droneFireMultiplier;
+    const droneFireRate = 280 * drone.fireRateMultiplier * droneFireMultiplier * (role === "assault" ? .72 : 1);
 
     if (now - lastDroneFireRef.current >= droneFireRate) {
       lastDroneFireRef.current = now;
       const droneX = playerRef.current.x + PLAYER_W / 2;
       const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22) + Math.sin(timeRef.current * 0.08) * 4;
       const offsets = drone.guns === 3 ? [-7, 0, 7] : drone.guns === 2 ? [-4, 4] : [0];
+      const collectorTarget = role === "collector"
+        ? enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0)
+            .sort((a, b) => Math.hypot(a.x - droneX, a.y - droneY) - Math.hypot(b.x - droneX, b.y - droneY))[0] ?? null
+        : null;
       offsets.forEach(offset => bulletsRef.current.push({
         x: droneX + 22, y: droneY + offset, vx: BASE_BULLET_SPEED, vy: 0,
-        fromPlayer: true, damage: (drone.damage + runUpgradesRef.current.damage) * droneDamageMultiplier * buildDamageMultiplier,
+        fromPlayer: true, damage: (drone.damage + runUpgradesRef.current.damage) * droneDamageMultiplier * buildDamageMultiplier * (role === "assault" ? 1.35 : 1),
         color: activeDroneSkinRef.current.stroke,
+        isMissile: role === "collector", missileTarget: collectorTarget,
       }));
     }
 
@@ -2714,7 +2847,7 @@ export default function Game() {
     activeWeaponsRef.current.forEach((weapon, weaponIndex) => {
       const weaponStats = getWeaponStats(weapon, weaponLevelsRef.current[weapon.id] ?? 1);
       const tierFireBonus = Math.max(.62, 1 - gs.weaponTier * .045);
-      const fireRate = weaponStats.fireRate * tierFireBonus * Math.pow(0.8, runUpgradesRef.current.rapid_fire) * aircraftUpgradeRef.current.fireRateMultiplier * aircraftUltiFireRate;
+      const fireRate = weaponStats.fireRate * tierFireBonus * Math.pow(0.8, runUpgradesRef.current.rapid_fire) * aircraftUpgradeRef.current.fireRateMultiplier * aircraftUltiFireRate * wingModule.fireRate * engineModule.fireRate;
       if (now - (lastFireRef.current[weapon.id] ?? 0) < fireRate) return;
       lastFireRef.current[weapon.id] = now;
       const offsets = gunOffsets[Math.min(weapon.guns - 1, gunOffsets.length - 1)];
@@ -2731,7 +2864,7 @@ export default function Game() {
         x: px, y: py + oy + slotOffset,
         vx, vy,
         fromPlayer: true,
-        damage: (weaponStats.damage + Math.floor(gs.weaponTier / 2) + runUpgradesRef.current.damage + aircraftUpgradeRef.current.damageBonus) * buildDamageMultiplier,
+        damage: (weaponStats.damage + Math.floor(gs.weaponTier / 2) + runUpgradesRef.current.damage + aircraftUpgradeRef.current.damageBonus) * buildDamageMultiplier * (1 + wingModule.damage),
         color: weapon.color,
         weaponId: weapon.id,
       });
@@ -2808,6 +2941,11 @@ export default function Game() {
     activeModeRef.current = mode;
     const unlocks = loadUnlocks();
     const aircraftStats = getAircraftUpgradeStats(loadAircraftLevels()[loadSkin()] ?? 1);
+    const build = loadAircraftBuild();
+    const wingModule = WING_MODULES.find(module => module.id === build.wing) ?? WING_MODULES[0];
+    const engineModule = ENGINE_MODULES.find(module => module.id === build.engine) ?? ENGINE_MODULES[0];
+    aircraftBuildRef.current = build;
+    droneRoleRef.current = loadDroneRole();
     droneLevelRef.current = loadDroneLevels()[loadDroneSkin()] ?? 1;
     const savedAircraftStats = getAircraftUpgradeStats(save?.aircraftLevel ?? 1);
     aircraftUpgradeRef.current = aircraftStats;
@@ -2842,8 +2980,8 @@ export default function Game() {
     bossDamageStartRef.current = 0;
     upgradeLevelRef.current = save?.upgradeLevel ?? 0;
     setRunUpgradeChoices([]);
-    const baseMaxHp = (unlocks.includes("max_hp") ? 15 : 10) + aircraftStats.maxHpBonus;
-    const baseSpeed = 3.2 + (unlocks.includes("speed_item") ? 0.5 : 0) + aircraftStats.speedBonus;
+    const baseMaxHp = Math.max(3, (unlocks.includes("max_hp") ? 15 : 10) + aircraftStats.maxHpBonus + wingModule.hp);
+    const baseSpeed = 3.2 + (unlocks.includes("speed_item") ? 0.5 : 0) + aircraftStats.speedBonus + engineModule.speed;
     stateRef.current = {
       score:      save?.score  ?? 0,
       level:      save?.level  ?? 1,
@@ -2899,6 +3037,9 @@ export default function Game() {
     waveSequenceRef.current = 0;
     activeWaveRef.current = null;
     waveBannerRef.current = { text: "MISSION GESTARTET", timer: 120 };
+    droneSupportTimerRef.current = 0;
+    rareEventTimerRef.current = 0;
+    nextRareEventRef.current = rand(2100, 3300);
     titanWarningRef.current = 0;
     missionRef.current = createMission(0);
     ultimaChargeRef.current = ULTI_MAX;
@@ -3712,6 +3853,67 @@ export default function Game() {
 
       const titanActive = enemiesRef.current.some(e => e.type === "titan" && !e.dead);
 
+      // ── Drone support roles ──
+      droneSupportTimerRef.current += dtScale;
+      const droneRole = droneRoleRef.current;
+      const supportInterval = droneRole === "guardian" ? 8 * 60 : 12 * 60;
+      if ((droneRole === "guardian" || droneRole === "repair") && droneSupportTimerRef.current >= supportInterval) {
+        droneSupportTimerRef.current = 0;
+        if (droneRole === "guardian") {
+          shieldTimerRef.current = Math.max(shieldTimerRef.current, 8 * 60);
+          playerShieldHpRef.current = Math.min(5, playerShieldHpRef.current + 1);
+          waveBannerRef.current = { text: "🛡 WÄCHTERDROHNE · SCHILD +1", timer: 90 };
+        } else if (gs.hp < gs.maxHp) {
+          gs.hp = Math.min(gs.maxHp, gs.hp + 1);
+          waveBannerRef.current = { text: "✚ SANITÄTERDROHNE · +1 HP", timer: 90 };
+        }
+        audioRef.current.effect("pickup", settingsRef.current.soundVolume * .55);
+      }
+
+      // ── Rare encounters: one surprising event roughly every 35–55 seconds ──
+      if (!tutorialActive && activeModeRef.current !== "boss_rush") {
+        rareEventTimerRef.current += dtScale;
+        if (rareEventTimerRef.current >= nextRareEventRef.current && !titanActive) {
+          rareEventTimerRef.current = 0;
+          nextRareEventRef.current = rand(2100, 3300);
+          const eventRoll = Math.random();
+          if (eventRoll < .34) {
+            waveBannerRef.current = { text: "☄ SELTENES EREIGNIS · METEORSTURM", timer: 180 };
+            for (let index = 0; index < 9; index++) {
+              const hp = 2 + Math.floor(gs.level / 4);
+              enemiesRef.current.push({
+                x: CANVAS_W + 80 + index * 65, y: rand(25, CANVAS_H - 45),
+                vx: -rand(5.5, 8), vy: rand(-.5, .5), hp, maxHp: hp,
+                width: 30, height: 18, type: "interceptor", shootCooldown: 999,
+                points: 80 + gs.level * 5, color: "#ff7a28", angle: 0,
+                archetype: "kamikaze", ramDamage: 2,
+              });
+            }
+          } else if (eventRoll < .67) {
+            gs.hp = Math.min(gs.maxHp, gs.hp + 3);
+            shieldTimerRef.current = Math.max(shieldTimerRef.current, 10 * 60);
+            playerShieldHpRef.current = Math.max(playerShieldHpRef.current, 3);
+            waveBannerRef.current = { text: "✦ SELTENES EREIGNIS · REPARATURNEBEL · +3 HP", timer: 180 };
+          } else {
+            const collectorBonus = droneRole === "collector" ? 1.25 : 1;
+            const eventCredits = Math.round((1500 + gs.level * 250) * collectorBonus);
+            addCoins(eventCredits);
+            gs.score += eventCredits;
+            waveBannerRef.current = { text: `◆ SCHATZKONVOI · +${eventCredits.toLocaleString("de-DE")} CREDITS`, timer: 180 };
+            for (let index = 0; index < 5; index++) {
+              const hp = 3 + Math.floor(gs.level / 3);
+              enemiesRef.current.push({
+                x: CANVAS_W + 60 + index * 75, y: 110 + index * 78,
+                vx: -2.2, vy: 0, hp, maxHp: hp, width: 45, height: 25,
+                type: "fighter", shootCooldown: rand(90, 140), points: 250,
+                color: "#ffd84d", angle: 0, isGolden: true, goldenTimer: 900,
+              });
+            }
+          }
+          audioRef.current.effect("boss", settingsRef.current.soundVolume * .7);
+        }
+      }
+
       // ── Milestone boss: spawn a mega-boss when entering key levels ──
       if (activeModeRef.current !== "boss_rush" && !titanActive && !isTitanBossLevel(gs.level) && isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
           enemiesRef.current.filter(isBossEnemy).length === 0) {
@@ -4052,6 +4254,49 @@ export default function Game() {
           e.goldenTimer = Math.max(0, (e.goldenTimer ?? 600) - dtScale);
           if (e.goldenTimer <= 0) e.vx = -8;
         }
+        if ((e.archetype === "healer" || e.archetype === "shield") && (e.ultimateFreezeTimer ?? 0) <= 0) {
+          e.supportCooldown = (e.supportCooldown ?? 120) - dtScale;
+          if (e.supportCooldown <= 0) {
+            const nearbyAllies = enemiesRef.current.filter(ally =>
+              ally !== e && !ally.dead && ally.hp > 0 && !isBossEnemy(ally) &&
+              Math.hypot(ally.x - e.x, ally.y - e.y) <= 210,
+            );
+            if (e.archetype === "healer") {
+              const target = nearbyAllies
+                .filter(ally => ally.hp < ally.maxHp)
+                .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+              if (target) {
+                const restored = Math.max(1, Math.ceil(target.maxHp * .18));
+                target.hp = Math.min(target.maxHp, target.hp + restored);
+                floatingTextsRef.current.push({
+                  x: target.x + target.width / 2, y: target.y,
+                  text: `+${restored}`, color: "#55ff9a", life: 48, maxLife: 48,
+                });
+                spawnExplosion(particlesRef.current, target.x + target.width / 2, target.y + target.height / 2, false);
+              }
+              e.supportCooldown = 150;
+            } else {
+              const targets = nearbyAllies
+                .filter(ally => (ally.shieldHp ?? 0) < 2)
+                .sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y))
+                .slice(0, 3);
+              targets.forEach(target => {
+                target.shieldHp = Math.max(target.shieldHp ?? 0, 2);
+                floatingTextsRef.current.push({
+                  x: target.x + target.width / 2, y: target.y,
+                  text: "SCHILD", color: "#58d8ff", life: 48, maxLife: 48,
+                });
+              });
+              e.supportCooldown = 180;
+            }
+          }
+        }
+        if (e.archetype === "kamikaze" && !e.trackPlayerRam &&
+            e.x < CANVAS_W * .78 && Math.abs((e.y + e.height / 2) - (playerRef.current.y + PLAYER_H / 2)) < 170) {
+          e.trackPlayerRam = true;
+          waveBannerRef.current = { text: "⚠ KAMIKAZE IM ANFLUG", timer: 55 };
+          audioRef.current.tone(190, .12, settingsRef.current.soundVolume * .4, "sawtooth");
+        }
         if (e.trackPlayerRam) {
           const dx = playerRef.current.x + PLAYER_W / 2 - (e.x + e.width / 2);
           const dy = playerRef.current.y + PLAYER_H / 2 - (e.y + e.height / 2);
@@ -4191,7 +4436,8 @@ export default function Game() {
         if (e.type !== "laserdevice" && e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
           const bossPhase = isBossEnemy(e) ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
           const baseCooldown = e.type === "overlord" || e.type === "titan" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : rand(70, 120);
-          e.shootCooldown = baseCooldown * (e.bossCannonsDisabled ? 1.8 : 1);
+          e.shootCooldown = baseCooldown * (e.bossCannonsDisabled ? 1.8 : 1) *
+            (e.eliteModifier === "frenzied" ? .55 : 1);
           if (e.type === "tiefighter" || e.type === "emeraldtiefighter" || e.type === "plasmawing") {
             // TIE Fighter: aimed shot toward player
             const px = playerRef.current.x + PLAYER_W / 2;
@@ -5066,6 +5312,18 @@ export default function Game() {
     activeDroneSkinRef.current = skin;
   };
 
+  const handleAircraftBuildChange = (next: AircraftBuild) => {
+    setAircraftBuild(next);
+    saveAircraftBuild(next);
+    aircraftBuildRef.current = next;
+  };
+
+  const handleDroneRoleChange = (role: DroneRoleId) => {
+    setDroneRole(role);
+    saveDroneRole(role);
+    droneRoleRef.current = role;
+  };
+
   const handleWeaponCrateSelect = (id: string) => {
     const crate = WEAPON_CRATES.find(item => item.id === id);
     if (!crate) return;
@@ -5275,6 +5533,8 @@ export default function Game() {
             selectedSkin={selectedSkin}
             ultiLoadout={ultiLoadout}
             selectedDroneSkin={selectedDroneSkin}
+            aircraftBuild={aircraftBuild}
+            droneRole={droneRole}
             selectedWeaponCrate={selectedWeaponCrate}
             selectedWeapons={selectedWeapons}
             selectedGameMode={selectedGameMode}
@@ -5293,6 +5553,8 @@ export default function Game() {
             onSkinSelect={handleSkinSelect}
             onUltiLoadoutChange={handleUltiLoadoutChange}
             onDroneSkinSelect={handleDroneSkinSelect}
+            onAircraftBuildChange={handleAircraftBuildChange}
+            onDroneRoleChange={handleDroneRoleChange}
             onWeaponCrateSelect={handleWeaponCrateSelect}
             onBuy={handleBuy}
             onUnlockSkin={handleUnlockSkin}
@@ -5379,12 +5641,62 @@ export default function Game() {
 
 // ─── Hangar Overlay ───────────────────────────────────────────────────────────
 
+function WorkshopScreen({ build, droneRole, onBuildChange, onDroneRoleChange, onBack }: {
+  build: AircraftBuild;
+  droneRole: DroneRoleId;
+  onBuildChange: (build: AircraftBuild) => void;
+  onDroneRoleChange: (role: DroneRoleId) => void;
+  onBack: () => void;
+}) {
+  const wing = WING_MODULES.find(module => module.id === build.wing) ?? WING_MODULES[0];
+  const engine = ENGINE_MODULES.find(module => module.id === build.engine) ?? ENGINE_MODULES[0];
+  return <div className="hangar-layer flex h-full flex-col overflow-y-auto bg-[#040c1c] p-4 text-white">
+    <div className="mx-auto w-full max-w-4xl">
+      <div className="flex items-center gap-3">
+        <button onClick={onBack} className="min-h-11 min-w-11 text-xl text-slate-300">←</button>
+        <div><div className="text-xs font-black uppercase tracking-[.25em] text-cyan-400">Hangar-Werkstatt</div><h2 className="text-2xl font-black">FLUGZEUG-BAUKASTEN</h2></div>
+      </div>
+      <p className="mt-2 text-sm text-slate-400">Kombiniere Flügel, Antrieb und Drohnenrolle. Jede Auswahl wird gespeichert und gilt ab dem nächsten Einsatz.</p>
+
+      <section className="mt-5">
+        <h3 className="font-black text-cyan-200">1 · FLÜGELMODUL</h3>
+        <div className="mt-2 grid gap-3 sm:grid-cols-3">{WING_MODULES.map(module => <button key={module.id} onClick={() => onBuildChange({ ...build, wing: module.id })}
+          className="rounded-2xl p-4 text-left transition active:scale-95" style={{ background: build.wing === module.id ? "rgba(8,145,178,.28)" : "rgba(15,23,42,.8)", border: `1px solid ${build.wing === module.id ? "#67e8f9" : "#334155"}` }}>
+          <div className="text-3xl text-cyan-300">{module.icon}</div><div className="mt-2 font-black">{module.name}</div><div className="mt-1 text-xs text-slate-400">{module.description}</div>
+        </button>)}</div>
+      </section>
+
+      <section className="mt-5">
+        <h3 className="font-black text-orange-200">2 · TRIEBWERK</h3>
+        <div className="mt-2 grid gap-3 sm:grid-cols-3">{ENGINE_MODULES.map(module => <button key={module.id} onClick={() => onBuildChange({ ...build, engine: module.id })}
+          className="rounded-2xl p-4 text-left transition active:scale-95" style={{ background: build.engine === module.id ? "rgba(194,65,12,.28)" : "rgba(15,23,42,.8)", border: `1px solid ${build.engine === module.id ? "#fb923c" : "#334155"}` }}>
+          <div className="text-3xl">{module.icon}</div><div className="mt-2 font-black">{module.name}</div><div className="mt-1 text-xs text-slate-400">{module.description}</div>
+        </button>)}</div>
+      </section>
+
+      <section className="mt-5">
+        <h3 className="font-black text-violet-200">3 · DROHNENROLLE</h3>
+        <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{DRONE_ROLES.map(role => <button key={role.id} onClick={() => onDroneRoleChange(role.id)}
+          className="rounded-2xl p-4 text-left transition active:scale-95" style={{ background: droneRole === role.id ? "rgba(109,40,217,.3)" : "rgba(15,23,42,.8)", border: `1px solid ${droneRole === role.id ? "#c4b5fd" : "#334155"}` }}>
+          <div className="text-3xl">{role.icon}</div><div className="mt-2 font-black">{role.name}</div><div className="mt-1 text-xs text-slate-400">{role.description}</div>
+        </button>)}</div>
+      </section>
+
+      <div className="mt-5 rounded-2xl border border-emerald-500/40 bg-emerald-950/25 p-4 text-sm">
+        <div className="text-xs font-black uppercase tracking-wider text-emerald-300">Aktiver Build</div>
+        <div className="mt-1 font-black">{wing.name} + {engine.name} + {DRONE_ROLES.find(role => role.id === droneRole)?.name}</div>
+      </div>
+      <button onClick={onBack} className="pause-primary mt-5 min-h-12 w-full rounded-xl font-black">BUILD ÜBERNEHMEN</button>
+    </div>
+  </div>;
+}
+
 function HangarOverlay({
-  selectedSkin, ultiLoadout, selectedDroneSkin, selectedWeaponCrate, selectedWeapons, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
-  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onWeaponCrateSelect, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
+  selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, droneRole, selectedWeaponCrate, selectedWeapons, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
+  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onDroneRoleChange, onWeaponCrateSelect, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
-  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedWeaponCrate: string; selectedWeapons: string[]; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
+  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; aircraftBuild: AircraftBuild; droneRole: DroneRoleId; selectedWeaponCrate: string; selectedWeapons: string[]; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
   weaponLevels: Record<string, number>;
@@ -5392,6 +5704,8 @@ function HangarOverlay({
   onStart: () => void; onNewGame: () => void;
   onGameModeChange: (mode: GameMode) => void;
   onSkinSelect: (id: string) => void; onUltiLoadoutChange: (ids: UltiLoadoutId[]) => void; onDroneSkinSelect: (id: string) => void; onWeaponCrateSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void; onUnlockDroneSkin: (id: string) => void;
+  onAircraftBuildChange: (build: AircraftBuild) => void;
+  onDroneRoleChange: (role: DroneRoleId) => void;
   onAircraftUpgrade: () => void;
   onDroneUpgrade: () => void;
   onWeaponSelect: (id: string) => void;
@@ -5404,7 +5718,7 @@ function HangarOverlay({
   achievements: string[];
 }) {
   const language = settings.language;
-  const [view, setView] = useState<"main" | "briefing" | "upgrades" | "settings" | "leaderboard" | "achievements">("main");
+  const [view, setView] = useState<"main" | "briefing" | "upgrades" | "workshop" | "settings" | "leaderboard" | "achievements">("main");
   const [hoverSkin, setHoverSkin] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState(() => loadName());
   const [showAdmin, setShowAdmin] = useState(false);
@@ -5454,6 +5768,11 @@ function HangarOverlay({
           onUltiLoadoutChange={onUltiLoadoutChange} onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} onWeaponSelect={onWeaponSelect} onWeaponBuy={onWeaponBuy} onWeaponUpgrade={onWeaponUpgrade} onDailyChestClaim={onDailyChestClaim} />
       </div>
     );
+  }
+  if (view === "workshop") {
+    return <WorkshopScreen build={aircraftBuild} droneRole={droneRole}
+      onBuildChange={onAircraftBuildChange} onDroneRoleChange={onDroneRoleChange}
+      onBack={() => setView("main")} />;
   }
   if (view === "settings") {
     return (
@@ -5601,6 +5920,12 @@ function HangarOverlay({
           </div>
         )}
       </div>
+
+      <button onClick={() => setView("workshop")}
+        className="w-full max-w-md rounded-xl px-4 py-2 text-sm font-black tracking-wide transition active:scale-95"
+        style={{ background: "linear-gradient(90deg, rgba(8,145,178,.25), rgba(109,40,217,.25))", border: "1px solid #67e8f9", color: "#cffafe" }}>
+        🔧 BAUKASTEN · {(WING_MODULES.find(module => module.id === aircraftBuild.wing) ?? WING_MODULES[0]).name} · {DRONE_ROLES.find(role => role.id === droneRole)?.name}
+      </button>
 
       {/* ── Game mode selection ── */}
       <div className="w-full">
