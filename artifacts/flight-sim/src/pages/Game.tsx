@@ -508,6 +508,7 @@ interface SaveData {
   runUpgrades?: Record<RunUpgradeId, number>;
   upgradeLevel?: number;
   aircraftLevel?: number;
+  aircraftBuild?: AircraftBuild;
 }
 
 const EMPTY_RUN_UPGRADES: Record<RunUpgradeId, number> = {
@@ -542,6 +543,7 @@ function saveGame(gs: GameState, runUpgrades: Record<RunUpgradeId, number>, upgr
       weaponTier: gs.weaponTier, speed: gs.speed, lives: gs.lives,
       runUpgrades: { ...runUpgrades }, upgradeLevel,
       aircraftLevel: loadAircraftLevels()[loadSkin()] ?? 1,
+      aircraftBuild: loadAircraftBuild(),
       savedAt: Date.now(),
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -566,6 +568,17 @@ function loadSave(): SaveData | null {
     if ([score, level, hp, maxHp, weaponTier, speed, lives, savedAt].some(value => value === null)) return null;
 
     const savedRunUpgrades = isRecord(saved.runUpgrades) ? saved.runUpgrades : null;
+    const rawAircraftBuild = isRecord(saved.aircraftBuild) ? saved.aircraftBuild : null;
+    const savedAircraftBuild = rawAircraftBuild
+      ? {
+          wing: WING_MODULES.some(module => module.id === rawAircraftBuild.wing)
+            ? rawAircraftBuild.wing as WingModuleId
+            : "balanced",
+          engine: ENGINE_MODULES.some(module => module.id === rawAircraftBuild.engine)
+            ? rawAircraftBuild.engine as EngineModuleId
+            : "ion",
+        }
+      : undefined;
     const runUpgrades = savedRunUpgrades
       ? Object.fromEntries(
           Object.keys(EMPTY_RUN_UPGRADES).map(id => [
@@ -589,6 +602,7 @@ function loadSave(): SaveData | null {
       runUpgrades,
       upgradeLevel: Math.max(0, Math.floor(finiteNumber(saved.upgradeLevel) ?? 0)),
       aircraftLevel: getAircraftUpgradeStats(finiteNumber(saved.aircraftLevel) ?? 1).level,
+      aircraftBuild: savedAircraftBuild,
     };
   } catch { return null; }
 }
@@ -2944,6 +2958,12 @@ export default function Game() {
     const build = loadAircraftBuild();
     const wingModule = WING_MODULES.find(module => module.id === build.wing) ?? WING_MODULES[0];
     const engineModule = ENGINE_MODULES.find(module => module.id === build.engine) ?? ENGINE_MODULES[0];
+    const savedWingModule = save?.aircraftBuild
+      ? WING_MODULES.find(module => module.id === save.aircraftBuild!.wing) ?? WING_MODULES[0]
+      : wingModule;
+    const savedEngineModule = save?.aircraftBuild
+      ? ENGINE_MODULES.find(module => module.id === save.aircraftBuild!.engine) ?? ENGINE_MODULES[0]
+      : engineModule;
     aircraftBuildRef.current = build;
     droneRoleRef.current = loadDroneRole();
     droneLevelRef.current = loadDroneLevels()[loadDroneSkin()] ?? 1;
@@ -2982,13 +3002,21 @@ export default function Game() {
     setRunUpgradeChoices([]);
     const baseMaxHp = Math.max(3, (unlocks.includes("max_hp") ? 15 : 10) + aircraftStats.maxHpBonus + wingModule.hp);
     const baseSpeed = 3.2 + (unlocks.includes("speed_item") ? 0.5 : 0) + aircraftStats.speedBonus + engineModule.speed;
+    const savedMaxHpDelta = aircraftStats.maxHpBonus - savedAircraftStats.maxHpBonus +
+      wingModule.hp - savedWingModule.hp;
+    const resumedMaxHp = save ? Math.max(3, save.maxHp + savedMaxHpDelta) : baseMaxHp;
+    const resumedHp = save ? Math.max(0, Math.min(save.hp + savedMaxHpDelta, resumedMaxHp)) : baseMaxHp;
+    const resumedSpeed = save
+      ? Math.max(0.1, save.speed + aircraftStats.speedBonus - savedAircraftStats.speedBonus +
+          engineModule.speed - savedEngineModule.speed)
+      : baseSpeed;
     stateRef.current = {
       score:      save?.score  ?? 0,
       level:      save?.level  ?? 1,
-      hp:         save ? Math.min(save.hp + aircraftStats.maxHpBonus - savedAircraftStats.maxHpBonus, save.maxHp + aircraftStats.maxHpBonus - savedAircraftStats.maxHpBonus) : baseMaxHp,
-      maxHp:      save ? save.maxHp + aircraftStats.maxHpBonus - savedAircraftStats.maxHpBonus : baseMaxHp,
+      hp:         resumedHp,
+      maxHp:      resumedMaxHp,
       shield:     0,
-      speed:      save ? save.speed + aircraftStats.speedBonus - savedAircraftStats.speedBonus : baseSpeed,
+      speed:      resumedSpeed,
       weaponTier: fromSave ? (save?.weaponTier ?? 0) : (unlocks.includes("weapon_head") ? 2 : 0),
       lives:      save?.lives  ?? modeRules.startingLives ?? (unlocks.includes("extra_life") ? 4 : 3),
       gameOver: false, started: true, paused: false,
@@ -5419,6 +5447,7 @@ export default function Game() {
   const handleBuy = (itemId: string) => {
     const item = SHOP_ITEMS.find(i => i.id === itemId);
     if (!item) return;
+    if (loadUnlocks().includes(item.id)) return;
     if (!isShopRarityUnlocked(item.rarity, getPilotLevelFromKills())) return;
     if (item.requires && !loadUnlocks().includes(item.requires)) return;
     if (loadCoins() < item.cost) return;
@@ -5591,7 +5620,7 @@ export default function Game() {
                 <h2 className="mt-2 text-3xl font-black text-white">{translated(language, "PAUSE", "PAUSED")}</h2>
                 <div className="mt-5 flex flex-col gap-2">
                   <button autoFocus onClick={() => { stateRef.current.paused = false; setPauseView("menu"); syncDisplay(); }} className="pause-primary rounded-xl py-3 font-black tracking-widest">{translated(language, "▶ WEITERSPIELEN", "▶ RESUME")}</button>
-                  <button onClick={() => startGame(false)} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "↻ NEU STARTEN", "↻ RESTART")}</button>
+                  <button onClick={() => startGame(false, activeModeRef.current)} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "↻ NEU STARTEN", "↻ RESTART")}</button>
                   <button onClick={() => setPauseView("settings")} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⚙ EINSTELLUNGEN", "⚙ SETTINGS")}</button>
                   <button onClick={returnToHangar} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⌂ ZUM HANGAR", "⌂ RETURN TO HANGAR")}</button>
                 </div>
