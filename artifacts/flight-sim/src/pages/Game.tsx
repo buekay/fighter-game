@@ -244,11 +244,6 @@ const WEAPON_CRATE_RARITY_COLOR: Record<WeaponCrateRarity, string> = {
   legendär: "#fbbf24",
 };
 
-function rollWeaponCrate(): WeaponCrateDefinition {
-  const roll = Math.random();
-  return roll < .60 ? WEAPON_CRATES[0] : roll < .90 ? WEAPON_CRATES[1] : WEAPON_CRATES[2];
-}
-
 function drawWeaponCrate(
   ctx: CanvasRenderingContext2D,
   player: Vec2,
@@ -265,12 +260,35 @@ function drawWeaponCrate(
   ctx.fillStyle = active ? crate.color + "aa" : "#101a2a";
   ctx.strokeStyle = rarityColor;
   ctx.lineWidth = active ? 3 : 2;
-  ctx.beginPath();
-  ctx.roundRect(x - 11, y - 10, 22, 20, 4);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = rarityColor;
-  ctx.fillRect(x - 5, y - 2, 10, 4);
+  if (crate.kind === "rockets") {
+    // Armoured twin-pod with two visible launch tubes.
+    ctx.beginPath();
+    ctx.roundRect(x - 13, y - 11, 24, 22, 3);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = rarityColor;
+    for (const py of [-5, 5]) {
+      ctx.beginPath(); ctx.arc(x - 6, y + py, 3.2, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillRect(x + 4, y - 7, 3, 14);
+  } else if (crate.kind === "laser") {
+    // Slim angular emitter with a bright focusing lens.
+    ctx.beginPath();
+    ctx.moveTo(x - 14, y); ctx.lineTo(x - 7, y - 9); ctx.lineTo(x + 10, y - 6);
+    ctx.lineTo(x + 13, y); ctx.lineTo(x + 10, y + 6); ctx.lineTo(x - 7, y + 9);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = rarityColor;
+    ctx.beginPath(); ctx.arc(x - 6, y, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillRect(x, y - 1.5, 11, 3);
+  } else {
+    // Round plasma reactor with fins and a pulsing energy core.
+    ctx.beginPath(); ctx.arc(x - 1, y, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = rarityColor;
+    ctx.beginPath(); ctx.arc(x - 1, y, active ? 5 + Math.sin(time * .35) : 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - 6, y - 9); ctx.lineTo(x - 2, y - 15); ctx.lineTo(x + 2, y - 9);
+    ctx.moveTo(x - 6, y + 9); ctx.lineTo(x - 2, y + 15); ctx.lineTo(x + 2, y + 9);
+    ctx.stroke();
+  }
   ctx.beginPath();
   ctx.moveTo(x + 11, y);
   ctx.lineTo(player.x + 2, player.y + PLAYER_H / 2);
@@ -500,6 +518,7 @@ function clearSave() {
 
 const SKIN_KEY    = "fighter-command-skin";
 const DRONE_SKIN_KEY = "fighter-command-drone-skin";
+const WEAPON_CRATE_KEY = "fighter-command-weapon-crate";
 const HS_KEY      = "fighter-command-hs";
 const COINS_KEY   = "fighter-command-coins";
 const GEMS_KEY    = "fighter-command-gems";
@@ -602,7 +621,6 @@ function loadUltiLoadout(): UltiLoadoutId[] {
 function saveUltiLoadout(ids: UltiLoadoutId[]) { try { localStorage.setItem(ULTI_LOADOUT_KEY, JSON.stringify(ids)); } catch {} }
 
 const NAME_KEY         = "fighter-command-name";
-const BULLET_COLOR_KEY = "fighter-command-bcolor";
 const PILOT_KILLS_KEY  = "fighter-command-pilot-kills";
 const SETTINGS_KEY     = "fighter-command-settings";
 const TUTORIAL_KEY     = "fighter-command-tutorial-seen";
@@ -801,6 +819,8 @@ function saveSkin(id: string)     { try { localStorage.setItem(SKIN_KEY, id); } 
 function loadSkin(): string       { try { return localStorage.getItem(SKIN_KEY) ?? "steel"; } catch { return "steel"; } }
 function saveDroneSkin(id: string) { try { localStorage.setItem(DRONE_SKIN_KEY, id); } catch {} }
 function loadDroneSkin(): string   { try { return localStorage.getItem(DRONE_SKIN_KEY) ?? "drone_violet"; } catch { return "drone_violet"; } }
+function saveWeaponCrate(id: string) { try { localStorage.setItem(WEAPON_CRATE_KEY, id); } catch {} }
+function loadWeaponCrate(): string { try { return localStorage.getItem(WEAPON_CRATE_KEY) ?? WEAPON_CRATES[0].id; } catch { return WEAPON_CRATES[0].id; } }
 function addUnlock(id: string)    { try { const u = loadUnlocks(); if (!u.includes(id)) localStorage.setItem(UNLOCKS_KEY, JSON.stringify([...u, id])); } catch {} }
 function loadUnlocks(): string[]  { return loadStringArray(UNLOCKS_KEY); }
 function loadAircraftLevels(): Record<string, number> {
@@ -822,8 +842,6 @@ function saveDroneLevels(levels: Record<string, number>) { try { localStorage.se
 function unlockAll()              { try { const all = [...JET_SKINS.map(s => s.id), ...DRONE_SKINS.map(s => s.id), ...SHOP_ITEMS.map(i => i.id)]; localStorage.setItem(UNLOCKS_KEY, JSON.stringify(all)); } catch {} }
 function saveName(n: string)      { try { localStorage.setItem(NAME_KEY, n); } catch {} }
 function loadName(): string       { try { return localStorage.getItem(NAME_KEY) ?? "Pilot"; } catch { return "Pilot"; } }
-function saveBulletColor(c: string) { try { localStorage.setItem(BULLET_COLOR_KEY, c); } catch {} }
-function loadBulletColor(): string  { try { return localStorage.getItem(BULLET_COLOR_KEY) ?? "#00ffff"; } catch { return "#00ffff"; } }
 function loadPilotKills(): number { try { return Math.max(0, Number(localStorage.getItem(PILOT_KILLS_KEY)) || 0); } catch { return 0; } }
 function addPilotKill(): number {
   const kills = loadPilotKills() + 1;
@@ -906,7 +924,6 @@ const TURKISH_TRANSLATIONS: Readonly<Record<string, string>> = {
   "SETTINGS": "AYARLAR",
   "Saved": "Kaydedildi",
   "Select language": "Dil seç",
-  "Shot color:": "Atış rengi:",
   "Show tutorial": "Eğitimi göster",
   "Skip training": "Eğitimi atla",
   "Sound effects": "Ses efektleri",
@@ -938,13 +955,13 @@ function translated(language: GameSettings["language"], german: string, english:
   if (language === "fr") return ({
     "Language": "Langue", "Select language": "Choisir la langue", "SETTINGS": "PARAMÈTRES",
     "Back": "Retour", "NEW GAME": "NOUVELLE PARTIE", "Your jet": "Votre chasseur",
-    "Shot color:": "Couleur des tirs :", "Available credits": "Crédits disponibles",
+    "Available credits": "Crédits disponibles",
     "Touch controls": "Commandes tactiles", "Music": "Musique", "Sound effects": "Effets sonores",
   } as Record<string, string>)[english] ?? english;
   if (language === "es") return ({
     "Language": "Idioma", "Select language": "Elegir idioma", "SETTINGS": "AJUSTES",
     "Back": "Atrás", "NEW GAME": "NUEVA PARTIDA", "Your jet": "Tu caza",
-    "Shot color:": "Color de disparo:", "Available credits": "Créditos disponibles",
+    "Available credits": "Créditos disponibles",
     "Touch controls": "Controles táctiles", "Music": "Música", "Sound effects": "Efectos de sonido",
   } as Record<string, string>)[english] ?? english;
   return english;
@@ -2026,7 +2043,7 @@ export default function Game() {
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const starsRef = useRef<Star[]>([]);
   const powerUpsRef = useRef<PowerUp[]>([]);
-  const weaponCrateRef = useRef<WeaponCrateDefinition>(rollWeaponCrate());
+  const weaponCrateRef = useRef<WeaponCrateDefinition>(WEAPON_CRATES.find(crate => crate.id === loadWeaponCrate()) ?? WEAPON_CRATES[0]);
   const weaponCrateNextActivationRef = useRef(WEAPON_CRATE_INTERVAL_MS);
   const weaponCrateActiveUntilRef = useRef(0);
   const lastWeaponCrateFireRef = useRef(0);
@@ -2094,12 +2111,12 @@ export default function Game() {
   const playerShieldHpRef = useRef(0);
   const bestScoreRef = useRef(loadHighScore());
   const pilotLevelRef = useRef(getPilotLevelFromKills());
-  const activeBulletColorRef = useRef(loadBulletColor());
   const activeWeaponsRef = useRef<WeaponDefinition[]>(loadWeapons().map(id => WEAPONS.find(weapon => weapon.id === id) ?? WEAPONS[0]));
   const weaponLevelsRef = useRef(loadWeaponLevels());
   const playerNameRef = useRef(loadName());
   const [selectedSkin, setSelectedSkin] = useState(() => loadSkin());
   const [selectedDroneSkin, setSelectedDroneSkin] = useState(() => loadDroneSkin());
+  const [selectedWeaponCrate, setSelectedWeaponCrate] = useState(() => loadWeaponCrate());
   const [coins, setCoins] = useState(() => loadCoins());
   const [gems, setGems] = useState(() => loadGems());
   const [selectedWeapons, setSelectedWeapons] = useState<string[]>(() => loadWeapons());
@@ -2704,7 +2721,6 @@ export default function Game() {
     aircraftUpgradeRef.current = aircraftStats;
     activeUnlocksRef.current = unlocks;
     activeUltiLoadoutRef.current = loadUltiLoadout();
-    activeBulletColorRef.current = loadBulletColor();
     activeWeaponsRef.current = loadWeapons().map(id => WEAPONS.find(weapon => weapon.id === id) ?? WEAPONS[0]);
     weaponLevelsRef.current = loadWeaponLevels();
     playerNameRef.current = loadName();
@@ -2761,7 +2777,7 @@ export default function Game() {
     particlesRef.current = [];
     floatingTextsRef.current = [];
     powerUpsRef.current = [];
-    weaponCrateRef.current = rollWeaponCrate();
+    weaponCrateRef.current = WEAPON_CRATES.find(crate => crate.id === loadWeaponCrate()) ?? WEAPON_CRATES[0];
     weaponCrateNextActivationRef.current = WEAPON_CRATE_INTERVAL_MS;
     weaponCrateActiveUntilRef.current = 0;
     lastWeaponCrateFireRef.current = 0;
@@ -4681,17 +4697,20 @@ export default function Game() {
         ctx.shadowColor = "#00ffee"; ctx.shadowBlur = 20;
         drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, activeSkinRef.current, undefined, aircraftUpgradeRef.current.level);
         ctx.restore();
-      } else if (
-        ultimaActiveRef.current > 0 || laserActiveRef.current > 0 || stealthActiveRef.current > 0 ||
-        healActiveRef.current > 0 || absorberActiveRef.current > 0 || ultimateActiveRef.current > 0 ||
-        invincibleRef.current <= 0 ||
-        Math.floor(timeRef.current / 5) % 2 === 0
-      ) {
+      } else {
         {
           const shieldHp = playerShieldHpRef.current;
           const _sc = (activeSkinRef.current?.id === "n1" && shieldTimerRef.current > 0)
             ? (shieldHp <= 1 ? "#ff2200" : shieldHp <= 3 ? "#ff9900" : "#cfd6dc") : undefined;
+          // Keep the selected skin visible during post-hit invincibility. The
+          // previous on/off blink skipped drawing the aircraft in some frames,
+          // which looked like the skin had failed to load.
+          ctx.save();
+          if (invincibleRef.current > 0) {
+            ctx.globalAlpha = 0.48 + 0.22 * Math.sin(timeRef.current * 0.32);
+          }
           drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current, _sc, aircraftUpgradeRef.current.level);
+          ctx.restore();
         }
         if (ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeUltiSkinRef.current.id)) {
           const wingmen = activeUltiSkinRef.current.id === "tiefighter" ? [-72, -36, 36, 72] : [-50, 50];
@@ -4867,6 +4886,14 @@ export default function Game() {
     activeDroneSkinRef.current = skin;
   };
 
+  const handleWeaponCrateSelect = (id: string) => {
+    const crate = WEAPON_CRATES.find(item => item.id === id);
+    if (!crate) return;
+    setSelectedWeaponCrate(id);
+    saveWeaponCrate(id);
+    weaponCrateRef.current = crate;
+  };
+
   const handleAircraftUpgrade = () => {
     const currentLevel = aircraftLevels[selectedSkin] ?? 1;
     const creditCost = getAircraftUpgradeCost(currentLevel);
@@ -4952,12 +4979,6 @@ export default function Game() {
   };
 
   const handleBuy = (itemId: string) => {
-    if (itemId.startsWith("bullet_color_")) {
-      if (loadUnlocks().includes(itemId) || loadCoins() < 5000) return;
-      spendCoins(5000); addUnlock(itemId);
-      setCoins(loadCoins()); setUnlockedItems(loadUnlocks());
-      return;
-    }
     const item = SHOP_ITEMS.find(i => i.id === itemId);
     if (!item) return;
     if (!isShopRarityUnlocked(item.rarity, getPilotLevelFromKills())) return;
@@ -5074,6 +5095,7 @@ export default function Game() {
             selectedSkin={selectedSkin}
             ultiLoadout={ultiLoadout}
             selectedDroneSkin={selectedDroneSkin}
+            selectedWeaponCrate={selectedWeaponCrate}
             selectedWeapons={selectedWeapons}
             selectedGameMode={selectedGameMode}
             coins={coins}
@@ -5091,6 +5113,7 @@ export default function Game() {
             onSkinSelect={handleSkinSelect}
             onUltiLoadoutChange={handleUltiLoadoutChange}
             onDroneSkinSelect={handleDroneSkinSelect}
+            onWeaponCrateSelect={handleWeaponCrateSelect}
             onBuy={handleBuy}
             onUnlockSkin={handleUnlockSkin}
             onUnlockDroneSkin={handleUnlockDroneSkin}
@@ -5177,18 +5200,18 @@ export default function Game() {
 // ─── Hangar Overlay ───────────────────────────────────────────────────────────
 
 function HangarOverlay({
-  selectedSkin, ultiLoadout, selectedDroneSkin, selectedWeapons, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
-  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
+  selectedSkin, ultiLoadout, selectedDroneSkin, selectedWeaponCrate, selectedWeapons, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
+  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onWeaponCrateSelect, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
-  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedWeapons: string[]; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
+  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedWeaponCrate: string; selectedWeapons: string[]; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
   weaponLevels: Record<string, number>;
   unlockedItems: string[]; hasSave: boolean; saveData: { level: number; score: number; weaponTier: number } | null;
   onStart: () => void; onNewGame: () => void;
   onGameModeChange: (mode: GameMode) => void;
-  onSkinSelect: (id: string) => void; onUltiLoadoutChange: (ids: UltiLoadoutId[]) => void; onDroneSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void; onUnlockDroneSkin: (id: string) => void;
+  onSkinSelect: (id: string) => void; onUltiLoadoutChange: (ids: UltiLoadoutId[]) => void; onDroneSkinSelect: (id: string) => void; onWeaponCrateSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void; onUnlockDroneSkin: (id: string) => void;
   onAircraftUpgrade: () => void;
   onDroneUpgrade: () => void;
   onWeaponSelect: (id: string) => void;
@@ -5227,7 +5250,10 @@ function HangarOverlay({
     ctx.fillStyle = gg; ctx.fillRect(0, 0, 240, 140);
     drawPlayerJet(ctx, 90, 56, 5, false, skin, undefined, aircraftLevels[skin.id] ?? 1);
     drawCombatDrone(ctx, 105, 38, 0, DRONE_SKINS.find(s => s.id === selectedDroneSkin) ?? DRONE_SKINS[0], droneLevels[selectedDroneSkin] ?? 1);
-  }, [activeSkinId, skin, selectedDroneSkin, aircraftLevels, droneLevels]);
+    drawWeaponCrate(ctx, { x: 90, y: 56 }, WEAPON_CRATES.find(crate => crate.id === selectedWeaponCrate) ?? WEAPON_CRATES[0], true, 0);
+  // Sub-views unmount the preview canvas. Redraw when returning to the main
+  // hangar even if the selected skins and their levels did not change.
+  }, [view, activeSkinId, skin, selectedDroneSkin, selectedWeaponCrate, aircraftLevels, droneLevels]);
 
   if (view === "briefing") {
     return (
@@ -5358,6 +5384,26 @@ function HangarOverlay({
                 boxShadow: selectedDroneSkin === s.id ? `0 0 10px ${s.stroke}` : "none" }} />;
           })}
           <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2 py-0.5 text-[10px] font-black text-violet-300">LV {droneLevels[selectedDroneSkin] ?? 1}</span>
+        </div>
+        <div className="hangar-crate-skins flex items-center justify-center gap-2 mt-1">
+          <span className="text-slate-500 text-xs">Hintere Kiste:</span>
+          {WEAPON_CRATES.map(crate => (
+            <button
+              key={crate.id}
+              onClick={() => onWeaponCrateSelect(crate.id)}
+              aria-label={`${crate.name} als hintere Kiste auswählen`}
+              title={`${crate.name} · ${crate.rarity}`}
+              className="hangar-skin-button grid place-items-center font-black text-xs"
+              style={{
+                width: 42, height: 34, minWidth: 42, borderRadius: crate.kind === "plasma" ? "50%" : crate.kind === "laser" ? 5 : 9,
+                color: "#fff", background: `${crate.color}35`,
+                border: selectedWeaponCrate === crate.id ? "3px solid #fff" : `2px solid ${crate.color}`,
+                boxShadow: selectedWeaponCrate === crate.id ? `0 0 12px ${crate.color}` : "none",
+              }}
+            >
+              {crate.kind === "rockets" ? "••" : crate.kind === "laser" ? "◇" : "●"}
+            </button>
+          ))}
         </div>
         {/* Continue hint */}
         {hasSave && saveData && (
@@ -5544,7 +5590,6 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
   const [dailyChestOpening, setDailyChestOpening] = useState(false);
   const [dailyChestCelebrating, setDailyChestCelebrating] = useState(false);
   const [dailyChestReward, setDailyChestReward] = useState<number | null>(null);
-  const [bulletColor, setBulletColor] = useState(() => loadBulletColor());
   const [pendingPurchase, setPendingPurchase] = useState<{ name: string; cost: number; currency: "credits" | "gems"; action: () => void } | null>(null);
   const [purchaseCelebration, setPurchaseCelebration] = useState<{ name: string; nonce: number } | null>(null);
   const dailyChestTimers = useRef<number[]>([]);
@@ -5709,7 +5754,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
               <div className="mt-2 flex gap-2">
                 {!owned ? (
                   <button disabled={!levelUnlocked || !canAfford} onClick={buy} className="flex-1 rounded-lg border border-amber-400/50 bg-amber-950/50 px-2 py-2 text-xs font-black text-amber-200 disabled:opacity-35">
-                    {!levelUnlocked ? `🔒 Level ${SHOP_RARITY_MIN_LEVEL[weapon.rarity]}` : `${weapon.currency === "gems" ? "💎" : "💰"} ${weapon.cost.toLocaleString("de-DE")}`}
+                    {!levelUnlocked ? `🔒 Pilot-Level ${SHOP_RARITY_MIN_LEVEL[weapon.rarity]} erforderlich` : `${weapon.currency === "gems" ? "💎" : "💰"} ${weapon.cost.toLocaleString("de-DE")}`}
                   </button>
                 ) : (
                   <button onClick={() => onWeaponSelect(weapon.id)} className="flex-1 rounded-lg border border-cyan-400/50 bg-cyan-950/50 px-2 py-2 text-xs font-black text-cyan-200">
@@ -5721,32 +5766,6 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
                 </button>}
               </div>
             </div>;
-          })}
-        </div>
-      </div>
-
-      <div className="relative z-10 rounded-2xl border border-cyan-400/35 bg-cyan-950/20 p-4">
-        <div className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-300">Schussfarben</div>
-        <div className="mt-1 text-xs text-slate-400">Wähle deine aktive Farbe. Jede zusätzliche Farbe kostet 5.000 Credits.</div>
-        <div className="mt-3 grid grid-cols-5 gap-2">
-          {[{ color: "#00ffff", label: "Cyan" }, { color: "#ff3333", label: "Rot" }, { color: "#00ff88", label: "Grün" }, { color: "#ffff00", label: "Gelb" }, { color: "#ff00ff", label: "Lila" }].map(opt => {
-            const unlockId = `bullet_color_${opt.color.slice(1)}`;
-            const owned = opt.color === "#00ffff" || unlockedItems.includes(unlockId);
-            const active = bulletColor === opt.color;
-            return <button key={opt.color} disabled={!owned && coins < 5000} onClick={() => {
-              const activateColor = () => {
-                if (!owned) onBuy(unlockId);
-                setBulletColor(opt.color);
-                saveBulletColor(opt.color);
-              };
-              if (!owned) requestPurchase(`Schussfarbe ${opt.label}`, 5000, activateColor);
-              else activateColor();
-            }} className="rounded-xl p-2 text-center text-[10px] font-bold transition active:scale-95 disabled:opacity-35"
-              style={{ border: active ? "2px solid white" : `1px solid ${opt.color}66`, background: `${opt.color}16`, boxShadow: active ? `0 0 14px ${opt.color}` : undefined }}>
-              <span className="mx-auto mb-1 block h-7 w-7 rounded-full" style={{ background: opt.color, boxShadow: `0 0 9px ${opt.color}` }} />
-              <span className="block text-white">{opt.label}</span>
-              <span className={owned ? "text-emerald-300" : "text-amber-300"}>{owned ? (active ? "✓ Aktiv" : "Gekauft") : "💰 5.000"}</span>
-            </button>;
           })}
         </div>
       </div>
@@ -5832,7 +5851,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
               {owned
                 ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div>
                 : <div className={`text-xs font-bold ${canAfford && levelUnlocked ? "text-amber-300" : "text-slate-500"}`}>
-                    {!levelUnlocked ? `🔒 Level ${SHOP_RARITY_MIN_LEVEL[s.rarity]}` : canAfford ? `💰 ${formatLockedSkinPrice(s.cost)}` : `🔒 ${formatLockedSkinPrice(s.cost)}`}
+                    {!levelUnlocked ? `🔒 Pilot-Level ${SHOP_RARITY_MIN_LEVEL[s.rarity]} erforderlich` : canAfford ? `💰 ${formatLockedSkinPrice(s.cost)}` : `🔒 ${formatLockedSkinPrice(s.cost)}`}
                   </div>
               }
             </button>
@@ -5896,7 +5915,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
             <div className="text-[9px] font-black" style={{ color: s.stroke }}>{s.ultiName}</div>
             <div className="text-[10px] font-bold text-violet-300">Level {droneLevels[s.id] ?? 1}</div>
             {owned ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div> :
-              <div className={`text-xs font-bold ${canAfford && levelUnlocked ? "text-amber-300" : "text-slate-500"}`}>{!levelUnlocked ? `🔒 Level ${SHOP_RARITY_MIN_LEVEL[s.rarity]}` : `${canAfford ? "💰" : "🔒"} ${formatLockedSkinPrice(s.cost)}`}</div>}
+              <div className={`text-xs font-bold ${canAfford && levelUnlocked ? "text-amber-300" : "text-slate-500"}`}>{!levelUnlocked ? `🔒 Pilot-Level ${SHOP_RARITY_MIN_LEVEL[s.rarity]} erforderlich` : `${canAfford ? "💰" : "🔒"} ${formatLockedSkinPrice(s.cost)}`}</div>}
           </button>;
         })}
       </div>
@@ -5931,7 +5950,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
               {owned
                 ? <span className="text-green-400 font-bold text-lg shrink-0">✓</span>
                 : !levelUnlocked
-                  ? <span className="text-slate-500 text-xs font-bold shrink-0">🔒 Level {SHOP_RARITY_MIN_LEVEL[item.rarity]}</span>
+                  ? <span className="text-slate-500 text-xs font-bold shrink-0">🔒 Pilot-Level {SHOP_RARITY_MIN_LEVEL[item.rarity]} erforderlich</span>
                 : !prerequisiteMet
                   ? <span className="text-slate-500 text-xs font-bold shrink-0">🔒 Vorstufe</span>
                 : <button onClick={() => canAfford && requestPurchase(item.name, item.cost, () => onBuy(item.id))} disabled={!canAfford}
