@@ -5386,12 +5386,12 @@ function HangarOverlay({
           <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2 py-0.5 text-[10px] font-black text-violet-300">LV {droneLevels[selectedDroneSkin] ?? 1}</span>
         </div>
         <div className="hangar-crate-skins flex items-center justify-center gap-2 mt-1">
-          <span className="text-slate-500 text-xs">Hintere Kiste:</span>
+          <span className="text-slate-500 text-xs">Waffenmodul:</span>
           {WEAPON_CRATES.map(crate => (
             <button
               key={crate.id}
               onClick={() => onWeaponCrateSelect(crate.id)}
-              aria-label={`${crate.name} als hintere Kiste auswählen`}
+              aria-label={`${crate.name} als Waffenmodul auswählen`}
               title={`${crate.name} · ${crate.rarity}`}
               className="hangar-skin-button grid place-items-center font-black text-xs"
               style={{
