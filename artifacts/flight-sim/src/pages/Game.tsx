@@ -81,6 +81,7 @@ interface Bullet {
   isPoisonMissile?: boolean;
   normalBossProjectile?: boolean;
   nearMissed?: boolean;
+  weaponId?: string;
 }
 
 interface Enemy {
@@ -145,6 +146,18 @@ interface PowerUp {
   vy: number;
 }
 
+type WeaponCrateRarity = "selten" | "episch" | "legendär";
+type WeaponCrateKind = "rockets" | "laser" | "plasma";
+interface WeaponCrateDefinition {
+  id: string;
+  name: string;
+  rarity: WeaponCrateRarity;
+  kind: WeaponCrateKind;
+  color: string;
+  fireRate: number;
+  damage: number;
+}
+
 type ShopRarity = "rare" | "epic" | "legendary" | "ultraLegendary" | "ultimate";
 
 interface GameState {
@@ -161,7 +174,7 @@ interface GameState {
   paused: boolean;
 }
 
-type KeyBindingAction = "up" | "down" | "left" | "right" | "fire" | "pause" | "ability1" | "ability2";
+type KeyBindingAction = "up" | "down" | "left" | "right" | "fire" | "pause" | "ability1" | "ability2" | "ability3";
 type KeyBindings = Record<KeyBindingAction, string>;
 
 interface GameSettings {
@@ -218,6 +231,53 @@ const LASER_DEVICE_CHANCE = 0.10;
 const LASER_DEVICE_SHIELD_HP = 5;
 const LASER_DEVICE_DAMAGE = 5;
 const LASER_DEVICE_BEAM_WIDTH = 12;
+const WEAPON_CRATE_INTERVAL_MS = 20_000;
+const WEAPON_CRATE_DURATION_MS = 5_000;
+const WEAPON_CRATES: readonly WeaponCrateDefinition[] = [
+  { id: "falcon-rockets", name: "Falken-Raketen", rarity: "selten", kind: "rockets", color: "#60a5fa", fireRate: 720, damage: 9 },
+  { id: "nova-laser", name: "Nova-Laser", rarity: "episch", kind: "laser", color: "#d946ef", fireRate: 105, damage: 3.2 },
+  { id: "sun-plasma", name: "Sonnen-Plasma", rarity: "legendär", kind: "plasma", color: "#fbbf24", fireRate: 230, damage: 6 },
+] as const;
+const WEAPON_CRATE_RARITY_COLOR: Record<WeaponCrateRarity, string> = {
+  selten: "#60a5fa",
+  episch: "#d946ef",
+  legendär: "#fbbf24",
+};
+
+function rollWeaponCrate(): WeaponCrateDefinition {
+  const roll = Math.random();
+  return roll < .60 ? WEAPON_CRATES[0] : roll < .90 ? WEAPON_CRATES[1] : WEAPON_CRATES[2];
+}
+
+function drawWeaponCrate(
+  ctx: CanvasRenderingContext2D,
+  player: Vec2,
+  crate: WeaponCrateDefinition,
+  active: boolean,
+  time: number,
+) {
+  const x = player.x - 25;
+  const y = player.y + PLAYER_H / 2;
+  const rarityColor = WEAPON_CRATE_RARITY_COLOR[crate.rarity];
+  ctx.save();
+  ctx.shadowColor = rarityColor;
+  ctx.shadowBlur = active ? 18 + Math.sin(time * .3) * 5 : 7;
+  ctx.fillStyle = active ? crate.color + "aa" : "#101a2a";
+  ctx.strokeStyle = rarityColor;
+  ctx.lineWidth = active ? 3 : 2;
+  ctx.beginPath();
+  ctx.roundRect(x - 11, y - 10, 22, 20, 4);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = rarityColor;
+  ctx.fillRect(x - 5, y - 2, 10, 4);
+  ctx.beginPath();
+  ctx.moveTo(x + 11, y);
+  ctx.lineTo(player.x + 2, player.y + PLAYER_H / 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 
 const SHOP_RARITIES: Record<ShopRarity, { label: string; color: string; glow: string }> = {
   rare:      { label: "SELTEN",    color: "#a8b0ba", glow: "#d6dbe166" },
@@ -278,6 +338,66 @@ const WEAPON_TIERS = [
   { name: "Plasma Array",     guns: 6, spread: true,  missile: true,  fireRate: 115, bulletDmg: 3 },
   { name: "Devastator",       guns: 7, spread: true,  missile: true,  fireRate: 90,  bulletDmg: 4 },
 ];
+
+type WeaponCurrency = "credits" | "gems";
+type WeaponPattern = "focused" | "twin" | "spread" | "rapid" | "missile";
+interface WeaponDefinition {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  rarity: ShopRarity;
+  cost: number;
+  currency: WeaponCurrency;
+  pattern: WeaponPattern;
+  guns: number;
+  damage: number;
+  fireRate: number;
+  color: string;
+}
+
+const WEAPONS: readonly WeaponDefinition[] = [
+  { id: "pulse_cannon", name: "Falke MK-I", icon: "➤", description: "Zuverlässige, präzise Einzelkanone.", rarity: "rare", cost: 0, currency: "credits", pattern: "focused", guns: 1, damage: 2, fireRate: 250, color: "#35d7ff" },
+  { id: "twin_fang", name: "Doppelzahn", icon: "ᐅᐅ", description: "Zwei parallele Läufe für konstanten Schaden.", rarity: "rare", cost: 35_000, currency: "credits", pattern: "twin", guns: 2, damage: 2, fireRate: 235, color: "#34d399" },
+  { id: "nova_scatter", name: "Nova-Streuer", icon: "✦", description: "Breite Fächersalve gegen Gegnergruppen.", rarity: "epic", cost: 90_000, currency: "credits", pattern: "spread", guns: 5, damage: 2, fireRate: 390, color: "#c084fc" },
+  { id: "volt_repeater", name: "Volt-Repetierer", icon: "ϟ", description: "Extrem schnelle Ionenprojektile.", rarity: "epic", cost: 900, currency: "gems", pattern: "rapid", guns: 2, damage: 2, fireRate: 105, color: "#facc15" },
+  { id: "titan_lance", name: "Titanenlanze", icon: "◆", description: "Langsame, gebündelte Schüsse mit enormem Schaden.", rarity: "legendary", cost: 240_000, currency: "credits", pattern: "focused", guns: 1, damage: 12, fireRate: 520, color: "#fb7185" },
+  { id: "seraph_barrage", name: "Seraph-Salve", icon: "♛", description: "Lenkraketen und Dreifachfeuer in einer Waffe.", rarity: "ultraLegendary", cost: 3_500, currency: "gems", pattern: "missile", guns: 3, damage: 7, fireRate: 260, color: "#67e8f9" },
+  { id: "omega_prism", name: "Omega-Prisma", icon: "✺", description: "Ultimate Energiestreuer mit sieben Strahlen.", rarity: "ultimate", cost: 9_000, currency: "gems", pattern: "spread", guns: 7, damage: 8, fireRate: 175, color: "#f9a8d4" },
+] as const;
+const WEAPON_KEY = "fighter-command-weapons";
+const WEAPON_LEVELS_KEY = "fighter-command-weapon-levels";
+const MAX_WEAPON_LEVEL = 10;
+
+function loadWeapons(): string[] {
+  try {
+    const raw = localStorage.getItem(WEAPON_KEY);
+    const legacy = localStorage.getItem("fighter-command-weapon");
+    const parsed = raw ? JSON.parse(raw) as unknown : legacy ? [legacy] : [WEAPONS[0].id];
+    if (!Array.isArray(parsed)) return [WEAPONS[0].id];
+    const valid = parsed.filter((id): id is string => typeof id === "string" && WEAPONS.some(weapon => weapon.id === id));
+    return [...new Set(valid)].slice(0, 2).length ? [...new Set(valid)].slice(0, 2) : [WEAPONS[0].id];
+  } catch { return [WEAPONS[0].id]; }
+}
+function saveWeapons(ids: string[]) { try { localStorage.setItem(WEAPON_KEY, JSON.stringify(ids.slice(0, 2))); } catch {} }
+function loadWeaponLevels(): Record<string, number> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(WEAPON_LEVELS_KEY) ?? "{}") as unknown;
+    if (!isRecord(parsed)) return {};
+    return Object.fromEntries(WEAPONS.map(weapon => [weapon.id, Math.max(1, Math.min(MAX_WEAPON_LEVEL, Math.floor(finiteNumber(parsed[weapon.id]) ?? 1)))]));
+  } catch { return {}; }
+}
+function saveWeaponLevels(levels: Record<string, number>) { try { localStorage.setItem(WEAPON_LEVELS_KEY, JSON.stringify(levels)); } catch {} }
+function getWeaponUpgradeCost(level: number): number | null {
+  return level >= MAX_WEAPON_LEVEL ? null : 120 + level * level * 55;
+}
+function getWeaponStats(weapon: WeaponDefinition, level: number) {
+  const upgrades = Math.max(0, level - 1);
+  return {
+    damage: weapon.damage + upgrades * Math.max(1, Math.ceil(weapon.damage * .16)),
+    fireRate: Math.max(65, weapon.fireRate * (1 - upgrades * .035)),
+  };
+}
 
 // ─── Save / load ─────────────────────────────────────────────────────────────
 
@@ -390,6 +510,7 @@ const UNLOCKS_KEY = "fighter-command-unlocks";
 const AIRCRAFT_LEVELS_KEY = "fighter-command-aircraft-levels";
 const DRONE_LEVELS_KEY = "fighter-command-drone-levels";
 const ULTI_LOADOUT_KEY = "fighter-command-ulti-loadout";
+const ULTI_LOADOUT_SLOTS = 3;
 
 const JET_SKINS = [
   { id: "steel", name: "Aegis", body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0, rarity: "rare", ultiName: "Stahlfestung", ultiDesc: "Starker Schutzschild und stark verringerter Schaden." },
@@ -474,9 +595,9 @@ function loadUltiLoadout(): UltiLoadoutId[] {
   const available = ULTI_LOADOUT_OPTIONS.filter(option => !option.requires || loadUnlocks().includes(option.requires)).map(option => option.id);
   try {
     const saved = JSON.parse(localStorage.getItem(ULTI_LOADOUT_KEY) ?? "null") as unknown;
-    if (!Array.isArray(saved)) return available.slice(0, 2);
-    return saved.filter((id): id is UltiLoadoutId => typeof id === "string" && available.includes(id as UltiLoadoutId)).slice(0, 2);
-  } catch { return available.slice(0, 2); }
+    if (!Array.isArray(saved)) return available.slice(0, ULTI_LOADOUT_SLOTS);
+    return saved.filter((id): id is UltiLoadoutId => typeof id === "string" && available.includes(id as UltiLoadoutId)).slice(0, ULTI_LOADOUT_SLOTS);
+  } catch { return available.slice(0, ULTI_LOADOUT_SLOTS); }
 }
 function saveUltiLoadout(ids: UltiLoadoutId[]) { try { localStorage.setItem(ULTI_LOADOUT_KEY, JSON.stringify(ids)); } catch {} }
 
@@ -495,6 +616,7 @@ const DEFAULT_KEY_BINDINGS: KeyBindings = {
   pause: "KeyP",
   ability1: "Digit1",
   ability2: "Digit2",
+  ability3: "Digit3",
 };
 const DEFAULT_SETTINGS: GameSettings = {
   language: "de",
@@ -1604,6 +1726,18 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
     ctx.shadowColor = "#b84cff"; ctx.shadowBlur = 10;
     ctx.beginPath(); ctx.moveTo(-13, -2.8); ctx.lineTo(-28, 0); ctx.lineTo(-13, 2.8); ctx.closePath();
     ctx.fillStyle = exhaust; ctx.fill();
+  } else if (b.weaponId === "seraph_barrage" && b.isMissile) {
+    ctx.translate(b.x, b.y);
+    ctx.rotate(Math.atan2(b.vy, b.vx));
+    ctx.shadowColor = "#67e8f9"; ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.moveTo(16, 0); ctx.lineTo(5, -6); ctx.lineTo(-7, -4); ctx.lineTo(-12, 0); ctx.lineTo(-7, 4); ctx.lineTo(5, 6); ctx.closePath();
+    const seraphGradient = ctx.createLinearGradient(-12, 0, 16, 0);
+    seraphGradient.addColorStop(0, "#2563eb"); seraphGradient.addColorStop(.55, "#67e8f9"); seraphGradient.addColorStop(1, "#ffffff");
+    ctx.fillStyle = seraphGradient; ctx.fill();
+    ctx.strokeStyle = "#cffafe"; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-11, -2.5); ctx.lineTo(-25, 0); ctx.lineTo(-11, 2.5);
+    ctx.fillStyle = "#a855f7aa"; ctx.fill();
   } else if (b.isMissile && b.trackPlayer) {
     // Enemy homing missile — magenta/purple
     ctx.translate(b.x, b.y);
@@ -1641,11 +1775,41 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
     ctx.fillStyle = "#ff4b18bb"; ctx.fill();
   } else if (b.fromPlayer) {
     const bc = b.color ?? "#00ffff";
-    ctx.beginPath();
-    ctx.rect(b.x - 2, b.y - 2, 14, 4);
-    ctx.fillStyle = bc;
-    ctx.shadowColor = bc; ctx.shadowBlur = 8;
-    ctx.fill();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(Math.atan2(b.vy, b.vx));
+    ctx.fillStyle = bc; ctx.strokeStyle = "#ffffffcc";
+    ctx.shadowColor = bc; ctx.shadowBlur = 10;
+    if (b.weaponId === "seraph_barrage") {
+      ctx.beginPath(); ctx.moveTo(13, 0); ctx.quadraticCurveTo(2, -6, -7, -3); ctx.lineTo(-2, 0); ctx.lineTo(-7, 3); ctx.quadraticCurveTo(2, 6, 13, 0); ctx.fill();
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1; ctx.stroke();
+    } else if (b.weaponId === "twin_fang") {
+      ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(2, -4); ctx.lineTo(-7, 0); ctx.lineTo(2, 4); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(-18, 0); ctx.strokeStyle = `${bc}88`; ctx.lineWidth = 2; ctx.stroke();
+    } else if (b.weaponId === "nova_scatter") {
+      ctx.beginPath(); ctx.arc(2, 0, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-11, 0); ctx.lineTo(15, 0); ctx.moveTo(2, -8); ctx.lineTo(2, 8); ctx.strokeStyle = `${bc}aa`; ctx.lineWidth = 1.5; ctx.stroke();
+    } else if (b.weaponId === "volt_repeater") {
+      ctx.beginPath(); ctx.moveTo(-8, -3); ctx.lineTo(-2, 2); ctx.lineTo(3, -3); ctx.lineTo(10, 2); ctx.strokeStyle = bc; ctx.lineWidth = 3; ctx.stroke();
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1; ctx.stroke();
+    } else if (b.weaponId === "titan_lance") {
+      const lanceGradient = ctx.createLinearGradient(-20, 0, 22, 0);
+      lanceGradient.addColorStop(0, `${bc}00`); lanceGradient.addColorStop(.45, bc); lanceGradient.addColorStop(1, "#ffffff");
+      ctx.fillStyle = lanceGradient; ctx.fillRect(-20, -3, 42, 6);
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(4, -1, 18, 2);
+    } else if (b.weaponId === "omega_prism") {
+      ctx.beginPath();
+      for (let point = 0; point < 8; point++) {
+        const radius = point % 2 === 0 ? 9 : 3.5;
+        const angle = point * Math.PI / 4;
+        const x = Math.cos(angle) * radius, y = Math.sin(angle) * radius;
+        if (point === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.roundRect(-3, -2.5, 17, 5, 2); ctx.fill();
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(7, -1, 7, 2);
+    }
   } else {
     const bc = b.color ?? "#ff4444";
     ctx.beginPath();
@@ -1851,7 +2015,7 @@ export default function Game() {
   const [displayState, setDisplayState] = useState({ ...stateRef.current });
   const keysRef = useRef<Set<string>>(new Set());
   const rafRef = useRef<number>(0);
-  const lastFireRef = useRef(0);
+  const lastFireRef = useRef<Record<string, number>>({});
   const lastDroneFireRef = useRef(0);
   const lastWingmanFireRef = useRef(0);
   const lastMissileRef = useRef(0);
@@ -1862,6 +2026,10 @@ export default function Game() {
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const starsRef = useRef<Star[]>([]);
   const powerUpsRef = useRef<PowerUp[]>([]);
+  const weaponCrateRef = useRef<WeaponCrateDefinition>(rollWeaponCrate());
+  const weaponCrateNextActivationRef = useRef(WEAPON_CRATE_INTERVAL_MS);
+  const weaponCrateActiveUntilRef = useRef(0);
+  const lastWeaponCrateFireRef = useRef(0);
   const enemySpawnTimerRef = useRef(0);
   const timeRef = useRef(0);
   const runElapsedMsRef = useRef(0);
@@ -1927,11 +2095,15 @@ export default function Game() {
   const bestScoreRef = useRef(loadHighScore());
   const pilotLevelRef = useRef(getPilotLevelFromKills());
   const activeBulletColorRef = useRef(loadBulletColor());
+  const activeWeaponsRef = useRef<WeaponDefinition[]>(loadWeapons().map(id => WEAPONS.find(weapon => weapon.id === id) ?? WEAPONS[0]));
+  const weaponLevelsRef = useRef(loadWeaponLevels());
   const playerNameRef = useRef(loadName());
   const [selectedSkin, setSelectedSkin] = useState(() => loadSkin());
   const [selectedDroneSkin, setSelectedDroneSkin] = useState(() => loadDroneSkin());
   const [coins, setCoins] = useState(() => loadCoins());
   const [gems, setGems] = useState(() => loadGems());
+  const [selectedWeapons, setSelectedWeapons] = useState<string[]>(() => loadWeapons());
+  const [weaponLevels, setWeaponLevels] = useState<Record<string, number>>(() => loadWeaponLevels());
   const [aircraftLevels, setAircraftLevels] = useState<Record<string, number>>(() => loadAircraftLevels());
   const [droneLevels, setDroneLevels] = useState<Record<string, number>>(() => loadDroneLevels());
   const aircraftUpgradeRef = useRef(getAircraftUpgradeStats(loadAircraftLevels()[loadSkin()] ?? 1));
@@ -2378,7 +2550,6 @@ export default function Game() {
 
   const fireBullets = useCallback((now: number) => {
     const gs = stateRef.current;
-    const tier = WEAPON_TIERS[gs.weaponTier];
     const buildDamageMultiplier = 1 + runUpgradesRef.current.glass_cannon * .65;
     const persistentDroneUpgrades = [
       "drone_mk2", "drone_mk3", "drone_mk4", "drone_mk5",
@@ -2427,62 +2598,96 @@ export default function Game() {
     }
 
     const aircraftUltiFireRate = ultimaActiveRef.current > 0 && ["gold", "crimson", "solaris"].includes(activeUltiSkinRef.current.id) ? 0.45 : 1;
-    const fireRate = tier.fireRate * Math.pow(0.8, runUpgradesRef.current.rapid_fire) * aircraftUpgradeRef.current.fireRateMultiplier * aircraftUltiFireRate;
-    if (now - lastFireRef.current < fireRate) return;
-    lastFireRef.current = now;
-
     const gunOffsets: number[][] = [
       [0], [-8, 8], [-12, 0, 12], [-14, -5, 5, 14], [-14, -7, 0, 7, 14],
       [-15, -9, -3, 3, 9, 15], [-16, -10, -4, 0, 4, 10, 16],
     ];
-    const offsets = gunOffsets[Math.min(tier.guns - 1, gunOffsets.length - 1)];
+    activeWeaponsRef.current.forEach((weapon, weaponIndex) => {
+      const weaponStats = getWeaponStats(weapon, weaponLevelsRef.current[weapon.id] ?? 1);
+      const tierFireBonus = Math.max(.62, 1 - gs.weaponTier * .045);
+      const fireRate = weaponStats.fireRate * tierFireBonus * Math.pow(0.8, runUpgradesRef.current.rapid_fire) * aircraftUpgradeRef.current.fireRateMultiplier * aircraftUltiFireRate;
+      if (now - (lastFireRef.current[weapon.id] ?? 0) < fireRate) return;
+      lastFireRef.current[weapon.id] = now;
+      const offsets = gunOffsets[Math.min(weapon.guns - 1, gunOffsets.length - 1)];
+      const slotOffset = activeWeaponsRef.current.length > 1 ? (weaponIndex === 0 ? -4 : 4) : 0;
 
-    offsets.forEach((oy, i) => {
+      offsets.forEach((oy, i) => {
       let vx = BASE_BULLET_SPEED * Math.pow(1.2, runUpgradesRef.current.kinetic_accelerator);
       let vy = 0;
-      if (tier.spread && offsets.length > 1) {
-        const spread = (i - (offsets.length - 1) / 2) * 0.12;
+      if (weapon.pattern === "spread" && offsets.length > 1) {
+        const spread = (i - (offsets.length - 1) / 2) * 0.15;
         vy = spread * vx;
       }
       bulletsRef.current.push({
-        x: px, y: py + oy,
+        x: px, y: py + oy + slotOffset,
         vx, vy,
         fromPlayer: true,
-        damage: (tier.bulletDmg + runUpgradesRef.current.damage + aircraftUpgradeRef.current.damageBonus) * buildDamageMultiplier,
-        color: activeBulletColorRef.current,
+        damage: (weaponStats.damage + Math.floor(gs.weaponTier / 2) + runUpgradesRef.current.damage + aircraftUpgradeRef.current.damageBonus) * buildDamageMultiplier,
+        color: weapon.color,
+        weaponId: weapon.id,
       });
-    });
+      });
     // TIE wingmen copy the normal cannons. X-Wings use their own targeted
     // two-shots-per-second fireball cadence below.
-    if (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "tiefighter") {
+      if (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "tiefighter") {
       const wingmen = [-72, -36, 36, 72];
       wingmen.forEach(wingOffset => offsets.forEach((oy, i) => {
         let cvx = BASE_BULLET_SPEED;
         let cvy = 0;
-        if (tier.spread && offsets.length > 1) {
+        if (weapon.pattern === "spread" && offsets.length > 1) {
           const spread = (i - (offsets.length - 1) / 2) * 0.12;
           cvy = spread * BASE_BULLET_SPEED;
         }
         const wingY = clamp(playerRef.current.y + PLAYER_H / 2 + wingOffset, PLAYER_H, CANVAS_H - PLAYER_H);
         bulletsRef.current.push({
           x: px, y: wingY + oy, vx: cvx, vy: cvy, fromPlayer: true,
-          damage: tier.bulletDmg + aircraftUpgradeRef.current.damageBonus,
-          color: activeBulletColorRef.current,
+          damage: weaponStats.damage + aircraftUpgradeRef.current.damageBonus,
+          color: weapon.color,
+          weaponId: weapon.id,
         });
       }));
-    }
+      }
 
     // Missiles
     const missileCooldown = 1800 * Math.pow(.72, runUpgradesRef.current.missile_mastery);
-    if (tier.missile && now - lastMissileRef.current > missileCooldown) {
+      if (weapon.pattern === "missile" && now - lastMissileRef.current > missileCooldown) {
       lastMissileRef.current = now;
       const target = enemiesRef.current[0] ?? null;
       bulletsRef.current.push({
         x: px, y: py,
         vx: 7, vy: 0,
-        fromPlayer: true, damage: (4 + aircraftUpgradeRef.current.damageBonus + runUpgradesRef.current.missile_mastery * 4) * buildDamageMultiplier,
-        isMissile: true, missileTarget: target,
+        fromPlayer: true, damage: (weaponStats.damage * 1.8 + aircraftUpgradeRef.current.damageBonus + runUpgradesRef.current.missile_mastery * 4) * buildDamageMultiplier,
+        color: weapon.color, weaponId: weapon.id, isMissile: true, missileTarget: target,
       });
+      }
+    });
+  }, []);
+
+  const fireWeaponCrate = useCallback((now: number) => {
+    const crate = weaponCrateRef.current;
+    if (now - lastWeaponCrateFireRef.current < crate.fireRate) return;
+    lastWeaponCrateFireRef.current = now;
+    const x = playerRef.current.x - 14;
+    const y = playerRef.current.y + PLAYER_H / 2;
+    const target = enemiesRef.current
+      .filter(enemy => !enemy.dead && enemy.hp > 0)
+      .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0] ?? null;
+
+    if (crate.kind === "rockets") {
+      [-5, 5].forEach(offset => bulletsRef.current.push({
+        x, y: y + offset, vx: 7, vy: 0, fromPlayer: true,
+        damage: crate.damage, color: crate.color, isMissile: true, missileTarget: target,
+      }));
+    } else if (crate.kind === "laser") {
+      bulletsRef.current.push({
+        x, y, vx: 15, vy: 0, fromPlayer: true,
+        damage: crate.damage, color: crate.color, lifetime: 55,
+      });
+    } else {
+      [-.22, 0, .22].forEach(spread => bulletsRef.current.push({
+        x, y, vx: 11, vy: spread * 11, fromPlayer: true,
+        damage: crate.damage, color: crate.color,
+      }));
     }
   }, []);
 
@@ -2500,6 +2705,8 @@ export default function Game() {
     activeUnlocksRef.current = unlocks;
     activeUltiLoadoutRef.current = loadUltiLoadout();
     activeBulletColorRef.current = loadBulletColor();
+    activeWeaponsRef.current = loadWeapons().map(id => WEAPONS.find(weapon => weapon.id === id) ?? WEAPONS[0]);
+    weaponLevelsRef.current = loadWeaponLevels();
     playerNameRef.current = loadName();
     stealthChargeRef.current = STEALTH_MAX;
     stealthActiveRef.current = 0;
@@ -2554,13 +2761,17 @@ export default function Game() {
     particlesRef.current = [];
     floatingTextsRef.current = [];
     powerUpsRef.current = [];
+    weaponCrateRef.current = rollWeaponCrate();
+    weaponCrateNextActivationRef.current = WEAPON_CRATE_INTERVAL_MS;
+    weaponCrateActiveUntilRef.current = 0;
+    lastWeaponCrateFireRef.current = 0;
     enemySpawnTimerRef.current = 0;
     timeRef.current = 0;
     runElapsedMsRef.current = 0;
     bossRushSpawnTimerRef.current = 0;
     runResultRef.current = "game_over";
     rewardGrantedRef.current = false;
-    lastFireRef.current = 0;
+    lastFireRef.current = {};
     lastDroneFireRef.current = 0;
     lastWingmanFireRef.current = 0;
     lastMissileRef.current = 0;
@@ -2783,6 +2994,9 @@ export default function Game() {
       if (down && e.code === bindings.ability2) {
         activateAbility(activeUltiLoadoutRef.current[1]);
       }
+      if (down && e.code === bindings.ability3) {
+        activateAbility(activeUltiLoadoutRef.current[2]);
+      }
     };
     const onKeyDown = (e: KeyboardEvent) => onKey(e, true);
     const onKeyUp = (e: KeyboardEvent) => onKey(e, false);
@@ -2838,6 +3052,7 @@ export default function Game() {
       }
       if (pressedOnce(4)) activateAbility(activeUltiLoadoutRef.current[0]);
       if (pressedOnce(5)) activateAbility(activeUltiLoadoutRef.current[1]);
+      if (pressedOnce(6)) activateAbility(activeUltiLoadoutRef.current[2]);
       gamepadButtonsRef.current = pad.buttons.map(button => button.pressed);
     };
     pollGamepad();
@@ -3232,7 +3447,7 @@ export default function Game() {
         const d = Math.hypot(dx, dy);
         const norm = Math.min(d, JOY_RADIUS) / JOY_RADIUS;
         if (d > 8) {
-          playerRef.current.x = clamp(playerRef.current.x + (dx / d) * norm * spd * 0.8 * touchSensitivity * dtScale, 0, CANVAS_W * 0.75);
+          playerRef.current.x = clamp(playerRef.current.x + (dx / d) * norm * spd * 0.8 * touchSensitivity * dtScale, 0, CANVAS_W - PLAYER_W);
           playerRef.current.y = clamp(playerRef.current.y + (dy / d) * norm * spd * touchSensitivity * dtScale,       0, CANVAS_H - PLAYER_H);
         }
       } else if (movementStunRef.current <= 0) {
@@ -3246,16 +3461,29 @@ export default function Game() {
           playerRef.current.x = clamp(playerRef.current.x - spd * 0.8 * dtScale, 0, CANVAS_W - PLAYER_W);
         }
         if (keyPressed("right") || keysRef.current.has("ArrowRight")) {
-          playerRef.current.x = clamp(playerRef.current.x + spd * 0.8 * dtScale, 0, CANVAS_W * 0.75);
+          playerRef.current.x = clamp(playerRef.current.x + spd * 0.8 * dtScale, 0, CANVAS_W - PLAYER_W);
         }
         if (gamepad.x !== 0 || gamepad.y !== 0) {
-          playerRef.current.x = clamp(playerRef.current.x + gamepad.x * spd * 0.8 * dtScale, 0, CANVAS_W * 0.75);
+          playerRef.current.x = clamp(playerRef.current.x + gamepad.x * spd * 0.8 * dtScale, 0, CANVAS_W - PLAYER_W);
           playerRef.current.y = clamp(playerRef.current.y + gamepad.y * spd * dtScale, 0, CANVAS_H - PLAYER_H);
         }
       }
 
       const firing = settingsRef.current.autoFire || keyPressed("fire") || touchFireRef.current.active || gamepad.firing;
       if (firing) fireBullets(timestamp);
+
+      if (runElapsedMsRef.current >= weaponCrateNextActivationRef.current) {
+        weaponCrateActiveUntilRef.current = runElapsedMsRef.current + WEAPON_CRATE_DURATION_MS;
+        weaponCrateNextActivationRef.current += WEAPON_CRATE_INTERVAL_MS;
+        const crate = weaponCrateRef.current;
+        waveBannerRef.current = {
+          text: `${crate.name.toUpperCase()} · ${crate.rarity.toUpperCase()} · 5 SEKUNDEN`,
+          timer: 110,
+        };
+        audioRef.current.effect("upgrade", settingsRef.current.soundVolume * .7);
+      }
+      const weaponCrateActive = runElapsedMsRef.current < weaponCrateActiveUntilRef.current;
+      if (weaponCrateActive) fireWeaponCrate(timestamp);
 
       // ── Level / Weapon tier ──
       const nextLevel = getLevelForScore(gs.score);
@@ -3486,6 +3714,10 @@ export default function Game() {
         absorberChargeRef.current = Math.min(ABSORBER_MAX, absorberChargeRef.current + ABSORBER_CHARGE_RATE * dtScale);
       }
       // Lädt halb so schnell wie Stealth (nochmals verdoppelte Ladegeschwindigkeit).
+      // The module is tethered behind the aircraft and is drawn first so the
+      // jet naturally appears in front of it.
+      drawWeaponCrate(ctx, playerRef.current, weaponCrateRef.current, weaponCrateActive, timeRef.current);
+
       if (ultimateActiveRef.current > 0) {
         ultimateActiveRef.current = Math.max(0, ultimateActiveRef.current - dtScale);
       } else if (ultimateChargeRef.current < ULTIMATE_MAX && activeUnlocksRef.current.includes("ultimate_ulti")) {
@@ -4516,7 +4748,27 @@ export default function Game() {
       if (gs.score > bestScoreRef.current) { bestScoreRef.current = gs.score; saveHighScore(gs.score); }
 
       // ── HUD ──
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2)], activeModeRef.current, runElapsedMsRef.current);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], activeModeRef.current, runElapsedMsRef.current);
+      {
+        const crate = weaponCrateRef.current;
+        const remainingMs = weaponCrateActive
+          ? weaponCrateActiveUntilRef.current - runElapsedMsRef.current
+          : weaponCrateNextActivationRef.current - runElapsedMsRef.current;
+        const seconds = Math.max(0, Math.ceil(remainingMs / 1000));
+        const rarityColor = WEAPON_CRATE_RARITY_COLOR[crate.rarity];
+        ctx.save();
+        ctx.textAlign = "right";
+        ctx.fillStyle = rarityColor;
+        ctx.shadowColor = rarityColor;
+        ctx.shadowBlur = weaponCrateActive ? 12 : 4;
+        ctx.font = "900 12px 'Inter', sans-serif";
+        ctx.fillText(`${crate.name} · ${crate.rarity.toUpperCase()}`, CANVAS_W - 20, 100);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = weaponCrateActive ? "#ffffff" : "#9fb3c8";
+        ctx.font = "bold 11px 'Inter', sans-serif";
+        ctx.fillText(weaponCrateActive ? `AKTIV · ${seconds}s` : `BEREIT IN ${seconds}s`, CANVAS_W - 20, 116);
+        ctx.restore();
+      }
       const mission = missionRef.current;
       const progress = Math.min(mission.target, missionProgress(mission, runStatsRef.current));
       ctx.save();
@@ -4601,7 +4853,7 @@ export default function Game() {
   };
 
   const handleUltiLoadoutChange = (ids: UltiLoadoutId[]) => {
-    const next = ids.slice(0, 2);
+    const next = ids.slice(0, ULTI_LOADOUT_SLOTS);
     setUltiLoadout(next);
     saveUltiLoadout(next);
     activeUltiLoadoutRef.current = next;
@@ -4640,6 +4892,54 @@ export default function Game() {
     setDroneLevels(next);
     setGems(loadGems());
     droneLevelRef.current = currentLevel + 1;
+    audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
+  };
+
+  const handleWeaponSelect = (id: string) => {
+    const weapon = WEAPONS.find(candidate => candidate.id === id);
+    if (!weapon || (weapon.cost > 0 && !loadUnlocks().includes(`weapon_${id}`))) return;
+    const next = selectedWeapons.includes(id)
+      ? selectedWeapons.length > 1 ? selectedWeapons.filter(weaponId => weaponId !== id) : selectedWeapons
+      : selectedWeapons.length < 2 ? [...selectedWeapons, id] : [selectedWeapons[0], id];
+    saveWeapons(next);
+    setSelectedWeapons(next);
+    activeWeaponsRef.current = next.map(weaponId => WEAPONS.find(candidate => candidate.id === weaponId) ?? WEAPONS[0]);
+  };
+
+  const handleWeaponBuy = (id: string) => {
+    const weapon = WEAPONS.find(candidate => candidate.id === id);
+    if (!weapon || weapon.cost === 0 || !isShopRarityUnlocked(weapon.rarity, getPilotLevelFromKills())) return;
+    const unlockId = `weapon_${id}`;
+    if (loadUnlocks().includes(unlockId)) return;
+    if (weapon.currency === "gems") {
+      if (loadGems() < weapon.cost) return;
+      spendGems(weapon.cost);
+      setGems(loadGems());
+    } else {
+      if (loadCoins() < weapon.cost) return;
+      spendCoins(weapon.cost);
+      setCoins(loadCoins());
+    }
+    addUnlock(unlockId);
+    setUnlockedItems(loadUnlocks());
+    const next = selectedWeapons.length < 2 ? [...selectedWeapons, id] : [selectedWeapons[0], id];
+    saveWeapons(next);
+    setSelectedWeapons(next);
+    activeWeaponsRef.current = next.map(weaponId => WEAPONS.find(candidate => candidate.id === weaponId) ?? WEAPONS[0]);
+  };
+
+  const handleWeaponUpgrade = (id: string) => {
+    const weapon = WEAPONS.find(candidate => candidate.id === id);
+    const owned = weapon?.cost === 0 || loadUnlocks().includes(`weapon_${id}`);
+    const currentLevel = weaponLevels[id] ?? 1;
+    const cost = getWeaponUpgradeCost(currentLevel);
+    if (!weapon || !owned || cost === null || loadGems() < cost) return;
+    spendGems(cost);
+    const next = { ...weaponLevels, [id]: currentLevel + 1 };
+    saveWeaponLevels(next);
+    setWeaponLevels(next);
+    setGems(loadGems());
+    weaponLevelsRef.current = next;
     audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
   };
 
@@ -4747,7 +5047,7 @@ export default function Game() {
           </div>
         )}
         {displayState.started && !displayState.gameOver && (
-          <div className="absolute top-[54px] right-2 z-10 flex gap-1.5">
+          <div className="absolute top-[90px] right-2 z-10 flex gap-1.5">
             {fullscreenSupported && (
               <button
                 onClick={toggleFullscreen}
@@ -4774,6 +5074,7 @@ export default function Game() {
             selectedSkin={selectedSkin}
             ultiLoadout={ultiLoadout}
             selectedDroneSkin={selectedDroneSkin}
+            selectedWeapons={selectedWeapons}
             selectedGameMode={selectedGameMode}
             coins={coins}
             gems={gems}
@@ -4781,6 +5082,7 @@ export default function Game() {
             unlockedItems={unlockedItems}
             aircraftLevels={aircraftLevels}
             droneLevels={droneLevels}
+            weaponLevels={weaponLevels}
             hasSave={saveExistsRef.current}
             saveData={saveExistsRef.current ? loadSave() : null}
             onStart={() => startGame(saveExistsRef.current)}
@@ -4794,6 +5096,9 @@ export default function Game() {
             onUnlockDroneSkin={handleUnlockDroneSkin}
             onAircraftUpgrade={handleAircraftUpgrade}
             onDroneUpgrade={handleDroneUpgrade}
+            onWeaponSelect={handleWeaponSelect}
+            onWeaponBuy={handleWeaponBuy}
+            onWeaponUpgrade={handleWeaponUpgrade}
             onDailyChestClaim={handleDailyChestClaim}
             fullscreenSupported={fullscreenSupported}
             isFullscreen={isFullscreen}
@@ -4862,7 +5167,7 @@ export default function Game() {
       </div>
       {displayState.started && !displayState.gameOver && (
         <div className="mt-2 text-xs text-gray-600 tracking-wider hidden sm:block">
-          {formatKeyCode(settings.keyBindings.up)}{formatKeyCode(settings.keyBindings.left)}{formatKeyCode(settings.keyBindings.down)}{formatKeyCode(settings.keyBindings.right)} — Bewegen · {settings.autoFire ? "AUTO-FIRE" : `${formatKeyCode(settings.keyBindings.fire)} — Schuss`} · {formatKeyCode(settings.keyBindings.ability1)}/{formatKeyCode(settings.keyBindings.ability2)} — Fähigkeiten · ESC — Pause
+          {formatKeyCode(settings.keyBindings.up)}{formatKeyCode(settings.keyBindings.left)}{formatKeyCode(settings.keyBindings.down)}{formatKeyCode(settings.keyBindings.right)} — Bewegen · {settings.autoFire ? "AUTO-FIRE" : `${formatKeyCode(settings.keyBindings.fire)} — Schuss`} · {formatKeyCode(settings.keyBindings.ability1)}/{formatKeyCode(settings.keyBindings.ability2)}/{formatKeyCode(settings.keyBindings.ability3)} — Fähigkeiten · ESC — Pause
         </div>
       )}
     </div>
@@ -4872,19 +5177,23 @@ export default function Game() {
 // ─── Hangar Overlay ───────────────────────────────────────────────────────────
 
 function HangarOverlay({
-  selectedSkin, ultiLoadout, selectedDroneSkin, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, hasSave, saveData,
-  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
+  selectedSkin, ultiLoadout, selectedDroneSkin, selectedWeapons, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
+  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
-  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
+  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedWeapons: string[]; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
+  weaponLevels: Record<string, number>;
   unlockedItems: string[]; hasSave: boolean; saveData: { level: number; score: number; weaponTier: number } | null;
   onStart: () => void; onNewGame: () => void;
   onGameModeChange: (mode: GameMode) => void;
   onSkinSelect: (id: string) => void; onUltiLoadoutChange: (ids: UltiLoadoutId[]) => void; onDroneSkinSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void; onUnlockDroneSkin: (id: string) => void;
   onAircraftUpgrade: () => void;
   onDroneUpgrade: () => void;
+  onWeaponSelect: (id: string) => void;
+  onWeaponBuy: (id: string) => void;
+  onWeaponUpgrade: (id: string) => void;
   onDailyChestClaim: () => number | null;
   onAdminActivate: () => void;
   fullscreenSupported: boolean; isFullscreen: boolean; onFullscreenToggle: () => void;
@@ -4934,9 +5243,9 @@ function HangarOverlay({
   if (view === "upgrades") {
     return (
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
-        <ShopScreen coins={coins} gems={gems} playerLevel={getPilotLevelFromKills()} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} selectedSkin={selectedSkin} ultiLoadout={ultiLoadout} selectedDroneSkin={selectedDroneSkin}
+        <ShopScreen coins={coins} gems={gems} playerLevel={getPilotLevelFromKills()} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} weaponLevels={weaponLevels} selectedSkin={selectedSkin} ultiLoadout={ultiLoadout} selectedDroneSkin={selectedDroneSkin} selectedWeapons={selectedWeapons}
           onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect}
-          onUltiLoadoutChange={onUltiLoadoutChange} onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} onDailyChestClaim={onDailyChestClaim} />
+          onUltiLoadoutChange={onUltiLoadoutChange} onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} onWeaponSelect={onWeaponSelect} onWeaponBuy={onWeaponBuy} onWeaponUpgrade={onWeaponUpgrade} onDailyChestClaim={onDailyChestClaim} />
       </div>
     );
   }
@@ -5215,16 +5524,20 @@ function ShopStarfield() {
   );
 }
 
-function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, selectedSkin, ultiLoadout, selectedDroneSkin, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim }: {
-  coins: number; gems: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string;
+function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, weaponLevels, selectedSkin, ultiLoadout, selectedDroneSkin, selectedWeapons, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onAircraftUpgrade, onDroneUpgrade, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onDailyChestClaim }: {
+  coins: number; gems: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedWeapons: string[];
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
+  weaponLevels: Record<string, number>;
   onBack: () => void; onBuy: (id: string) => void;
   onUnlockSkin: (id: string) => void; onSkinSelect: (id: string) => void;
   onUltiLoadoutChange: (ids: UltiLoadoutId[]) => void;
   onUnlockDroneSkin: (id: string) => void; onDroneSkinSelect: (id: string) => void;
   onAircraftUpgrade: () => void;
   onDroneUpgrade: () => void;
+  onWeaponSelect: (id: string) => void;
+  onWeaponBuy: (id: string) => void;
+  onWeaponUpgrade: (id: string) => void;
   onDailyChestClaim: () => number | null;
 }) {
   const [dailyChestAvailable, setDailyChestAvailable] = useState(() => canClaimDailyChest());
@@ -5358,6 +5671,60 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
         })}
       </div>
 
+      <div className="relative z-10">
+        <div className="text-xs font-black uppercase tracking-[.2em] text-rose-300">Waffenarsenal</div>
+        <div className="mt-1 text-xs text-slate-400">Kaufe Waffen mit Credits oder Juwelen, rüste bis zu zwei gleichzeitig aus und verbessere sie bis Level 10.</div>
+        <div className="mt-2 text-[10px] font-black uppercase tracking-wider text-cyan-300">Waffenslots {selectedWeapons.length}/2 belegt</div>
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {WEAPONS.map(weapon => {
+            const owned = weapon.cost === 0 || unlockedItems.includes(`weapon_${weapon.id}`);
+            const active = selectedWeapons.includes(weapon.id);
+            const slot = active ? selectedWeapons.indexOf(weapon.id) + 1 : null;
+            const level = weaponLevels[weapon.id] ?? 1;
+            const stats = getWeaponStats(weapon, level);
+            const upgradeCost = getWeaponUpgradeCost(level);
+            const levelUnlocked = isShopRarityUnlocked(weapon.rarity, playerLevel);
+            const canAfford = weapon.currency === "gems" ? gems >= weapon.cost : coins >= weapon.cost;
+            const rarity = SHOP_RARITIES[weapon.rarity];
+            const buy = () => requestPurchase(weapon.name, weapon.cost, () => onWeaponBuy(weapon.id), weapon.currency);
+            return <div key={weapon.id} className="rounded-2xl p-3" style={{
+              background: active ? `${weapon.color}20` : "rgba(255,255,255,.045)",
+              border: `1px solid ${active ? weapon.color : rarity.color}88`,
+              borderLeft: `5px solid ${rarity.color}`,
+              boxShadow: active ? `0 0 18px ${weapon.color}44` : undefined,
+              opacity: !owned && !levelUnlocked ? .48 : 1,
+            }}>
+              <div className="flex items-start gap-3">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xl font-black" style={{ color: weapon.color, background: `${weapon.color}16`, border: `1px solid ${weapon.color}88`, textShadow: `0 0 9px ${weapon.color}` }}>{weapon.icon}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2"><b>{weapon.name}</b><span className="text-[9px] font-black" style={shopRarityLabelStyle(weapon.rarity)}>{rarity.label}</span></div>
+                  <div className="text-[11px] text-slate-400">{weapon.description}</div>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px]">
+                <span className="rounded bg-black/25 p-1"><b className="block text-white">{stats.damage}</b>Schaden</span>
+                <span className="rounded bg-black/25 p-1"><b className="block text-white">{weapon.guns}</b>Schüsse</span>
+                <span className="rounded bg-black/25 p-1"><b className="block text-white">{Math.round(1000 / stats.fireRate * 10) / 10}/s</b>Feuerrate</span>
+              </div>
+              <div className="mt-2 flex gap-2">
+                {!owned ? (
+                  <button disabled={!levelUnlocked || !canAfford} onClick={buy} className="flex-1 rounded-lg border border-amber-400/50 bg-amber-950/50 px-2 py-2 text-xs font-black text-amber-200 disabled:opacity-35">
+                    {!levelUnlocked ? `🔒 Level ${SHOP_RARITY_MIN_LEVEL[weapon.rarity]}` : `${weapon.currency === "gems" ? "💎" : "💰"} ${weapon.cost.toLocaleString("de-DE")}`}
+                  </button>
+                ) : (
+                  <button onClick={() => onWeaponSelect(weapon.id)} className="flex-1 rounded-lg border border-cyan-400/50 bg-cyan-950/50 px-2 py-2 text-xs font-black text-cyan-200">
+                    {active ? `✓ SLOT ${slot} · ABLEGEN` : selectedWeapons.length < 2 ? "AUSRÜSTEN" : "SLOT 2 ERSETZEN"}
+                  </button>
+                )}
+                {owned && <button disabled={upgradeCost === null || gems < upgradeCost} onClick={() => upgradeCost !== null && requestPurchase(`${weapon.name} auf Level ${level + 1}`, upgradeCost, () => onWeaponUpgrade(weapon.id), "gems")} className="rounded-lg border border-violet-400/50 bg-violet-950/50 px-2 py-2 text-xs font-black text-violet-200 disabled:opacity-35">
+                  {upgradeCost === null ? "MAX" : `LVL ${level} → ${level + 1} · 💎 ${upgradeCost}`}
+                </button>}
+              </div>
+            </div>;
+          })}
+        </div>
+      </div>
+
       <div className="relative z-10 rounded-2xl border border-cyan-400/35 bg-cyan-950/20 p-4">
         <div className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-300">Schussfarben</div>
         <div className="mt-1 text-xs text-slate-400">Wähle deine aktive Farbe. Jede zusätzliche Farbe kostet 5.000 Credits.</div>
@@ -5474,7 +5841,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
       </div>
 
       <div className="relative z-10 flex items-center justify-between text-slate-400 text-xs uppercase tracking-widest mt-1">
-        <span>Ulti-Loadout</span><span className="text-violet-300">{ultiLoadout.length}/2 belegt</span>
+        <span>Ulti-Loadout</span><span className="text-violet-300">{ultiLoadout.length}/{ULTI_LOADOUT_SLOTS} belegt</span>
       </div>
       <div className="relative z-10 rounded-2xl border border-violet-400/40 bg-violet-950/20 p-3">
         <div className="mb-2 text-[10px] text-slate-400">Entferne Ultis, ändere ihre Reihenfolge oder setze neu gekaufte Ultis ein.</div>
@@ -5489,7 +5856,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
               <button onClick={() => onUltiLoadoutChange(ultiLoadout.filter(item => item !== id))} className="rounded px-2 py-1 text-red-300" aria-label={`${option.name} entfernen`}>✕</button>
             </div>;
           })}
-          {Array.from({ length: 2 - ultiLoadout.length }, (_, index) => (
+          {Array.from({ length: ULTI_LOADOUT_SLOTS - ultiLoadout.length }, (_, index) => (
             <div key={`empty-${index}`} className="flex items-center gap-2 rounded-xl border border-dashed border-slate-600/70 bg-black/10 p-2 text-slate-500">
               <span className="w-12 text-xs font-black">SLOT {ultiLoadout.length + index + 1}</span>
               <span className="flex-1 text-sm">Leer</span>
@@ -5498,7 +5865,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {ULTI_LOADOUT_OPTIONS.filter(option => (!option.requires || unlockedItems.includes(option.requires)) && !ultiLoadout.includes(option.id)).map(option =>
-            <button key={option.id} onClick={() => onUltiLoadoutChange([...ultiLoadout, option.id])} disabled={ultiLoadout.length >= 2} className="rounded-lg border border-cyan-500/40 bg-cyan-950/40 px-3 py-2 text-xs font-bold text-cyan-200 disabled:opacity-30">+ {option.name}</button>
+            <button key={option.id} onClick={() => onUltiLoadoutChange([...ultiLoadout, option.id])} disabled={ultiLoadout.length >= ULTI_LOADOUT_SLOTS} className="rounded-lg border border-cyan-500/40 bg-cyan-950/40 px-3 py-2 text-xs font-bold text-cyan-200 disabled:opacity-30">+ {option.name}</button>
           )}
         </div>
       </div>
@@ -5776,11 +6143,12 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
         <KeyBindingSetting label="Pause" value={settings.keyBindings.pause} onChange={value => updateBinding("pause", value)} />
         <KeyBindingSetting label="Fähigkeit 1" value={settings.keyBindings.ability1} onChange={value => updateBinding("ability1", value)} />
         <KeyBindingSetting label="Fähigkeit 2" value={settings.keyBindings.ability2} onChange={value => updateBinding("ability2", value)} />
+        <KeyBindingSetting label="Fähigkeit 3" value={settings.keyBindings.ability3} onChange={value => updateBinding("ability3", value)} />
       </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Gamepad & Touch</div>
       <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-sm text-slate-300">
-        <div><strong className="text-white">Gamepad:</strong> linker Stick bewegt, A/RT feuert, LB/RB nutzt Fähigkeit 1/2, Menü pausiert.</div>
-        <div className="mt-1"><strong className="text-white">Touch:</strong> links ziehen zum Bewegen; die zwei großen Fähigkeitsknöpfe rechts antippen.</div>
+        <div><strong className="text-white">Gamepad:</strong> linker Stick bewegt, A/RT feuert, LB/RB/LT nutzt Fähigkeit 1/2/3, Menü pausiert.</div>
+        <div className="mt-1"><strong className="text-white">Touch:</strong> links ziehen zum Bewegen; die drei großen Fähigkeitsknöpfe rechts antippen.</div>
       </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">{translated(language, "Piloten-Name", "Pilot name")}</div>
       <div className="flex items-center gap-2">
@@ -6189,7 +6557,7 @@ function drawVirtualControls(
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string], mode: GameMode, elapsedMs: number) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string, string], mode: GameMode, elapsedMs: number) {
   ctx.save();
   ctx.textBaseline = "top";
 
