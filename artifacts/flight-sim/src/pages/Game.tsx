@@ -234,7 +234,11 @@ const LASER_DEVICE_BEAM_WIDTH = 12;
 const WEAPON_CRATE_INTERVAL_MS = 20_000;
 const WEAPON_CRATE_DURATION_MS = 5_000;
 const PROTECT_PACKAGE_MAX_HP = 100;
-const PROTECT_PACKAGE = { x: 155, y: CANVAS_H / 2 - 34, width: 58, height: 68 } as const;
+const PROTECT_PACKAGE_WIDTH = 72;
+const PROTECT_PACKAGE_HEIGHT = 42;
+const PROTECT_PACKAGE_MIN_Y = 115;
+const PROTECT_PACKAGE_MAX_Y = CANVAS_H - 115 - PROTECT_PACKAGE_HEIGHT;
+const PROTECT_PACKAGE_FIRE_INTERVAL_MS = 5_000;
 const WEAPON_CRATES: readonly WeaponCrateDefinition[] = [
   { id: "falcon-rockets", name: "Falken-Raketen", rarity: "selten", kind: "rockets", color: "#60a5fa", fireRate: 720, damage: 9 },
   { id: "nova-laser", name: "Nova-Laser", rarity: "episch", kind: "laser", color: "#d946ef", fireRate: 105, damage: 3.2 },
@@ -246,38 +250,73 @@ const WEAPON_CRATE_RARITY_COLOR: Record<WeaponCrateRarity, string> = {
   legendär: "#fbbf24",
 };
 
-function drawProtectPackage(ctx: CanvasRenderingContext2D, hp: number, time: number) {
-  const { x, y, width, height } = PROTECT_PACKAGE;
+function drawProtectPackage(ctx: CanvasRenderingContext2D, position: Vec2, hp: number, time: number) {
+  const { x, y } = position;
+  const width = PROTECT_PACKAGE_WIDTH;
+  const height = PROTECT_PACKAGE_HEIGHT;
   const ratio = Math.max(0, hp / PROTECT_PACKAGE_MAX_HP);
   ctx.save();
-  ctx.shadowColor = ratio > .35 ? "#38bdf8" : "#ff3344";
-  ctx.shadowBlur = 12 + Math.sin(time * .12) * 3;
-  ctx.fillStyle = "#16243a";
-  ctx.strokeStyle = ratio > .35 ? "#7dd3fc" : "#ff6677";
-  ctx.lineWidth = 3;
+  const glow = ratio > .35 ? "#38bdf8" : "#ff3344";
+  ctx.shadowColor = glow;
+  ctx.shadowBlur = 15 + Math.sin(time * .12) * 4;
+
+  // Animated twin engines.
+  for (const engineY of [y + 9, y + height - 9]) {
+    const flame = 12 + Math.sin(time * .35 + engineY) * 4;
+    const exhaust = ctx.createLinearGradient(x - flame, 0, x + 8, 0);
+    exhaust.addColorStop(0, "#38bdf800");
+    exhaust.addColorStop(.55, "#38bdf8aa");
+    exhaust.addColorStop(1, "#ffffff");
+    ctx.fillStyle = exhaust;
+    ctx.beginPath();
+    ctx.moveTo(x + 7, engineY - 4); ctx.lineTo(x - flame, engineY);
+    ctx.lineTo(x + 7, engineY + 4); ctx.closePath(); ctx.fill();
+  }
+
+  // Armoured transport-drone silhouette.
+  const hull = ctx.createLinearGradient(x, y, x + width, y + height);
+  hull.addColorStop(0, "#334b68");
+  hull.addColorStop(.48, "#17283f");
+  hull.addColorStop(1, "#0b1424");
+  ctx.fillStyle = hull;
+  ctx.strokeStyle = glow;
+  ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.roundRect(x, y, width, height, 7);
+  ctx.moveTo(x + 7, y + 5);
+  ctx.lineTo(x + width - 19, y + 2);
+  ctx.lineTo(x + width, y + height / 2);
+  ctx.lineTo(x + width - 19, y + height - 2);
+  ctx.lineTo(x + 7, y + height - 5);
+  ctx.lineTo(x, y + height / 2);
+  ctx.closePath();
   ctx.fill(); ctx.stroke();
   ctx.shadowBlur = 0;
-  ctx.strokeStyle = "#94a3b8";
+
+  // Cargo core, cockpit and targeting cannon.
+  ctx.fillStyle = "#c08b2d";
+  ctx.strokeStyle = "#fbbf24";
   ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(x + 8, y + 8); ctx.lineTo(x + width - 8, y + height - 8);
-  ctx.moveTo(x + width - 8, y + 8); ctx.lineTo(x + 8, y + height - 8);
-  ctx.stroke();
-  ctx.fillStyle = "#fbbf24";
-  ctx.fillRect(x + width / 2 - 6, y - 5, 12, height + 10);
+  ctx.beginPath(); ctx.roundRect(x + 16, y + 8, 27, height - 16, 4); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#67e8f9";
+  ctx.beginPath(); ctx.moveTo(x + 48, y + 9); ctx.lineTo(x + 61, y + height / 2);
+  ctx.lineTo(x + 48, y + height - 9); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#dbeafe";
+  ctx.fillRect(x + width - 2, y + height / 2 - 2, 12, 4);
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(x + 8, y + 9, 2.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x + 8, y + height - 9, 2.5, 0, Math.PI * 2); ctx.fill();
+
   ctx.textAlign = "center";
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "900 10px 'Inter', sans-serif";
-  ctx.fillText("PAKET", x + width / 2, y + height / 2 - 5);
+  ctx.fillStyle = "#fff7d6";
+  ctx.font = "900 8px 'Inter', sans-serif";
+  ctx.fillText("CARGO", x + 29.5, y + height / 2 - 4);
   ctx.fillStyle = "#101827";
-  ctx.fillRect(x - 5, y + height + 10, width + 10, 7);
+  ctx.fillRect(x - 2, y + height + 9, width + 14, 7);
   ctx.fillStyle = ratio > .35 ? "#22c55e" : "#ef4444";
-  ctx.fillRect(x - 5, y + height + 10, (width + 10) * ratio, 7);
+  ctx.fillRect(x - 2, y + height + 9, (width + 14) * ratio, 7);
   ctx.fillStyle = "#ffffff";
   ctx.font = "bold 10px 'Inter', sans-serif";
-  ctx.fillText(`${Math.ceil(hp)} HP`, x + width / 2, y + height + 22);
+  ctx.fillText(`SCHUTZZIEL · ${Math.ceil(hp)} HP`, x + width / 2, y + height + 20);
   ctx.restore();
 }
 
@@ -526,7 +565,9 @@ function loadSave(): SaveData | null {
       ? Object.fromEntries(
           Object.keys(EMPTY_RUN_UPGRADES).map(id => [
             id,
-            Math.max(0, Math.floor(finiteNumber(savedRunUpgrades[id]) ?? 0)),
+            id === "extra_life"
+              ? Math.min(1, Math.max(0, Math.floor(finiteNumber(savedRunUpgrades[id]) ?? 0)))
+              : Math.max(0, Math.floor(finiteNumber(savedRunUpgrades[id]) ?? 0)),
           ]),
         ) as Record<RunUpgradeId, number>
       : undefined;
@@ -2098,6 +2139,8 @@ export default function Game() {
   const runElapsedMsRef = useRef(0);
   const protectPackageHpRef = useRef(PROTECT_PACKAGE_MAX_HP);
   const protectPackageHitCooldownRef = useRef(0);
+  const protectPackageRef = useRef({ x: 150, y: CANVAS_H / 2 - PROTECT_PACKAGE_HEIGHT / 2, direction: 1 });
+  const protectPackageLastFireRef = useRef(0);
   const bossRushSpawnTimerRef = useRef(0);
   const displaySyncTimerRef = useRef(0);
   const shieldTimerRef = useRef(0);
@@ -2315,6 +2358,7 @@ export default function Game() {
   }, [syncDisplay]);
 
   const chooseRunUpgrade = useCallback((upgrade: RunUpgrade) => {
+    if (upgrade.id === "extra_life" && runUpgradesRef.current.extra_life >= 1) return;
     runUpgradesRef.current[upgrade.id] += 1;
     if (upgrade.id === "max_hp") { stateRef.current.maxHp += 3; stateRef.current.hp = stateRef.current.maxHp; }
     if (upgrade.id === "shield") { shieldTimerRef.current = 600; playerShieldHpRef.current = PLAYER_SHIELD_HP + runUpgradesRef.current.shield_matrix * 2; }
@@ -2834,6 +2878,8 @@ export default function Game() {
     runElapsedMsRef.current = 0;
     protectPackageHpRef.current = PROTECT_PACKAGE_MAX_HP;
     protectPackageHitCooldownRef.current = 0;
+    protectPackageRef.current = { x: 150, y: CANVAS_H / 2 - PROTECT_PACKAGE_HEIGHT / 2, direction: 1 };
+    protectPackageLastFireRef.current = 0;
     bossRushSpawnTimerRef.current = 0;
     runResultRef.current = "game_over";
     rewardGrantedRef.current = false;
@@ -3464,6 +3510,48 @@ export default function Game() {
         return;
       }
 
+      if (activeModeRef.current === "protect") {
+        const escort = protectPackageRef.current;
+        escort.y += escort.direction * 1.15 * dtScale;
+        if (escort.y <= PROTECT_PACKAGE_MIN_Y) {
+          escort.y = PROTECT_PACKAGE_MIN_Y;
+          escort.direction = 1;
+        } else if (escort.y >= PROTECT_PACKAGE_MAX_Y) {
+          escort.y = PROTECT_PACKAGE_MAX_Y;
+          escort.direction = -1;
+        }
+
+        if (runElapsedMsRef.current - protectPackageLastFireRef.current >= PROTECT_PACKAGE_FIRE_INTERVAL_MS) {
+          const originX = escort.x + PROTECT_PACKAGE_WIDTH + 10;
+          const originY = escort.y + PROTECT_PACKAGE_HEIGHT / 2;
+          const target = enemiesRef.current
+            .filter(enemy => !enemy.dead && enemy.hp > 0)
+            .sort((a, b) =>
+              Math.hypot(a.x - originX, a.y + a.height / 2 - originY) -
+              Math.hypot(b.x - originX, b.y + b.height / 2 - originY))[0];
+          if (target) {
+            const targetX = target.x + target.width / 2;
+            const targetY = target.y + target.height / 2;
+            const angle = Math.atan2(targetY - originY, targetX - originX);
+            bulletsRef.current.push({
+              x: originX,
+              y: originY,
+              vx: Math.cos(angle) * 12,
+              vy: Math.sin(angle) * 12,
+              fromPlayer: true,
+              damage: 14,
+              color: "#67e8f9",
+              weaponId: "escort-cannon",
+            });
+            protectPackageLastFireRef.current = runElapsedMsRef.current;
+            audioRef.current.tone(680, .13, settingsRef.current.soundVolume * .32, "square");
+            floatingTextsRef.current.push({
+              x: originX, y: originY - 12, text: "ZIEL ERFASST", color: "#67e8f9", life: 45, maxLife: 45,
+            });
+          }
+        }
+      }
+
       audioRef.current.updateMusic(gs.level, settingsRef.current.musicVolume, dtScale);
 
       if (screenShakeRef.current > 0 && !settingsRef.current.reducedMotion) {
@@ -3578,7 +3666,10 @@ export default function Game() {
           saveExistsRef.current = true;
         }
         if (nextLevel >= 3 && nextLevel % 3 === 0 && upgradeLevelRef.current !== nextLevel) {
-          const choices = [...RUN_UPGRADES].sort(() => Math.random() - 0.5).slice(0, 3);
+          const availableUpgrades = runUpgradesRef.current.extra_life >= 1
+            ? RUN_UPGRADES.filter(upgrade => upgrade.id !== "extra_life")
+            : RUN_UPGRADES;
+          const choices = [...availableUpgrades].sort(() => Math.random() - 0.5).slice(0, 3);
           setRunUpgradeChoices(choices); gs.paused = true; syncDisplay();
         }
       }
@@ -4215,13 +4306,13 @@ export default function Game() {
 
         // In Beschützen mode, enemies that reach the package damage the objective.
         if (activeModeRef.current === "protect" && protectPackageHitCooldownRef.current <= 0 &&
-            rectHit(PROTECT_PACKAGE.x, PROTECT_PACKAGE.y, PROTECT_PACKAGE.width, PROTECT_PACKAGE.height,
+            rectHit(protectPackageRef.current.x, protectPackageRef.current.y, PROTECT_PACKAGE_WIDTH, PROTECT_PACKAGE_HEIGHT,
               e.x, e.y, e.width, e.height)) {
           const packageDamage = isBossEnemy(e) ? 25 : e.type === "bomber" ? 18 : 12;
           protectPackageHpRef.current = Math.max(0, protectPackageHpRef.current - packageDamage);
           protectPackageHitCooldownRef.current = 24;
-          spawnExplosion(particlesRef.current, PROTECT_PACKAGE.x + PROTECT_PACKAGE.width / 2,
-            PROTECT_PACKAGE.y + PROTECT_PACKAGE.height / 2, false);
+          spawnExplosion(particlesRef.current, protectPackageRef.current.x + PROTECT_PACKAGE_WIDTH / 2,
+            protectPackageRef.current.y + PROTECT_PACKAGE_HEIGHT / 2, false);
           audioRef.current.effect("hit", settingsRef.current.soundVolume);
           e.dead = !isBossEnemy(e);
           if (protectPackageHpRef.current <= 0) {
@@ -4458,7 +4549,8 @@ export default function Game() {
         const bw = 8, bh = 8;
         if (activeModeRef.current === "protect" &&
             rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh,
-              PROTECT_PACKAGE.x, PROTECT_PACKAGE.y, PROTECT_PACKAGE.width, PROTECT_PACKAGE.height)) {
+              protectPackageRef.current.x, protectPackageRef.current.y,
+              PROTECT_PACKAGE_WIDTH, PROTECT_PACKAGE_HEIGHT)) {
           protectPackageHpRef.current = Math.max(0, protectPackageHpRef.current - Math.max(2, b.damage * 2));
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           audioRef.current.effect("hit", settingsRef.current.soundVolume);
@@ -4851,7 +4943,7 @@ export default function Game() {
       if (gs.score > bestScoreRef.current) { bestScoreRef.current = gs.score; saveHighScore(gs.score); }
 
       if (activeModeRef.current === "protect") {
-        drawProtectPackage(ctx, protectPackageHpRef.current, timeRef.current);
+        drawProtectPackage(ctx, protectPackageRef.current, protectPackageHpRef.current, timeRef.current);
       }
 
       // ── HUD ──
