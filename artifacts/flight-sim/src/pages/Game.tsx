@@ -3235,6 +3235,8 @@ export default function Game() {
     initStars();
     initCity();
     const onKey = (e: KeyboardEvent, down: boolean) => {
+      const target = e.target as HTMLElement | null;
+      const isMenuControl = Boolean(target?.closest("button, input, select, textarea, [role='button']"));
       const method = down ? "add" : "delete";
       keysRef.current[method](e.key);
       keysRef.current[method](e.code);
@@ -3254,7 +3256,8 @@ export default function Game() {
         tutorialStageRef.current = 2; setTutorialStage(2);
         window.setTimeout(finishTutorial, 1100);
       }
-      if (down && e.code === bindings.fire && !stateRef.current.started) {
+      if (down && e.code === bindings.fire && !stateRef.current.started && !isMenuControl) {
+        e.preventDefault();
         const shouldContinueClassicSave = saveExistsRef.current && selectedGameMode === "classic";
         startGame(shouldContinueClassicSave, selectedGameMode);
       }
@@ -3364,8 +3367,10 @@ export default function Game() {
       e.preventDefault();
       const gs = stateRef.current;
 
-      // Tap to start / restart
-      if (!gs.started) { startGame(saveExistsRef.current); return; }
+      // The hangar has explicit start buttons. Ignoring canvas taps while the
+      // game is stopped prevents a touch intended for an overlay button from
+      // leaking through and launching a mission.
+      if (!gs.started) return;
       if (gs.gameOver) { startGame(false); return; }
       // Tap to unpause
       if (gs.paused) { gs.paused = false; syncDisplay(); return; }
@@ -5862,6 +5867,17 @@ function HangarOverlay({
         />
       </div>
 
+      <button
+        type="button"
+        onPointerDown={event => event.stopPropagation()}
+        onTouchStart={event => event.stopPropagation()}
+        onClick={event => { event.preventDefault(); event.stopPropagation(); setView("workshop"); }}
+        className="relative z-30 min-h-11 w-full max-w-md shrink-0 touch-manipulation rounded-xl px-4 py-2 text-sm font-black tracking-wide transition active:scale-95"
+        style={{ background: "linear-gradient(90deg, rgba(8,145,178,.45), rgba(109,40,217,.45))", border: "2px solid #67e8f9", color: "#cffafe", pointerEvents: "auto" }}
+      >
+        🔧 BAUKASTEN ÖFFNEN
+      </button>
+
       {/* ── Jet preview ── */}
       <div className="hangar-preview flex flex-col items-center gap-2">
         <div className="text-xs text-slate-500 uppercase tracking-widest">{translated(language, "Dein Jet", "Your jet")}</div>
@@ -5949,12 +5965,6 @@ function HangarOverlay({
           </div>
         )}
       </div>
-
-      <button onClick={() => setView("workshop")}
-        className="w-full max-w-md rounded-xl px-4 py-2 text-sm font-black tracking-wide transition active:scale-95"
-        style={{ background: "linear-gradient(90deg, rgba(8,145,178,.25), rgba(109,40,217,.25))", border: "1px solid #67e8f9", color: "#cffafe" }}>
-        🔧 BAUKASTEN · {(WING_MODULES.find(module => module.id === aircraftBuild.wing) ?? WING_MODULES[0]).name} · {DRONE_ROLES.find(role => role.id === droneRole)?.name}
-      </button>
 
       {/* ── Game mode selection ── */}
       <div className="w-full">
