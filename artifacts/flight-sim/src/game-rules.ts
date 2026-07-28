@@ -56,7 +56,7 @@ export function selectEnemyVariant(
   if (specialistRoll < .16) {
     return variantRoll < .36 ? "healer" : variantRoll < .7 ? "shield" : "kamikaze";
   }
-  if (eliteRoll < .10) {
+  if (level >= 50 && eliteRoll < .10) {
     return variantRoll < .34 ? "armored" : variantRoll < .67 ? "swift" : "frenzied";
   }
   return null;

@@ -577,6 +577,15 @@ function loadSave(): SaveData | null {
           engine: ENGINE_MODULES.some(module => module.id === rawAircraftBuild.engine)
             ? rawAircraftBuild.engine as EngineModuleId
             : "ion",
+          bodySkin: typeof rawAircraftBuild.bodySkin === "string" && JET_SKINS.some(skin => skin.id === rawAircraftBuild.bodySkin)
+            ? rawAircraftBuild.bodySkin
+            : loadSkin(),
+          wingSkin: typeof rawAircraftBuild.wingSkin === "string" && JET_SKINS.some(skin => skin.id === rawAircraftBuild.wingSkin)
+            ? rawAircraftBuild.wingSkin
+            : loadSkin(),
+          engineSkin: typeof rawAircraftBuild.engineSkin === "string" && JET_SKINS.some(skin => skin.id === rawAircraftBuild.engineSkin)
+            ? rawAircraftBuild.engineSkin
+            : loadSkin(),
         }
       : undefined;
     const runUpgrades = savedRunUpgrades
@@ -664,10 +673,33 @@ type DroneSkin = typeof DRONE_SKINS[number];
 type WingModuleId = "balanced" | "striker" | "bulwark";
 type EngineModuleId = "ion" | "afterburner" | "phase";
 type DroneRoleId = "assault" | "guardian" | "repair" | "collector";
-interface AircraftBuild { wing: WingModuleId; engine: EngineModuleId }
+type DroneWeaponId = "pulse" | "rockets" | "ion_spread";
+interface DroneWeaponDefinition {
+  id: DroneWeaponId;
+  icon: string;
+  name: string;
+  description: string;
+  fireRate: number;
+  damageMultiplier: number;
+  color: string;
+}
+interface AircraftBuild {
+  wing: WingModuleId;
+  engine: EngineModuleId;
+  bodySkin: string;
+  wingSkin: string;
+  engineSkin: string;
+}
+interface DroneBuild {
+  bodySkin: string;
+  coreSkin: string;
+  weaponSkin: string;
+}
 
 const AIRCRAFT_BUILD_KEY = "fighter-command-aircraft-build";
 const DRONE_ROLE_KEY = "fighter-command-drone-role";
+const DRONE_WEAPON_KEY = "fighter-command-drone-weapon";
+const DRONE_BUILD_KEY = "fighter-command-drone-build";
 const WING_MODULES: readonly { id: WingModuleId; icon: string; name: string; description: string; hp: number; damage: number; fireRate: number }[] = [
   { id: "balanced", icon: "◇", name: "Aegis-Flügel", description: "Ausgewogen und ohne Nachteile.", hp: 0, damage: 0, fireRate: 1 },
   { id: "striker", icon: "≫", name: "Jäger-Flügel", description: "+25 % Schaden, aber −2 maximale HP.", hp: -2, damage: .25, fireRate: 1 },
@@ -684,15 +716,28 @@ const DRONE_ROLES: readonly { id: DroneRoleId; icon: string; name: string; descr
   { id: "repair", icon: "✚", name: "Sanitäter", description: "Repariert alle 12 Sekunden einen HP." },
   { id: "collector", icon: "◆", name: "Sammler", description: "Zielsuchende Schüsse und 25 % mehr Credits aus Ereignissen." },
 ] as const;
+const DRONE_WEAPONS: readonly DroneWeaponDefinition[] = [
+  { id: "pulse", icon: "•", name: "Impulskanone", description: "Schnelle, präzise Standardschüsse.", fireRate: 1, damageMultiplier: 1, color: "#b86cff" },
+  { id: "rockets", icon: "➤", name: "Mikro-Raketen", description: "Langsame Lenkraketen mit hohem Einzelschaden.", fireRate: 1.8, damageMultiplier: 2.4, color: "#fb923c" },
+  { id: "ion_spread", icon: "ϟ", name: "Ionenstreuer", description: "Drei Energieschüsse decken einen breiten Bereich ab.", fireRate: 1.35, damageMultiplier: .72, color: "#22d3ee" },
+] as const;
 
 function loadAircraftBuild(): AircraftBuild {
   try {
     const parsed = JSON.parse(localStorage.getItem(AIRCRAFT_BUILD_KEY) ?? "{}") as Partial<AircraftBuild>;
+    const fallbackSkin = loadSkin();
+    const validSkin = (id: unknown) => typeof id === "string" && JET_SKINS.some(skin => skin.id === id) ? id : fallbackSkin;
     return {
       wing: WING_MODULES.some(module => module.id === parsed.wing) ? parsed.wing! : "balanced",
       engine: ENGINE_MODULES.some(module => module.id === parsed.engine) ? parsed.engine! : "ion",
+      bodySkin: validSkin(parsed.bodySkin),
+      wingSkin: validSkin(parsed.wingSkin),
+      engineSkin: validSkin(parsed.engineSkin),
     };
-  } catch { return { wing: "balanced", engine: "ion" }; }
+  } catch {
+    const fallbackSkin = loadSkin();
+    return { wing: "balanced", engine: "ion", bodySkin: fallbackSkin, wingSkin: fallbackSkin, engineSkin: fallbackSkin };
+  }
 }
 function saveAircraftBuild(build: AircraftBuild) { try { localStorage.setItem(AIRCRAFT_BUILD_KEY, JSON.stringify(build)); } catch {} }
 function loadDroneRole(): DroneRoleId {
@@ -702,6 +747,22 @@ function loadDroneRole(): DroneRoleId {
   } catch { return "assault"; }
 }
 function saveDroneRole(role: DroneRoleId) { try { localStorage.setItem(DRONE_ROLE_KEY, role); } catch {} }
+function loadDroneWeapon(): DroneWeaponId {
+  try {
+    const saved = localStorage.getItem(DRONE_WEAPON_KEY) as DroneWeaponId | null;
+    return DRONE_WEAPONS.some(weapon => weapon.id === saved) ? saved! : "pulse";
+  } catch { return "pulse"; }
+}
+function saveDroneWeapon(weapon: DroneWeaponId) { try { localStorage.setItem(DRONE_WEAPON_KEY, weapon); } catch {} }
+function loadDroneBuild(): DroneBuild {
+  const fallback = loadDroneSkin();
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DRONE_BUILD_KEY) ?? "{}") as Partial<DroneBuild>;
+    const valid = (id: unknown) => typeof id === "string" && DRONE_SKINS.some(skin => skin.id === id) ? id : fallback;
+    return { bodySkin: valid(parsed.bodySkin), coreSkin: valid(parsed.coreSkin), weaponSkin: valid(parsed.weaponSkin) };
+  } catch { return { bodySkin: fallback, coreSkin: fallback, weaponSkin: fallback }; }
+}
+function saveDroneBuild(build: DroneBuild) { try { localStorage.setItem(DRONE_BUILD_KEY, JSON.stringify(build)); } catch {} }
 
 interface ShopItem {
   id: string;
@@ -1408,6 +1469,116 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
     ctx.fill();
   }
 
+  ctx.restore();
+}
+
+function JetShopImage({ skin, aircraftLevel }: { skin: JetSkin; aircraftLevel: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const width = 140;
+    const height = 82;
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = width * pixelRatio;
+    canvas.height = height * pixelRatio;
+    ctx.scale(pixelRatio, pixelRatio);
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.save();
+    ctx.translate(width / 2, height / 2);
+    ctx.scale(1.25, 1.25);
+    ctx.translate(-width / 2, -height / 2);
+    drawPlayerJet(
+      ctx,
+      width / 2 - PLAYER_W / 2,
+      height / 2 - PLAYER_H / 2,
+      1,
+      false,
+      skin,
+      undefined,
+      aircraftLevel,
+    );
+    ctx.restore();
+  }, [aircraftLevel, skin]);
+
+  return (
+    <div
+      className="flex h-20 w-full items-center justify-center overflow-hidden rounded-lg border"
+      style={{
+        background: `radial-gradient(circle at center, ${skin.glow}22 0%, rgba(2,6,23,.82) 72%)`,
+        borderColor: `${skin.glow}44`,
+      }}
+    >
+      <canvas
+        ref={canvasRef}
+        className="h-full w-auto max-w-full"
+        role="img"
+        aria-label={`${skin.name} Flugzeug`}
+      />
+    </div>
+  );
+}
+
+function drawCombinedPlayerJet(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  tier: number,
+  shieldActive: boolean,
+  build: AircraftBuild,
+  fallbackSkin: JetSkin,
+  shieldColor?: string,
+  aircraftLevel = 1,
+) {
+  const bodySkin = JET_SKINS.find(skin => skin.id === build.bodySkin) ?? fallbackSkin;
+  const wingSkin = JET_SKINS.find(skin => skin.id === build.wingSkin) ?? fallbackSkin;
+  const engineSkin = JET_SKINS.find(skin => skin.id === build.engineSkin) ?? fallbackSkin;
+  drawPlayerJet(ctx, x, y, tier, shieldActive, bodySkin, shieldColor, aircraftLevel);
+
+  ctx.save();
+  ctx.translate(x + PLAYER_W / 2, y + PLAYER_H / 2);
+  ctx.shadowColor = wingSkin.glow;
+  ctx.shadowBlur = 7;
+  for (const side of [-1, 1] as const) {
+    ctx.beginPath();
+    ctx.moveTo(5, side * 7);
+    ctx.lineTo(-7, side * 29);
+    ctx.lineTo(-26, side * 23);
+    ctx.lineTo(-19, side * 8);
+    ctx.closePath();
+    ctx.fillStyle = wingSkin.body;
+    ctx.fill();
+    ctx.strokeStyle = wingSkin.stroke;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-5, side * 12);
+    ctx.lineTo(-20, side * 21);
+    ctx.strokeStyle = wingSkin.glow;
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+  }
+
+  ctx.shadowColor = engineSkin.glow;
+  ctx.shadowBlur = 12;
+  for (const side of [-1, 1] as const) {
+    ctx.beginPath();
+    ctx.roundRect(-27, side * 8 - 3, 15, 6, 3);
+    ctx.fillStyle = engineSkin.body;
+    ctx.fill();
+    ctx.strokeStyle = engineSkin.stroke;
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(-28, side * 8, 3, 0, Math.PI * 2);
+    ctx.fillStyle = engineSkin.glow;
+    ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -2133,6 +2304,29 @@ function drawCombatDrone(ctx: CanvasRenderingContext2D, x: number, y: number, ti
   ctx.restore();
 }
 
+function drawCombinedCombatDrone(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, build: DroneBuild, fallback: DroneSkin, level = 1) {
+  const body = DRONE_SKINS.find(skin => skin.id === build.bodySkin) ?? fallback;
+  const core = DRONE_SKINS.find(skin => skin.id === build.coreSkin) ?? fallback;
+  const weapons = DRONE_SKINS.find(skin => skin.id === build.weaponSkin) ?? fallback;
+  drawCombatDrone(ctx, x, y, time, body, level);
+  const tier = Math.min(4, Math.floor((Math.max(1, level) - 1) / 3));
+  const guns = getDroneStats(Math.max(0, level - 1)).guns;
+  ctx.save();
+  ctx.translate(x, y + Math.sin(time * .08) * 4);
+  ctx.shadowColor = core.core; ctx.shadowBlur = 13;
+  ctx.beginPath(); ctx.arc(3, 0, 5 + tier * .7, 0, Math.PI * 2);
+  ctx.fillStyle = core.core; ctx.fill();
+  ctx.strokeStyle = core.stroke; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.shadowColor = weapons.stroke; ctx.shadowBlur = 9;
+  const offsets = guns === 3 ? [-5, 0, 5] : guns === 2 ? [-3.5, 3.5] : [0];
+  offsets.forEach(offset => {
+    ctx.beginPath(); ctx.roundRect(10 + tier, offset - 2, 15 + tier, 4, 2);
+    ctx.fillStyle = weapons.body; ctx.fill();
+    ctx.strokeStyle = weapons.stroke; ctx.lineWidth = 1.3; ctx.stroke();
+  });
+  ctx.restore();
+}
+
 function spawnExplosion(particles: Particle[], x: number, y: number, big: boolean) {
   const count = big ? 40 : 16;
   const colors = ["#ff9900", "#ff4400", "#ffcc00", "#ffffff", "#ff6600"];
@@ -2287,7 +2481,9 @@ export default function Game() {
   const activeUltiSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadSkin()) ?? JET_SKINS[0]);
   const activeDroneSkinRef = useRef<DroneSkin>(DRONE_SKINS.find(s => s.id === loadDroneSkin()) ?? DRONE_SKINS[0]);
   const aircraftBuildRef = useRef<AircraftBuild>(loadAircraftBuild());
+  const droneBuildRef = useRef<DroneBuild>(loadDroneBuild());
   const droneRoleRef = useRef<DroneRoleId>(loadDroneRole());
+  const droneWeaponRef = useRef<DroneWeaponDefinition>(DRONE_WEAPONS.find(weapon => weapon.id === loadDroneWeapon()) ?? DRONE_WEAPONS[0]);
   const droneSupportTimerRef = useRef(0);
   const rareEventTimerRef = useRef(0);
   const nextRareEventRef = useRef(rand(2100, 3300));
@@ -2314,7 +2510,9 @@ export default function Game() {
   const [selectedSkin, setSelectedSkin] = useState(() => loadSkin());
   const [selectedDroneSkin, setSelectedDroneSkin] = useState(() => loadDroneSkin());
   const [aircraftBuild, setAircraftBuild] = useState<AircraftBuild>(() => loadAircraftBuild());
+  const [droneBuild, setDroneBuild] = useState<DroneBuild>(() => loadDroneBuild());
   const [droneRole, setDroneRole] = useState<DroneRoleId>(() => loadDroneRole());
+  const [selectedDroneWeapon, setSelectedDroneWeapon] = useState<DroneWeaponId>(() => loadDroneWeapon());
   const [selectedWeaponCrate, setSelectedWeaponCrate] = useState(() => loadWeaponCrate());
   const [coins, setCoins] = useState(() => loadCoins());
   const [gems, setGems] = useState(() => loadGems());
@@ -2816,7 +3014,8 @@ export default function Game() {
     const droneDamageMultiplier = droneUltiActive
       ? droneUltiId === "drone_omega" ? 4 : droneUltiId === "drone_solar" || droneUltiId === "drone_nova" ? 3 : 2
       : 1;
-    const droneFireRate = 280 * drone.fireRateMultiplier * droneFireMultiplier * (role === "assault" ? .72 : 1);
+    const droneWeapon = droneWeaponRef.current;
+    const droneFireRate = 280 * drone.fireRateMultiplier * droneFireMultiplier * droneWeapon.fireRate * (role === "assault" ? .72 : 1);
 
     if (now - lastDroneFireRef.current >= droneFireRate) {
       lastDroneFireRef.current = now;
@@ -2827,12 +3026,21 @@ export default function Game() {
         ? enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0)
             .sort((a, b) => Math.hypot(a.x - droneX, a.y - droneY) - Math.hypot(b.x - droneX, b.y - droneY))[0] ?? null
         : null;
-      offsets.forEach(offset => bulletsRef.current.push({
-        x: droneX + 22, y: droneY + offset, vx: BASE_BULLET_SPEED, vy: 0,
-        fromPlayer: true, damage: (drone.damage + runUpgradesRef.current.damage) * droneDamageMultiplier * buildDamageMultiplier * (role === "assault" ? 1.35 : 1),
-        color: activeDroneSkinRef.current.stroke,
-        isMissile: role === "collector", missileTarget: collectorTarget,
-      }));
+      const nearestTarget = collectorTarget ?? enemiesRef.current
+        .filter(enemy => !enemy.dead && enemy.hp > 0)
+        .sort((a, b) => Math.hypot(a.x - droneX, a.y - droneY) - Math.hypot(b.x - droneX, b.y - droneY))[0] ?? null;
+      const weaponSpread = droneWeapon.id === "ion_spread" ? [-.16, 0, .16] : [0];
+      offsets.forEach(offset => weaponSpread.forEach(spread => bulletsRef.current.push({
+        x: droneX + 22, y: droneY + offset,
+        vx: droneWeapon.id === "rockets" ? 7 : BASE_BULLET_SPEED,
+        vy: spread * BASE_BULLET_SPEED,
+        fromPlayer: true,
+        damage: (drone.damage + runUpgradesRef.current.damage) * droneWeapon.damageMultiplier * droneDamageMultiplier * buildDamageMultiplier * (role === "assault" ? 1.35 : 1),
+        color: droneWeapon.color,
+        isMissile: droneWeapon.id === "rockets" || role === "collector",
+        missileTarget: droneWeapon.id === "rockets" ? nearestTarget : collectorTarget,
+        weaponId: `drone_${droneWeapon.id}`,
+      })));
     }
 
     const px = playerRef.current.x + PLAYER_W;
@@ -2965,7 +3173,9 @@ export default function Game() {
       ? ENGINE_MODULES.find(module => module.id === save.aircraftBuild!.engine) ?? ENGINE_MODULES[0]
       : engineModule;
     aircraftBuildRef.current = build;
+    droneBuildRef.current = loadDroneBuild();
     droneRoleRef.current = loadDroneRole();
+    droneWeaponRef.current = DRONE_WEAPONS.find(weapon => weapon.id === loadDroneWeapon()) ?? DRONE_WEAPONS[0];
     droneLevelRef.current = loadDroneLevels()[loadDroneSkin()] ?? 1;
     const savedAircraftStats = getAircraftUpgradeStats(save?.aircraftLevel ?? 1);
     aircraftUpgradeRef.current = aircraftStats;
@@ -5101,7 +5311,7 @@ export default function Game() {
         const cy = playerRef.current.y + PLAYER_H / 2;
         ctx.save();
         ctx.translate(cx, cy); ctx.scale(1.16, 1.16); ctx.translate(-cx, -cy);
-        drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level);
+        drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, aircraftBuildRef.current, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level);
         ctx.restore();
         ctx.save();
         ctx.lineCap = "round";
@@ -5150,7 +5360,7 @@ export default function Game() {
         ctx.save();
         ctx.globalAlpha = 0.15 + 0.1 * Math.sin(timeRef.current * 0.25);
         ctx.shadowColor = "#00ffee"; ctx.shadowBlur = 20;
-        drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, activeSkinRef.current, undefined, aircraftUpgradeRef.current.level);
+        drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, aircraftBuildRef.current, activeSkinRef.current, undefined, aircraftUpgradeRef.current.level);
         ctx.restore();
       } else {
         {
@@ -5164,7 +5374,7 @@ export default function Game() {
           if (invincibleRef.current > 0) {
             ctx.globalAlpha = 0.48 + 0.22 * Math.sin(timeRef.current * 0.32);
           }
-          drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current, _sc, aircraftUpgradeRef.current.level);
+          drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, aircraftBuildRef.current, activeSkinRef.current, _sc, aircraftUpgradeRef.current.level);
           ctx.restore();
         }
         if (ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeUltiSkinRef.current.id)) {
@@ -5191,7 +5401,7 @@ export default function Game() {
       const droneVisualLevel = droneLevelRef.current
         + ["drone_mk2", "drone_mk3", "drone_mk4", "drone_mk5", "drone_mk6", "drone_mk7", "drone_mk8"].filter(id => activeUnlocksRef.current.includes(id)).length
         + runUpgradesRef.current.drone;
-      drawCombatDrone(ctx, droneX, droneY, timeRef.current, activeDroneSkinRef.current, droneVisualLevel);
+      drawCombinedCombatDrone(ctx, droneX, droneY, timeRef.current, droneBuildRef.current, activeDroneSkinRef.current, droneVisualLevel);
       ctx.restore();
 
       // Keep the remaining duration of every active ultimate visible above the pilot.
@@ -5355,6 +5565,20 @@ export default function Game() {
     setDroneRole(role);
     saveDroneRole(role);
     droneRoleRef.current = role;
+  };
+
+  const handleDroneBuildChange = (next: DroneBuild) => {
+    setDroneBuild(next);
+    saveDroneBuild(next);
+    droneBuildRef.current = next;
+  };
+
+  const handleDroneWeaponChange = (id: DroneWeaponId) => {
+    const weapon = DRONE_WEAPONS.find(candidate => candidate.id === id);
+    if (!weapon) return;
+    setSelectedDroneWeapon(id);
+    saveDroneWeapon(id);
+    droneWeaponRef.current = weapon;
   };
 
   const handleWeaponCrateSelect = (id: string) => {
@@ -5568,7 +5792,9 @@ export default function Game() {
             ultiLoadout={ultiLoadout}
             selectedDroneSkin={selectedDroneSkin}
             aircraftBuild={aircraftBuild}
+            droneBuild={droneBuild}
             droneRole={droneRole}
+            selectedDroneWeapon={selectedDroneWeapon}
             selectedWeaponCrate={selectedWeaponCrate}
             selectedWeapons={selectedWeapons}
             selectedGameMode={selectedGameMode}
@@ -5588,7 +5814,9 @@ export default function Game() {
             onUltiLoadoutChange={handleUltiLoadoutChange}
             onDroneSkinSelect={handleDroneSkinSelect}
             onAircraftBuildChange={handleAircraftBuildChange}
+            onDroneBuildChange={handleDroneBuildChange}
             onDroneRoleChange={handleDroneRoleChange}
+            onDroneWeaponChange={handleDroneWeaponChange}
             onWeaponCrateSelect={handleWeaponCrateSelect}
             onBuy={handleBuy}
             onUnlockSkin={handleUnlockSkin}
@@ -5675,38 +5903,70 @@ export default function Game() {
 
 // ─── Hangar Overlay ───────────────────────────────────────────────────────────
 
-function WorkshopScreen({ build, droneRole, onBuildChange, onDroneRoleChange, onBack }: {
+function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDroneSkin, unlockedItems, onBuildChange, onDroneBuildChange, onDroneRoleChange, onBack }: {
   build: AircraftBuild;
+  droneBuild: DroneBuild;
   droneRole: DroneRoleId;
+  selectedSkin: string;
+  selectedDroneSkin: string;
+  unlockedItems: string[];
   onBuildChange: (build: AircraftBuild) => void;
+  onDroneBuildChange: (build: DroneBuild) => void;
   onDroneRoleChange: (role: DroneRoleId) => void;
   onBack: () => void;
 }) {
-  const wing = WING_MODULES.find(module => module.id === build.wing) ?? WING_MODULES[0];
-  const engine = ENGINE_MODULES.find(module => module.id === build.engine) ?? ENGINE_MODULES[0];
+  const availableJets = JET_SKINS.filter(skin => skin.cost === 0 || unlockedItems.includes(skin.id) || skin.id === selectedSkin);
+  const availableDrones = DRONE_SKINS.filter(skin => skin.cost === 0 || unlockedItems.includes(skin.id) || skin.id === selectedDroneSkin);
+  const skinName = (id: string) => JET_SKINS.find(skin => skin.id === id)?.name ?? "Aegis";
+  const JetSelector = ({ title, slot }: { title: string; slot: "primary" | "secondary" }) =>
+    <section className="mt-5">
+      <h3 className="font-black" style={{ color: slot === "primary" ? "#67e8f9" : "#c4b5fd" }}>{title}</h3>
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {availableJets.map(skin => {
+          const active = slot === "primary" ? build.bodySkin === skin.id : build.wingSkin === skin.id;
+          return <button key={`${slot}-${skin.id}`} onClick={() => onBuildChange(slot === "primary"
+            ? { ...build, bodySkin: skin.id, engineSkin: skin.id }
+            : { ...build, wingSkin: skin.id })}
+          className="rounded-xl p-3 text-left transition active:scale-95"
+          style={{ background: active ? `${skin.glow}30` : "rgba(15,23,42,.8)", border: `2px solid ${active ? skin.glow : "#334155"}`, boxShadow: active ? `0 0 12px ${skin.glow}55` : "none" }}>
+          <span className="block h-5 w-full rounded-full" style={{ background: `linear-gradient(90deg, ${skin.body}, ${skin.stroke}, ${skin.glow})` }} />
+          <span className="mt-2 block text-xs font-black">{skin.name}</span>
+        </button>})}
+      </div>
+    </section>;
+  const DroneSelector = ({ title, slot }: { title: string; slot: "primary" | "secondary" }) =>
+    <section className="mt-4">
+      <h3 className="text-sm font-black text-fuchsia-200">{title}</h3>
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {availableDrones.map(skin => {
+          const active = slot === "primary" ? droneBuild.bodySkin === skin.id : droneBuild.weaponSkin === skin.id;
+          return <button key={`${slot}-${skin.id}`} onClick={() => onDroneBuildChange(slot === "primary"
+            ? { ...droneBuild, bodySkin: skin.id, coreSkin: skin.id }
+            : { ...droneBuild, weaponSkin: skin.id })}
+          className="rounded-xl p-3 text-left transition active:scale-95"
+          style={{ background: active ? `${skin.stroke}30` : "rgba(15,23,42,.8)", border: `2px solid ${active ? skin.stroke : "#334155"}` }}>
+          <span className="block h-5 rounded-full" style={{ background: `linear-gradient(90deg, ${skin.body}, ${skin.stroke}, ${skin.core})` }} />
+          <span className="mt-2 block text-xs font-black">{skin.name}</span>
+        </button>})}
+      </div>
+    </section>;
   return <div className="hangar-layer absolute inset-0 z-20 flex h-full flex-col overflow-y-auto bg-[#040c1c] p-4 text-white">
     <div className="mx-auto w-full max-w-4xl">
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="min-h-11 min-w-11 text-xl text-slate-300">←</button>
         <div><div className="text-xs font-black uppercase tracking-[.25em] text-cyan-400">Hangar-Werkstatt</div><h2 className="text-2xl font-black">FLUGZEUG-BAUKASTEN</h2></div>
       </div>
-      <p className="mt-2 text-sm text-slate-400">Kombiniere Flügel, Antrieb und Drohnenrolle. Jede Auswahl wird gespeichert und gilt ab dem nächsten Einsatz.</p>
+      <p className="mt-2 text-sm text-slate-400">Wähle genau zwei vollständige Flugzeuge. Der Baukasten erzeugt daraus automatisch einen sichtbaren Hybrid-Jet.</p>
 
-      <section className="mt-5">
-        <h3 className="font-black text-cyan-200">1 · FLÜGELMODUL</h3>
-        <div className="mt-2 grid gap-3 sm:grid-cols-3">{WING_MODULES.map(module => <button key={module.id} onClick={() => onBuildChange({ ...build, wing: module.id })}
-          className="rounded-2xl p-4 text-left transition active:scale-95" style={{ background: build.wing === module.id ? "rgba(8,145,178,.28)" : "rgba(15,23,42,.8)", border: `1px solid ${build.wing === module.id ? "#67e8f9" : "#334155"}` }}>
-          <div className="text-3xl text-cyan-300">{module.icon}</div><div className="mt-2 font-black">{module.name}</div><div className="mt-1 text-xs text-slate-400">{module.description}</div>
-        </button>)}</div>
-      </section>
+      <JetSelector title="1 · FLUGZEUG A" slot="primary" />
+      <JetSelector title="2 · FLUGZEUG B" slot="secondary" />
 
-      <section className="mt-5">
-        <h3 className="font-black text-orange-200">2 · TRIEBWERK</h3>
-        <div className="mt-2 grid gap-3 sm:grid-cols-3">{ENGINE_MODULES.map(module => <button key={module.id} onClick={() => onBuildChange({ ...build, engine: module.id })}
-          className="rounded-2xl p-4 text-left transition active:scale-95" style={{ background: build.engine === module.id ? "rgba(194,65,12,.28)" : "rgba(15,23,42,.8)", border: `1px solid ${build.engine === module.id ? "#fb923c" : "#334155"}` }}>
-          <div className="text-3xl">{module.icon}</div><div className="mt-2 font-black">{module.name}</div><div className="mt-1 text-xs text-slate-400">{module.description}</div>
-        </button>)}</div>
-      </section>
+      <div className="mt-7 rounded-2xl border border-fuchsia-500/40 bg-fuchsia-950/15 p-4">
+        <h3 className="text-lg font-black text-fuchsia-300">DROHNEN-BAUKASTEN</h3>
+        <p className="text-xs text-slate-400">Wähle genau zwei vollständige Drohnen. Gehäuse, Kern und Waffen werden automatisch gemischt.</p>
+        <DroneSelector title="1 · DROHNE A" slot="primary" />
+        <DroneSelector title="2 · DROHNE B" slot="secondary" />
+      </div>
 
       <section className="mt-5">
         <h3 className="font-black text-violet-200">3 · DROHNENROLLE</h3>
@@ -5717,8 +5977,9 @@ function WorkshopScreen({ build, droneRole, onBuildChange, onDroneRoleChange, on
       </section>
 
       <div className="mt-5 rounded-2xl border border-emerald-500/40 bg-emerald-950/25 p-4 text-sm">
-        <div className="text-xs font-black uppercase tracking-wider text-emerald-300">Aktiver Build</div>
-        <div className="mt-1 font-black">{wing.name} + {engine.name} + {DRONE_ROLES.find(role => role.id === droneRole)?.name}</div>
+        <div className="text-xs font-black uppercase tracking-wider text-emerald-300">Deine Kombinationen</div>
+        <div className="mt-1 font-black">Jet: {skinName(build.bodySkin)} + {skinName(build.wingSkin)}</div>
+        <div className="mt-1 font-black text-fuchsia-200">Drohne: {DRONE_SKINS.find(skin => skin.id === droneBuild.bodySkin)?.name} + {DRONE_SKINS.find(skin => skin.id === droneBuild.weaponSkin)?.name}</div>
       </div>
       <button onClick={onBack} className="pause-primary mt-5 min-h-12 w-full rounded-xl font-black">BUILD ÜBERNEHMEN</button>
     </div>
@@ -5726,11 +5987,11 @@ function WorkshopScreen({ build, droneRole, onBuildChange, onDroneRoleChange, on
 }
 
 function HangarOverlay({
-  selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, droneRole, selectedWeaponCrate, selectedWeapons, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
-  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onDroneRoleChange, onWeaponCrateSelect, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
+  selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, droneBuild, droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
+  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onWeaponCrateSelect, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
-  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; aircraftBuild: AircraftBuild; droneRole: DroneRoleId; selectedWeaponCrate: string; selectedWeapons: string[]; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
+  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; aircraftBuild: AircraftBuild; droneBuild: DroneBuild; droneRole: DroneRoleId; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[]; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
   weaponLevels: Record<string, number>;
@@ -5739,7 +6000,9 @@ function HangarOverlay({
   onGameModeChange: (mode: GameMode) => void;
   onSkinSelect: (id: string) => void; onUltiLoadoutChange: (ids: UltiLoadoutId[]) => void; onDroneSkinSelect: (id: string) => void; onWeaponCrateSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void; onUnlockDroneSkin: (id: string) => void;
   onAircraftBuildChange: (build: AircraftBuild) => void;
+  onDroneBuildChange: (build: DroneBuild) => void;
   onDroneRoleChange: (role: DroneRoleId) => void;
+  onDroneWeaponChange: (weapon: DroneWeaponId) => void;
   onAircraftUpgrade: () => void;
   onDroneUpgrade: () => void;
   onWeaponSelect: (id: string) => void;
@@ -5776,12 +6039,12 @@ function HangarOverlay({
     const gg = ctx.createRadialGradient(120, 70, 4, 120, 70, 65);
     gg.addColorStop(0, skin.glow + "44"); gg.addColorStop(1, "transparent");
     ctx.fillStyle = gg; ctx.fillRect(0, 0, 240, 140);
-    drawPlayerJet(ctx, 90, 56, 5, false, skin, undefined, aircraftLevels[skin.id] ?? 1);
-    drawCombatDrone(ctx, 105, 38, 0, DRONE_SKINS.find(s => s.id === selectedDroneSkin) ?? DRONE_SKINS[0], droneLevels[selectedDroneSkin] ?? 1);
+    drawCombinedPlayerJet(ctx, 90, 56, 5, false, aircraftBuild, skin, undefined, aircraftLevels[skin.id] ?? 1);
+    drawCombinedCombatDrone(ctx, 105, 38, 0, droneBuild, DRONE_SKINS.find(s => s.id === selectedDroneSkin) ?? DRONE_SKINS[0], droneLevels[selectedDroneSkin] ?? 1);
     drawWeaponCrate(ctx, { x: 90, y: 56 }, WEAPON_CRATES.find(crate => crate.id === selectedWeaponCrate) ?? WEAPON_CRATES[0], true, 0);
   // Sub-views unmount the preview canvas. Redraw when returning to the main
   // hangar even if the selected skins and their levels did not change.
-  }, [view, activeSkinId, skin, selectedDroneSkin, selectedWeaponCrate, aircraftLevels, droneLevels]);
+  }, [view, activeSkinId, skin, selectedDroneSkin, selectedWeaponCrate, aircraftBuild, droneBuild, aircraftLevels, droneLevels]);
 
   if (view === "briefing") {
     return (
@@ -5804,8 +6067,8 @@ function HangarOverlay({
     );
   }
   if (view === "workshop") {
-    return <WorkshopScreen build={aircraftBuild} droneRole={droneRole}
-      onBuildChange={onAircraftBuildChange} onDroneRoleChange={onDroneRoleChange}
+    return <WorkshopScreen build={aircraftBuild} droneBuild={droneBuild} droneRole={droneRole} selectedSkin={selectedSkin} selectedDroneSkin={selectedDroneSkin} unlockedItems={unlockedItems}
+      onBuildChange={onAircraftBuildChange} onDroneBuildChange={onDroneBuildChange} onDroneRoleChange={onDroneRoleChange}
       onBack={() => setView("main")} />;
   }
   if (view === "settings") {
@@ -5928,6 +6191,26 @@ function HangarOverlay({
                 boxShadow: selectedDroneSkin === s.id ? `0 0 10px ${s.stroke}` : "none" }} />;
           })}
           <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2 py-0.5 text-[10px] font-black text-violet-300">LV {droneLevels[selectedDroneSkin] ?? 1}</span>
+        </div>
+        <div className="hangar-drone-weapons flex items-center justify-center gap-2 mt-1">
+          <span className="text-slate-500 text-xs">Drohnenwaffe:</span>
+          {DRONE_WEAPONS.map(weapon => (
+            <button
+              key={weapon.id}
+              onClick={() => onDroneWeaponChange(weapon.id)}
+              aria-label={`${weapon.name} als Drohnenwaffe auswählen`}
+              title={`${weapon.name} · ${weapon.description}`}
+              className="hangar-skin-button grid place-items-center font-black text-sm"
+              style={{
+                width: 42, height: 34, minWidth: 42, borderRadius: 9,
+                color: weapon.color, background: `${weapon.color}22`,
+                border: selectedDroneWeapon === weapon.id ? "3px solid #fff" : `2px solid ${weapon.color}`,
+                boxShadow: selectedDroneWeapon === weapon.id ? `0 0 12px ${weapon.color}` : "none",
+              }}
+            >
+              {weapon.icon}
+            </button>
+          ))}
         </div>
         <div className="hangar-crate-skins flex items-center justify-center gap-2 mt-1">
           <span className="text-slate-500 text-xs">Waffenmodul:</span>
@@ -6409,6 +6692,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
           const owned = s.cost === 0 || unlockedItems.includes(s.id);
           const active = s.id === selectedSkin;
           const canAfford = coins >= s.cost;
+          const aircraftLevel = aircraftLevels[s.id] ?? 1;
           const levelUnlocked = isShopRarityUnlocked(s.rarity, playerLevel);
           const rarity = SHOP_RARITIES[s.rarity];
           return (
@@ -6425,10 +6709,10 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
                 boxShadow: SHOP_RARITY_ORDER[s.rarity] >= SHOP_RARITY_ORDER.legendary ? shopRarityGlow(s.rarity, 12) : undefined,
                 opacity: !owned && (!canAfford || !levelUnlocked) ? 0.45 : 1,
               }}>
-              <div className="w-5 h-5 rounded-full" style={{ background: s.glow, boxShadow: `0 0 8px ${s.glow}88` }} />
-              <div className="text-xs font-bold">{s.name}</div>
+              <JetShopImage skin={s} aircraftLevel={aircraftLevel} />
+              <div className="text-center text-xs font-bold">{s.name}</div>
               <div className="text-[9px] font-black leading-tight" style={{ color: s.glow }}>{s.ultiName}</div>
-              <div className="text-[10px] font-bold text-cyan-300">Level {aircraftLevels[s.id] ?? 1}</div>
+              <div className="text-[10px] font-bold text-cyan-300">Level {aircraftLevel}</div>
               <div className="text-[9px] font-black tracking-wider" style={shopRarityLabelStyle(s.rarity)}>{rarity.label}</div>
               {owned
                 ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div>
