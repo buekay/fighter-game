@@ -5545,7 +5545,7 @@ export default function Game() {
 
       // ── Virtual controls overlay ──
       if (showVirtualControlsRef.current) {
-        drawVirtualControls(ctx, joystickRef.current, touchFireRef.current.active, settingsRef.current.autoFire, settingsRef.current.joystickSize, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current);
+        drawVirtualControls(ctx, touchFireRef.current.active, settingsRef.current.autoFire, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current);
         if (enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0)) {
           ctx.save(); ctx.font = "bold 25px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
           activeUltiLoadoutRef.current.forEach(id => {
@@ -7255,8 +7255,6 @@ function SettingToggle({ label, description, checked, onClick }: { label: string
 
 // ─── Virtual controls overlay (drawn on canvas) ───────────────────────────────
 
-const JOY_BASE_R = 56;
-const JOY_KNOB_R = 22;
 const FIRE_BTN_R = 46;
 const FIRE_BTN_X = CANVAS_W - 80;
 const FIRE_BTN_Y = CANVAS_H - 90;
@@ -7348,10 +7346,8 @@ function drawActiveUltiCountdowns(
 
 function drawVirtualControls(
   ctx: CanvasRenderingContext2D,
-  js: { active: boolean; centerX: number; centerY: number; curX: number; curY: number },
   fireActive: boolean,
   autoFire: boolean,
-  joystickScale: number,
   ultimaCharge: number,
   ultimaActive: number,
   laserCharge: number,
@@ -7371,8 +7367,6 @@ function drawVirtualControls(
 ) {
   ctx.save();
   ctx.globalAlpha = 0.45;
-  const joystickBaseRadius = JOY_BASE_R * joystickScale;
-  const joystickKnobRadius = JOY_KNOB_R * joystickScale;
   const position = (id: UltiLoadoutId) => getUltiButtonPosition(ultiLoadout, id) ?? [0, 0];
   const [ultiX, ultiY] = position("jet");
   const [laserX, laserY] = position("laser");
@@ -7381,37 +7375,6 @@ function drawVirtualControls(
   const [poisonX, poisonY] = position("poison_missiles_ulti");
   const [absorberX, absorberY] = position("absorber_ulti");
   const [ultimateX, ultimateY] = position("ultimate_ulti");
-
-  // ── Joystick hint (left zone) — always show base when inactive ──
-  const baseX = js.active ? js.centerX : 110;
-  const baseY = js.active ? js.centerY : CANVAS_H - 100;
-
-  // Base ring
-  ctx.beginPath();
-  ctx.arc(baseX, baseY, joystickBaseRadius, 0, Math.PI * 2);
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.fillStyle = "#ffffff11";
-  ctx.fill();
-
-  // Knob
-  let kx = baseX, ky = baseY;
-  if (js.active) {
-    const dx = js.curX - js.centerX;
-    const dy = js.curY - js.centerY;
-    const d = Math.hypot(dx, dy);
-    const clamped = Math.min(d, joystickBaseRadius - joystickKnobRadius);
-    kx = js.centerX + (dx / (d || 1)) * clamped;
-    ky = js.centerY + (dy / (d || 1)) * clamped;
-  }
-  ctx.beginPath();
-  ctx.arc(kx, ky, joystickKnobRadius, 0, Math.PI * 2);
-  ctx.fillStyle = js.active ? "#00cfff99" : "#ffffff44";
-  ctx.fill();
-  ctx.strokeStyle = "#ffffff66";
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
 
   // ── Fire button (right zone) ──
   if (!autoFire) {
