@@ -189,8 +189,6 @@ interface GameSettings {
   highContrast: boolean;
   touchControls: "auto" | "always" | "never";
   autoFire: boolean;
-  joystickSize: number;
-  joystickSensitivity: number;
   keyBindings: KeyBindings;
   soundVolume: number;
   musicVolume: number;
@@ -856,8 +854,6 @@ const DEFAULT_SETTINGS: GameSettings = {
   highContrast: false,
   touchControls: "auto",
   autoFire: false,
-  joystickSize: 1,
-  joystickSensitivity: 1,
   keyBindings: DEFAULT_KEY_BINDINGS,
   soundVolume: 0.65,
   musicVolume: 0.25,
@@ -1082,8 +1078,6 @@ function loadSettings(): GameSettings {
       highContrast: typeof saved.highContrast === "boolean" ? saved.highContrast : DEFAULT_SETTINGS.highContrast,
       touchControls: touchModes.includes(saved.touchControls as GameSettings["touchControls"]) ? saved.touchControls as GameSettings["touchControls"] : DEFAULT_SETTINGS.touchControls,
       autoFire: typeof saved.autoFire === "boolean" ? saved.autoFire : DEFAULT_SETTINGS.autoFire,
-      joystickSize: Math.max(0.8, Math.min(1.4, finiteNumber(saved.joystickSize) ?? DEFAULT_SETTINGS.joystickSize)),
-      joystickSensitivity: Math.max(0.65, Math.min(1.5, finiteNumber(saved.joystickSensitivity) ?? DEFAULT_SETTINGS.joystickSensitivity)),
       keyBindings,
       soundVolume: Math.max(0, Math.min(1, finiteNumber(saved.soundVolume) ?? DEFAULT_SETTINGS.soundVolume)),
       musicVolume: Math.max(0, Math.min(1, finiteNumber(saved.musicVolume) ?? DEFAULT_SETTINGS.musicVolume)),
@@ -1118,7 +1112,7 @@ const TURKISH_TRANSLATIONS: Readonly<Record<string, string>> = {
   "Mission briefing": "Görev brifingi",
   "Mission paused": "Görev duraklatıldı",
   "Mobile / Touch": "Mobil / Dokunmatik",
-  "Move the jet with the virtual joystick.": "Uçağı sanal joystick ile hareket ettir.",
+  "The jet follows your finger directly.": "Uçak parmağını doğrudan takip eder.",
   "Move your jet": "Uçağını hareket ettir",
   "Music": "Müzik",
   "NEW GAME": "YENİ OYUN",
@@ -1142,6 +1136,7 @@ const TURKISH_TRANSLATIONS: Readonly<Record<string, string>> = {
   "Sound effects": "Ses efektleri",
   "Strengthens text, borders and controls.": "Metinleri, kenarlıkları ve kontrolleri daha belirgin yapar.",
   "Touch controls": "Dokunmatik kontroller",
+  "Drag your finger across the left side. The jet follows it directly.": "Parmağını sol tarafta sürükle. Uçak parmağını doğrudan takip eder.",
   "Ultimates are explained when they are ready.": "Özel yetenekler hazır olduklarında açıklanır.",
   "Virtual controls in the play area.": "Oyun alanındaki sanal kontroller.",
   "WASD / arrow keys · drag left on touch": "WASD / yön tuşları · dokunmatikte solda sürükle",
@@ -3639,7 +3634,7 @@ export default function Game() {
               setTutorialStage(1);
             }
           }
-          // Left half → joystick
+          // Left half → direct finger-follow movement
           if (!joystickRef.current.active) {
             joystickRef.current = { active: true, id: t.identifier, centerX: x, centerY: y, curX: x, curY: y };
           }
@@ -4009,22 +4004,14 @@ export default function Game() {
       const speedMult = (activeSkinRef.current?.id === "n1" ? 1.15 : 1) * n1UltiSpeed * (speedBoostRef.current > 0 ? 2 : 1);
       const spd = gs.speed * speedMult;
       const js = joystickRef.current;
-      const JOY_RADIUS = 70 * settingsRef.current.joystickSize;
-      const touchSensitivity = settingsRef.current.joystickSensitivity;
       const gamepad = gamepadInputRef.current;
       const bindings = settingsRef.current.keyBindings;
       const keyPressed = (action: KeyBindingAction) => keysRef.current.has(bindings[action]);
 
       movementStunRef.current = Math.max(0, movementStunRef.current - dtScale);
       if (movementStunRef.current <= 0 && js.active) {
-        const dx = js.curX - js.centerX;
-        const dy = js.curY - js.centerY;
-        const d = Math.hypot(dx, dy);
-        const norm = Math.min(d, JOY_RADIUS) / JOY_RADIUS;
-        if (d > 8) {
-          playerRef.current.x = clamp(playerRef.current.x + (dx / d) * norm * spd * 0.8 * touchSensitivity * dtScale, 0, CANVAS_W - PLAYER_W);
-          playerRef.current.y = clamp(playerRef.current.y + (dy / d) * norm * spd * touchSensitivity * dtScale,       0, CANVAS_H - PLAYER_H);
-        }
+        playerRef.current.x = clamp(js.curX - PLAYER_W / 2, 0, CANVAS_W - PLAYER_W);
+        playerRef.current.y = clamp(js.curY - PLAYER_H / 2, 0, CANVAS_H - PLAYER_H);
       } else if (movementStunRef.current <= 0) {
         if (keyPressed("up") || keysRef.current.has("ArrowUp")) {
           playerRef.current.y = clamp(playerRef.current.y - spd * dtScale, 0, CANVAS_H - PLAYER_H);
@@ -5940,7 +5927,7 @@ export default function Game() {
                 </div>
               )}
               {tutorialStage === 1 && !showVirtualControls && <kbd className="tutorial-space mt-3 inline-block">{formatKeyCode(settings.keyBindings.fire)} GEDRÜCKT HALTEN</kbd>}
-              {showVirtualControls && tutorialStage < 2 && <div className="mt-2 text-sm font-bold text-slate-200">{tutorialStage === 0 ? translated(language, "Lege den Finger links auf den Joystick und ziehe ihn in eine Richtung.", "Place your finger on the joystick at the left and drag in any direction.") : translated(language, "Halte rechts den roten FIRE-Knopf gedrückt.", "Hold the red FIRE button on the right.")}</div>}
+              {showVirtualControls && tutorialStage < 2 && <div className="mt-2 text-sm font-bold text-slate-200">{tutorialStage === 0 ? translated(language, "Ziehe deinen Finger links über das Spielfeld. Der Jet folgt ihm direkt.", "Drag your finger across the left side. The jet follows it directly.") : translated(language, "Halte rechts den roten FIRE-Knopf gedrückt.", "Hold the red FIRE button on the right.")}</div>}
               {tutorialStage === 2 && <div className="mt-2 text-sm text-slate-300">{settings.autoFire ? "Gut gemacht! Dein Jet feuert automatisch. Deine zwei ausgerüsteten Fähigkeiten nutzt du mit den eingeblendeten Tasten." : translated(language, "Gut gemacht! Volle Spezialanzeigen leuchten auf. Nutze dann die angezeigte Taste oder den entsprechenden Touch-Knopf.", "Well done! Full ability meters light up. Then use the displayed key or matching touch button.")}</div>}
               {tutorialStage < 2 && <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-cyan-200">Sicheres Training · Gegner warten</div>}
               {tutorialStage < 2 && <div className="mt-2 text-xs font-bold text-emerald-300">{translated(language, "Probiere es jetzt aus, um fortzufahren.", "Try it now to continue.")}</div>}
@@ -5966,21 +5953,40 @@ function JetBuildThumbnail({ skin }: { skin: JetSkin }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-    const background = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    background.addColorStop(0, "#10213a"); background.addColorStop(1, "#050914");
-    ctx.fillStyle = background; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = "#1e3a5f"; ctx.lineWidth = 1;
-    for (let x = 8; x < canvas.width; x += 16) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
-    const glow = ctx.createRadialGradient(50, 30, 2, 50, 30, 38);
-    glow.addColorStop(0, skin.glow + "55"); glow.addColorStop(1, "transparent");
-    ctx.fillStyle = glow; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.save(); ctx.translate(5, 0); ctx.scale(1.55, 1.55);
-    drawPlayerJet(ctx, 15, 10, 3, false, skin, undefined, 3);
-    ctx.restore();
+    if (!canvas) return;
+    const draw = () => {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const bounds = canvas.getBoundingClientRect();
+      const width = Math.max(1, bounds.width);
+      const height = Math.max(1, bounds.height);
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(width * pixelRatio);
+      canvas.height = Math.round(height * pixelRatio);
+      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+      const background = ctx.createLinearGradient(0, 0, 0, height);
+      background.addColorStop(0, "#10213a"); background.addColorStop(1, "#050914");
+      ctx.fillStyle = background; ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "#1e3a5f"; ctx.lineWidth = 1;
+      for (let x = 8; x < width; x += 16) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); }
+      const glow = ctx.createRadialGradient(width / 2, height / 2, 2, width / 2, height / 2, Math.min(width, height) * .48);
+      glow.addColorStop(0, skin.glow + "55"); glow.addColorStop(1, "transparent");
+      ctx.fillStyle = glow; ctx.fillRect(0, 0, width, height);
+
+      ctx.save();
+      ctx.translate(width / 2, height / 2);
+      const jetScale = Math.min(width / 110, height / 78);
+      ctx.scale(jetScale, jetScale);
+      drawPlayerJet(ctx, -PLAYER_W / 2, -PLAYER_H / 2, 3, false, skin, undefined, 3);
+      ctx.restore();
+    };
+    draw();
+    const observer = new ResizeObserver(draw);
+    observer.observe(canvas);
+    return () => observer.disconnect();
   }, [skin]);
-  return <canvas ref={ref} width={100} height={60} className="block h-[60px] w-full rounded-lg" aria-hidden="true" />;
+  return <canvas ref={ref} className="block aspect-[7/4] h-auto w-full rounded-lg" aria-hidden="true" />;
 }
 
 function DroneBuildThumbnail({ skin }: { skin: DroneSkin }) {
@@ -7115,7 +7121,7 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
           <div className="rounded-xl border border-violet-700/60 bg-violet-950/25 p-4">
             <h3 className="text-xs font-black uppercase tracking-[.2em] text-violet-300">{translated(language, "Touch-Steuerung", "Touch controls")}</h3>
             <div className="mt-3 space-y-2 text-xs text-slate-300">
-              <p><strong className="text-white">{translated(language, "Links ziehen:", "Drag left:")}</strong> {translated(language, "Jet mit dem virtuellen Joystick bewegen.", "Move the jet with the virtual joystick.")}</p>
+              <p><strong className="text-white">{translated(language, "Links ziehen:", "Drag left:")}</strong> {translated(language, "Der Jet folgt deinem Finger direkt.", "The jet follows your finger directly.")}</p>
               <p><strong className="text-white">AUTO-FIRE:</strong> Optional in den Einstellungen aktivierbar.</p>
               <p><strong className="text-white">FÄHIGKEIT 1 · 2:</strong> Die zwei ausgerüsteten Knöpfe antippen, sobald sie bereit sind.</p>
             </div>
@@ -7169,8 +7175,6 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
             <option value="auto">{translated(language, "Automatisch", "Automatic")}</option><option value="always">{translated(language, "Immer anzeigen", "Always show")}</option><option value="never">{translated(language, "Nie anzeigen", "Never show")}</option>
           </select>
         </label>
-        <RangeSetting label="Joystick-Größe" value={settings.joystickSize} min={0.8} max={1.4} step={0.1} format={value => `${Math.round(value * 100)}%`} onChange={value => onChange({ ...settings, joystickSize: value })} />
-        <RangeSetting label="Joystick-Empfindlichkeit" value={settings.joystickSensitivity} min={0.65} max={1.5} step={0.05} format={value => `${Math.round(value * 100)}%`} onChange={value => onChange({ ...settings, joystickSensitivity: value })} />
       </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest">Tastaturbelegung</div>
       <div className="grid gap-2 sm:grid-cols-2">
@@ -7208,23 +7212,6 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
 
 function VolumeSetting({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
   return <label className="rounded-xl border border-slate-700 bg-slate-900/70 p-3"><span className="flex justify-between text-sm font-bold"><span>{label}</span><span>{Math.round(value * 100)}%</span></span><input className="mt-3 w-full accent-cyan-400" type="range" min="0" max="1" step="0.05" value={value} onChange={e => onChange(Number(e.target.value))} /></label>;
-}
-
-function RangeSetting({ label, value, min, max, step, format, onChange }: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  format: (value: number) => string;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
-      <span className="flex justify-between text-sm font-bold"><span>{label}</span><span>{format(value)}</span></span>
-      <input className="mt-3 w-full accent-cyan-400" type="range" min={min} max={max} step={step} value={value} onChange={event => onChange(Number(event.target.value))} />
-    </label>
-  );
 }
 
 const KEY_BINDING_OPTIONS = [
