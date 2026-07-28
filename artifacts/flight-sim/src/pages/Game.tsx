@@ -1155,6 +1155,7 @@ const TURKISH_TRANSLATIONS: Readonly<Record<string, string>> = {
   "Explains movement and shooting on the first start.": "İlk başlangıçta hareket etmeyi ve ateş etmeyi açıklar.",
   "Fighter Command": "Fighter Command",
   "Fullscreen": "Tam ekran",
+  "Great!": "Harika!",
   "GOT IT — GO TO HANGAR": "ANLADIM — HANGARA GİT",
   "HOW FIGHTER COMMAND WORKS": "FIGHTER COMMAND NASIL OYNANIR",
   "High contrast": "Yüksek kontrast",
@@ -1167,7 +1168,7 @@ const TURKISH_TRANSLATIONS: Readonly<Record<string, string>> = {
   "Mission briefing": "Görev brifingi",
   "Mission paused": "Görev duraklatıldı",
   "Mobile / Touch": "Mobil / Dokunmatik",
-  "The jet follows your finger directly.": "Uçak parmağını doğrudan takip eder.",
+  "The jet follows your finger quickly.": "Uçak parmağını hızla takip eder.",
   "Move your jet": "Uçağını hareket ettir",
   "Music": "Müzik",
   "NEW GAME": "YENİ OYUN",
@@ -1189,9 +1190,10 @@ const TURKISH_TRANSLATIONS: Readonly<Record<string, string>> = {
   "Show tutorial": "Eğitimi göster",
   "Skip training": "Eğitimi atla",
   "Sound effects": "Ses efektleri",
+  "Your score": "Skorun",
   "Strengthens text, borders and controls.": "Metinleri, kenarlıkları ve kontrolleri daha belirgin yapar.",
   "Touch controls": "Dokunmatik kontroller",
-  "Drag your finger across the left side. The jet follows it directly.": "Parmağını sol tarafta sürükle. Uçak parmağını doğrudan takip eder.",
+  "Drag your finger across the left side. The jet follows it quickly.": "Parmağını sol tarafta sürükle. Uçak parmağını hızla takip eder.",
   "Ultimates are explained when they are ready.": "Özel yetenekler hazır olduklarında açıklanır.",
   "Virtual controls in the play area.": "Oyun alanındaki sanal kontroller.",
   "WASD / arrow keys · drag left on touch": "WASD / yön tuşları · dokunmatikte solda sürükle",
@@ -1218,12 +1220,14 @@ function translated(language: GameSettings["language"], german: string, english:
   if (language === "fr") return ({
     "Language": "Langue", "Select language": "Choisir la langue", "SETTINGS": "PARAMÈTRES",
     "Back": "Retour", "NEW GAME": "NOUVELLE PARTIE", "Your jet": "Votre chasseur",
+    "Great!": "Super !", "Your score": "Votre score",
     "Available credits": "Crédits disponibles",
     "Touch controls": "Commandes tactiles", "Music": "Musique", "Sound effects": "Effets sonores",
   } as Record<string, string>)[english] ?? english;
   if (language === "es") return ({
     "Language": "Idioma", "Select language": "Elegir idioma", "SETTINGS": "AJUSTES",
     "Back": "Atrás", "NEW GAME": "NUEVA PARTIDA", "Your jet": "Tu caza",
+    "Great!": "¡Genial!", "Your score": "Tu puntuación",
     "Available credits": "Créditos disponibles",
     "Touch controls": "Controles táctiles", "Music": "Música", "Sound effects": "Efectos de sonido",
   } as Record<string, string>)[english] ?? english;
@@ -3548,7 +3552,7 @@ export default function Game() {
         tutorialStageRef.current = 2; setTutorialStage(2);
         window.setTimeout(finishTutorial, 1100);
       }
-      if (down && e.code === bindings.fire && !stateRef.current.started && !isMenuControl) {
+      if (down && !e.repeat && e.code === bindings.fire && !stateRef.current.started && !isMenuControl) {
         e.preventDefault();
         const shouldContinueClassicSave = saveExistsRef.current && selectedGameMode === "classic";
         startGame(shouldContinueClassicSave, selectedGameMode);
@@ -3663,7 +3667,14 @@ export default function Game() {
       // game is stopped prevents a touch intended for an overlay button from
       // leaking through and launching a mission.
       if (!gs.started) return;
-      if (gs.gameOver) { startGame(false); return; }
+      if (gs.gameOver) {
+        gameOverCountdownRef.current = 0;
+        gs.started = false;
+        gs.gameOver = false;
+        keysRef.current.clear();
+        syncDisplay();
+        return;
+      }
       // Tap to unpause
       if (gs.paused) { gs.paused = false; syncDisplay(); return; }
 
@@ -3930,12 +3941,21 @@ export default function Game() {
         ctx.beginPath(); ctx.roundRect(CANVAS_W/2-260, CANVAS_H/2-78, 520, 195, 14); ctx.fill();
         ctx.textAlign = "center";
         const completed = runResultRef.current === "complete";
+        const completedCelebrationMission = completed &&
+          (activeModeRef.current === "protect" || activeModeRef.current === "blitz");
+        const resultLanguage = settingsRef.current.language;
+        const resultTitle = completedCelebrationMission
+          ? translated(resultLanguage, "SUPER!", "Great!").toLocaleUpperCase(localeFor(resultLanguage))
+          : completed ? "MISSION GESCHAFFT" : "GAME OVER";
         ctx.fillStyle = completed ? "#4ade80" : "#ff4444"; ctx.font = "bold 46px 'Inter', sans-serif";
         ctx.shadowColor = completed ? "#4ade80" : "#ff4444"; ctx.shadowBlur = 20;
-        ctx.fillText(completed ? "MISSION GESCHAFFT" : "GAME OVER", CANVAS_W/2, CANVAS_H/2-36);
+        ctx.fillText(resultTitle, CANVAS_W/2, CANVAS_H/2-36);
         ctx.shadowBlur = 0;
         ctx.fillStyle = "#fff"; ctx.font = "24px 'Inter', sans-serif";
-        ctx.fillText(`Score: ${gs.score.toLocaleString("de-DE")}`, CANVAS_W/2, CANVAS_H/2+10);
+        const scoreLabel = completedCelebrationMission
+          ? translated(resultLanguage, "Dein Score", "Your score")
+          : "Score";
+        ctx.fillText(`${scoreLabel}: ${gs.score.toLocaleString(localeFor(resultLanguage))}`, CANVAS_W/2, CANVAS_H/2+10);
         ctx.fillStyle = "#aaa"; ctx.font = "15px 'Inter', sans-serif";
         ctx.fillText(`Level ${gs.level}  ·  ${WEAPON_TIERS[gs.weaponTier].name}`, CANVAS_W/2, CANVAS_H/2+40);
         ctx.fillStyle = "#ffcc44"; ctx.font = "13px 'Inter', sans-serif";
@@ -3952,6 +3972,7 @@ export default function Game() {
         if (keysRef.current.has(settingsRef.current.keyBindings.fire) || gameOverCountdownRef.current > 200) {
           gameOverCountdownRef.current = 0;
           gs.started = false; gs.gameOver = false;
+          keysRef.current.clear();
           syncDisplay();
         }
         return;
@@ -4011,18 +4032,32 @@ export default function Game() {
               Math.hypot(a.x - originX, a.y + a.height / 2 - originY) -
               Math.hypot(b.x - originX, b.y + b.height / 2 - originY))[0];
           if (target) {
+            const projectileSpeed = 12;
             const targetX = target.x + target.width / 2;
             const targetY = target.y + target.height / 2;
-            const angle = Math.atan2(targetY - originY, targetX - originX);
-            bulletsRef.current.push({
-              x: originX,
-              y: originY,
-              vx: Math.cos(angle) * 12,
-              vy: Math.sin(angle) * 12,
-              fromPlayer: true,
-              damage: 14,
-              color: "#67e8f9",
-              weaponId: "escort-cannon",
+            // Lead the moving target so the salvo meets it instead of chasing
+            // the position where it was when the package fired.
+            let flightTime = Math.hypot(targetX - originX, targetY - originY) / projectileSpeed;
+            for (let iteration = 0; iteration < 2; iteration++) {
+              const predictedX = targetX + target.vx * flightTime;
+              const predictedY = targetY + target.vy * flightTime;
+              flightTime = Math.hypot(predictedX - originX, predictedY - originY) / projectileSpeed;
+            }
+            const aimX = targetX + target.vx * flightTime;
+            const aimY = targetY + target.vy * flightTime;
+            const baseAngle = Math.atan2(aimY - originY, aimX - originX);
+            [-.035, 0, .035].forEach((spread, index) => {
+              const angle = baseAngle + spread;
+              bulletsRef.current.push({
+                x: originX,
+                y: originY + (index - 1) * 5,
+                vx: Math.cos(angle) * projectileSpeed,
+                vy: Math.sin(angle) * projectileSpeed,
+                fromPlayer: true,
+                damage: 14,
+                color: "#67e8f9",
+                weaponId: "escort-cannon",
+              });
             });
             protectPackageLastFireRef.current = runElapsedMsRef.current;
             audioRef.current.tone(680, .13, settingsRef.current.soundVolume * .32, "square");
@@ -4072,8 +4107,15 @@ export default function Game() {
 
       movementStunRef.current = Math.max(0, movementStunRef.current - dtScale);
       if (movementStunRef.current <= 0 && js.active) {
-        playerRef.current.x = clamp(js.curX - PLAYER_W / 2, 0, CANVAS_W - PLAYER_W);
-        playerRef.current.y = clamp(js.curY - PLAYER_H / 2, 0, CANVAS_H - PLAYER_H);
+        const targetX = clamp(js.curX - PLAYER_W / 2, 0, CANVAS_W - PLAYER_W);
+        const targetY = clamp(js.curY - PLAYER_H / 2, 0, CANVAS_H - PLAYER_H);
+        const dx = targetX - playerRef.current.x;
+        const dy = targetY - playerRef.current.y;
+        const distance = Math.hypot(dx, dy);
+        const maxStep = Math.max(24, spd * 6) * dtScale;
+        const stepRatio = distance > 0 ? Math.min(1, maxStep / distance) : 0;
+        playerRef.current.x += dx * stepRatio;
+        playerRef.current.y += dy * stepRatio;
       } else if (movementStunRef.current <= 0) {
         if (keyPressed("up") || keysRef.current.has("ArrowUp")) {
           playerRef.current.y = clamp(playerRef.current.y - spd * dtScale, 0, CANVAS_H - PLAYER_H);
@@ -5989,7 +6031,7 @@ export default function Game() {
                 </div>
               )}
               {tutorialStage === 1 && !showVirtualControls && <kbd className="tutorial-space mt-3 inline-block">{formatKeyCode(settings.keyBindings.fire)} GEDRÜCKT HALTEN</kbd>}
-              {showVirtualControls && tutorialStage < 2 && <div className="mt-2 text-sm font-bold text-slate-200">{tutorialStage === 0 ? translated(language, "Ziehe deinen Finger links über das Spielfeld. Der Jet folgt ihm direkt.", "Drag your finger across the left side. The jet follows it directly.") : translated(language, "Halte rechts den roten FIRE-Knopf gedrückt.", "Hold the red FIRE button on the right.")}</div>}
+              {showVirtualControls && tutorialStage < 2 && <div className="mt-2 text-sm font-bold text-slate-200">{tutorialStage === 0 ? translated(language, "Ziehe deinen Finger links über das Spielfeld. Der Jet folgt ihm schnell.", "Drag your finger across the left side. The jet follows it quickly.") : translated(language, "Halte rechts den roten FIRE-Knopf gedrückt.", "Hold the red FIRE button on the right.")}</div>}
               {tutorialStage === 2 && <div className="mt-2 text-sm text-slate-300">{settings.autoFire ? "Gut gemacht! Dein Jet feuert automatisch. Deine zwei ausgerüsteten Fähigkeiten nutzt du mit den eingeblendeten Tasten." : translated(language, "Gut gemacht! Volle Spezialanzeigen leuchten auf. Nutze dann die angezeigte Taste oder den entsprechenden Touch-Knopf.", "Well done! Full ability meters light up. Then use the displayed key or matching touch button.")}</div>}
               {tutorialStage < 2 && <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-cyan-200">Sicheres Training · Gegner warten</div>}
               {tutorialStage < 2 && <div className="mt-2 text-xs font-bold text-emerald-300">{translated(language, "Probiere es jetzt aus, um fortzufahren.", "Try it now to continue.")}</div>}
@@ -7183,7 +7225,7 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
           <div className="rounded-xl border border-violet-700/60 bg-violet-950/25 p-4">
             <h3 className="text-xs font-black uppercase tracking-[.2em] text-violet-300">{translated(language, "Touch-Steuerung", "Touch controls")}</h3>
             <div className="mt-3 space-y-2 text-xs text-slate-300">
-              <p><strong className="text-white">{translated(language, "Links ziehen:", "Drag left:")}</strong> {translated(language, "Der Jet folgt deinem Finger direkt.", "The jet follows your finger directly.")}</p>
+              <p><strong className="text-white">{translated(language, "Links ziehen:", "Drag left:")}</strong> {translated(language, "Der Jet folgt deinem Finger schnell.", "The jet follows your finger quickly.")}</p>
               <p><strong className="text-white">AUTO-FIRE:</strong> Optional in den Einstellungen aktivierbar.</p>
               <p><strong className="text-white">FÄHIGKEIT 1 · 2:</strong> Die zwei ausgerüsteten Knöpfe antippen, sobald sie bereit sind.</p>
             </div>

@@ -172,7 +172,7 @@ export const KEYBOARD_CONTROL_HELP = [
   ["P", "Pause"],
 ] as const;
 export const MOBILE_CONTROL_HELP = [
-  "Linke Seite -> Finger ziehen (Jet folgt direkt)",
+  "Linke Seite -> Finger ziehen (Jet folgt schnell)",
   "FIRE -> Schießen",
   "ULTI -> Flugzeug-Ulti (Q)",
   "LASER -> Laser-Ulti (E)",
