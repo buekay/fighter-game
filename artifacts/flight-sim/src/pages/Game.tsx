@@ -236,12 +236,14 @@ const LASER_DEVICE_DAMAGE = 5;
 const LASER_DEVICE_BEAM_WIDTH = 12;
 const WEAPON_CRATE_INTERVAL_MS = 20_000;
 const WEAPON_CRATE_DURATION_MS = 5_000;
-const PROTECT_PACKAGE_MAX_HP = 100;
+const PROTECT_PACKAGE_MAX_HP = 300;
 const PROTECT_PACKAGE_WIDTH = 72;
 const PROTECT_PACKAGE_HEIGHT = 42;
 const PROTECT_PACKAGE_MIN_Y = 115;
 const PROTECT_PACKAGE_MAX_Y = CANVAS_H - 115 - PROTECT_PACKAGE_HEIGHT;
 const PROTECT_PACKAGE_FIRE_INTERVAL_MS = 5_000;
+const PROTECT_PACKAGE_SPEED = 2.35;
+const PROTECT_PACKAGE_EVASION_LOOKAHEAD = 105;
 const WEAPON_CRATES: readonly WeaponCrateDefinition[] = [
   { id: "falcon-rockets", name: "Falken-Raketen", rarity: "selten", kind: "rockets", color: "#60a5fa", fireRate: 720, damage: 9 },
   { id: "nova-laser", name: "Nova-Laser", rarity: "episch", kind: "laser", color: "#d946ef", fireRate: 105, damage: 3.2 },
@@ -252,6 +254,59 @@ const WEAPON_CRATE_RARITY_COLOR: Record<WeaponCrateRarity, string> = {
   episch: "#d946ef",
   legendär: "#fbbf24",
 };
+
+function chooseProtectPackageTargetY(
+  escort: { x: number; y: number; direction: number },
+  bullets: readonly Bullet[],
+  enemies: readonly Enemy[],
+) {
+  const centerX = escort.x + PROTECT_PACKAGE_WIDTH / 2;
+  const patrolTarget = escort.direction > 0 ? PROTECT_PACKAGE_MAX_Y : PROTECT_PACKAGE_MIN_Y;
+  const candidates: number[] = [escort.y];
+  for (let y = PROTECT_PACKAGE_MIN_Y; y <= PROTECT_PACKAGE_MAX_Y; y += 18) candidates.push(y);
+  candidates.push(PROTECT_PACKAGE_MAX_Y);
+
+  let bestY = escort.y;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (const candidateY of candidates) {
+    const centerY = candidateY + PROTECT_PACKAGE_HEIGHT / 2;
+    let score = Math.abs(candidateY - patrolTarget) * .18 + Math.abs(candidateY - escort.y) * .4;
+
+    for (const bullet of bullets) {
+      if (bullet.fromPlayer) continue;
+      const relativeX = centerX - bullet.x;
+      const crossingTime = Math.abs(bullet.vx) > .05 ? relativeX / bullet.vx : Number.POSITIVE_INFINITY;
+      if (crossingTime < 0 || crossingTime > PROTECT_PACKAGE_EVASION_LOOKAHEAD) continue;
+      const predictedY = bullet.y + bullet.vy * crossingTime;
+      const clearance = PROTECT_PACKAGE_HEIGHT / 2 + 24;
+      const distanceY = Math.abs(predictedY - centerY);
+      if (distanceY < clearance) {
+        const urgency = 1 - crossingTime / PROTECT_PACKAGE_EVASION_LOOKAHEAD;
+        score += 12_000 * (1 - distanceY / clearance) * (.35 + urgency);
+      }
+    }
+
+    for (const enemy of enemies) {
+      if (enemy.dead || enemy.hp <= 0) continue;
+      const relativeX = centerX - (enemy.x + enemy.width / 2);
+      const crossingTime = Math.abs(enemy.vx) > .05 ? relativeX / enemy.vx : Number.POSITIVE_INFINITY;
+      if (crossingTime < 0 || crossingTime > 90) continue;
+      const predictedY = enemy.y + enemy.height / 2 + enemy.vy * crossingTime;
+      const clearance = PROTECT_PACKAGE_HEIGHT / 2 + enemy.height / 2 + 20;
+      const distanceY = Math.abs(predictedY - centerY);
+      if (distanceY < clearance) {
+        const urgency = 1 - crossingTime / 90;
+        score += 18_000 * (1 - distanceY / clearance) * (.5 + urgency);
+      }
+    }
+
+    if (score < bestScore) {
+      bestScore = score;
+      bestY = candidateY;
+    }
+  }
+  return bestY;
+}
 
 function drawProtectPackage(ctx: CanvasRenderingContext2D, position: Vec2, hp: number, time: number) {
   const { x, y } = position;
@@ -1545,46 +1600,44 @@ function drawCombinedPlayerJet(
   aura.addColorStop(1, "transparent");
   ctx.fillStyle = aura; ctx.beginPath(); ctx.arc(0, 0, 42, 0, Math.PI * 2); ctx.fill();
 
-  // A purpose-built hybrid silhouette: aircraft A forms the central hull,
-  // aircraft B forms both swept wings, and A's engines visually unify them.
-  ctx.shadowColor = wingSkin.glow; ctx.shadowBlur = 10;
+  // Preserve the recognizable silhouettes of both selected aircraft. The
+  // previous generic hybrid shape only borrowed their colours, which made
+  // distinctive craft such as the TIE, X-Wing and N-1 look malformed.
+  const drawClippedSourceJet = (skin: JetSkin, clip: () => void) => {
+    ctx.save();
+    ctx.beginPath();
+    clip();
+    ctx.clip();
+    drawPlayerJet(ctx, -PLAYER_W / 2, -PLAYER_H / 2, tier, false, skin, undefined, aircraftLevel);
+    ctx.restore();
+  };
+
+  // Aircraft B contributes everything outside the central fuselage band.
+  drawClippedSourceJet(wingSkin, () => {
+    ctx.rect(-48, -44, 96, 36);
+    ctx.rect(-48, 8, 96, 36);
+  });
+
+  // Aircraft A contributes its complete, undistorted hull.
+  drawClippedSourceJet(bodySkin, () => {
+    ctx.rect(-48, -10, 96, 20);
+  });
+
+  // A small illuminated join makes the two real silhouettes read as one
+  // assembled craft without covering their model-specific details.
+  ctx.save();
+  ctx.globalAlpha = .75;
+  ctx.shadowColor = bodySkin.glow;
+  ctx.shadowBlur = 6;
+  ctx.strokeStyle = bodySkin.glow;
+  ctx.lineWidth = 1;
   for (const side of [-1, 1] as const) {
     ctx.beginPath();
-    ctx.moveTo(9, side * 6);
-    ctx.lineTo(-5, side * 31);
-    ctx.lineTo(-25, side * 25);
-    ctx.lineTo(-17, side * 10);
-    ctx.closePath();
-    ctx.fillStyle = wingSkin.body;
-    ctx.fill();
-    ctx.strokeStyle = wingSkin.stroke;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, side * 12);
-    ctx.lineTo(-20, side * 23);
-    ctx.strokeStyle = wingSkin.glow;
-    ctx.lineWidth = 1.7;
+    ctx.moveTo(-17, side * 8);
+    ctx.quadraticCurveTo(-2, side * 11, 15, side * 8);
     ctx.stroke();
   }
-
-  ctx.shadowColor = bodySkin.glow; ctx.shadowBlur = 13;
-  ctx.beginPath();
-  ctx.moveTo(34, 0);
-  ctx.quadraticCurveTo(14, -11, -13, -9);
-  ctx.lineTo(-28, -5); ctx.lineTo(-21, 0); ctx.lineTo(-28, 5);
-  ctx.quadraticCurveTo(14, 11, 34, 0);
-  ctx.closePath();
-  const hull = ctx.createLinearGradient(-28, 0, 34, 0);
-  hull.addColorStop(0, engineSkin.body);
-  hull.addColorStop(.48, bodySkin.body);
-  hull.addColorStop(1, bodySkin.stroke);
-  ctx.fillStyle = hull; ctx.fill();
-  ctx.strokeStyle = bodySkin.glow; ctx.lineWidth = 1.8; ctx.stroke();
-
-  ctx.beginPath(); ctx.ellipse(11, 0, 10, 5.5, 0, 0, Math.PI * 2);
-  ctx.fillStyle = wingSkin.glow + "bb"; ctx.fill();
-  ctx.strokeStyle = "#ffffffaa"; ctx.lineWidth = 1; ctx.stroke();
+  ctx.restore();
 
   ctx.shadowColor = engineSkin.glow;
   ctx.shadowBlur = 15;
@@ -1600,12 +1653,6 @@ function drawCombinedPlayerJet(
     ctx.arc(-27, side * 8, 3.5 + pulse, 0, Math.PI * 2);
     ctx.fillStyle = engineSkin.glow;
     ctx.fill();
-  }
-  const gunCount = Math.max(1, Math.min(5, tier + 1));
-  for (let index = 0; index < gunCount; index++) {
-    const offset = gunCount === 1 ? 0 : -8 + index * (16 / (gunCount - 1));
-    ctx.fillStyle = bodySkin.glow;
-    ctx.fillRect(28, offset - 1.2, 10, 2.4);
   }
   if (aircraftLevel >= 5) {
     ctx.setLineDash([3, 3]); ctx.strokeStyle = wingSkin.glow;
@@ -3931,7 +3978,22 @@ export default function Game() {
 
       if (activeModeRef.current === "protect") {
         const escort = protectPackageRef.current;
-        escort.y += escort.direction * 1.15 * dtScale;
+        const targetY = chooseProtectPackageTargetY(escort, bulletsRef.current, enemiesRef.current);
+        const targetDelta = targetY - escort.y;
+        const desiredDirection = Math.abs(targetDelta) > 2 ? Math.sign(targetDelta) : escort.direction;
+        const nextY = Math.max(
+          PROTECT_PACKAGE_MIN_Y,
+          Math.min(PROTECT_PACKAGE_MAX_Y, escort.y + desiredDirection * PROTECT_PACKAGE_SPEED * dtScale),
+        );
+        const wouldHitAircraft = enemiesRef.current.some(enemy =>
+          !enemy.dead && enemy.hp > 0 &&
+          rectHit(
+            escort.x - 8, nextY - 8,
+            PROTECT_PACKAGE_WIDTH + 16, PROTECT_PACKAGE_HEIGHT + 16,
+            enemy.x, enemy.y, enemy.width, enemy.height,
+          ));
+        if (!wouldHitAircraft) escort.y = nextY;
+        escort.direction = desiredDirection || escort.direction;
         if (escort.y <= PROTECT_PACKAGE_MIN_Y) {
           escort.y = PROTECT_PACKAGE_MIN_Y;
           escort.direction = 1;
