@@ -673,7 +673,7 @@ type DroneSkin = typeof DRONE_SKINS[number];
 type WingModuleId = "balanced" | "striker" | "bulwark";
 type EngineModuleId = "ion" | "afterburner" | "phase";
 type DroneRoleId = "assault" | "guardian" | "repair" | "collector";
-type DroneWeaponId = "pulse" | "rockets" | "ion_spread";
+type DroneWeaponId = "pulse" | "rail_lance" | "ion_spread";
 interface DroneWeaponDefinition {
   id: DroneWeaponId;
   icon: string;
@@ -697,6 +697,8 @@ interface DroneBuild {
 }
 
 const AIRCRAFT_BUILD_KEY = "fighter-command-aircraft-build";
+const HYBRID_ACTIVE_KEY = "fighter-command-hybrid-active";
+const HYBRID_BUILD_COST = 100_000;
 const DRONE_ROLE_KEY = "fighter-command-drone-role";
 const DRONE_WEAPON_KEY = "fighter-command-drone-weapon";
 const DRONE_BUILD_KEY = "fighter-command-drone-build";
@@ -718,7 +720,7 @@ const DRONE_ROLES: readonly { id: DroneRoleId; icon: string; name: string; descr
 ] as const;
 const DRONE_WEAPONS: readonly DroneWeaponDefinition[] = [
   { id: "pulse", icon: "•", name: "Impulskanone", description: "Schnelle, präzise Standardschüsse.", fireRate: 1, damageMultiplier: 1, color: "#b86cff" },
-  { id: "rockets", icon: "➤", name: "Mikro-Raketen", description: "Langsame Lenkraketen mit hohem Einzelschaden.", fireRate: 1.8, damageMultiplier: 2.4, color: "#fb923c" },
+  { id: "rail_lance", icon: "━", name: "Rail-Lanze", description: "Seltene, extrem schnelle Präzisionsschüsse mit hohem Schaden.", fireRate: 1.8, damageMultiplier: 2.4, color: "#fb7185" },
   { id: "ion_spread", icon: "ϟ", name: "Ionenstreuer", description: "Drei Energieschüsse decken einen breiten Bereich ab.", fireRate: 1.35, damageMultiplier: .72, color: "#22d3ee" },
 ] as const;
 
@@ -740,6 +742,8 @@ function loadAircraftBuild(): AircraftBuild {
   }
 }
 function saveAircraftBuild(build: AircraftBuild) { try { localStorage.setItem(AIRCRAFT_BUILD_KEY, JSON.stringify(build)); } catch {} }
+function loadHybridActive() { try { return localStorage.getItem(HYBRID_ACTIVE_KEY) === "1"; } catch { return false; } }
+function saveHybridActive(active: boolean) { try { localStorage.setItem(HYBRID_ACTIVE_KEY, active ? "1" : "0"); } catch {} }
 function loadDroneRole(): DroneRoleId {
   try {
     const saved = localStorage.getItem(DRONE_ROLE_KEY) as DroneRoleId | null;
@@ -1538,18 +1542,23 @@ function drawCombinedPlayerJet(
   const bodySkin = JET_SKINS.find(skin => skin.id === build.bodySkin) ?? fallbackSkin;
   const wingSkin = JET_SKINS.find(skin => skin.id === build.wingSkin) ?? fallbackSkin;
   const engineSkin = JET_SKINS.find(skin => skin.id === build.engineSkin) ?? fallbackSkin;
-  drawPlayerJet(ctx, x, y, tier, shieldActive, bodySkin, shieldColor, aircraftLevel);
-
   ctx.save();
   ctx.translate(x + PLAYER_W / 2, y + PLAYER_H / 2);
-  ctx.shadowColor = wingSkin.glow;
-  ctx.shadowBlur = 7;
+  const pulse = .75 + Math.sin(performance.now() * .008) * .25;
+  const aura = ctx.createRadialGradient(0, 0, 3, 0, 0, 42);
+  aura.addColorStop(0, bodySkin.glow + "55");
+  aura.addColorStop(1, "transparent");
+  ctx.fillStyle = aura; ctx.beginPath(); ctx.arc(0, 0, 42, 0, Math.PI * 2); ctx.fill();
+
+  // A purpose-built hybrid silhouette: aircraft A forms the central hull,
+  // aircraft B forms both swept wings, and A's engines visually unify them.
+  ctx.shadowColor = wingSkin.glow; ctx.shadowBlur = 10;
   for (const side of [-1, 1] as const) {
     ctx.beginPath();
-    ctx.moveTo(5, side * 7);
-    ctx.lineTo(-7, side * 29);
-    ctx.lineTo(-26, side * 23);
-    ctx.lineTo(-19, side * 8);
+    ctx.moveTo(9, side * 6);
+    ctx.lineTo(-5, side * 31);
+    ctx.lineTo(-25, side * 25);
+    ctx.lineTo(-17, side * 10);
     ctx.closePath();
     ctx.fillStyle = wingSkin.body;
     ctx.fill();
@@ -1557,27 +1566,61 @@ function drawCombinedPlayerJet(
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(-5, side * 12);
-    ctx.lineTo(-20, side * 21);
+    ctx.moveTo(0, side * 12);
+    ctx.lineTo(-20, side * 23);
     ctx.strokeStyle = wingSkin.glow;
-    ctx.lineWidth = 1.4;
+    ctx.lineWidth = 1.7;
     ctx.stroke();
   }
 
+  ctx.shadowColor = bodySkin.glow; ctx.shadowBlur = 13;
+  ctx.beginPath();
+  ctx.moveTo(34, 0);
+  ctx.quadraticCurveTo(14, -11, -13, -9);
+  ctx.lineTo(-28, -5); ctx.lineTo(-21, 0); ctx.lineTo(-28, 5);
+  ctx.quadraticCurveTo(14, 11, 34, 0);
+  ctx.closePath();
+  const hull = ctx.createLinearGradient(-28, 0, 34, 0);
+  hull.addColorStop(0, engineSkin.body);
+  hull.addColorStop(.48, bodySkin.body);
+  hull.addColorStop(1, bodySkin.stroke);
+  ctx.fillStyle = hull; ctx.fill();
+  ctx.strokeStyle = bodySkin.glow; ctx.lineWidth = 1.8; ctx.stroke();
+
+  ctx.beginPath(); ctx.ellipse(11, 0, 10, 5.5, 0, 0, Math.PI * 2);
+  ctx.fillStyle = wingSkin.glow + "bb"; ctx.fill();
+  ctx.strokeStyle = "#ffffffaa"; ctx.lineWidth = 1; ctx.stroke();
+
   ctx.shadowColor = engineSkin.glow;
-  ctx.shadowBlur = 12;
+  ctx.shadowBlur = 15;
   for (const side of [-1, 1] as const) {
     ctx.beginPath();
-    ctx.roundRect(-27, side * 8 - 3, 15, 6, 3);
+    ctx.roundRect(-25, side * 8 - 3, 16, 6, 3);
     ctx.fillStyle = engineSkin.body;
     ctx.fill();
     ctx.strokeStyle = engineSkin.stroke;
     ctx.lineWidth = 1.4;
     ctx.stroke();
     ctx.beginPath();
-    ctx.arc(-28, side * 8, 3, 0, Math.PI * 2);
+    ctx.arc(-27, side * 8, 3.5 + pulse, 0, Math.PI * 2);
     ctx.fillStyle = engineSkin.glow;
     ctx.fill();
+  }
+  const gunCount = Math.max(1, Math.min(5, tier + 1));
+  for (let index = 0; index < gunCount; index++) {
+    const offset = gunCount === 1 ? 0 : -8 + index * (16 / (gunCount - 1));
+    ctx.fillStyle = bodySkin.glow;
+    ctx.fillRect(28, offset - 1.2, 10, 2.4);
+  }
+  if (aircraftLevel >= 5) {
+    ctx.setLineDash([3, 3]); ctx.strokeStyle = wingSkin.glow;
+    ctx.beginPath(); ctx.arc(2, 0, 18, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (shieldActive) {
+    const color = shieldColor ?? "#35d7ff";
+    ctx.beginPath(); ctx.arc(0, 0, 38, 0, Math.PI * 2);
+    ctx.strokeStyle = color + "aa"; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.fillStyle = color + "12"; ctx.fill();
   }
   ctx.restore();
 }
@@ -2446,7 +2489,6 @@ export default function Game() {
   const comboMilestoneRef = useRef({ combo: 0, timer: 0 });
   const nearMissCooldownRef = useRef(0);
   const screenShakeRef = useRef(0);
-  const slowMotionRef = useRef(0);
   const waveTimerRef = useRef(0);
   const waveSequenceRef = useRef(0);
   const activeWaveRef = useRef<ActiveWave | null>(null);
@@ -2481,6 +2523,7 @@ export default function Game() {
   const activeUltiSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadSkin()) ?? JET_SKINS[0]);
   const activeDroneSkinRef = useRef<DroneSkin>(DRONE_SKINS.find(s => s.id === loadDroneSkin()) ?? DRONE_SKINS[0]);
   const aircraftBuildRef = useRef<AircraftBuild>(loadAircraftBuild());
+  const hybridActiveRef = useRef(loadHybridActive());
   const droneBuildRef = useRef<DroneBuild>(loadDroneBuild());
   const droneRoleRef = useRef<DroneRoleId>(loadDroneRole());
   const droneWeaponRef = useRef<DroneWeaponDefinition>(DRONE_WEAPONS.find(weapon => weapon.id === loadDroneWeapon()) ?? DRONE_WEAPONS[0]);
@@ -2510,6 +2553,7 @@ export default function Game() {
   const [selectedSkin, setSelectedSkin] = useState(() => loadSkin());
   const [selectedDroneSkin, setSelectedDroneSkin] = useState(() => loadDroneSkin());
   const [aircraftBuild, setAircraftBuild] = useState<AircraftBuild>(() => loadAircraftBuild());
+  const [hybridActive, setHybridActive] = useState(() => loadHybridActive());
   const [droneBuild, setDroneBuild] = useState<DroneBuild>(() => loadDroneBuild());
   const [droneRole, setDroneRole] = useState<DroneRoleId>(() => loadDroneRole());
   const [selectedDroneWeapon, setSelectedDroneWeapon] = useState<DroneWeaponId>(() => loadDroneWeapon());
@@ -2631,7 +2675,6 @@ export default function Game() {
       if (runStatsRef.current.damageTaken === bossDamageStartRef.current) {
         runStatsRef.current.perfectBosses += 1;
       }
-      slowMotionRef.current = 28;
     }
     checkAchievements();
   }, [checkAchievements]);
@@ -3026,19 +3069,16 @@ export default function Game() {
         ? enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0)
             .sort((a, b) => Math.hypot(a.x - droneX, a.y - droneY) - Math.hypot(b.x - droneX, b.y - droneY))[0] ?? null
         : null;
-      const nearestTarget = collectorTarget ?? enemiesRef.current
-        .filter(enemy => !enemy.dead && enemy.hp > 0)
-        .sort((a, b) => Math.hypot(a.x - droneX, a.y - droneY) - Math.hypot(b.x - droneX, b.y - droneY))[0] ?? null;
       const weaponSpread = droneWeapon.id === "ion_spread" ? [-.16, 0, .16] : [0];
       offsets.forEach(offset => weaponSpread.forEach(spread => bulletsRef.current.push({
         x: droneX + 22, y: droneY + offset,
-        vx: droneWeapon.id === "rockets" ? 7 : BASE_BULLET_SPEED,
+        vx: droneWeapon.id === "rail_lance" ? 17 : BASE_BULLET_SPEED,
         vy: spread * BASE_BULLET_SPEED,
         fromPlayer: true,
         damage: (drone.damage + runUpgradesRef.current.damage) * droneWeapon.damageMultiplier * droneDamageMultiplier * buildDamageMultiplier * (role === "assault" ? 1.35 : 1),
         color: droneWeapon.color,
-        isMissile: droneWeapon.id === "rockets" || role === "collector",
-        missileTarget: droneWeapon.id === "rockets" ? nearestTarget : collectorTarget,
+        isMissile: role === "collector",
+        missileTarget: collectorTarget,
         weaponId: `drone_${droneWeapon.id}`,
       })));
     }
@@ -3173,6 +3213,7 @@ export default function Game() {
       ? ENGINE_MODULES.find(module => module.id === save.aircraftBuild!.engine) ?? ENGINE_MODULES[0]
       : engineModule;
     aircraftBuildRef.current = build;
+    hybridActiveRef.current = loadHybridActive();
     droneBuildRef.current = loadDroneBuild();
     droneRoleRef.current = loadDroneRole();
     droneWeaponRef.current = DRONE_WEAPONS.find(weapon => weapon.id === loadDroneWeapon()) ?? DRONE_WEAPONS[0];
@@ -3270,7 +3311,6 @@ export default function Game() {
     comboTimerRef.current = 0;
     comboMilestoneRef.current = { combo: 0, timer: 0 };
     screenShakeRef.current = 0;
-    slowMotionRef.current = 0;
     waveTimerRef.current = 0;
     waveSequenceRef.current = 0;
     activeWaveRef.current = null;
@@ -3944,10 +3984,6 @@ export default function Game() {
         screenShakeRef.current = Math.max(0, screenShakeRef.current - 1.4 * dtScale);
       } else {
         canvas.style.transform = "";
-      }
-      if (slowMotionRef.current > 0) {
-        slowMotionRef.current = Math.max(0, slowMotionRef.current - dtScale);
-        if (Math.floor(slowMotionRef.current) % 2 === 0) return;
       }
       if (comboTimerRef.current > 0) {
         comboTimerRef.current = Math.max(0, comboTimerRef.current - dtScale);
@@ -4985,7 +5021,6 @@ export default function Game() {
           if (ultimateActiveRef.current > 0 && !isTitanInvulnerable(e)) e.ultimateFreezeTimer = ultimateActiveRef.current;
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           if (critical) {
-            slowMotionRef.current = Math.max(slowMotionRef.current, 3);
             audioRef.current.tone(920, .07, settingsRef.current.soundVolume * .28, "square");
           } else if (damageResult.absorbedByShield) {
             audioRef.current.tone(540, .06, settingsRef.current.soundVolume * .2, "sine");
@@ -5311,7 +5346,8 @@ export default function Game() {
         const cy = playerRef.current.y + PLAYER_H / 2;
         ctx.save();
         ctx.translate(cx, cy); ctx.scale(1.16, 1.16); ctx.translate(-cx, -cy);
-        drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, aircraftBuildRef.current, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level);
+        if (hybridActiveRef.current) drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, aircraftBuildRef.current, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level);
+        else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level);
         ctx.restore();
         ctx.save();
         ctx.lineCap = "round";
@@ -5360,7 +5396,8 @@ export default function Game() {
         ctx.save();
         ctx.globalAlpha = 0.15 + 0.1 * Math.sin(timeRef.current * 0.25);
         ctx.shadowColor = "#00ffee"; ctx.shadowBlur = 20;
-        drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, aircraftBuildRef.current, activeSkinRef.current, undefined, aircraftUpgradeRef.current.level);
+        if (hybridActiveRef.current) drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, aircraftBuildRef.current, activeSkinRef.current, undefined, aircraftUpgradeRef.current.level);
+        else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, activeSkinRef.current, undefined, aircraftUpgradeRef.current.level);
         ctx.restore();
       } else {
         {
@@ -5374,7 +5411,8 @@ export default function Game() {
           if (invincibleRef.current > 0) {
             ctx.globalAlpha = 0.48 + 0.22 * Math.sin(timeRef.current * 0.32);
           }
-          drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, aircraftBuildRef.current, activeSkinRef.current, _sc, aircraftUpgradeRef.current.level);
+          if (hybridActiveRef.current) drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, aircraftBuildRef.current, activeSkinRef.current, _sc, aircraftUpgradeRef.current.level);
+          else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current, _sc, aircraftUpgradeRef.current.level);
           ctx.restore();
         }
         if (ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeUltiSkinRef.current.id)) {
@@ -5538,6 +5576,9 @@ export default function Game() {
     saveSkin(id);
     activeSkinRef.current = skin;
     activeUltiSkinRef.current = skin;
+    setHybridActive(false);
+    saveHybridActive(false);
+    hybridActiveRef.current = false;
   };
 
   const handleUltiLoadoutChange = (ids: UltiLoadoutId[]) => {
@@ -5559,6 +5600,21 @@ export default function Game() {
     setAircraftBuild(next);
     saveAircraftBuild(next);
     aircraftBuildRef.current = next;
+  };
+
+  const handleHybridSelect = () => {
+    setHybridActive(true);
+    saveHybridActive(true);
+    hybridActiveRef.current = true;
+  };
+
+  const handleHybridBuild = () => {
+    if (loadCoins() < HYBRID_BUILD_COST) return false;
+    spendCoins(HYBRID_BUILD_COST);
+    setCoins(loadCoins());
+    handleHybridSelect();
+    audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
+    return true;
   };
 
   const handleDroneRoleChange = (role: DroneRoleId) => {
@@ -5792,6 +5848,7 @@ export default function Game() {
             ultiLoadout={ultiLoadout}
             selectedDroneSkin={selectedDroneSkin}
             aircraftBuild={aircraftBuild}
+            hybridActive={hybridActive}
             droneBuild={droneBuild}
             droneRole={droneRole}
             selectedDroneWeapon={selectedDroneWeapon}
@@ -5814,6 +5871,8 @@ export default function Game() {
             onUltiLoadoutChange={handleUltiLoadoutChange}
             onDroneSkinSelect={handleDroneSkinSelect}
             onAircraftBuildChange={handleAircraftBuildChange}
+            onHybridSelect={handleHybridSelect}
+            onHybridBuild={handleHybridBuild}
             onDroneBuildChange={handleDroneBuildChange}
             onDroneRoleChange={handleDroneRoleChange}
             onDroneWeaponChange={handleDroneWeaponChange}
@@ -5903,16 +5962,57 @@ export default function Game() {
 
 // ─── Hangar Overlay ───────────────────────────────────────────────────────────
 
-function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDroneSkin, unlockedItems, onBuildChange, onDroneBuildChange, onDroneRoleChange, onBack }: {
+function JetBuildThumbnail({ skin }: { skin: JetSkin }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const background = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    background.addColorStop(0, "#10213a"); background.addColorStop(1, "#050914");
+    ctx.fillStyle = background; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#1e3a5f"; ctx.lineWidth = 1;
+    for (let x = 8; x < canvas.width; x += 16) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+    const glow = ctx.createRadialGradient(50, 30, 2, 50, 30, 38);
+    glow.addColorStop(0, skin.glow + "55"); glow.addColorStop(1, "transparent");
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.save(); ctx.translate(5, 0); ctx.scale(1.55, 1.55);
+    drawPlayerJet(ctx, 15, 10, 3, false, skin, undefined, 3);
+    ctx.restore();
+  }, [skin]);
+  return <canvas ref={ref} width={100} height={60} className="block h-[60px] w-full rounded-lg" aria-hidden="true" />;
+}
+
+function DroneBuildThumbnail({ skin }: { skin: DroneSkin }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const background = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    background.addColorStop(0, "#211536"); background.addColorStop(1, "#070812");
+    ctx.fillStyle = background; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#382653";
+    for (let x = 8; x < canvas.width; x += 16) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+    ctx.save(); ctx.translate(50, 30); ctx.scale(1.65, 1.65);
+    drawCombatDrone(ctx, 0, 0, 0, skin, 4);
+    ctx.restore();
+  }, [skin]);
+  return <canvas ref={ref} width={100} height={60} className="block h-[60px] w-full rounded-lg" aria-hidden="true" />;
+}
+
+function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDroneSkin, unlockedItems, coins, onBuildChange, onDroneBuildChange, onDroneRoleChange, onBuild, onBack }: {
   build: AircraftBuild;
   droneBuild: DroneBuild;
   droneRole: DroneRoleId;
   selectedSkin: string;
   selectedDroneSkin: string;
   unlockedItems: string[];
+  coins: number;
   onBuildChange: (build: AircraftBuild) => void;
   onDroneBuildChange: (build: DroneBuild) => void;
   onDroneRoleChange: (role: DroneRoleId) => void;
+  onBuild: () => void;
   onBack: () => void;
 }) {
   const availableJets = JET_SKINS.filter(skin => skin.cost === 0 || unlockedItems.includes(skin.id) || skin.id === selectedSkin);
@@ -5929,7 +6029,7 @@ function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDr
             : { ...build, wingSkin: skin.id })}
           className="rounded-xl p-3 text-left transition active:scale-95"
           style={{ background: active ? `${skin.glow}30` : "rgba(15,23,42,.8)", border: `2px solid ${active ? skin.glow : "#334155"}`, boxShadow: active ? `0 0 12px ${skin.glow}55` : "none" }}>
-          <span className="block h-5 w-full rounded-full" style={{ background: `linear-gradient(90deg, ${skin.body}, ${skin.stroke}, ${skin.glow})` }} />
+          <JetBuildThumbnail skin={skin} />
           <span className="mt-2 block text-xs font-black">{skin.name}</span>
         </button>})}
       </div>
@@ -5945,7 +6045,7 @@ function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDr
             : { ...droneBuild, weaponSkin: skin.id })}
           className="rounded-xl p-3 text-left transition active:scale-95"
           style={{ background: active ? `${skin.stroke}30` : "rgba(15,23,42,.8)", border: `2px solid ${active ? skin.stroke : "#334155"}` }}>
-          <span className="block h-5 rounded-full" style={{ background: `linear-gradient(90deg, ${skin.body}, ${skin.stroke}, ${skin.core})` }} />
+          <DroneBuildThumbnail skin={skin} />
           <span className="mt-2 block text-xs font-black">{skin.name}</span>
         </button>})}
       </div>
@@ -5981,17 +6081,21 @@ function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDr
         <div className="mt-1 font-black">Jet: {skinName(build.bodySkin)} + {skinName(build.wingSkin)}</div>
         <div className="mt-1 font-black text-fuchsia-200">Drohne: {DRONE_SKINS.find(skin => skin.id === droneBuild.bodySkin)?.name} + {DRONE_SKINS.find(skin => skin.id === droneBuild.weaponSkin)?.name}</div>
       </div>
-      <button onClick={onBack} className="pause-primary mt-5 min-h-12 w-full rounded-xl font-black">BUILD ÜBERNEHMEN</button>
+      <button onClick={onBuild} disabled={coins < HYBRID_BUILD_COST}
+        className="pause-primary mt-5 min-h-12 w-full rounded-xl font-black disabled:cursor-not-allowed disabled:opacity-40">
+        HYBRID BAUEN · 💰 {HYBRID_BUILD_COST.toLocaleString("de-DE")} CREDITS
+      </button>
+      {coins < HYBRID_BUILD_COST && <div className="mt-2 text-center text-xs font-bold text-red-300">Noch {(HYBRID_BUILD_COST - coins).toLocaleString("de-DE")} Credits benötigt</div>}
     </div>
   </div>;
 }
 
 function HangarOverlay({
-  selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, droneBuild, droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
-  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onWeaponCrateSelect, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
+  selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, hybridActive, droneBuild, droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
+  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onHybridSelect, onHybridBuild, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onWeaponCrateSelect, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
-  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; aircraftBuild: AircraftBuild; droneBuild: DroneBuild; droneRole: DroneRoleId; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[]; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
+  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; aircraftBuild: AircraftBuild; hybridActive: boolean; droneBuild: DroneBuild; droneRole: DroneRoleId; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[]; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
   weaponLevels: Record<string, number>;
@@ -6000,6 +6104,8 @@ function HangarOverlay({
   onGameModeChange: (mode: GameMode) => void;
   onSkinSelect: (id: string) => void; onUltiLoadoutChange: (ids: UltiLoadoutId[]) => void; onDroneSkinSelect: (id: string) => void; onWeaponCrateSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void; onUnlockDroneSkin: (id: string) => void;
   onAircraftBuildChange: (build: AircraftBuild) => void;
+  onHybridSelect: () => void;
+  onHybridBuild: () => boolean;
   onDroneBuildChange: (build: DroneBuild) => void;
   onDroneRoleChange: (role: DroneRoleId) => void;
   onDroneWeaponChange: (weapon: DroneWeaponId) => void;
@@ -6039,12 +6145,13 @@ function HangarOverlay({
     const gg = ctx.createRadialGradient(120, 70, 4, 120, 70, 65);
     gg.addColorStop(0, skin.glow + "44"); gg.addColorStop(1, "transparent");
     ctx.fillStyle = gg; ctx.fillRect(0, 0, 240, 140);
-    drawCombinedPlayerJet(ctx, 90, 56, 5, false, aircraftBuild, skin, undefined, aircraftLevels[skin.id] ?? 1);
+    if (hybridActive) drawCombinedPlayerJet(ctx, 90, 56, 5, false, aircraftBuild, skin, undefined, aircraftLevels[skin.id] ?? 1);
+    else drawPlayerJet(ctx, 90, 56, 5, false, skin, undefined, aircraftLevels[skin.id] ?? 1);
     drawCombinedCombatDrone(ctx, 105, 38, 0, droneBuild, DRONE_SKINS.find(s => s.id === selectedDroneSkin) ?? DRONE_SKINS[0], droneLevels[selectedDroneSkin] ?? 1);
     drawWeaponCrate(ctx, { x: 90, y: 56 }, WEAPON_CRATES.find(crate => crate.id === selectedWeaponCrate) ?? WEAPON_CRATES[0], true, 0);
   // Sub-views unmount the preview canvas. Redraw when returning to the main
   // hangar even if the selected skins and their levels did not change.
-  }, [view, activeSkinId, skin, selectedDroneSkin, selectedWeaponCrate, aircraftBuild, droneBuild, aircraftLevels, droneLevels]);
+  }, [view, activeSkinId, skin, selectedDroneSkin, selectedWeaponCrate, aircraftBuild, hybridActive, droneBuild, aircraftLevels, droneLevels]);
 
   if (view === "briefing") {
     return (
@@ -6060,15 +6167,16 @@ function HangarOverlay({
   if (view === "upgrades") {
     return (
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
-        <ShopScreen coins={coins} gems={gems} playerLevel={getPilotLevelFromKills()} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} weaponLevels={weaponLevels} selectedSkin={selectedSkin} ultiLoadout={ultiLoadout} selectedDroneSkin={selectedDroneSkin} selectedWeapons={selectedWeapons}
+        <ShopScreen coins={coins} gems={gems} playerLevel={getPilotLevelFromKills()} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} weaponLevels={weaponLevels} selectedSkin={selectedSkin} ultiLoadout={ultiLoadout} selectedDroneSkin={selectedDroneSkin} selectedDroneWeapon={selectedDroneWeapon} selectedWeapons={selectedWeapons}
           onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect}
-          onUltiLoadoutChange={onUltiLoadoutChange} onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} onWeaponSelect={onWeaponSelect} onWeaponBuy={onWeaponBuy} onWeaponUpgrade={onWeaponUpgrade} onDailyChestClaim={onDailyChestClaim} />
+          onUltiLoadoutChange={onUltiLoadoutChange} onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onDroneWeaponChange={onDroneWeaponChange} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} onWeaponSelect={onWeaponSelect} onWeaponBuy={onWeaponBuy} onWeaponUpgrade={onWeaponUpgrade} onDailyChestClaim={onDailyChestClaim} />
       </div>
     );
   }
   if (view === "workshop") {
-    return <WorkshopScreen build={aircraftBuild} droneBuild={droneBuild} droneRole={droneRole} selectedSkin={selectedSkin} selectedDroneSkin={selectedDroneSkin} unlockedItems={unlockedItems}
+    return <WorkshopScreen build={aircraftBuild} droneBuild={droneBuild} droneRole={droneRole} selectedSkin={selectedSkin} selectedDroneSkin={selectedDroneSkin} unlockedItems={unlockedItems} coins={coins}
       onBuildChange={onAircraftBuildChange} onDroneBuildChange={onDroneBuildChange} onDroneRoleChange={onDroneRoleChange}
+      onBuild={() => { if (onHybridBuild()) setView("main"); }}
       onBack={() => setView("main")} />;
   }
   if (view === "settings") {
@@ -6148,7 +6256,7 @@ function HangarOverlay({
           style={{ border: `1.5px solid ${skin.glow}55`, boxShadow: `0 0 24px ${skin.glow}33` }}>
           <canvas ref={previewRef} width={240} height={140} className="block" />
         </div>
-        <div className="font-bold text-white text-sm tracking-wide">{skin.name}</div>
+        <div className="font-bold text-white text-sm tracking-wide">{hybridActive ? `Hybrid · ${JET_SKINS.find(item => item.id === aircraftBuild.bodySkin)?.name} + ${JET_SKINS.find(item => item.id === aircraftBuild.wingSkin)?.name}` : skin.name}</div>
         <div className="max-w-sm rounded-xl border px-3 py-2 text-center" style={{ borderColor: `${skin.glow}55`, background: `${skin.glow}12` }}>
           <div className="text-xs font-black uppercase tracking-wider" style={{ color: skin.glow }}>{skin.ultiName}</div>
         </div>
@@ -6158,7 +6266,7 @@ function HangarOverlay({
         {/* Colour picker dots */}
         <div className="hangar-skins flex max-w-full gap-2.5 mt-0.5 overflow-x-auto px-2 py-2">
           {JET_SKINS.filter(s => s.cost === 0 || unlockedItems.includes(s.id)).map(s => {
-            const active = s.id === selectedSkin;
+            const active = !hybridActive && s.id === selectedSkin;
             const previewing = s.id === hoverSkin;
             return (
               <button key={s.id}
@@ -6178,6 +6286,19 @@ function HangarOverlay({
               />
             );
           })}
+          <button
+            type="button"
+            onClick={onHybridSelect}
+            aria-label="Hybrid-Jet auswählen"
+            title="Dein gespeicherter Hybrid-Jet"
+            className="hangar-skin-button grid place-items-center font-black text-white"
+            style={{
+              width: 46, height: 38, minWidth: 46, borderRadius: 10,
+              background: `linear-gradient(135deg, ${JET_SKINS.find(item => item.id === aircraftBuild.bodySkin)?.glow ?? "#22d3ee"} 0 50%, ${JET_SKINS.find(item => item.id === aircraftBuild.wingSkin)?.glow ?? "#a78bfa"} 50% 100%)`,
+              border: hybridActive ? "3px solid #fff" : "2px solid #67e8f9",
+              boxShadow: hybridActive ? "0 0 16px #67e8f9" : "none",
+            }}
+          >H</button>
         </div>
         <div className="hangar-drone-skins flex items-center justify-center gap-2 mt-1">
           <span className="text-slate-500 text-xs">Drohne:</span>
@@ -6191,26 +6312,6 @@ function HangarOverlay({
                 boxShadow: selectedDroneSkin === s.id ? `0 0 10px ${s.stroke}` : "none" }} />;
           })}
           <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2 py-0.5 text-[10px] font-black text-violet-300">LV {droneLevels[selectedDroneSkin] ?? 1}</span>
-        </div>
-        <div className="hangar-drone-weapons flex items-center justify-center gap-2 mt-1">
-          <span className="text-slate-500 text-xs">Drohnenwaffe:</span>
-          {DRONE_WEAPONS.map(weapon => (
-            <button
-              key={weapon.id}
-              onClick={() => onDroneWeaponChange(weapon.id)}
-              aria-label={`${weapon.name} als Drohnenwaffe auswählen`}
-              title={`${weapon.name} · ${weapon.description}`}
-              className="hangar-skin-button grid place-items-center font-black text-sm"
-              style={{
-                width: 42, height: 34, minWidth: 42, borderRadius: 9,
-                color: weapon.color, background: `${weapon.color}22`,
-                border: selectedDroneWeapon === weapon.id ? "3px solid #fff" : `2px solid ${weapon.color}`,
-                boxShadow: selectedDroneWeapon === weapon.id ? `0 0 12px ${weapon.color}` : "none",
-              }}
-            >
-              {weapon.icon}
-            </button>
-          ))}
         </div>
         <div className="hangar-crate-skins flex items-center justify-center gap-2 mt-1">
           <span className="text-slate-500 text-xs">Waffenmodul:</span>
@@ -6397,8 +6498,8 @@ function ShopStarfield() {
   );
 }
 
-function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, weaponLevels, selectedSkin, ultiLoadout, selectedDroneSkin, selectedWeapons, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onAircraftUpgrade, onDroneUpgrade, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onDailyChestClaim }: {
-  coins: number; gems: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedWeapons: string[];
+function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, weaponLevels, selectedSkin, ultiLoadout, selectedDroneSkin, selectedDroneWeapon, selectedWeapons, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onDroneWeaponChange, onAircraftUpgrade, onDroneUpgrade, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onDailyChestClaim }: {
+  coins: number; gems: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedDroneWeapon: DroneWeaponId; selectedWeapons: string[];
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
   weaponLevels: Record<string, number>;
@@ -6406,6 +6507,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
   onUnlockSkin: (id: string) => void; onSkinSelect: (id: string) => void;
   onUltiLoadoutChange: (ids: UltiLoadoutId[]) => void;
   onUnlockDroneSkin: (id: string) => void; onDroneSkinSelect: (id: string) => void;
+  onDroneWeaponChange: (id: DroneWeaponId) => void;
   onAircraftUpgrade: () => void;
   onDroneUpgrade: () => void;
   onWeaponSelect: (id: string) => void;
@@ -6628,6 +6730,51 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
               </div>
             </div>;
           })}
+        </div>
+
+        <div className="mt-6 border-t border-violet-400/25 pt-5">
+          <div className="text-xs font-black uppercase tracking-[.2em] text-violet-300">Drohnenwaffen</div>
+          <div className="mt-1 text-xs text-slate-400">Wähle eine separate Waffe für deine Begleitdrohne. Drohnenlevel und Rollen verstärken sie weiterhin.</div>
+          <div className="mt-2 text-[10px] font-black uppercase tracking-wider text-violet-200">Drohnen-Waffenslot 1/1 belegt</div>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {DRONE_WEAPONS.map(weapon => {
+              const active = selectedDroneWeapon === weapon.id;
+              const shots = weapon.id === "ion_spread" ? 3 : 1;
+              const damage = Math.round(droneStats.damage * weapon.damageMultiplier * 10) / 10;
+              const fireRate = Math.round(1000 / (280 * droneStats.fireRateMultiplier * weapon.fireRate) * 10) / 10;
+              return (
+                <button
+                  key={weapon.id}
+                  type="button"
+                  onClick={() => onDroneWeaponChange(weapon.id)}
+                  aria-pressed={active}
+                  className="rounded-2xl p-3 text-left transition active:scale-[.98]"
+                  style={{
+                    background: active ? `${weapon.color}20` : "rgba(255,255,255,.045)",
+                    border: `1px solid ${active ? weapon.color : `${weapon.color}66`}`,
+                    borderLeft: `5px solid ${weapon.color}`,
+                    boxShadow: active ? `0 0 18px ${weapon.color}44` : undefined,
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xl font-black" style={{ color: weapon.color, background: `${weapon.color}16`, border: `1px solid ${weapon.color}88`, textShadow: `0 0 9px ${weapon.color}` }}>{weapon.icon}</span>
+                    <span className="min-w-0">
+                      <b className="block text-white">{weapon.name}</b>
+                      <span className="text-[11px] text-slate-400">{weapon.description}</span>
+                    </span>
+                  </div>
+                  <span className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px] text-slate-300">
+                    <span className="rounded bg-black/25 p-1"><b className="block text-white">{damage}</b>Schaden</span>
+                    <span className="rounded bg-black/25 p-1"><b className="block text-white">{shots}</b>Schüsse</span>
+                    <span className="rounded bg-black/25 p-1"><b className="block text-white">{fireRate}/s</b>Feuerrate</span>
+                  </span>
+                  <span className="mt-2 block rounded-lg border border-violet-400/50 bg-violet-950/50 px-2 py-2 text-center text-xs font-black text-violet-200">
+                    {active ? "✓ AUSGERÜSTET" : "AUSRÜSTEN"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
       )}
