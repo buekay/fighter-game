@@ -5458,7 +5458,12 @@ export default function Game() {
             b.x - (playerRef.current.x + PLAYER_W / 2),
             b.y - (playerRef.current.y + PLAYER_H / 2),
           );
-          if (!b.nearMissed && nearDistance < 43 && nearMissCooldownRef.current <= 0) {
+          const hasPassedPlayer = b.vx < 0
+            ? b.x + bw / 2 < playerRef.current.x
+            : b.vx > 0
+              ? b.x - bw / 2 > playerRef.current.x + PLAYER_W
+              : false;
+          if (!b.nearMissed && hasPassedPlayer && nearDistance < 43 && nearMissCooldownRef.current <= 0) {
             b.nearMissed = true;
             nearMissCooldownRef.current = 12;
             runStatsRef.current.nearMisses += 1;
