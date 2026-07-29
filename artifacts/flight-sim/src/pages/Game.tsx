@@ -743,6 +743,12 @@ interface AircraftBuild {
   wingSkin: string;
   engineSkin: string;
 }
+
+function getAircraftUltiIds(hybridActive: boolean, build: AircraftBuild, fallbackSkin: JetSkin): Set<string> {
+  return new Set(hybridActive
+    ? [build.bodySkin, build.wingSkin, build.engineSkin]
+    : [fallbackSkin.id]);
+}
 interface DroneBuild {
   bodySkin: string;
   coreSkin: string;
@@ -3085,6 +3091,7 @@ export default function Game() {
 
   const fireBullets = useCallback((now: number) => {
     const gs = stateRef.current;
+    const aircraftUltiIds = getAircraftUltiIds(hybridActiveRef.current, aircraftBuildRef.current, activeUltiSkinRef.current);
     const wingModule = WING_MODULES.find(module => module.id === aircraftBuildRef.current.wing) ?? WING_MODULES[0];
     const engineModule = ENGINE_MODULES.find(module => module.id === aircraftBuildRef.current.engine) ?? ENGINE_MODULES[0];
     const role = droneRoleRef.current;
@@ -3131,7 +3138,7 @@ export default function Game() {
 
     const px = playerRef.current.x + PLAYER_W;
     const py = playerRef.current.y + PLAYER_H / 2;
-    if (ultimaActiveRef.current > 0 && ["xwing", "n1"].includes(activeUltiSkinRef.current.id) &&
+    if (ultimaActiveRef.current > 0 && (aircraftUltiIds.has("xwing") || aircraftUltiIds.has("n1")) &&
         now - lastWingmanFireRef.current >= 500) {
       lastWingmanFireRef.current = now;
       const livingTargets = enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0);
@@ -3147,7 +3154,7 @@ export default function Game() {
       });
     }
 
-    const aircraftUltiFireRate = ultimaActiveRef.current > 0 && ["gold", "crimson", "solaris"].includes(activeUltiSkinRef.current.id) ? 0.45 : 1;
+    const aircraftUltiFireRate = ultimaActiveRef.current > 0 && ["gold", "crimson", "solaris"].some(id => aircraftUltiIds.has(id)) ? 0.45 : 1;
     const gunOffsets: number[][] = [
       [0], [-8, 8], [-12, 0, 12], [-14, -5, 5, 14], [-14, -7, 0, 7, 14],
       [-15, -9, -3, 3, 9, 15], [-16, -10, -4, 0, 4, 10, 16],
@@ -3179,7 +3186,7 @@ export default function Game() {
       });
     // TIE wingmen copy the normal cannons. X-Wings use their own targeted
     // two-shots-per-second fireball cadence below.
-      if (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "tiefighter") {
+      if (ultimaActiveRef.current > 0 && aircraftUltiIds.has("tiefighter")) {
       const wingmen = [-72, -36, 36, 72];
       wingmen.forEach(wingOffset => offsets.forEach((oy, i) => {
         let cvx = BASE_BULLET_SPEED;
@@ -3443,16 +3450,17 @@ export default function Game() {
     if (ultimaChargeRef.current < ULTI_MAX || ultimaActiveRef.current > 0 || !activeUltiLoadoutRef.current.includes("jet")) return false;
     ultimaActiveRef.current = ULTI_DURATION;
     ultimaChargeRef.current = 0;
+    const aircraftUltiIds = getAircraftUltiIds(hybridActiveRef.current, aircraftBuildRef.current, activeUltiSkinRef.current);
 
-    if (activeUltiSkinRef.current.id === "jade") stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
-    if (["steel", "jade"].includes(activeUltiSkinRef.current.id)) {
+    if (aircraftUltiIds.has("jade")) stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + 5);
+    if (aircraftUltiIds.has("steel") || aircraftUltiIds.has("jade")) {
       shieldTimerRef.current = ULTI_DURATION;
-      playerShieldHpRef.current = activeUltiSkinRef.current.id === "steel" ? 12 : 6;
+      playerShieldHpRef.current = aircraftUltiIds.has("steel") ? 12 : 6;
     }
-    if (activeUltiSkinRef.current.id === "solaris") {
+    if (aircraftUltiIds.has("solaris")) {
       stateRef.current.hp = stateRef.current.maxHp;
       shieldTimerRef.current = ULTI_DURATION;
-      playerShieldHpRef.current = 8;
+      playerShieldHpRef.current = Math.max(playerShieldHpRef.current, 8);
     }
 
     // Every drone contributes its own ultimate to the aircraft ultimate.
@@ -4097,7 +4105,8 @@ export default function Game() {
       }
 
       // ── Input & Player Movement ──
-      const n1UltiSpeed = activeUltiSkinRef.current.id === "n1" && ultimaActiveRef.current > 0 ? 2 : 1;
+      const aircraftUltiIds = getAircraftUltiIds(hybridActiveRef.current, aircraftBuildRef.current, activeUltiSkinRef.current);
+      const n1UltiSpeed = aircraftUltiIds.has("n1") && ultimaActiveRef.current > 0 ? 2 : 1;
       const speedMult = (activeSkinRef.current?.id === "n1" ? 1.15 : 1) * n1UltiSpeed * (speedBoostRef.current > 0 ? 2 : 1);
       const spd = gs.speed * speedMult;
       const js = joystickRef.current;
@@ -4393,8 +4402,8 @@ export default function Game() {
           const sp = Math.hypot(b.vx, b.vy);
           if (sp > 5) { b.vx = b.vx / sp * 5; b.vy = b.vy / sp * 5; }
         }
-        if (!b.fromPlayer && ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "voidreaper") return false;
-        const projectileSpeed = !b.fromPlayer && ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "arctic" ? 0 : 1;
+        if (!b.fromPlayer && ultimaActiveRef.current > 0 && aircraftUltiIds.has("voidreaper")) return false;
+        const projectileSpeed = !b.fromPlayer && ultimaActiveRef.current > 0 && aircraftUltiIds.has("arctic") ? 0 : 1;
         b.x += b.vx * dtScale * projectileSpeed;
         b.y += b.vy * dtScale * projectileSpeed;
         drawBullet(ctx, b);
@@ -4412,7 +4421,7 @@ export default function Game() {
       // ── Ultima charge & countdown ──
       if (ultimaActiveRef.current > 0) {
         ultimaActiveRef.current = Math.max(0, ultimaActiveRef.current - dtScale);
-        if (["steel", "shadow", "n1"].includes(activeUltiSkinRef.current.id)) invincibleRef.current = Math.max(invincibleRef.current, 3);
+        if (["steel", "shadow", "n1"].some(id => aircraftUltiIds.has(id))) invincibleRef.current = Math.max(invincibleRef.current, 3);
       } else if (ultimaChargeRef.current < ULTI_MAX) {
         const cloneMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
         const cloneBonus = activeUnlocksRef.current.includes("clone_upgrade") ? 1.25 : 1;
@@ -4564,9 +4573,8 @@ export default function Game() {
           }
         }
         if (ultimaActiveRef.current > 0 && !isTitanInvulnerable(e)) {
-          const aircraftId = activeUltiSkinRef.current.id;
           const droneId = activeDroneSkinRef.current.id;
-          const blackHoleActive = aircraftId === "galaxy" || aircraftId === "n1";
+          const blackHoleActive = aircraftUltiIds.has("galaxy") || aircraftUltiIds.has("n1");
           if (blackHoleActive) {
             const targetX = CANVAS_W * .58;
             const targetY = CANVAS_H * .5;
@@ -4574,12 +4582,12 @@ export default function Game() {
             e.y += (targetY - (e.y + e.height / 2)) * .012 * dtScale;
             e.hp -= .10 * dtScale;
           }
-          if (aircraftId === "voidreaper") e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimaActiveRef.current);
-          if (aircraftId === "arctic") e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
-          if (aircraftId === "fire") e.hp -= .11 * dtScale;
-          if (aircraftId === "neon") e.hp -= .14 * dtScale;
-          if (aircraftId === "lava") e.hp -= .18 * dtScale;
-          if (aircraftId === "shadow" && ultimaActiveRef.current < 3) e.hp -= 14;
+          if (aircraftUltiIds.has("voidreaper")) e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimaActiveRef.current);
+          if (aircraftUltiIds.has("arctic")) e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
+          if (aircraftUltiIds.has("fire")) e.hp -= .11 * dtScale;
+          if (aircraftUltiIds.has("neon")) e.hp -= .14 * dtScale;
+          if (aircraftUltiIds.has("lava")) e.hp -= .18 * dtScale;
+          if (aircraftUltiIds.has("shadow") && ultimaActiveRef.current < 3) e.hp -= 14;
           if (droneId === "drone_ember") e.hp -= .08 * dtScale;
           if (droneId === "drone_ion") e.hp -= .10 * dtScale;
           if (droneId === "drone_frost") e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
@@ -4591,7 +4599,7 @@ export default function Game() {
           if (droneId === "drone_nova") e.hp -= .14 * dtScale;
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
-            gs.score += e.points * (aircraftId === "gold" ? 2 : 1);
+            gs.score += e.points * (aircraftUltiIds.has("gold") ? 2 : 1);
             registerKill(e);
             e.dead = true;
             audioRef.current.effect("explosion", settingsRef.current.soundVolume);
@@ -4607,7 +4615,7 @@ export default function Game() {
             e.ultimateDotTimer += ULTIMATE_DOT_INTERVAL;
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
             if (e.hp <= 0) {
-              gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
+              gs.score += e.points * (ultimaActiveRef.current > 0 && aircraftUltiIds.has("gold") ? 2 : 1);
               registerKill(e);
               e.dead = true;
               audioRef.current.effect("explosion", settingsRef.current.soundVolume);
@@ -5025,9 +5033,8 @@ export default function Game() {
           const bh = b.isMissile ? 8 : 4;
           if (!rectHit(b.x, b.y - bh / 2, bw, bh, e.x, e.y, e.width, e.height)) return true;
           const critical = runUpgradesRef.current.critical > 0 && Math.random() < Math.min(.45, .15 * runUpgradesRef.current.critical);
-          const activeAircraftId = activeUltiSkinRef.current.id;
           const aircraftDamage = ultimaActiveRef.current > 0
-            ? activeAircraftId === "solaris" ? 3 : ["crimson", "voidreaper"].includes(activeAircraftId) ? 2 : 1
+            ? aircraftUltiIds.has("solaris") ? 3 : ["crimson", "voidreaper"].some(id => aircraftUltiIds.has(id)) ? 2 : 1
             : 1;
           const absorberDamage = absorberActiveRef.current > 0 && absorberHitsRef.current > 0
             ? Math.pow(2, absorberHitsRef.current) : 1;
@@ -5121,7 +5128,7 @@ export default function Game() {
           hit = true;
           if (damageResult.destroyed) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
-            gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
+            gs.score += e.points * (ultimaActiveRef.current > 0 && aircraftUltiIds.has("gold") ? 2 : 1);
             registerKill(e);
             audioRef.current.effect("explosion", settingsRef.current.soundVolume);
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current +
@@ -5311,7 +5318,7 @@ export default function Game() {
       // ── Laser beams ──
       const laserBeams: number[] = [];
       if (laserActiveRef.current > 0) laserBeams.push(playerRef.current.y + PLAYER_H / 2);
-      if (laserActiveRef.current > 0 && ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeUltiSkinRef.current.id) && activeUnlocksRef.current.includes("clone_laser")) {
+      if (laserActiveRef.current > 0 && ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].some(id => aircraftUltiIds.has(id)) && activeUnlocksRef.current.includes("clone_laser")) {
         const cloneY = clamp(playerRef.current.y + 56, 0, CANVAS_H - PLAYER_H);
         laserBeams.push(cloneY + PLAYER_H / 2);
       }
@@ -5343,7 +5350,7 @@ export default function Game() {
           if (!isTitanInvulnerable(e)) e.hp -= 0.38 * beamHits * absorberDamage * dtScale;
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
-            gs.score += e.points * (ultimaActiveRef.current > 0 && activeUltiSkinRef.current.id === "gold" ? 2 : 1);
+            gs.score += e.points * (ultimaActiveRef.current > 0 && aircraftUltiIds.has("gold") ? 2 : 1);
             registerKill(e);
             audioRef.current.effect("explosion", settingsRef.current.soundVolume);
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (isBossEnemy(e) ? 25 : 4));
@@ -5356,7 +5363,7 @@ export default function Game() {
       }
 
       // ── Aircraft-ultimate visuals ──
-      if (ultimaActiveRef.current > 0 && ["galaxy", "n1"].includes(activeUltiSkinRef.current.id)) {
+      if (ultimaActiveRef.current > 0 && (aircraftUltiIds.has("galaxy") || aircraftUltiIds.has("n1"))) {
         const holeX = CANVAS_W * .58, holeY = CANVAS_H * .5;
         const pulse = 1 + Math.sin(timeRef.current * .12) * .12;
         ctx.save();
@@ -5506,17 +5513,22 @@ export default function Game() {
           else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current, _sc, aircraftUpgradeRef.current.level);
           ctx.restore();
         }
-        if (ultimaActiveRef.current > 0 && ["xwing", "tiefighter", "n1"].includes(activeUltiSkinRef.current.id)) {
-          const wingmen = activeUltiSkinRef.current.id === "tiefighter" ? [-72, -36, 36, 72] : [-50, 50];
-          const allySkin = JET_SKINS.find(s => s.id === (activeUltiSkinRef.current.id === "tiefighter" ? "tiefighter" : "xwing")) ?? activeSkinRef.current;
-          wingmen.forEach((wingOffset, index) => {
-            const wingY = clamp(playerRef.current.y + wingOffset, 0, CANVAS_H - PLAYER_H);
-            ctx.save();
-            ctx.globalAlpha = 0.72 + 0.2 * Math.sin(timeRef.current * .18 + index);
-            ctx.shadowColor = allySkin.glow;
-            ctx.shadowBlur = 18;
-            drawPlayerJet(ctx, playerRef.current.x - 18 - Math.abs(wingOffset) * .12, wingY, gs.weaponTier, false, allySkin);
-            ctx.restore();
+        if (ultimaActiveRef.current > 0) {
+          const wingmanGroups = [
+            ...(aircraftUltiIds.has("xwing") || aircraftUltiIds.has("n1") ? [{ id: "xwing", offsets: [-50, 50] }] : []),
+            ...(aircraftUltiIds.has("tiefighter") ? [{ id: "tiefighter", offsets: [-72, -36, 36, 72] }] : []),
+          ];
+          wingmanGroups.forEach((group, groupIndex) => {
+            const allySkin = JET_SKINS.find(s => s.id === group.id) ?? activeSkinRef.current;
+            group.offsets.forEach((wingOffset, index) => {
+              const wingY = clamp(playerRef.current.y + wingOffset, 0, CANVAS_H - PLAYER_H);
+              ctx.save();
+              ctx.globalAlpha = 0.72 + 0.2 * Math.sin(timeRef.current * .18 + index);
+              ctx.shadowColor = allySkin.glow;
+              ctx.shadowBlur = 18;
+              drawPlayerJet(ctx, playerRef.current.x - 18 - Math.abs(wingOffset) * .12 - groupIndex * 14, wingY, gs.weaponTier, false, allySkin);
+              ctx.restore();
+            });
           });
         }
       }
