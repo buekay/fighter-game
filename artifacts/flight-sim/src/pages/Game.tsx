@@ -3592,10 +3592,17 @@ export default function Game() {
 
   const returnToHangar = useCallback(() => {
     const gs = stateRef.current;
-    if (gs.score > 0 && activeModeRef.current === "classic") saveGame(gs, runUpgradesRef.current, upgradeLevelRef.current);
+    if (gs.score > 0 && !gs.gameOver && activeModeRef.current === "classic") {
+      saveGame(gs, runUpgradesRef.current, upgradeLevelRef.current);
+    }
     gs.started = false;
     gs.paused = false;
+    gs.gameOver = false;
+    gameOverCountdownRef.current = 0;
     keysRef.current.clear();
+    setRunSummary(null);
+    setRunUpgradeChoices([]);
+    setSectorChoices([]);
     setPauseView("menu");
     tutorialStageRef.current = -1;
     setTutorialStage(-1);
