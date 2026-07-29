@@ -233,6 +233,187 @@ input:focus-visible {
 .crate-idle { animation: crate-idle 2.4s ease-in-out infinite; }
 .crate-reward-reveal { animation: crate-reward-reveal .5s cubic-bezier(.2,.9,.2,1.2) both; }
 
+.sci-fi-crate {
+  --crate-color: #67e8f9;
+  --crate-glow: #67e8f988;
+  position: relative;
+  width: 112px;
+  height: 88px;
+  flex: 0 0 112px;
+  filter: drop-shadow(0 10px 9px #000a);
+  transform-origin: 50% 75%;
+}
+
+.sci-fi-crate-aura {
+  position: absolute;
+  inset: 20px 8px 0;
+  border-radius: 50%;
+  background: var(--crate-color);
+  opacity: .19;
+  filter: blur(17px);
+}
+
+.sci-fi-crate-light {
+  position: absolute;
+  z-index: 0;
+  left: 19px;
+  right: 19px;
+  top: 30px;
+  height: 26px;
+  background: linear-gradient(180deg, var(--crate-color), transparent);
+  opacity: .45;
+  filter: blur(7px);
+  transform-origin: 50% 100%;
+}
+
+.sci-fi-crate-lid {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  left: 8px;
+  width: 96px;
+  height: 30px;
+  border: 2px solid var(--crate-color);
+  border-radius: 11px 11px 4px 4px;
+  background: linear-gradient(155deg, #344052 0%, #151b29 45%, #080c16 100%);
+  box-shadow: inset 0 3px 5px #ffffff1a, 0 0 11px var(--crate-glow);
+  transform-origin: 10px 100%;
+  transition: transform .35s ease;
+}
+
+.sci-fi-crate-lid::before,
+.sci-fi-crate-lid::after {
+  content: "";
+  position: absolute;
+  top: 7px;
+  width: 9px;
+  height: 14px;
+  border: 1px solid var(--crate-color);
+  background: #080b14;
+}
+.sci-fi-crate-lid::before { left: -6px; transform: skewY(-20deg); }
+.sci-fi-crate-lid::after { right: -6px; transform: skewY(20deg); }
+
+.sci-fi-crate-lid-panel {
+  position: absolute;
+  inset: 5px 21px 7px;
+  border: 1px solid #ffffff20;
+  clip-path: polygon(12% 0, 88% 0, 100% 100%, 0 100%);
+  background: linear-gradient(90deg, transparent, var(--crate-color), transparent);
+  opacity: .28;
+}
+
+.sci-fi-crate-lid-stripe {
+  position: absolute;
+  left: 15px;
+  right: 15px;
+  bottom: 4px;
+  height: 2px;
+  background: var(--crate-color);
+  box-shadow: 0 0 7px var(--crate-color);
+}
+
+.sci-fi-crate-body {
+  position: absolute;
+  z-index: 2;
+  left: 12px;
+  bottom: 8px;
+  width: 88px;
+  height: 49px;
+  overflow: hidden;
+  border: 2px solid var(--crate-color);
+  border-radius: 4px 4px 9px 9px;
+  background: linear-gradient(145deg, #2b3546, #0c111d 62%);
+  box-shadow: inset 0 0 15px #000b, 0 0 12px var(--crate-glow);
+}
+
+.sci-fi-crate-body::before {
+  content: "";
+  position: absolute;
+  inset: 5px 8px;
+  border: 1px solid #ffffff16;
+  clip-path: polygon(8% 0, 92% 0, 100% 25%, 84% 100%, 16% 100%, 0 25%);
+}
+
+.sci-fi-crate-panel {
+  position: absolute;
+  top: 8px;
+  width: 21px;
+  height: 30px;
+  border: 1px solid var(--crate-color);
+  opacity: .5;
+  background: repeating-linear-gradient(135deg, transparent 0 5px, var(--crate-color) 6px 7px);
+}
+.sci-fi-crate-panel-left { left: 8px; transform: skewY(-8deg); }
+.sci-fi-crate-panel-right { right: 8px; transform: skewY(8deg); }
+
+.sci-fi-crate-lock {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: 10px;
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  transform: translateX(-50%);
+  border: 2px solid var(--crate-color);
+  border-radius: 6px;
+  background: #090e19;
+  color: var(--crate-color);
+  font-size: 11px;
+  text-shadow: 0 0 8px var(--crate-color);
+  box-shadow: 0 0 10px var(--crate-glow), inset 0 0 7px var(--crate-glow);
+}
+
+.sci-fi-crate-bolt {
+  position: absolute;
+  bottom: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--crate-color);
+  box-shadow: 0 0 5px var(--crate-color);
+}
+.sci-fi-crate-bolt-a { left: 6px; }
+.sci-fi-crate-bolt-b { right: 6px; }
+
+.sci-fi-crate-base {
+  position: absolute;
+  z-index: 1;
+  left: 6px;
+  right: 6px;
+  bottom: 3px;
+  height: 12px;
+  border-radius: 2px 2px 8px 8px;
+  background: linear-gradient(90deg, #080b13, #354052, #080b13);
+  border-bottom: 2px solid var(--crate-color);
+}
+
+.sci-fi-crate-opening .sci-fi-crate-lid {
+  animation: sci-fi-crate-lid-open .75s ease-out forwards;
+}
+.sci-fi-crate-opening .sci-fi-crate-light {
+  animation: sci-fi-crate-light-open .75s ease-out forwards;
+}
+.sci-fi-crate-opening .sci-fi-crate-lock {
+  animation: sci-fi-crate-lock-open .45s ease-out forwards;
+}
+
+@keyframes sci-fi-crate-lid-open {
+  0%, 38% { transform: translateY(0) rotate(0); }
+  62% { transform: translateY(-10px) rotate(-7deg); }
+  100% { transform: translate(-8px, -24px) rotate(-18deg); }
+}
+@keyframes sci-fi-crate-light-open {
+  0%, 35% { opacity: .25; transform: scaleY(.2); }
+  70%, 100% { opacity: .9; transform: translateY(-28px) scale(1.45, 2.8); }
+}
+@keyframes sci-fi-crate-lock-open {
+  0%, 45% { transform: translateX(-50%) scale(1); }
+  100% { transform: translateX(-50%) scale(1.35); opacity: 0; }
+}
+
 @keyframes purchase-dialog-in {
   from { opacity: 0; transform: translateY(14px) scale(.94); }
   to { opacity: 1; transform: translateY(0) scale(1); }

@@ -6665,6 +6665,32 @@ function ShopStarfield() {
   );
 }
 
+function ShopCrateVisual({ rarity, opening }: { rarity: ShopRarity; opening: boolean }) {
+  const theme = SHOP_RARITIES[rarity];
+  return (
+    <div
+      className={`sci-fi-crate ${opening ? "sci-fi-crate-opening" : "crate-idle"}`}
+      style={{ "--crate-color": theme.color, "--crate-glow": theme.glow } as React.CSSProperties}
+      aria-hidden="true"
+    >
+      <div className="sci-fi-crate-aura" />
+      <div className="sci-fi-crate-light" />
+      <div className="sci-fi-crate-lid">
+        <span className="sci-fi-crate-lid-panel" />
+        <span className="sci-fi-crate-lid-stripe" />
+      </div>
+      <div className="sci-fi-crate-body">
+        <span className="sci-fi-crate-panel sci-fi-crate-panel-left" />
+        <span className="sci-fi-crate-panel sci-fi-crate-panel-right" />
+        <span className="sci-fi-crate-lock">◆</span>
+        <span className="sci-fi-crate-bolt sci-fi-crate-bolt-a" />
+        <span className="sci-fi-crate-bolt sci-fi-crate-bolt-b" />
+      </div>
+      <div className="sci-fi-crate-base" />
+    </div>
+  );
+}
+
 function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, weaponLevels, selectedSkin, ultiLoadout, selectedDroneSkin, selectedDroneWeapon, selectedWeapons, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onDroneWeaponChange, onAircraftUpgrade, onDroneUpgrade, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onCrateOpen }: {
   coins: number; gems: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedDroneWeapon: DroneWeaponId; selectedWeapons: string[];
   aircraftLevels: Record<string, number>;
@@ -6684,7 +6710,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
 }) {
   type ShopSection = "crates" | "weapons" | "levels" | "skins" | "ultis" | "upgrades";
   const shopSections: readonly { id: ShopSection; icon: string; label: string; description: string }[] = [
-    { id: "crates", icon: "📦", label: "Kisten", description: "Credits, Juwelen und seltene Fahrzeuge gewinnen" },
+    { id: "crates", icon: "📦", label: "Kisten", description: "Versiegelte Belohnungskisten öffnen" },
     { id: "weapons", icon: "🎯", label: "Waffen", description: "Kaufen, ausrüsten und verbessern" },
     { id: "levels", icon: "⬆", label: "Level", description: "Jet und Drohne verstärken" },
     { id: "skins", icon: "🎨", label: "Skins", description: "Aussehen auswählen" },
@@ -6827,11 +6853,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
 
       {shopSection === "crates" && (
         <div className="relative z-10">
-          <div className="rounded-2xl border border-cyan-400/25 bg-cyan-950/20 p-3 text-xs text-slate-300">
-            <b className="text-cyan-300">Chancen pro Kiste:</b> 45 % Credits · 45 % Juwelen · 10 % Flugzeug oder Drohne.
-            Höhere Kisten enthalten stärkere und seltenere Fahrzeuge.
-          </div>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {SHOP_CRATES.map(crate => {
               const rarity = SHOP_RARITIES[crate.rarity];
               const isOpening = openingCrate === crate.rarity;
@@ -6849,16 +6871,12 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
                       </div>
                     </div>
                   )}
-                  <div className="flex items-center gap-3">
-                    <div className={`daily-chest-icon grid h-16 w-16 shrink-0 place-items-center rounded-2xl text-4xl ${isOpening ? "" : "crate-idle"}`}
-                      style={{ background: `${rarity.color}18`, border: `1px solid ${rarity.color}`, boxShadow: `inset 0 0 20px ${rarity.glow}` }}>{crate.icon}</div>
-                    <div className="min-w-0">
+                  <div className="flex items-center gap-4">
+                    <ShopCrateVisual rarity={crate.rarity} opening={isOpening} />
+                    <div className="min-w-0 flex-1">
                       <div className="text-[9px] font-black tracking-[.2em]" style={shopRarityLabelStyle(crate.rarity)}>{rarity.label}</div>
                       <div className="font-black text-white">{crate.name}</div>
-                      <div className="mt-1 text-[11px] text-slate-400">
-                        💰 {crate.creditReward[0].toLocaleString("de-DE")}–{crate.creditReward[1].toLocaleString("de-DE")} ·
-                        💎 {crate.gemReward[0].toLocaleString("de-DE")}–{crate.gemReward[1].toLocaleString("de-DE")}
-                      </div>
+                      <div className="mt-1 text-[11px] font-bold uppercase tracking-[.2em] text-slate-500">Versiegelt</div>
                     </div>
                   </div>
                   <button type="button" onClick={() => openCrate(crate)} disabled={!canAfford || openingCrate !== null}
