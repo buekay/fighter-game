@@ -62,6 +62,11 @@ pnpm run build
 - TIE fighters perform an evasive vertical dodge roughly every 1.5 seconds.
 - From level 20 onward, specialist enemies can appear: healers repair damaged allies, shield generators protect nearby ships, and kamikaze fighters rush the player.
 - From level 50 onward, enemies can also spawn as armored, swift, or frenzied elites with increased score rewards.
+- Pilots can dodge with `Shift` (or the controller/touch Dash button). Near misses shorten the Dash cooldown and award score.
+- Compatible run upgrades unlock named combat synergies such as Frost Storm, Cryo Warheads, Ramming Field, and Blood Engine.
+- Every fourth level rotates an endless-sector mutator. Every fifth level offers a risk/reward route decision.
+- Bosses announce phase changes and telegraph their radial special attacks.
+- Flawless formation waves award triple credits, and the end-of-run report records combat statistics and per-mode personal records.
 - At the end of a mission, the score is converted to credits at a 1:1 rate (for example, 1,000 points award 1,000 credits).
 - Shop skins and upgrades are displayed in rarity order: rare, epic, legendary, ultra legendary, then ultimate. Legendary and higher items receive an additional visual glow; ultimate uses an iridescent, colorful silver treatment.
 - Purchasable shop items cost 50,000 credits for rare, 100,000 credits for epic, 200,000 credits for legendary, 400,000 credits for ultra legendary, and 1,000,000 credits for ultimate rarity. The default Steel skin remains free.

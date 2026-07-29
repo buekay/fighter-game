@@ -35,6 +35,12 @@ import {
   type EnemyDamageState,
   type LifeState,
 } from "./game-rules";
+import {
+  formatRunDuration,
+  getBossPhase,
+  getMutatorForLevel,
+  getUpgradeSynergies,
+} from "./game-enhancements";
 
 const damagedWithSpareLife: LifeState = {
   hp: 2,
@@ -232,3 +238,19 @@ assert.deepEqual(getDroneStats(3, 1), { level: 5, guns: 2, damage: 3, fireRateMu
 assert.deepEqual(getDroneStats(5), { level: 6, guns: 3, damage: 4, fireRateMultiplier: 0.4 });
 assert.deepEqual(getDroneStats(7), { level: 8, guns: 3, damage: 5, fireRateMultiplier: 0.28 });
 assert.deepEqual(getDroneStats(20), { level: 21, guns: 3, damage: 11, fireRateMultiplier: 0.28 });
+
+assert.equal(getBossPhase(100, 100), 1);
+assert.equal(getBossPhase(60, 100), 2);
+assert.equal(getBossPhase(30, 100), 3);
+assert.equal(getMutatorForLevel(1).id, "none");
+assert.equal(getMutatorForLevel(4).id, "swarm");
+assert.equal(getMutatorForLevel(8).id, "bullet_time");
+assert.equal(formatRunDuration(125_900), "2:05");
+assert.deepEqual(
+  getUpgradeSynergies({ chain_lightning: 1, cryo_rounds: 1 }).map(synergy => synergy.id),
+  ["frost_storm"],
+);
+assert.deepEqual(
+  getUpgradeSynergies({ missile_mastery: 1, cryo_rounds: 1, shield: 1, reactive_armor: 1 }).map(synergy => synergy.id),
+  ["cryo_warheads", "ramming_field"],
+);
