@@ -202,6 +202,7 @@ interface GameSettings {
   highContrast: boolean;
   touchControls: "auto" | "always" | "never";
   autoFire: boolean;
+  showJoystick: boolean;
   keyBindings: KeyBindings;
   soundVolume: number;
   musicVolume: number;
@@ -934,6 +935,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   highContrast: false,
   touchControls: "auto",
   autoFire: false,
+  showJoystick: false,
   keyBindings: DEFAULT_KEY_BINDINGS,
   soundVolume: 0.65,
   musicVolume: 0.25,
@@ -1152,6 +1154,7 @@ function loadSettings(): GameSettings {
       highContrast: typeof saved.highContrast === "boolean" ? saved.highContrast : DEFAULT_SETTINGS.highContrast,
       touchControls: touchModes.includes(saved.touchControls as GameSettings["touchControls"]) ? saved.touchControls as GameSettings["touchControls"] : DEFAULT_SETTINGS.touchControls,
       autoFire: typeof saved.autoFire === "boolean" ? saved.autoFire : DEFAULT_SETTINGS.autoFire,
+      showJoystick: typeof saved.showJoystick === "boolean" ? saved.showJoystick : DEFAULT_SETTINGS.showJoystick,
       keyBindings,
       soundVolume: Math.max(0, Math.min(1, finiteNumber(saved.soundVolume) ?? DEFAULT_SETTINGS.soundVolume)),
       musicVolume: Math.max(0, Math.min(1, finiteNumber(saved.musicVolume) ?? DEFAULT_SETTINGS.musicVolume)),
@@ -1212,6 +1215,8 @@ const TURKISH_TRANSLATIONS: Readonly<Record<string, string>> = {
   "Your score": "Skorun",
   "Strengthens text, borders and controls.": "Metinleri, kenarlıkları ve kontrolleri daha belirgin yapar.",
   "Touch controls": "Dokunmatik kontroller",
+  "Show joystick": "Joystick'i göster",
+  "Displays the movement joystick in the play area.": "Hareket joystick'ini oyun alanında gösterir.",
   "Drag your finger across the left side. The jet follows it quickly.": "Parmağını sol tarafta sürükle. Uçak parmağını hızla takip eder.",
   "Ultimates are explained when they are ready.": "Özel yetenekler hazır olduklarında açıklanır.",
   "Virtual controls in the play area.": "Oyun alanındaki sanal kontroller.",
@@ -5661,7 +5666,7 @@ export default function Game() {
 
       // ── Virtual controls overlay ──
       if (showVirtualControlsRef.current) {
-        drawVirtualControls(ctx, touchFireRef.current.active, settingsRef.current.autoFire, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current);
+        drawVirtualControls(ctx, joystickRef.current, settingsRef.current.showJoystick, touchFireRef.current.active, settingsRef.current.autoFire, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current);
         if (enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0)) {
           ctx.save(); ctx.font = "bold 25px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
           activeUltiLoadoutRef.current.forEach(id => {
@@ -6669,7 +6674,7 @@ function ShopCrateVisual({ rarity, opening }: { rarity: ShopRarity; opening: boo
   const theme = SHOP_RARITIES[rarity];
   return (
     <div
-      className={`sci-fi-crate ${opening ? "sci-fi-crate-opening" : "crate-idle"}`}
+      className={`sci-fi-crate sci-fi-crate-${rarity} ${opening ? "sci-fi-crate-opening" : "crate-idle"}`}
       style={{ "--crate-color": theme.color, "--crate-glow": theme.glow } as React.CSSProperties}
       aria-hidden="true"
     >
@@ -7357,7 +7362,7 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
 function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings; onChange: (settings: GameSettings) => void; onBack: () => void }) {
   const [name, setName] = useState(() => loadName());
   const language = settings.language;
-  const toggle = (key: "tutorial" | "reducedMotion" | "highContrast" | "autoFire") => onChange({ ...settings, [key]: !settings[key] });
+  const toggle = (key: "tutorial" | "reducedMotion" | "highContrast" | "autoFire" | "showJoystick") => onChange({ ...settings, [key]: !settings[key] });
   const updateBinding = (action: KeyBindingAction, code: string) => {
     onChange({ ...settings, keyBindings: { ...settings.keyBindings, [action]: code } });
   };
@@ -7377,6 +7382,12 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
         </label>
         <SettingToggle label={translated(language, "Einführung anzeigen", "Show tutorial")} description={translated(language, "Erklärt Bewegung und Schießen beim ersten Start.", "Explains movement and shooting on the first start.")} checked={settings.tutorial} onClick={() => toggle("tutorial")} />
         <SettingToggle label="Automatisches Dauerfeuer" description="Der Jet schießt selbstständig; FIRE bleibt optional." checked={settings.autoFire} onClick={() => toggle("autoFire")} />
+        <SettingToggle
+          label={translated(language, "Joystick anzeigen", "Show joystick")}
+          description={translated(language, "Zeigt den Bewegungs-Joystick im Spielfeld an.", "Displays the movement joystick in the play area.")}
+          checked={settings.showJoystick}
+          onClick={() => toggle("showJoystick")}
+        />
         <SettingToggle label={translated(language, "Bewegung reduzieren", "Reduce motion")} description={translated(language, "Reduziert dekorative Effekte und Animationen.", "Reduces decorative effects and animations.")} checked={settings.reducedMotion} onClick={() => toggle("reducedMotion")} />
         <SettingToggle label={translated(language, "Hoher Kontrast", "High contrast")} description={translated(language, "Verstärkt Texte, Rahmen und Bedienelemente.", "Strengthens text, borders and controls.")} checked={settings.highContrast} onClick={() => toggle("highContrast")} />
         <VolumeSetting label={translated(language, "Soundeffekte", "Sound effects")} value={settings.soundVolume} onChange={value => onChange({ ...settings, soundVolume: value })} />
@@ -7455,6 +7466,8 @@ function SettingToggle({ label, description, checked, onClick }: { label: string
 
 // ─── Virtual controls overlay (drawn on canvas) ───────────────────────────────
 
+const JOY_BASE_R = 56;
+const JOY_KNOB_R = 22;
 const FIRE_BTN_R = 46;
 const FIRE_BTN_X = CANVAS_W - 80;
 const FIRE_BTN_Y = CANVAS_H - 90;
@@ -7546,6 +7559,8 @@ function drawActiveUltiCountdowns(
 
 function drawVirtualControls(
   ctx: CanvasRenderingContext2D,
+  js: { active: boolean; centerX: number; centerY: number; curX: number; curY: number },
+  showJoystick: boolean,
   fireActive: boolean,
   autoFire: boolean,
   ultimaCharge: number,
@@ -7575,6 +7590,37 @@ function drawVirtualControls(
   const [poisonX, poisonY] = position("poison_missiles_ulti");
   const [absorberX, absorberY] = position("absorber_ulti");
   const [ultimateX, ultimateY] = position("ultimate_ulti");
+
+  if (showJoystick) {
+    const baseX = js.active ? js.centerX : 110;
+    const baseY = js.active ? js.centerY : CANVAS_H - 100;
+
+    ctx.beginPath();
+    ctx.arc(baseX, baseY, JOY_BASE_R, 0, Math.PI * 2);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff11";
+    ctx.fill();
+
+    let knobX = baseX;
+    let knobY = baseY;
+    if (js.active) {
+      const dx = js.curX - js.centerX;
+      const dy = js.curY - js.centerY;
+      const distance = Math.hypot(dx, dy);
+      const clampedDistance = Math.min(distance, JOY_BASE_R - JOY_KNOB_R);
+      knobX = js.centerX + (dx / (distance || 1)) * clampedDistance;
+      knobY = js.centerY + (dy / (distance || 1)) * clampedDistance;
+    }
+    ctx.beginPath();
+    ctx.arc(knobX, knobY, JOY_KNOB_R, 0, Math.PI * 2);
+    ctx.fillStyle = js.active ? "#00cfff99" : "#ffffff44";
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff66";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
 
   // ── Fire button (right zone) ──
   if (!autoFire) {

@@ -400,6 +400,63 @@ input:focus-visible {
   animation: sci-fi-crate-lock-open .45s ease-out forwards;
 }
 
+.sci-fi-crate-ultimate {
+  --crate-color: #eef2f7;
+  --crate-glow: #a5f3fccc;
+}
+
+.sci-fi-crate-ultimate .sci-fi-crate-aura {
+  background: conic-gradient(from 20deg, #67e8f9, #c4b5fd, #f9a8d4, #fde68a, #f8fafc, #67e8f9);
+  opacity: .38;
+}
+
+.sci-fi-crate-ultimate .sci-fi-crate-light {
+  background: linear-gradient(180deg, #ffffff, #67e8f9 30%, #c4b5fd 58%, #f9a8d4 78%, transparent);
+}
+
+.sci-fi-crate-ultimate .sci-fi-crate-lid,
+.sci-fi-crate-ultimate .sci-fi-crate-body {
+  border-color: #f8fafc;
+  background:
+    linear-gradient(118deg, transparent 20%, #67e8f933 35%, #f9a8d444 48%, #fde68a33 60%, transparent 75%),
+    linear-gradient(150deg, #f8fafc 0%, #798494 18%, #e7edf7 36%, #596475 57%, #cbd5e1 78%, #3d4655 100%);
+  box-shadow:
+    inset 0 3px 5px #ffffffaa,
+    inset 0 -8px 14px #1e293b88,
+    0 0 7px #ffffff,
+    0 0 15px #67e8f9aa,
+    0 0 23px #f472b688;
+}
+
+.sci-fi-crate-ultimate .sci-fi-crate-lid-panel {
+  background: linear-gradient(90deg, #67e8f9, #c4b5fd, #f9a8d4, #fde68a, #f8fafc);
+  opacity: .72;
+}
+
+.sci-fi-crate-ultimate .sci-fi-crate-lid-stripe,
+.sci-fi-crate-ultimate .sci-fi-crate-bolt {
+  background: linear-gradient(90deg, #67e8f9, #c4b5fd, #f9a8d4, #fde68a);
+  box-shadow: 0 0 8px #f8fafc, 0 0 14px #67e8f9;
+}
+
+.sci-fi-crate-ultimate .sci-fi-crate-panel {
+  border-color: #f8fafc;
+  background: repeating-linear-gradient(135deg, transparent 0 5px, #f8fafc 6px, #67e8f9 7px, #f9a8d4 8px);
+}
+
+.sci-fi-crate-ultimate .sci-fi-crate-lock {
+  border-color: #f8fafc;
+  background: linear-gradient(135deg, #475569, #f8fafc 48%, #64748b);
+  color: #7c3aed;
+  text-shadow: 0 0 5px #fff, 0 0 10px #f472b6;
+  box-shadow: 0 0 7px #fff, 0 0 13px #67e8f9, 0 0 19px #f472b6;
+}
+
+.sci-fi-crate-ultimate .sci-fi-crate-base {
+  background: linear-gradient(90deg, #475569, #f8fafc, #c4b5fd, #f9a8d4, #fde68a, #475569);
+  border-bottom-color: #f8fafc;
+}
+
 @keyframes sci-fi-crate-lid-open {
   0%, 38% { transform: translateY(0) rotate(0); }
   62% { transform: translateY(-10px) rotate(-7deg); }
