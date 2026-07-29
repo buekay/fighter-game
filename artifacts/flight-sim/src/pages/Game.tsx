@@ -238,7 +238,6 @@ interface RunStats {
   nearMisses: number;
   missions: number;
   damageDealt: number;
-  dashes: number;
 }
 interface Achievement { id: string; icon: string; name: string; description: string; target: number; reward: number; stat: keyof RunStats }
 interface FloatingText { x: number; y: number; text: string; color: string; life: number; maxLife: number }
@@ -264,9 +263,6 @@ interface RunSummary {
 const CANVAS_W = 900;
 const CANVAS_H = 600;
 const FRAME_MS = 1000 / 60;
-const DASH_COOLDOWN = 180;
-const DASH_DURATION = 16;
-const DASH_DISTANCE = 135;
 const PLAYER_W = 52;
 const PLAYER_H = 28;
 const BASE_BULLET_SPEED = 10;
@@ -294,6 +290,15 @@ const WEAPON_CRATES: readonly WeaponCrateDefinition[] = [
   { id: "nova-laser", name: "Nova-Laser", rarity: "episch", kind: "laser", color: "#d946ef", fireRate: 105, damage: 3.2 },
   { id: "sun-plasma", name: "Sonnen-Plasma", rarity: "legendär", kind: "plasma", color: "#fbbf24", fireRate: 230, damage: 6 },
 ] as const;
+
+function drawSectorChoices(): SectorChoice[] {
+  const pool = [...SECTOR_CHOICES];
+  for (let index = pool.length - 1; index > 0; index--) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [pool[index], pool[swapIndex]] = [pool[swapIndex], pool[index]];
+  }
+  return pool.slice(0, 3);
+}
 const WEAPON_CRATE_RARITY_COLOR: Record<WeaponCrateRarity, string> = {
   selten: "#60a5fa",
   episch: "#d946ef",
@@ -2559,6 +2564,7 @@ export default function Game() {
   const keysRef = useRef<Set<string>>(new Set());
   const rafRef = useRef<number>(0);
   const lastFireRef = useRef<Record<string, number>>({});
+  const fireRatePenaltyRef = useRef(1);
   const lastDroneFireRef = useRef(0);
   const lastWingmanFireRef = useRef(0);
   const lastMissileRef = useRef(0);
@@ -2585,9 +2591,6 @@ export default function Game() {
   const shieldTimerRef = useRef(0);
   const invincibleRef = useRef(0);
   const movementStunRef = useRef(0);
-  const dashCooldownRef = useRef(0);
-  const dashTimerRef = useRef(0);
-  const dashDirectionRef = useRef({ x: 1, y: 0 });
   const comboRef = useRef(0);
   const comboTimerRef = useRef(0);
   const comboMilestoneRef = useRef({ combo: 0, timer: 0 });
@@ -2691,7 +2694,7 @@ export default function Game() {
   const runStatsRef = useRef<RunStats>({
     kills: 0, bosses: 0, damageTaken: 0, powerUps: 0,
     flawlessKills: 0, perfectBosses: 0, fullHealthPickups: 0,
-    maxCombo: 0, nearMisses: 0, missions: 0, damageDealt: 0, dashes: 0,
+    maxCombo: 0, nearMisses: 0, missions: 0, damageDealt: 0,
   });
   const bossDamageStartRef = useRef(0);
   const activeModeRef = useRef<GameMode>("classic");
@@ -2844,42 +2847,88 @@ export default function Game() {
     syncDisplay();
   }, [syncDisplay]);
 
-  const activateDash = useCallback(() => {
-    const gs = stateRef.current;
-    if (!gs.started || gs.gameOver || gs.paused || dashCooldownRef.current > 0 || movementStunRef.current > 0) return false;
-    const bindings = settingsRef.current.keyBindings;
-    let x = (keysRef.current.has(bindings.right) || keysRef.current.has("ArrowRight") ? 1 : 0) -
-      (keysRef.current.has(bindings.left) || keysRef.current.has("ArrowLeft") ? 1 : 0);
-    let y = (keysRef.current.has(bindings.down) || keysRef.current.has("ArrowDown") ? 1 : 0) -
-      (keysRef.current.has(bindings.up) || keysRef.current.has("ArrowUp") ? 1 : 0);
-    if (x === 0 && y === 0) {
-      x = gamepadInputRef.current.x;
-      y = gamepadInputRef.current.y;
-    }
-    const magnitude = Math.hypot(x, y);
-    dashDirectionRef.current = magnitude > .1 ? { x: x / magnitude, y: y / magnitude } : { x: 1, y: 0 };
-    dashCooldownRef.current = DASH_COOLDOWN;
-    dashTimerRef.current = DASH_DURATION;
-    invincibleRef.current = Math.max(invincibleRef.current, DASH_DURATION + 5);
-    runStatsRef.current.dashes += 1;
-    audioRef.current.tone(280, .12, settingsRef.current.soundVolume * .35, "sawtooth", 520);
-    return true;
-  }, []);
-
   const chooseSectorRoute = useCallback((choice: SectorChoice) => {
     const gs = stateRef.current;
-    if (choice.id === "overcharge") {
-      gs.hp = Math.max(1, gs.hp * .75);
-      runUpgradesRef.current.damage += 2;
-    } else if (choice.id === "elite_hunt") {
-      activeMutatorRef.current = MUTATORS.glass_skies;
-      addCoins(4_000);
-      waveTimerRef.current = 780;
-    } else {
-      gs.hp = gs.maxHp;
-      gs.score = Math.max(0, Math.round(gs.score * .92));
-      shieldTimerRef.current = Math.max(shieldTimerRef.current, 600);
-      playerShieldHpRef.current = Math.max(playerShieldHpRef.current, 6);
+    switch (choice.id) {
+      case "overcharge":
+        gs.hp = Math.max(1, gs.hp * .75);
+        runUpgradesRef.current.damage += 2;
+        break;
+      case "elite_hunt":
+        activeMutatorRef.current = MUTATORS.glass_skies;
+        addCoins(4_000);
+        waveTimerRef.current = 780;
+        break;
+      case "repair_route":
+        gs.hp = gs.maxHp;
+        gs.score = Math.max(0, Math.round(gs.score * .92));
+        shieldTimerRef.current = Math.max(shieldTimerRef.current, 600);
+        playerShieldHpRef.current = Math.max(playerShieldHpRef.current, 6);
+        break;
+      case "blood_bargain":
+        gs.maxHp = Math.max(3, gs.maxHp - 3);
+        gs.hp = Math.min(gs.hp, gs.maxHp);
+        runUpgradesRef.current.vampiric += 1;
+        runUpgradesRef.current.damage += 1;
+        break;
+      case "swarm_gate":
+        activeMutatorRef.current = MUTATORS.swarm;
+        runUpgradesRef.current.bounty_hunter += 1;
+        addCoins(6_000);
+        break;
+      case "time_rift":
+        activeMutatorRef.current = MUTATORS.bullet_time;
+        gs.score = Math.max(0, Math.round(gs.score * .88));
+        break;
+      case "volatile_salvage":
+        activeMutatorRef.current = MUTATORS.volatile;
+        break;
+      case "shield_gamble":
+        gs.hp = Math.max(1, gs.hp * .5);
+        runUpgradesRef.current.shield_matrix += 1;
+        shieldTimerRef.current = Math.max(shieldTimerRef.current, 900);
+        playerShieldHpRef.current = Math.max(playerShieldHpRef.current, 12);
+        break;
+      case "weapon_jam":
+        runUpgradesRef.current.damage += 3;
+        fireRatePenaltyRef.current *= 1.35;
+        break;
+      case "bounty_beacon":
+        activeMutatorRef.current = MUTATORS.glass_skies;
+        gs.hp = Math.max(1, gs.hp * .8);
+        runUpgradesRef.current.bounty_hunter += 1;
+        addCoins(8_000);
+        break;
+      case "drone_overclock":
+        runUpgradesRef.current.drone += 2;
+        gs.score = Math.max(0, Math.round(gs.score * .85));
+        break;
+      case "critical_protocol":
+        runUpgradesRef.current.critical += 2;
+        gs.maxHp = Math.max(3, gs.maxHp - 2);
+        gs.hp = Math.min(gs.hp, gs.maxHp);
+        break;
+      case "afterburner_trial":
+        runUpgradesRef.current.afterburner += 1;
+        gs.speed += 1;
+        activeMutatorRef.current = MUTATORS.swarm;
+        break;
+      case "nanite_debt":
+        gs.hp = gs.maxHp;
+        gs.score = Math.max(0, gs.score - 10_000);
+        runUpgradesRef.current.repair_nanites += 1;
+        break;
+      case "ultimate_sacrifice":
+        if (gs.lives > 1) gs.lives -= 1;
+        else gs.hp = Math.max(1, gs.hp * .25);
+        ultimaChargeRef.current = ULTI_MAX;
+        laserChargeRef.current = LASER_MAX;
+        stealthChargeRef.current = STEALTH_MAX;
+        healChargeRef.current = HEAL_MAX;
+        poisonMissileChargeRef.current = POISON_MISSILE_MAX;
+        absorberChargeRef.current = ABSORBER_MAX;
+        ultimateChargeRef.current = ULTIMATE_MAX;
+        break;
     }
     setSectorChoices([]);
     gs.paused = false;
@@ -2909,7 +2958,7 @@ export default function Game() {
     const level = stateRef.current.level;
     if (level >= 5 && level % 5 === 0 && !sectorChoiceLevelsRef.current.has(level)) {
       sectorChoiceLevelsRef.current.add(level);
-      setSectorChoices([...SECTOR_CHOICES]);
+      setSectorChoices(drawSectorChoices());
       stateRef.current.paused = true;
     } else {
       stateRef.current.paused = false;
@@ -3302,7 +3351,9 @@ export default function Game() {
     activeWeaponsRef.current.forEach((weapon, weaponIndex) => {
       const weaponStats = getWeaponStats(weapon, weaponLevelsRef.current[weapon.id] ?? 1);
       const tierFireBonus = Math.max(.62, 1 - gs.weaponTier * .045);
-      const fireRate = weaponStats.fireRate * tierFireBonus * Math.pow(0.8, runUpgradesRef.current.rapid_fire) * aircraftUpgradeRef.current.fireRateMultiplier * aircraftUltiFireRate * wingModule.fireRate * engineModule.fireRate;
+      const fireRate = weaponStats.fireRate * tierFireBonus * Math.pow(0.8, runUpgradesRef.current.rapid_fire) *
+        aircraftUpgradeRef.current.fireRateMultiplier * aircraftUltiFireRate * wingModule.fireRate *
+        engineModule.fireRate * fireRatePenaltyRef.current;
       if (now - (lastFireRef.current[weapon.id] ?? 0) < fireRate) return;
       lastFireRef.current[weapon.id] = now;
       const offsets = gunOffsets[Math.min(weapon.guns - 1, gunOffsets.length - 1)];
@@ -3440,7 +3491,7 @@ export default function Game() {
     runStatsRef.current = {
       kills: 0, bosses: 0, damageTaken: 0, powerUps: 0,
       flawlessKills: 0, perfectBosses: 0, fullHealthPickups: 0,
-      maxCombo: 0, nearMisses: 0, missions: 0, damageDealt: 0, dashes: 0,
+      maxCombo: 0, nearMisses: 0, missions: 0, damageDealt: 0,
     };
     bossDamageStartRef.current = 0;
     upgradeLevelRef.current = save?.upgradeLevel ?? 0;
@@ -3497,14 +3548,13 @@ export default function Game() {
     runResultRef.current = "game_over";
     rewardGrantedRef.current = false;
     lastFireRef.current = {};
+    fireRatePenaltyRef.current = 1;
     lastDroneFireRef.current = 0;
     lastWingmanFireRef.current = 0;
     lastMissileRef.current = 0;
     shieldTimerRef.current = 0;
     invincibleRef.current = 0;
     movementStunRef.current = 0;
-    dashCooldownRef.current = 0;
-    dashTimerRef.current = 0;
     comboRef.current = 0;
     comboTimerRef.current = 0;
     comboMilestoneRef.current = { combo: 0, timer: 0 };
@@ -3732,10 +3782,6 @@ export default function Game() {
       if (down && e.code === bindings.ability3) {
         activateAbility(activeUltiLoadoutRef.current[2]);
       }
-      if (down && !e.repeat && (e.code === "ShiftLeft" || e.code === "ShiftRight")) {
-        e.preventDefault();
-        activateDash();
-      }
     };
     const onKeyDown = (e: KeyboardEvent) => onKey(e, true);
     const onKeyUp = (e: KeyboardEvent) => onKey(e, false);
@@ -3746,7 +3792,7 @@ export default function Game() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [activateAbility, activateDash, finishTutorial, initCity, initStars, startGame, syncDisplay]);
+  }, [activateAbility, finishTutorial, initCity, initStars, startGame, syncDisplay]);
 
   useEffect(() => {
     let gamepadFrame = 0;
@@ -3792,12 +3838,11 @@ export default function Game() {
       if (pressedOnce(4)) activateAbility(activeUltiLoadoutRef.current[0]);
       if (pressedOnce(5)) activateAbility(activeUltiLoadoutRef.current[1]);
       if (pressedOnce(6)) activateAbility(activeUltiLoadoutRef.current[2]);
-      if (pressedOnce(1)) activateDash();
       gamepadButtonsRef.current = pad.buttons.map(button => button.pressed);
     };
     pollGamepad();
     return () => window.cancelAnimationFrame(gamepadFrame);
-  }, [activateAbility, activateDash, finishTutorial, syncDisplay]);
+  }, [activateAbility, finishTutorial, syncDisplay]);
 
   useEffect(() => {
     const pointerQuery = window.matchMedia?.("(pointer: coarse)");
@@ -4266,18 +4311,7 @@ export default function Game() {
       const keyPressed = (action: KeyBindingAction) => keysRef.current.has(bindings[action]);
 
       movementStunRef.current = Math.max(0, movementStunRef.current - dtScale);
-      dashCooldownRef.current = Math.max(0, dashCooldownRef.current - dtScale);
-      dashTimerRef.current = Math.max(0, dashTimerRef.current - dtScale);
-      if (dashTimerRef.current > 0) {
-        const dashStep = DASH_DISTANCE / DASH_DURATION * dtScale;
-        playerRef.current.x = clamp(playerRef.current.x + dashDirectionRef.current.x * dashStep, 0, CANVAS_W - PLAYER_W);
-        playerRef.current.y = clamp(playerRef.current.y + dashDirectionRef.current.y * dashStep, 0, CANVAS_H - PLAYER_H);
-        particlesRef.current.push({
-          x: playerRef.current.x + PLAYER_W / 2, y: playerRef.current.y + PLAYER_H / 2,
-          vx: -dashDirectionRef.current.x * 4, vy: -dashDirectionRef.current.y * 4,
-          life: 18, maxLife: 18, color: "#67e8f9", radius: 6,
-        });
-      } else if (movementStunRef.current <= 0 && js.active) {
+      if (movementStunRef.current <= 0 && js.active) {
         const targetX = clamp(js.curX - PLAYER_W / 2, 0, CANVAS_W - PLAYER_W);
         const targetY = clamp(js.curY - PLAYER_H / 2, 0, CANVAS_H - PLAYER_H);
         const dx = targetX - playerRef.current.x;
@@ -4355,7 +4389,7 @@ export default function Game() {
           setRunUpgradeChoices(choices); gs.paused = true; syncDisplay();
         } else if (nextLevel >= 5 && nextLevel % 5 === 0 && !sectorChoiceLevelsRef.current.has(nextLevel)) {
           sectorChoiceLevelsRef.current.add(nextLevel);
-          setSectorChoices([...SECTOR_CHOICES]);
+          setSectorChoices(drawSectorChoices());
           gs.paused = true;
           syncDisplay();
         }
@@ -5429,14 +5463,13 @@ export default function Game() {
             nearMissCooldownRef.current = 12;
             runStatsRef.current.nearMisses += 1;
             comboTimerRef.current = Math.max(comboTimerRef.current, 100);
-            dashCooldownRef.current = Math.max(0, dashCooldownRef.current - 24);
             gs.score += 25 * Math.max(1, Math.floor(comboRef.current / 10) + 1);
             const charge = 4 + runUpgradesRef.current.graze_core * 8;
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + charge);
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + charge);
             floatingTextsRef.current.push({
               x: playerRef.current.x + PLAYER_W, y: playerRef.current.y,
-              text: runStatsRef.current.nearMisses % 5 === 0 ? "NEAR MISS ×5 · DASH+" : "NEAR MISS · +25", color: "#67e8f9", life: 55, maxLife: 55,
+              text: runStatsRef.current.nearMisses % 5 === 0 ? "NEAR MISS ×5 · ULTI+" : "NEAR MISS · +25", color: "#67e8f9", life: 55, maxLife: 55,
             });
             audioRef.current.tone(760, .06, settingsRef.current.soundVolume * .18, "sine");
             checkAchievements();
@@ -5829,18 +5862,15 @@ export default function Game() {
       }
       {
         const mutator = activeMutatorRef.current;
-        const dashReady = dashCooldownRef.current <= 0;
         const synergies = getUpgradeSynergies(runUpgradesRef.current);
         ctx.save();
         ctx.textAlign = "right";
         ctx.font = "900 10px 'Inter', sans-serif";
         ctx.fillStyle = mutator.id === "none" ? "#64748b" : "#fbbf24";
         ctx.fillText(`${mutator.icon} ${mutator.name.toUpperCase()}`, CANVAS_W - 20, 136);
-        ctx.fillStyle = dashReady ? "#67e8f9" : "#64748b";
-        ctx.fillText(dashReady ? "SHIFT · DASH BEREIT" : `DASH · ${Math.ceil(dashCooldownRef.current / 60)}s`, CANVAS_W - 20, 151);
         if (synergies.length > 0) {
           ctx.fillStyle = "#c4b5fd";
-          ctx.fillText(synergies.map(synergy => `${synergy.icon} ${synergy.name}`).join("  "), CANVAS_W - 20, 166);
+          ctx.fillText(synergies.map(synergy => `${synergy.icon} ${synergy.name}`).join("  "), CANVAS_W - 20, 151);
         }
         ctx.restore();
       }
@@ -6205,7 +6235,7 @@ export default function Game() {
             <div className="w-full max-w-3xl text-center">
               <div className="text-xs font-black uppercase tracking-[.3em] text-amber-300">Sektorabzweigung</div>
               <h2 className="mt-2 text-3xl font-black text-white">WÄHLE DEIN RISIKO</h2>
-              <p className="mt-2 text-sm text-slate-300">Jede Route verändert den restlichen Einsatz.</p>
+              <p className="mt-2 text-sm text-slate-300">Drei zufällige Wege aus 15 Risiken – jede Route verändert den restlichen Einsatz.</p>
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 {sectorChoices.map(choice => (
                   <button key={choice.id} onClick={() => chooseSectorRoute(choice)} className="rounded-2xl border border-amber-400/60 bg-amber-950/40 p-5 text-left transition hover:-translate-y-1 hover:border-amber-200 hover:bg-amber-900/60">
@@ -6237,7 +6267,6 @@ export default function Game() {
                   ["Max. Combo", `${runSummary.stats.maxCombo}×`],
                   ["Near Misses", String(runSummary.stats.nearMisses)],
                   ["Bosse", String(runSummary.stats.bosses)],
-                  ["Dashs", String(runSummary.stats.dashes)],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-xl bg-slate-900/80 p-3">
                     <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div>
@@ -6279,15 +6308,6 @@ export default function Game() {
               {displayState.paused ? translated(language, "▶ WEITER", "▶ RESUME") : "⏸"}
             </button>
           </div>
-        )}
-        {displayState.started && !displayState.gameOver && !displayState.paused && showVirtualControls && (
-          <button
-            onPointerDown={event => { event.preventDefault(); activateDash(); }}
-            aria-label="Ausweich-Dash"
-            className="absolute bottom-[118px] right-[118px] z-20 flex h-16 w-16 items-center justify-center rounded-full border-2 border-cyan-300 bg-cyan-950/90 text-xs font-black text-cyan-100 shadow-[0_0_24px_#22d3ee66]"
-          >
-            DASH
-          </button>
         )}
         {!displayState.started && (
           <HangarOverlay
@@ -6400,7 +6420,7 @@ export default function Game() {
       </div>
       {displayState.started && !displayState.gameOver && (
         <div className="mt-2 text-xs text-gray-600 tracking-wider hidden sm:block">
-          {formatKeyCode(settings.keyBindings.up)}{formatKeyCode(settings.keyBindings.left)}{formatKeyCode(settings.keyBindings.down)}{formatKeyCode(settings.keyBindings.right)} — Bewegen · SHIFT — Dash · {settings.autoFire ? "AUTO-FIRE" : `${formatKeyCode(settings.keyBindings.fire)} — Schuss`} · {formatKeyCode(settings.keyBindings.ability1)}/{formatKeyCode(settings.keyBindings.ability2)}/{formatKeyCode(settings.keyBindings.ability3)} — Fähigkeiten · ESC — Pause
+          {formatKeyCode(settings.keyBindings.up)}{formatKeyCode(settings.keyBindings.left)}{formatKeyCode(settings.keyBindings.down)}{formatKeyCode(settings.keyBindings.right)} — Bewegen · {settings.autoFire ? "AUTO-FIRE" : `${formatKeyCode(settings.keyBindings.fire)} — Schuss`} · {formatKeyCode(settings.keyBindings.ability1)}/{formatKeyCode(settings.keyBindings.ability2)}/{formatKeyCode(settings.keyBindings.ability3)} — Fähigkeiten · ESC — Pause
         </div>
       )}
     </div>

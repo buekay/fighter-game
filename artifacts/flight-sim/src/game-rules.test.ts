@@ -36,6 +36,7 @@ import {
   type LifeState,
 } from "./game-rules";
 import {
+  SECTOR_CHOICES,
   formatRunDuration,
   getBossPhase,
   getMutatorForLevel,
@@ -254,3 +255,5 @@ assert.deepEqual(
   getUpgradeSynergies({ missile_mastery: 1, cryo_rounds: 1, shield: 1, reactive_armor: 1 }).map(synergy => synergy.id),
   ["cryo_warheads", "ramming_field"],
 );
+assert.equal(SECTOR_CHOICES.length, 15);
+assert.equal(new Set(SECTOR_CHOICES.map(choice => choice.id)).size, 15);

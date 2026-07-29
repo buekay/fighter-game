@@ -26,7 +26,22 @@ export function getMutatorForLevel(level: number): MutatorDefinition {
   return MUTATORS[MUTATOR_ROTATION[(Math.floor(level / 4) - 1) % MUTATOR_ROTATION.length]];
 }
 
-export type SectorChoiceId = "overcharge" | "elite_hunt" | "repair_route";
+export type SectorChoiceId =
+  | "overcharge"
+  | "elite_hunt"
+  | "repair_route"
+  | "blood_bargain"
+  | "swarm_gate"
+  | "time_rift"
+  | "volatile_salvage"
+  | "shield_gamble"
+  | "weapon_jam"
+  | "bounty_beacon"
+  | "drone_overclock"
+  | "critical_protocol"
+  | "afterburner_trial"
+  | "nanite_debt"
+  | "ultimate_sacrifice";
 
 export interface SectorChoice {
   id: SectorChoiceId;
@@ -40,6 +55,18 @@ export const SECTOR_CHOICES: readonly SectorChoice[] = [
   { id: "overcharge", icon: "⚡", name: "Reaktor überladen", description: "+2 Projektilschaden für diesen Einsatz.", risk: "Verliere sofort 25 % deiner aktuellen HP." },
   { id: "elite_hunt", icon: "☠", name: "Elite-Signal verfolgen", description: "Starte eine große Angriffswelle und erhalte 4.000 Credits.", risk: "Der nächste Sektor erhält den Mutator Glashimmel." },
   { id: "repair_route", icon: "✚", name: "Reparaturroute", description: "Volle HP und ein starker Schild.", risk: "Verliere 8 % deines aktuellen Scores." },
+  { id: "blood_bargain", icon: "🩸", name: "Blutpakt", description: "Energieernte und +1 Projektilschaden.", risk: "Deine maximalen HP sinken dauerhaft um 3." },
+  { id: "swarm_gate", icon: "♟", name: "Schwarmtor", description: "Sofort 6.000 Credits und +25 % Abschusspunkte.", risk: "Aktiviere den Mutator Schwarm." },
+  { id: "time_rift", icon: "◷", name: "Zeitriss", description: "Feinde und Projektile werden deutlich langsamer.", risk: "Dein Score wird sofort um 12 % reduziert." },
+  { id: "volatile_salvage", icon: "✹", name: "Instabile Bergung", description: "Gegner lösen schädliche Kettenexplosionen aus.", risk: "Feinde bewegen sich schneller." },
+  { id: "shield_gamble", icon: "💠", name: "Schildwette", description: "Erhalte 12 Schildtreffer und eine Schildmatrix.", risk: "Deine aktuellen HP werden auf die Hälfte gesetzt." },
+  { id: "weapon_jam", icon: "⌁", name: "Gestörte Waffenkammer", description: "+3 Projektilschaden.", risk: "Deine Feuerrate wird für diesen Einsatz langsamer." },
+  { id: "bounty_beacon", icon: "◆", name: "Kopfgeld-Sender", description: "Kopfgeld-Protokoll und 8.000 Credits.", risk: "Aktiviere Glashimmel und verliere 20 % deiner HP." },
+  { id: "drone_overclock", icon: "🛸", name: "Drohnen-Overclock", description: "Die Drohne erhält sofort zwei Stufen.", risk: "Dein Jet verliert 15 % seines aktuellen Scores." },
+  { id: "critical_protocol", icon: "🎯", name: "Kritisches Protokoll", description: "Zwei Stufen Zielcomputer.", risk: "Deine maximalen HP sinken um 2." },
+  { id: "afterburner_trial", icon: "🔥", name: "Nachbrenner-Prüfung", description: "+1 Geschwindigkeit für diesen Einsatz.", risk: "Aktiviere den Mutator Schwarm." },
+  { id: "nanite_debt", icon: "🔧", name: "Nanitenkredit", description: "Volle Heilung und Reparatur-Naniten.", risk: "Die nächsten 10.000 Punkte werden gestrichen." },
+  { id: "ultimate_sacrifice", icon: "☄", name: "Ultimatives Opfer", description: "Alle ausgerüsteten Ultis werden vollständig geladen.", risk: "Verliere ein Leben; bei einem letzten Leben stattdessen 75 % HP." },
 ] as const;
 
 export interface UpgradeSynergy {
