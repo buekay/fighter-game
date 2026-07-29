@@ -164,6 +164,19 @@ interface WeaponCrateDefinition {
 }
 
 type ShopRarity = "rare" | "epic" | "legendary" | "ultraLegendary" | "ultimate";
+type ShopCrateReward =
+  | { kind: "credits"; amount: number; label: string; icon: string }
+  | { kind: "gems"; amount: number; label: string; icon: string }
+  | { kind: "aircraft" | "drone"; itemId: string; label: string; icon: string };
+
+interface ShopCrateDefinition {
+  rarity: ShopRarity;
+  name: string;
+  cost: number;
+  icon: string;
+  creditReward: readonly [number, number];
+  gemReward: readonly [number, number];
+}
 
 interface GameState {
   score: number;
@@ -474,6 +487,13 @@ const SHOP_RARITY_MIN_LEVEL: Record<ShopRarity, number> = {
   ultraLegendary: 15,
   ultimate: 20,
 };
+const SHOP_CRATES: readonly ShopCrateDefinition[] = [
+  { rarity: "rare", name: "Seltene Kiste", cost: 20_000, icon: "📦", creditReward: [8_000, 28_000], gemReward: [80, 180] },
+  { rarity: "epic", name: "Epische Kiste", cost: 65_000, icon: "🎁", creditReward: [30_000, 90_000], gemReward: [250, 650] },
+  { rarity: "legendary", name: "Legendäre Kiste", cost: 180_000, icon: "🧰", creditReward: [90_000, 260_000], gemReward: [800, 1_800] },
+  { rarity: "ultraLegendary", name: "Ultra-legendäre Kiste", cost: 450_000, icon: "💠", creditReward: [250_000, 650_000], gemReward: [2_200, 5_000] },
+  { rarity: "ultimate", name: "Ultimate Kiste", cost: 1_000_000, icon: "🌌", creditReward: [600_000, 1_500_000], gemReward: [6_000, 12_000] },
+] as const;
 
 function isShopRarityUnlocked(rarity: ShopRarity, playerLevel: number): boolean {
   return playerLevel >= SHOP_RARITY_MIN_LEVEL[rarity];
@@ -683,7 +703,6 @@ const COINS_KEY   = "fighter-command-coins";
 const GEMS_KEY    = "fighter-command-gems";
 const STARTING_COINS = 30_000;
 const DAILY_CHEST_KEY = "fighter-command-daily-chest";
-const DAILY_CHEST_REWARDS = [10_000, 15_000] as const;
 const UNLOCKS_KEY = "fighter-command-unlocks";
 const AIRCRAFT_LEVELS_KEY = "fighter-command-aircraft-levels";
 const DRONE_LEVELS_KEY = "fighter-command-drone-levels";
@@ -1076,14 +1095,8 @@ function getEffectiveGameModeRules(mode: GameMode) {
 function canClaimDailyChest(): boolean {
   try { return localStorage.getItem(DAILY_CHEST_KEY) !== getLocalDateKey(); } catch { return false; }
 }
-function claimDailyChest(): number | null {
-  if (!canClaimDailyChest()) return null;
-  try {
-    const reward = DAILY_CHEST_REWARDS[Math.random() < 0.5 ? 0 : 1];
-    addCoins(reward);
-    localStorage.setItem(DAILY_CHEST_KEY, getLocalDateKey());
-    return reward;
-  } catch { return null; }
+function markDailyChestClaimed() {
+  try { localStorage.setItem(DAILY_CHEST_KEY, getLocalDateKey()); } catch {}
 }
 function saveSkin(id: string)     { try { localStorage.setItem(SKIN_KEY, id); } catch {} }
 function loadSkin(): string       { try { return localStorage.getItem(SKIN_KEY) ?? "steel"; } catch { return "steel"; } }
@@ -5824,10 +5837,42 @@ export default function Game() {
     audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
   };
 
-  const handleDailyChestClaim = (): number | null => {
-    const reward = claimDailyChest();
-    if (reward === null) return null;
+  const handleCrateOpen = (rarity: ShopRarity, free: boolean): ShopCrateReward | null => {
+    const crate = SHOP_CRATES.find(candidate => candidate.rarity === rarity);
+    if (!crate || (!free && loadCoins() < crate.cost) || (free && !canClaimDailyChest())) return null;
+    if (!free) spendCoins(crate.cost);
+    if (free) markDailyChestClaimed();
+
+    const roll = Math.random();
+    let reward: ShopCrateReward;
+    if (roll < .45) {
+      const amount = Math.round(crate.creditReward[0] + Math.random() * (crate.creditReward[1] - crate.creditReward[0]));
+      addCoins(amount);
+      reward = { kind: "credits", amount, label: `${amount.toLocaleString("de-DE")} Credits`, icon: "💰" };
+    } else if (roll < .90) {
+      const amount = Math.round(crate.gemReward[0] + Math.random() * (crate.gemReward[1] - crate.gemReward[0]));
+      addGems(amount);
+      reward = { kind: "gems", amount, label: `${amount.toLocaleString("de-DE")} Juwelen`, icon: "💎" };
+    } else {
+      const aircraft = JET_SKINS.filter(item => item.rarity === rarity && !loadUnlocks().includes(item.id));
+      const drones = DRONE_SKINS.filter(item => item.rarity === rarity && !loadUnlocks().includes(item.id));
+      const candidates = [
+        ...aircraft.map(item => ({ kind: "aircraft" as const, item })),
+        ...drones.map(item => ({ kind: "drone" as const, item })),
+      ];
+      const prize = candidates[Math.floor(Math.random() * candidates.length)];
+      if (prize) {
+        addUnlock(prize.item.id);
+        reward = { kind: prize.kind, itemId: prize.item.id, label: prize.item.name, icon: prize.kind === "aircraft" ? "✈️" : "🛸" };
+      } else {
+        const amount = crate.gemReward[1] * 2;
+        addGems(amount);
+        reward = { kind: "gems", amount, label: `${amount.toLocaleString("de-DE")} Juwelen (Ersatz)`, icon: "💎" };
+      }
+    }
     setCoins(loadCoins());
+    setGems(loadGems());
+    setUnlockedItems(loadUnlocks());
     audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
     return reward;
   };
@@ -5988,7 +6033,7 @@ export default function Game() {
             onWeaponSelect={handleWeaponSelect}
             onWeaponBuy={handleWeaponBuy}
             onWeaponUpgrade={handleWeaponUpgrade}
-            onDailyChestClaim={handleDailyChestClaim}
+            onCrateOpen={handleCrateOpen}
             fullscreenSupported={fullscreenSupported}
             isFullscreen={isFullscreen}
             onFullscreenToggle={toggleFullscreen}
@@ -6214,7 +6259,7 @@ function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDr
 
 function HangarOverlay({
   selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, hybridActive, droneBuild, droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
-  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onHybridSelect, onHybridBuild, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onWeaponCrateSelect, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onDailyChestClaim, onAdminActivate,
+  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onHybridSelect, onHybridBuild, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onWeaponCrateSelect, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onCrateOpen, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
   selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; aircraftBuild: AircraftBuild; hybridActive: boolean; droneBuild: DroneBuild; droneRole: DroneRoleId; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[]; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
@@ -6236,7 +6281,7 @@ function HangarOverlay({
   onWeaponSelect: (id: string) => void;
   onWeaponBuy: (id: string) => void;
   onWeaponUpgrade: (id: string) => void;
-  onDailyChestClaim: () => number | null;
+  onCrateOpen: (rarity: ShopRarity, free: boolean) => ShopCrateReward | null;
   onAdminActivate: () => void;
   fullscreenSupported: boolean; isFullscreen: boolean; onFullscreenToggle: () => void;
   settings: GameSettings; onSettingsChange: (settings: GameSettings) => void;
@@ -6291,7 +6336,7 @@ function HangarOverlay({
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
         <ShopScreen coins={coins} gems={gems} playerLevel={getPilotLevelFromKills()} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} weaponLevels={weaponLevels} selectedSkin={selectedSkin} ultiLoadout={ultiLoadout} selectedDroneSkin={selectedDroneSkin} selectedDroneWeapon={selectedDroneWeapon} selectedWeapons={selectedWeapons}
           onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect}
-          onUltiLoadoutChange={onUltiLoadoutChange} onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onDroneWeaponChange={onDroneWeaponChange} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} onWeaponSelect={onWeaponSelect} onWeaponBuy={onWeaponBuy} onWeaponUpgrade={onWeaponUpgrade} onDailyChestClaim={onDailyChestClaim} />
+          onUltiLoadoutChange={onUltiLoadoutChange} onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onDroneWeaponChange={onDroneWeaponChange} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} onWeaponSelect={onWeaponSelect} onWeaponBuy={onWeaponBuy} onWeaponUpgrade={onWeaponUpgrade} onCrateOpen={onCrateOpen} />
       </div>
     );
   }
@@ -6620,7 +6665,7 @@ function ShopStarfield() {
   );
 }
 
-function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, weaponLevels, selectedSkin, ultiLoadout, selectedDroneSkin, selectedDroneWeapon, selectedWeapons, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onDroneWeaponChange, onAircraftUpgrade, onDroneUpgrade, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onDailyChestClaim }: {
+function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, weaponLevels, selectedSkin, ultiLoadout, selectedDroneSkin, selectedDroneWeapon, selectedWeapons, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onDroneWeaponChange, onAircraftUpgrade, onDroneUpgrade, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onCrateOpen }: {
   coins: number; gems: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedDroneWeapon: DroneWeaponId; selectedWeapons: string[];
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
@@ -6635,21 +6680,23 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
   onWeaponSelect: (id: string) => void;
   onWeaponBuy: (id: string) => void;
   onWeaponUpgrade: (id: string) => void;
-  onDailyChestClaim: () => number | null;
+  onCrateOpen: (rarity: ShopRarity, free: boolean) => ShopCrateReward | null;
 }) {
-  type ShopSection = "weapons" | "levels" | "skins" | "ultis" | "upgrades";
+  type ShopSection = "crates" | "weapons" | "levels" | "skins" | "ultis" | "upgrades";
   const shopSections: readonly { id: ShopSection; icon: string; label: string; description: string }[] = [
+    { id: "crates", icon: "📦", label: "Kisten", description: "Credits, Juwelen und seltene Fahrzeuge gewinnen" },
     { id: "weapons", icon: "🎯", label: "Waffen", description: "Kaufen, ausrüsten und verbessern" },
     { id: "levels", icon: "⬆", label: "Level", description: "Jet und Drohne verstärken" },
     { id: "skins", icon: "🎨", label: "Skins", description: "Aussehen auswählen" },
     { id: "ultis", icon: "⚡", label: "Ultis", description: "Loadout zusammenstellen" },
     { id: "upgrades", icon: "🔧", label: "Extras", description: "Dauerhafte Verbesserungen" },
   ];
-  const [shopSection, setShopSection] = useState<ShopSection>("weapons");
+  const [shopSection, setShopSection] = useState<ShopSection>("crates");
   const [dailyChestAvailable, setDailyChestAvailable] = useState(() => canClaimDailyChest());
   const [dailyChestOpening, setDailyChestOpening] = useState(false);
   const [dailyChestCelebrating, setDailyChestCelebrating] = useState(false);
-  const [dailyChestReward, setDailyChestReward] = useState<number | null>(null);
+  const [crateReward, setCrateReward] = useState<ShopCrateReward | null>(null);
+  const [openingCrate, setOpeningCrate] = useState<ShopRarity | null>(null);
   const [pendingPurchase, setPendingPurchase] = useState<{ name: string; cost: number; currency: "credits" | "gems"; action: () => void } | null>(null);
   const [purchaseCelebration, setPurchaseCelebration] = useState<{ name: string; nonce: number } | null>(null);
   const dailyChestTimers = useRef<number[]>([]);
@@ -6668,19 +6715,21 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
     dailyChestTimers.current.push(window.setTimeout(() => setPurchaseCelebration(null), 1500));
   };
 
-  const openDailyChest = () => {
-    if (!dailyChestAvailable || dailyChestOpening) return;
-    const reward = onDailyChestClaim();
+  const openCrate = (crate: ShopCrateDefinition, free = false) => {
+    if (dailyChestOpening || openingCrate || (free && !dailyChestAvailable)) return;
+    const reward = onCrateOpen(crate.rarity, free);
     if (reward === null) return;
-    setDailyChestReward(reward);
+    setCrateReward(reward);
+    setOpeningCrate(crate.rarity);
     setDailyChestOpening(true);
     dailyChestTimers.current.push(window.setTimeout(() => {
-      setDailyChestAvailable(false);
+      if (free) setDailyChestAvailable(false);
       setDailyChestCelebrating(true);
     }, 520));
     dailyChestTimers.current.push(window.setTimeout(() => {
       setDailyChestOpening(false);
       setDailyChestCelebrating(false);
+      setOpeningCrate(null);
     }, 1800));
   };
   const selectedJet = JET_SKINS.find(s => s.id === selectedSkin) ?? JET_SKINS[0];
@@ -6739,30 +6788,6 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
         <span className="text-amber-300 font-bold text-sm">💰 {coins.toLocaleString("de-DE")}</span>
       </div>
 
-      <button
-        type="button"
-        disabled={!dailyChestAvailable || dailyChestOpening}
-        onClick={openDailyChest}
-        className={`daily-chest relative z-10 flex shrink-0 items-center gap-4 overflow-hidden rounded-2xl p-4 text-left transition active:scale-[.99] disabled:cursor-default ${dailyChestOpening ? "daily-chest-opening" : ""} ${dailyChestCelebrating ? "daily-chest-celebrating" : ""} ${!dailyChestAvailable && !dailyChestOpening ? "opacity-60" : ""}`}
-        style={{ background: dailyChestAvailable ? "linear-gradient(110deg,rgba(120,70,0,.82),rgba(40,24,4,.92))" : "rgba(20,24,36,.82)", border: `1px solid ${dailyChestAvailable ? "#fbbf24" : "#475569"}`, boxShadow: dailyChestAvailable ? "0 0 22px #f59e0b44" : "none" }}
-      >
-        <span className={`daily-chest-icon relative z-10 text-4xl ${dailyChestAvailable ? "animate-pulse" : "grayscale"}`}>{dailyChestCelebrating ? "🧰" : "🎁"}</span>
-        {dailyChestCelebrating && (
-          <span className="pointer-events-none absolute inset-0" aria-hidden="true">
-            {[0, 1, 2, 3, 4, 5, 6].map(i => <span key={i} className="daily-chest-coin" style={{ "--coin-x": `${(i - 3) * 25}px`, "--coin-y": `${-48 - Math.abs(i - 3) * 5}px`, animationDelay: `${i * 35}ms` } as React.CSSProperties}>●</span>)}
-            <span className="daily-chest-reward">+{dailyChestReward?.toLocaleString("de-DE")}</span>
-          </span>
-        )}
-        <span className="min-w-0 flex-1">
-          <span className="block text-[10px] font-black uppercase tracking-[.22em] text-amber-300">Tägliche Truhe</span>
-          <span className="block font-black text-white">{dailyChestOpening ? "Truhe wird geöffnet …" : dailyChestAvailable ? "Tägliche Belohnung abholen" : "Heute bereits abgeholt"}</span>
-          <span className="block text-xs text-slate-300">{dailyChestAvailable ? "Jeden Tag wartet eine neue Belohnung auf dich." : "Morgen ist die nächste Truhe verfügbar."}</span>
-        </span>
-        <span className={`rounded-lg px-3 py-2 text-xs font-black ${dailyChestAvailable ? "bg-amber-400 text-slate-950" : "bg-slate-700 text-slate-300"}`}>
-          {dailyChestAvailable ? "ÖFFNEN" : "✓ GEÖFFNET"}
-        </span>
-      </button>
-
       <div className="relative z-10 flex flex-wrap gap-2 text-[10px] font-black tracking-wider">
         {(Object.keys(SHOP_RARITIES) as ShopRarity[]).map(key => {
           const rarity = SHOP_RARITIES[key];
@@ -6776,7 +6801,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
         })}
       </div>
 
-      <nav className="relative z-10 grid grid-cols-5 gap-1 rounded-2xl border border-slate-700/80 bg-slate-950/80 p-1.5" aria-label="Shop-Bereiche">
+      <nav className="relative z-10 grid grid-cols-6 gap-1 rounded-2xl border border-slate-700/80 bg-slate-950/80 p-1.5" aria-label="Shop-Bereiche">
         {shopSections.map(section => {
           const active = shopSection === section.id;
           return (
@@ -6799,6 +6824,60 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
         {shopSections.find(section => section.id === shopSection)?.description}
         <span className="ml-2 text-slate-500">Sortiert nach Seltenheit und Preis.</span>
       </div>
+
+      {shopSection === "crates" && (
+        <div className="relative z-10">
+          <div className="rounded-2xl border border-cyan-400/25 bg-cyan-950/20 p-3 text-xs text-slate-300">
+            <b className="text-cyan-300">Chancen pro Kiste:</b> 45 % Credits · 45 % Juwelen · 10 % Flugzeug oder Drohne.
+            Höhere Kisten enthalten stärkere und seltenere Fahrzeuge.
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {SHOP_CRATES.map(crate => {
+              const rarity = SHOP_RARITIES[crate.rarity];
+              const isOpening = openingCrate === crate.rarity;
+              const isDaily = crate.rarity === "rare";
+              const canAfford = coins >= crate.cost;
+              return (
+                <div key={crate.rarity} className={`shop-crate-card relative overflow-hidden rounded-2xl p-4 ${isOpening ? "daily-chest-opening" : ""} ${isOpening && dailyChestCelebrating ? "daily-chest-celebrating" : ""}`}
+                  style={{ background: crate.rarity === "ultimate" ? "linear-gradient(125deg,#172033,#31173b,#12313b)" : `${rarity.color}12`, border: `1px solid ${rarity.color}99`, boxShadow: shopRarityGlow(crate.rarity, 15) }}>
+                  {isOpening && dailyChestCelebrating && crateReward && (
+                    <div className="crate-reward-reveal absolute inset-0 z-20 grid place-items-center bg-slate-950/90 p-4 text-center" role="status" aria-live="polite">
+                      <div>
+                        <div className="text-5xl">{crateReward.icon}</div>
+                        <div className="mt-2 text-[10px] font-black uppercase tracking-[.25em]" style={shopRarityLabelStyle(crate.rarity)}>GEWONNEN</div>
+                        <div className="mt-1 text-lg font-black text-white">{crateReward.label}</div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <div className={`daily-chest-icon grid h-16 w-16 shrink-0 place-items-center rounded-2xl text-4xl ${isOpening ? "" : "crate-idle"}`}
+                      style={{ background: `${rarity.color}18`, border: `1px solid ${rarity.color}`, boxShadow: `inset 0 0 20px ${rarity.glow}` }}>{crate.icon}</div>
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-black tracking-[.2em]" style={shopRarityLabelStyle(crate.rarity)}>{rarity.label}</div>
+                      <div className="font-black text-white">{crate.name}</div>
+                      <div className="mt-1 text-[11px] text-slate-400">
+                        💰 {crate.creditReward[0].toLocaleString("de-DE")}–{crate.creditReward[1].toLocaleString("de-DE")} ·
+                        💎 {crate.gemReward[0].toLocaleString("de-DE")}–{crate.gemReward[1].toLocaleString("de-DE")}
+                      </div>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => openCrate(crate)} disabled={!canAfford || openingCrate !== null}
+                    className="mt-3 w-full rounded-xl px-3 py-2.5 text-xs font-black transition active:scale-[.98] disabled:opacity-40"
+                    style={{ background: `${rarity.color}25`, border: `1px solid ${rarity.color}`, color: rarity.color }}>
+                    {isOpening ? "WIRD GEÖFFNET …" : `💰 ${crate.cost.toLocaleString("de-DE")} · KAUFEN & ÖFFNEN`}
+                  </button>
+                  {isDaily && (
+                    <button type="button" onClick={() => openCrate(crate, true)} disabled={!dailyChestAvailable || openingCrate !== null}
+                      className="mt-2 w-full rounded-xl border border-emerald-300/70 bg-emerald-400/15 px-3 py-2.5 text-xs font-black text-emerald-200 transition active:scale-[.98] disabled:opacity-40">
+                      {dailyChestAvailable ? "🎁 TÄGLICHE GRATIS-KISTE" : "✓ HEUTE BEREITS GEÖFFNET"}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {shopSection === "weapons" && (
       <div className="relative z-10">

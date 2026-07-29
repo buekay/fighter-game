@@ -219,6 +219,20 @@ input:focus-visible {
   animation: daily-chest-reward-pop 1.2s ease-out both;
 }
 
+@keyframes crate-idle {
+  0%, 100% { transform: translateY(0); filter: brightness(1); }
+  50% { transform: translateY(-4px); filter: brightness(1.22); }
+}
+
+@keyframes crate-reward-reveal {
+  0% { opacity: 0; transform: scale(.35); filter: brightness(3); }
+  55% { opacity: 1; transform: scale(1.08); filter: brightness(1.4); }
+  100% { opacity: 1; transform: scale(1); filter: brightness(1); }
+}
+
+.crate-idle { animation: crate-idle 2.4s ease-in-out infinite; }
+.crate-reward-reveal { animation: crate-reward-reveal .5s cubic-bezier(.2,.9,.2,1.2) both; }
+
 @keyframes purchase-dialog-in {
   from { opacity: 0; transform: translateY(14px) scale(.94); }
   to { opacity: 1; transform: translateY(0) scale(1); }
