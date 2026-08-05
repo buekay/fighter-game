@@ -105,6 +105,14 @@ input:focus-visible {
 @media (max-width: 600px), (max-height: 500px) {
   .game-frame { overflow: visible; }
 
+  .progression-layer,
+  .run-summary-layer {
+    align-items: flex-start;
+    position: fixed;
+    inset: env(safe-area-inset-top) env(safe-area-inset-right)
+      env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
   .hangar-layer {
     position: fixed;
     z-index: 20;
