@@ -5985,6 +5985,14 @@ export default function Game() {
     setSelectedDroneSkin(id);
     saveDroneSkin(id);
     activeDroneSkinRef.current = skin;
+    // Selecting a complete skin must also replace the currently rendered
+    // workshop parts. Otherwise drawCombinedCombatDrone keeps drawing the old
+    // body/core/weapon combination and the newly selected drone appears to be
+    // missing.
+    const nextBuild = { bodySkin: id, coreSkin: id, weaponSkin: id };
+    setDroneBuild(nextBuild);
+    saveDroneBuild(nextBuild);
+    droneBuildRef.current = nextBuild;
   };
 
   const handleAircraftBuildChange = (next: AircraftBuild) => {
@@ -6481,22 +6489,30 @@ function JetBuildThumbnail({ skin }: { skin: JetSkin }) {
   return <canvas ref={ref} className="block aspect-[7/4] h-auto w-full rounded-lg" aria-hidden="true" />;
 }
 
-function DroneBuildThumbnail({ skin }: { skin: DroneSkin }) {
+function DroneBuildThumbnail({ skin, level = 4, className = "h-[60px] w-full", compact = false }: {
+  skin: DroneSkin;
+  level?: number;
+  className?: string;
+  compact?: boolean;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
-    const background = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    background.addColorStop(0, "#211536"); background.addColorStop(1, "#070812");
-    ctx.fillStyle = background; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = "#382653";
-    for (let x = 8; x < canvas.width; x += 16) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
-    ctx.save(); ctx.translate(50, 30); ctx.scale(1.65, 1.65);
-    drawCombatDrone(ctx, 0, 0, 0, skin, 4);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!compact) {
+      const background = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      background.addColorStop(0, "#211536"); background.addColorStop(1, "#070812");
+      ctx.fillStyle = background; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "#382653";
+      for (let x = 8; x < canvas.width; x += 16) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+    }
+    ctx.save(); ctx.translate(canvas.width / 2, canvas.height / 2); ctx.scale(compact ? 2 : 1.65, compact ? 2 : 1.65);
+    drawCombatDrone(ctx, 0, 0, 0, skin, level);
     ctx.restore();
-  }, [skin]);
-  return <canvas ref={ref} width={100} height={60} className="block h-[60px] w-full rounded-lg" aria-hidden="true" />;
+  }, [compact, level, skin]);
+  return <canvas ref={ref} width={100} height={60} className={`block rounded-lg ${className}`} aria-hidden="true" />;
 }
 
 function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDroneSkin, unlockedItems, coins, onBuildChange, onDroneBuildChange, onDroneRoleChange, onBuild, onBack }: {
@@ -6804,10 +6820,12 @@ function HangarOverlay({
             return <button key={s.id} onClick={() => onDroneSkinSelect(s.id)}
               aria-label={`${s.name} Drohnen-Skin auswählen`}
               title={s.name}
-              className="hangar-skin-button"
-              style={{ width: 38, height: 38, minWidth: 38, borderRadius: "50%", background: s.stroke,
+              className="hangar-skin-button grid place-items-center overflow-hidden"
+              style={{ width: 50, height: 38, minWidth: 50, borderRadius: 10, background: `${s.body}cc`,
                 border: selectedDroneSkin === s.id ? "3px solid #fff" : `2px solid ${s.stroke}66`,
-                boxShadow: selectedDroneSkin === s.id ? `0 0 10px ${s.stroke}` : "none" }} />;
+                boxShadow: selectedDroneSkin === s.id ? `0 0 10px ${s.stroke}` : "none" }}>
+              <DroneBuildThumbnail skin={s} level={droneLevels[s.id] ?? 1} compact className="h-full w-full" />
+            </button>;
           })}
           <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2 py-0.5 text-[10px] font-black text-violet-300">LV {droneLevels[selectedDroneSkin] ?? 1}</span>
         </div>
@@ -7476,7 +7494,9 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
               boxShadow: SHOP_RARITY_ORDER[s.rarity] >= SHOP_RARITY_ORDER.legendary ? shopRarityGlow(s.rarity, 12) : undefined,
               opacity: !owned && (!canAfford || !levelUnlocked) ? .45 : 1,
             }}>
-            <div className="w-8 h-4 rounded-full" style={{ background: s.body, border: `2px solid ${s.stroke}`, boxShadow: `0 0 8px ${s.stroke}` }} />
+            <div className="h-12 w-20 overflow-hidden rounded-lg" style={{ background: `${s.body}99`, border: `1px solid ${s.stroke}88`, boxShadow: `0 0 8px ${s.stroke}55` }}>
+              <DroneBuildThumbnail skin={s} level={droneLevels[s.id] ?? 1} compact className="h-full w-full" />
+            </div>
             <div className="text-xs font-bold">{s.name}</div>
             <div className="text-[9px] font-black" style={shopRarityLabelStyle(s.rarity)}>{rarity.label}</div>
             <div className="text-[9px] font-black" style={{ color: s.stroke }}>{s.ultiName}</div>

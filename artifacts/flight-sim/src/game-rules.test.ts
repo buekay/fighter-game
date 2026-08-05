@@ -5,7 +5,9 @@ import {
   applyPlayerDamage,
   calculateCoinReward,
   formatLockedSkinPrice,
+  getCrossedMilestoneLevels,
   getLevelForScore,
+  getProgressedLevel,
   getPilotLevelForScore,
   getPilotLevelThreshold,
   getLevelThreshold,
@@ -78,6 +80,11 @@ assert.equal(getLevelThreshold(100), 14_622_000);
 assert.equal(getLevelForScore(getLevelThreshold(250)), 250);
 assert.equal(getLevelForScore(getLevelThreshold(500)), 500);
 assert.equal(getLevelForScore(getLevelThreshold(500) + 999_999_999), 500);
+assert.equal(getProgressedLevel(10, 0), 10);
+assert.equal(getProgressedLevel(2, getLevelThreshold(5)), 5);
+assert.deepEqual(getCrossedMilestoneLevels(1, 10, 3, 3), [3, 6, 9]);
+assert.deepEqual(getCrossedMilestoneLevels(5, 15, 5, 5), [10, 15]);
+assert.deepEqual(getCrossedMilestoneLevels(15, 10, 5, 5), []);
 
 assert.equal(getPilotLevelForScore(0), 1);
 assert.equal(getPilotLevelThreshold(5), 120_000);

@@ -174,11 +174,8 @@ export const KEYBOARD_CONTROL_HELP = [
 export const MOBILE_CONTROL_HELP = [
   "Linke Seite -> Finger ziehen (Jet folgt schnell)",
   "FIRE -> Schießen",
-  "ULTI -> Flugzeug-Ulti (Q)",
-  "LASER -> Laser-Ulti (E)",
-  "STEALTH -> Stealth-Ulti (R)",
-  "HEAL -> Heil-Ulti (H)",
-  "GIFT -> Gift-Raketen-Ulti (T)",
+  "FÄHIGKEITEN 1–3 -> Ausgerüstete Ultis aktivieren",
+  "STEALTH / HEAL / GIFT -> Im Ulti-Loadout ausrüstbar",
 ] as const;
 const EARLY_MILESTONE_BOSS_LEVELS = new Set([3, 5, 8, 10, 12, 15, 18]);
 const LEVEL_SCORE_MULTIPLIER = 1.5;
@@ -217,6 +214,29 @@ export function getLevelForScore(score: number): number {
   }
 
   return level;
+}
+
+export function getProgressedLevel(currentLevel: number, score: number): number {
+  return Math.max(
+    Math.max(1, Math.min(MAX_LEVEL, Math.floor(currentLevel))),
+    getLevelForScore(score),
+  );
+}
+
+export function getCrossedMilestoneLevels(
+  previousLevel: number,
+  currentLevel: number,
+  interval: number,
+  firstLevel = interval,
+): number[] {
+  const safeInterval = Math.max(1, Math.floor(interval));
+  const lower = Math.max(0, Math.floor(previousLevel));
+  const upper = Math.max(lower, Math.min(MAX_LEVEL, Math.floor(currentLevel)));
+  const first = Math.max(1, Math.floor(firstLevel));
+  const start = Math.max(first, Math.ceil((lower + 1) / safeInterval) * safeInterval);
+  const levels: number[] = [];
+  for (let level = start; level <= upper; level += safeInterval) levels.push(level);
+  return levels;
 }
 
 const PILOT_LEVEL_ANCHORS = [
