@@ -100,9 +100,46 @@ input:focus-visible {
 .high-contrast .text-slate-400 { color: #d2e3f5 !important; }
 .high-contrast button { border-color: #76cfff !important; }
 
+.hangar-main {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.hangar-main > * {
+  flex-shrink: 0;
+}
+
+/* Keep the complete hangar visible on common laptop displays. */
+@media (min-height: 501px) and (max-height: 950px) {
+  .hangar-main {
+    padding-block: 10px;
+  }
+
+  .hangar-preview {
+    gap: 4px;
+  }
+
+  .hangar-preview-canvas canvas {
+    width: 200px;
+    height: auto;
+  }
+
+  .hangar-skins {
+    margin-top: 0;
+    padding-block: 4px;
+  }
+
+  .hangar-drone-skins,
+  .hangar-crate-skins,
+  .hangar-progress {
+    margin-top: 0;
+  }
+}
+
 /* On phones, menus use the whole safe viewport instead of inheriting the
-   letterboxed canvas height. Gameplay remains on the fixed 900x600 canvas. */
-@media (max-width: 600px), (max-height: 500px) {
+   letterboxed canvas height. Portrait tablets need the same treatment.
+   Gameplay remains on the fixed 900x600 canvas. */
+@media (orientation: portrait), (max-width: 600px), (max-height: 500px) {
   .game-frame { overflow: visible; }
 
   .progression-layer,
@@ -149,6 +186,14 @@ input:focus-visible {
     row-gap: 6px;
   }
 
+  .hangar-crate-skins {
+    width: calc(100vw - 28px);
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 4px 2px;
+  }
+
   .hangar-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -169,6 +214,84 @@ input:focus-visible {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+@keyframes pilot-level-overlay-in {
+  0% { opacity: 0; background: radial-gradient(circle, #67e8f900, #02061700 58%); }
+  16%, 78% { opacity: 1; background: radial-gradient(circle, #67e8f926, #020617cc 62%); }
+  100% { opacity: 0; background: radial-gradient(circle, #c084fc00, #02061700 65%); }
+}
+
+@keyframes pilot-level-card-in {
+  0% { opacity: 0; transform: translateY(34px) scale(.55) rotateX(35deg); filter: brightness(2.4); }
+  22% { opacity: 1; transform: translateY(-8px) scale(1.08) rotateX(0); filter: brightness(1.35); }
+  34%, 78% { opacity: 1; transform: translateY(0) scale(1); filter: brightness(1); }
+  100% { opacity: 0; transform: translateY(-18px) scale(.94); filter: brightness(1.5); }
+}
+
+@keyframes pilot-level-number-pulse {
+  0%, 100% { text-shadow: 0 0 8px #67e8f9, 0 0 22px #8b5cf6; transform: scale(1); }
+  50% { text-shadow: 0 0 14px #fff, 0 0 34px #67e8f9, 0 0 52px #c084fc; transform: scale(1.06); }
+}
+
+@keyframes pilot-level-spark-flight {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.2) rotate(0); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--spark-x)), calc(-50% + var(--spark-y))) scale(1.5) rotate(200deg); }
+}
+
+.pilot-level-celebration {
+  animation: pilot-level-overlay-in 2.8s ease-in-out both;
+}
+
+.pilot-level-card {
+  min-width: min(360px, calc(100vw - 32px));
+  border: 2px solid #a5f3fc;
+  background: linear-gradient(145deg, rgba(8,47,73,.96), rgba(46,16,101,.96));
+  box-shadow: 0 0 22px #67e8f999, 0 0 65px #8b5cf677, inset 0 0 28px #ffffff12;
+  animation: pilot-level-card-in 2.8s cubic-bezier(.2,.85,.2,1) both;
+}
+
+.pilot-level-wings {
+  color: #e0f2fe;
+  font-size: 32px;
+  text-shadow: -28px 8px 0 #67e8f9, 28px 8px 0 #c084fc, 0 0 18px #fff;
+}
+
+.pilot-level-number {
+  color: #fff;
+  font-size: clamp(34px, 7vw, 64px);
+  letter-spacing: .08em;
+  animation: pilot-level-number-pulse .9s ease-in-out infinite;
+}
+
+.pilot-level-spark {
+  --spark-x: 0px;
+  --spark-y: -190px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  color: #cffafe;
+  font-size: 25px;
+  text-shadow: 0 0 12px currentColor;
+  animation: pilot-level-spark-flight 1.6s ease-out both;
+}
+
+.pilot-level-spark-1 { --spark-x: -210px; --spark-y: -150px; color: #67e8f9; animation-delay: .18s; }
+.pilot-level-spark-2 { --spark-x: 210px; --spark-y: -130px; color: #c084fc; animation-delay: .28s; }
+.pilot-level-spark-3 { --spark-x: -230px; --spark-y: 95px; color: #fde68a; animation-delay: .42s; }
+.pilot-level-spark-4 { --spark-x: 225px; --spark-y: 110px; color: #f9a8d4; animation-delay: .5s; }
+.pilot-level-spark-5 { --spark-x: -95px; --spark-y: -210px; color: #fff; animation-delay: .62s; }
+.pilot-level-spark-6 { --spark-x: 105px; --spark-y: 205px; color: #a5f3fc; animation-delay: .72s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pilot-level-celebration,
+  .pilot-level-card,
+  .pilot-level-number {
+    animation: none !important;
+    opacity: 1;
+  }
+  .pilot-level-spark { display: none; }
 }
 
 @keyframes daily-chest-open {
@@ -573,27 +696,31 @@ input:focus-visible {
   .hangar-main {
     display: grid;
     grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.6fr);
-    grid-template-rows: auto auto 1fr auto;
+    grid-template-rows: repeat(6, auto);
     column-gap: 16px;
     align-items: center;
     overflow-y: auto;
   }
 
-  .hangar-main > :nth-child(1),
-  .hangar-main > :nth-child(2),
-  .hangar-main > :nth-child(4),
-  .hangar-main > :nth-child(5) {
+  .hangar-topbar,
+  .hangar-pilot,
+  .hangar-workshop,
+  .hangar-modes,
+  .hangar-actions,
+  .hangar-footer {
     grid-column: 2;
   }
 
-  .hangar-main > :nth-child(1) { grid-row: 1; }
-  .hangar-main > :nth-child(2) { grid-row: 2; }
-  .hangar-main > :nth-child(4) { grid-row: 3; }
-  .hangar-main > :nth-child(5) { grid-row: 4; }
+  .hangar-topbar { grid-row: 1; }
+  .hangar-pilot { grid-row: 2; }
+  .hangar-workshop { grid-row: 3; }
+  .hangar-modes { grid-row: 4; }
+  .hangar-actions { grid-row: 5; }
+  .hangar-footer { grid-row: 6; }
 
   .hangar-preview {
     grid-column: 1;
-    grid-row: 1 / span 4;
+    grid-row: 1 / span 6;
     gap: 3px;
     width: auto;
     max-width: 100%;
@@ -616,6 +743,15 @@ input:focus-visible {
   .hangar-drone-skins {
     width: min(230px, 100%);
     gap: 5px;
+  }
+
+  .hangar-crate-skins {
+    width: min(230px, 100%);
+    gap: 5px;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: thin;
   }
 
   .hangar-skins button,

@@ -165,14 +165,14 @@ interface PowerUp {
   vy: number;
 }
 
-type WeaponCrateRarity = "selten" | "episch" | "legendär";
 type WeaponCrateKind = "rockets" | "laser" | "plasma";
 interface WeaponCrateDefinition {
   id: string;
   name: string;
-  rarity: WeaponCrateRarity;
+  rarity: ShopRarity;
   kind: WeaponCrateKind;
   color: string;
+  cost: number;
   fireRate: number;
   damage: number;
 }
@@ -287,9 +287,19 @@ const PROTECT_PACKAGE_FIRE_INTERVAL_MS = 5_000;
 const PROTECT_PACKAGE_SPEED = 2.35;
 const PROTECT_PACKAGE_EVASION_LOOKAHEAD = 105;
 const WEAPON_CRATES: readonly WeaponCrateDefinition[] = [
-  { id: "falcon-rockets", name: "Falken-Raketen", rarity: "selten", kind: "rockets", color: "#60a5fa", fireRate: 720, damage: 9 },
-  { id: "nova-laser", name: "Nova-Laser", rarity: "episch", kind: "laser", color: "#d946ef", fireRate: 105, damage: 3.2 },
-  { id: "sun-plasma", name: "Sonnen-Plasma", rarity: "legendär", kind: "plasma", color: "#fbbf24", fireRate: 230, damage: 6 },
+  { id: "falcon-rockets", name: "Falken-Raketen", rarity: "rare", kind: "rockets", color: "#60a5fa", cost: 0, fireRate: 720, damage: 9 },
+  { id: "nova-laser", name: "Nova-Laser", rarity: "epic", kind: "laser", color: "#d946ef", cost: 90_000, fireRate: 105, damage: 3.2 },
+  { id: "sun-plasma", name: "Sonnen-Plasma", rarity: "legendary", kind: "plasma", color: "#fbbf24", cost: 220_000, fireRate: 230, damage: 6 },
+  { id: "viper-rockets", name: "Vipern-Raketen", rarity: "rare", kind: "rockets", color: "#4ade80", cost: 45_000, fireRate: 630, damage: 7 },
+  { id: "frost-laser", name: "Frost-Laser", rarity: "rare", kind: "laser", color: "#7dd3fc", cost: 60_000, fireRate: 135, damage: 2.8 },
+  { id: "ember-plasma", name: "Glut-Plasma", rarity: "epic", kind: "plasma", color: "#fb923c", cost: 110_000, fireRate: 205, damage: 5.5 },
+  { id: "storm-rockets", name: "Sturm-Raketen", rarity: "epic", kind: "rockets", color: "#a78bfa", cost: 145_000, fireRate: 500, damage: 11 },
+  { id: "phantom-laser", name: "Phantom-Laser", rarity: "legendary", kind: "laser", color: "#f472b6", cost: 250_000, fireRate: 82, damage: 4.5 },
+  { id: "titan-plasma", name: "Titan-Plasma", rarity: "legendary", kind: "plasma", color: "#fb7185", cost: 320_000, fireRate: 260, damage: 10 },
+  { id: "quantum-rockets", name: "Quanten-Raketen", rarity: "ultraLegendary", kind: "rockets", color: "#22d3ee", cost: 500_000, fireRate: 380, damage: 16 },
+  { id: "void-laser", name: "Leeren-Laser", rarity: "ultraLegendary", kind: "laser", color: "#818cf8", cost: 650_000, fireRate: 65, damage: 6.5 },
+  { id: "seraph-plasma", name: "Seraph-Plasma", rarity: "ultimate", kind: "plasma", color: "#f9a8d4", cost: 1_000_000, fireRate: 145, damage: 14 },
+  { id: "omega-rockets", name: "Omega-Raketen", rarity: "ultimate", kind: "rockets", color: "#fde68a", cost: 1_250_000, fireRate: 260, damage: 22 },
 ] as const;
 
 function drawSectorChoices(): SectorChoice[] {
@@ -300,10 +310,12 @@ function drawSectorChoices(): SectorChoice[] {
   }
   return pool.slice(0, 3);
 }
-const WEAPON_CRATE_RARITY_COLOR: Record<WeaponCrateRarity, string> = {
-  selten: "#60a5fa",
-  episch: "#d946ef",
-  legendär: "#fbbf24",
+const WEAPON_CRATE_RARITY_COLOR: Record<ShopRarity, string> = {
+  rare: "#a8b0ba",
+  epic: "#b44cff",
+  legendary: "#ffe600",
+  ultraLegendary: "#53d8ff",
+  ultimate: "#f8fafc",
 };
 
 function chooseProtectPackageTargetY(
@@ -569,11 +581,21 @@ interface WeaponDefinition {
 const WEAPONS: readonly WeaponDefinition[] = [
   { id: "pulse_cannon", name: "Falke MK-I", icon: "➤", description: "Zuverlässige, präzise Einzelkanone.", rarity: "rare", cost: 0, currency: "credits", pattern: "focused", guns: 1, damage: 2, fireRate: 250, color: "#35d7ff" },
   { id: "twin_fang", name: "Doppelzahn", icon: "ᐅᐅ", description: "Zwei parallele Läufe für konstanten Schaden.", rarity: "rare", cost: 35_000, currency: "credits", pattern: "twin", guns: 2, damage: 2, fireRate: 235, color: "#34d399" },
+  { id: "comet_blaster", name: "Kometenblaster", icon: "✧", description: "Leichte Kanone mit hoher Kadenz.", rarity: "rare", cost: 50_000, currency: "credits", pattern: "rapid", guns: 1, damage: 2, fireRate: 150, color: "#38bdf8" },
+  { id: "scarab_twins", name: "Skarabäus-Zwillinge", icon: "»", description: "Eng geführtes Doppelfeuer für schnelle Ziele.", rarity: "rare", cost: 65_000, currency: "credits", pattern: "twin", guns: 2, damage: 3, fireRate: 245, color: "#a3e635" },
   { id: "nova_scatter", name: "Nova-Streuer", icon: "✦", description: "Breite Fächersalve gegen Gegnergruppen.", rarity: "epic", cost: 90_000, currency: "credits", pattern: "spread", guns: 5, damage: 2, fireRate: 390, color: "#c084fc" },
+  { id: "arc_scatter", name: "Ark-Streuer", icon: "⌁", description: "Vier geladene Bolzen in engem Fächer.", rarity: "epic", cost: 110_000, currency: "credits", pattern: "spread", guns: 4, damage: 3, fireRate: 330, color: "#e879f9" },
+  { id: "ion_drill", name: "Ionenbohrer", icon: "⟿", description: "Durchgehender Strom schneller Energieschüsse.", rarity: "epic", cost: 140_000, currency: "credits", pattern: "rapid", guns: 2, damage: 3, fireRate: 118, color: "#2dd4bf" },
   { id: "volt_repeater", name: "Volt-Repetierer", icon: "ϟ", description: "Extrem schnelle Ionenprojektile.", rarity: "epic", cost: 900, currency: "gems", pattern: "rapid", guns: 2, damage: 2, fireRate: 105, color: "#facc15" },
   { id: "titan_lance", name: "Titanenlanze", icon: "◆", description: "Langsame, gebündelte Schüsse mit enormem Schaden.", rarity: "legendary", cost: 240_000, currency: "credits", pattern: "focused", guns: 1, damage: 12, fireRate: 520, color: "#fb7185" },
+  { id: "meteor_missiles", name: "Meteor-Schwarm", icon: "☄", description: "Zielsuchende Raketen mit schwerem Einschlag.", rarity: "legendary", cost: 260_000, currency: "credits", pattern: "missile", guns: 2, damage: 8, fireRate: 310, color: "#f97316" },
+  { id: "helix_cannon", name: "Helix-Kanone", icon: "∞", description: "Versetzte Zwillingssalven mit hoher Präzision.", rarity: "legendary", cost: 320_000, currency: "credits", pattern: "twin", guns: 4, damage: 5, fireRate: 215, color: "#f43f5e" },
   { id: "seraph_barrage", name: "Seraph-Salve", icon: "♛", description: "Lenkraketen und Dreifachfeuer in einer Waffe.", rarity: "ultraLegendary", cost: 3_500, currency: "gems", pattern: "missile", guns: 3, damage: 7, fireRate: 260, color: "#67e8f9" },
+  { id: "quantum_barrage", name: "Quanten-Salve", icon: "⎊", description: "Phasenbolzen mit extremer Feuerrate.", rarity: "ultraLegendary", cost: 520_000, currency: "credits", pattern: "rapid", guns: 4, damage: 5, fireRate: 88, color: "#06b6d4" },
+  { id: "void_hammer", name: "Leerenhammer", icon: "⬢", description: "Ein konzentrierter Schuss zerreißt schwere Panzerung.", rarity: "ultraLegendary", cost: 650_000, currency: "credits", pattern: "focused", guns: 1, damage: 24, fireRate: 560, color: "#8b5cf6" },
   { id: "omega_prism", name: "Omega-Prisma", icon: "✺", description: "Ultimate Energiestreuer mit sieben Strahlen.", rarity: "ultimate", cost: 9_000, currency: "gems", pattern: "spread", guns: 7, damage: 8, fireRate: 175, color: "#f9a8d4" },
+  { id: "celestial_storm", name: "Himmelssturm", icon: "✹", description: "Neun Energielanzen füllen den gesamten Feuerkorridor.", rarity: "ultimate", cost: 1_000_000, currency: "credits", pattern: "spread", guns: 9, damage: 9, fireRate: 165, color: "#f0abfc" },
+  { id: "apocalypse_swarm", name: "Apokalypse-Schwarm", icon: "♨", description: "Ultimate Lenkraketen suchen selbstständig neue Ziele.", rarity: "ultimate", cost: 1_250_000, currency: "credits", pattern: "missile", guns: 5, damage: 13, fireRate: 205, color: "#fde047" },
 ] as const;
 const WEAPON_KEY = "fighter-command-weapons";
 const WEAPON_LEVELS_KEY = "fighter-command-weapon-levels";
@@ -585,7 +607,12 @@ function loadWeapons(): string[] {
     const legacy = localStorage.getItem("fighter-command-weapon");
     const parsed = raw ? JSON.parse(raw) as unknown : legacy ? [legacy] : [WEAPONS[0].id];
     if (!Array.isArray(parsed)) return [WEAPONS[0].id];
-    const valid = parsed.filter((id): id is string => typeof id === "string" && WEAPONS.some(weapon => weapon.id === id));
+    const unlocks = loadUnlocks();
+    const valid = parsed.filter((id): id is string => {
+      if (typeof id !== "string") return false;
+      const weapon = WEAPONS.find(candidate => candidate.id === id);
+      return Boolean(weapon && (weapon.cost === 0 || unlocks.includes(`weapon_${weapon.id}`)));
+    });
     return [...new Set(valid)].slice(0, 2).length ? [...new Set(valid)].slice(0, 2) : [WEAPONS[0].id];
   } catch { return [WEAPONS[0].id]; }
 }
@@ -807,12 +834,19 @@ type DroneSkin = typeof DRONE_SKINS[number];
 type WingModuleId = "balanced" | "striker" | "bulwark";
 type EngineModuleId = "ion" | "afterburner" | "phase";
 type DroneRoleId = "assault" | "guardian" | "repair" | "collector";
-type DroneWeaponId = "pulse" | "rail_lance" | "ion_spread";
+type DroneWeaponId = "pulse" | "rail_lance" | "ion_spread" | "spark_twin" | "frost_needle" |
+  "ember_fan" | "hunter_rockets" | "phantom_ray" | "titan_burst" | "quantum_spinner" |
+  "void_spike" | "seraph_crown" | "omega_swarm";
 interface DroneWeaponDefinition {
   id: DroneWeaponId;
   icon: string;
   name: string;
   description: string;
+  rarity: ShopRarity;
+  cost: number;
+  shots: number;
+  spread: number;
+  projectileSpeed: number;
   fireRate: number;
   damageMultiplier: number;
   color: string;
@@ -859,9 +893,19 @@ const DRONE_ROLES: readonly { id: DroneRoleId; icon: string; name: string; descr
   { id: "collector", icon: "◆", name: "Sammler", description: "Zielsuchende Schüsse und 25 % mehr Credits aus Ereignissen." },
 ] as const;
 const DRONE_WEAPONS: readonly DroneWeaponDefinition[] = [
-  { id: "pulse", icon: "•", name: "Impulskanone", description: "Schnelle, präzise Standardschüsse.", fireRate: 1, damageMultiplier: 1, color: "#b86cff" },
-  { id: "rail_lance", icon: "━", name: "Rail-Lanze", description: "Seltene, extrem schnelle Präzisionsschüsse mit hohem Schaden.", fireRate: 1.8, damageMultiplier: 2.4, color: "#fb7185" },
-  { id: "ion_spread", icon: "ϟ", name: "Ionenstreuer", description: "Drei Energieschüsse decken einen breiten Bereich ab.", fireRate: 1.35, damageMultiplier: .72, color: "#22d3ee" },
+  { id: "pulse", icon: "•", name: "Impulskanone", description: "Schnelle, präzise Standardschüsse.", rarity: "rare", cost: 0, shots: 1, spread: 0, projectileSpeed: 10, fireRate: 1, damageMultiplier: 1, color: "#b86cff" },
+  { id: "spark_twin", icon: "••", name: "Funken-Zwilling", description: "Zwei leichte Energieschüsse pro Salve.", rarity: "rare", cost: 40_000, shots: 2, spread: .07, projectileSpeed: 10, fireRate: 1.08, damageMultiplier: .68, color: "#a3e635" },
+  { id: "frost_needle", icon: "✧", name: "Frostnadel", description: "Schnelles Präzisionsgeschoss mit verstärktem Kern.", rarity: "rare", cost: 60_000, shots: 1, spread: 0, projectileSpeed: 14, fireRate: 1.22, damageMultiplier: 1.45, color: "#7dd3fc" },
+  { id: "rail_lance", icon: "━", name: "Rail-Lanze", description: "Extrem schnelle Präzisionsschüsse mit hohem Schaden.", rarity: "epic", cost: 75_000, shots: 1, spread: 0, projectileSpeed: 17, fireRate: 1.8, damageMultiplier: 2.4, color: "#fb7185" },
+  { id: "ion_spread", icon: "ϟ", name: "Ionenstreuer", description: "Drei Energieschüsse decken einen breiten Bereich ab.", rarity: "epic", cost: 100_000, shots: 3, spread: .16, projectileSpeed: 10, fireRate: 1.35, damageMultiplier: .72, color: "#22d3ee" },
+  { id: "ember_fan", icon: "⌁", name: "Glutfächer", description: "Fünf kurze Plasmabolzen räumen Gegnergruppen.", rarity: "epic", cost: 135_000, shots: 5, spread: .12, projectileSpeed: 9, fireRate: 1.65, damageMultiplier: .52, color: "#fb923c" },
+  { id: "hunter_rockets", icon: "➹", name: "Jäger-Raketen", description: "Schwere Doppelsalve für robuste Ziele.", rarity: "legendary", cost: 220_000, shots: 2, spread: .05, projectileSpeed: 12, fireRate: 2.05, damageMultiplier: 2.1, color: "#facc15" },
+  { id: "phantom_ray", icon: "◇", name: "Phantomstrahl", description: "Drei schnelle Strahlen mit engem Fokus.", rarity: "legendary", cost: 280_000, shots: 3, spread: .035, projectileSpeed: 16, fireRate: 1.1, damageMultiplier: 1.05, color: "#e879f9" },
+  { id: "titan_burst", icon: "⬢", name: "Titanenbrecher", description: "Langsame Einzelsalve mit enormem Schaden.", rarity: "legendary", cost: 340_000, shots: 1, spread: 0, projectileSpeed: 13, fireRate: 2.4, damageMultiplier: 4.6, color: "#f43f5e" },
+  { id: "quantum_spinner", icon: "✺", name: "Quantenspirale", description: "Sieben Phasenbolzen erzeugen einen Energiekorridor.", rarity: "ultraLegendary", cost: 500_000, shots: 7, spread: .075, projectileSpeed: 12, fireRate: 1.25, damageMultiplier: .7, color: "#2dd4bf" },
+  { id: "void_spike", icon: "◆", name: "Leerenspitze", description: "Ultraschnelles Geschoss mit konzentrierter Leerenenergie.", rarity: "ultraLegendary", cost: 650_000, shots: 1, spread: 0, projectileSpeed: 20, fireRate: 1.55, damageMultiplier: 5.4, color: "#818cf8" },
+  { id: "seraph_crown", icon: "♛", name: "Seraph-Krone", description: "Neun symmetrische Lichtbolzen überziehen das Schlachtfeld.", rarity: "ultimate", cost: 1_000_000, shots: 9, spread: .065, projectileSpeed: 14, fireRate: 1.05, damageMultiplier: .9, color: "#f9a8d4" },
+  { id: "omega_swarm", icon: "☄", name: "Omega-Schwarm", description: "Fünf schwere Energiesalven mit maximaler Wirkung.", rarity: "ultimate", cost: 1_250_000, shots: 5, spread: .045, projectileSpeed: 18, fireRate: 1.35, damageMultiplier: 2.2, color: "#fde68a" },
 ] as const;
 
 function loadAircraftBuild(): AircraftBuild {
@@ -894,7 +938,8 @@ function saveDroneRole(role: DroneRoleId) { try { localStorage.setItem(DRONE_ROL
 function loadDroneWeapon(): DroneWeaponId {
   try {
     const saved = localStorage.getItem(DRONE_WEAPON_KEY) as DroneWeaponId | null;
-    return DRONE_WEAPONS.some(weapon => weapon.id === saved) ? saved! : "pulse";
+    const weapon = DRONE_WEAPONS.find(candidate => candidate.id === saved);
+    return weapon && (weapon.cost === 0 || loadUnlocks().includes(`drone_weapon_${weapon.id}`)) ? weapon.id : "pulse";
   } catch { return "pulse"; }
 }
 function saveDroneWeapon(weapon: DroneWeaponId) { try { localStorage.setItem(DRONE_WEAPON_KEY, weapon); } catch {} }
@@ -946,6 +991,12 @@ const SORTED_SHOP_ITEMS = [...SHOP_ITEMS].sort(
 const SORTED_WEAPONS = [...WEAPONS].sort(
   (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
 );
+const SORTED_DRONE_WEAPONS = [...DRONE_WEAPONS].sort(
+  (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
+);
+const SORTED_WEAPON_CRATES = [...WEAPON_CRATES].sort(
+  (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
+);
 const SORTED_JET_SKINS = [...JET_SKINS].sort(
   (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
 );
@@ -975,6 +1026,7 @@ function saveUltiLoadout(ids: UltiLoadoutId[]) { try { localStorage.setItem(ULTI
 
 const NAME_KEY         = "fighter-command-name";
 const PILOT_KILLS_KEY  = "fighter-command-pilot-kills";
+const PILOT_MILESTONE_KEY = "fighter-command-pilot-milestone-shown";
 const SETTINGS_KEY     = "fighter-command-settings";
 const TUTORIAL_KEY     = "fighter-command-tutorial-seen";
 const BRIEFING_KEY     = "fighter-command-briefing-seen";
@@ -1166,7 +1218,13 @@ function loadSkin(): string       { try { return localStorage.getItem(SKIN_KEY) 
 function saveDroneSkin(id: string) { try { localStorage.setItem(DRONE_SKIN_KEY, id); } catch {} }
 function loadDroneSkin(): string   { try { return localStorage.getItem(DRONE_SKIN_KEY) ?? "drone_violet"; } catch { return "drone_violet"; } }
 function saveWeaponCrate(id: string) { try { localStorage.setItem(WEAPON_CRATE_KEY, id); } catch {} }
-function loadWeaponCrate(): string { try { return localStorage.getItem(WEAPON_CRATE_KEY) ?? WEAPON_CRATES[0].id; } catch { return WEAPON_CRATES[0].id; } }
+function loadWeaponCrate(): string {
+  try {
+    const saved = localStorage.getItem(WEAPON_CRATE_KEY);
+    const crate = WEAPON_CRATES.find(candidate => candidate.id === saved);
+    return crate && (crate.cost === 0 || loadUnlocks().includes(`weapon_crate_${crate.id}`)) ? crate.id : WEAPON_CRATES[0].id;
+  } catch { return WEAPON_CRATES[0].id; }
+}
 function addUnlock(id: string)    { try { const u = loadUnlocks(); if (!u.includes(id)) localStorage.setItem(UNLOCKS_KEY, JSON.stringify([...u, id])); } catch {} }
 function loadUnlocks(): string[]  { return loadStringArray(UNLOCKS_KEY); }
 function loadAircraftLevels(): Record<string, number> {
@@ -1185,7 +1243,7 @@ function loadDroneLevels(): Record<string, number> {
   } catch { return {}; }
 }
 function saveDroneLevels(levels: Record<string, number>) { try { localStorage.setItem(DRONE_LEVELS_KEY, JSON.stringify(levels)); } catch {} }
-function unlockAll()              { try { const all = [...JET_SKINS.map(s => s.id), ...DRONE_SKINS.map(s => s.id), ...SHOP_ITEMS.map(i => i.id)]; localStorage.setItem(UNLOCKS_KEY, JSON.stringify(all)); } catch {} }
+function unlockAll()              { try { const all = [...JET_SKINS.map(s => s.id), ...DRONE_SKINS.map(s => s.id), ...WEAPONS.filter(weapon => weapon.cost > 0).map(weapon => `weapon_${weapon.id}`), ...DRONE_WEAPONS.filter(weapon => weapon.cost > 0).map(weapon => `drone_weapon_${weapon.id}`), ...WEAPON_CRATES.filter(crate => crate.cost > 0).map(crate => `weapon_crate_${crate.id}`), ...SHOP_ITEMS.map(i => i.id)]; localStorage.setItem(UNLOCKS_KEY, JSON.stringify(all)); } catch {} }
 function saveName(n: string)      { try { localStorage.setItem(NAME_KEY, n); } catch {} }
 function loadName(): string       { try { return localStorage.getItem(NAME_KEY) ?? "Pilot"; } catch { return "Pilot"; } }
 function loadPilotKills(): number { try { return Math.max(0, Number(localStorage.getItem(PILOT_KILLS_KEY)) || 0); } catch { return 0; } }
@@ -1195,6 +1253,12 @@ function addPilotKill(): number {
   return kills;
 }
 function getPilotLevelFromKills(kills = loadPilotKills()) { return getPilotLevelForScore(kills * 1000); }
+function loadShownPilotMilestone(): number {
+  try { return Math.max(0, Math.min(30, Number(localStorage.getItem(PILOT_MILESTONE_KEY)) || 0)); } catch { return 0; }
+}
+function saveShownPilotMilestone(level: number) {
+  try { localStorage.setItem(PILOT_MILESTONE_KEY, String(Math.max(0, Math.min(30, level)))); } catch {}
+}
 function loadSettings(): GameSettings {
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as unknown;
@@ -1248,8 +1312,10 @@ const TURKISH_TRANSLATIONS: Readonly<Record<string, string>> = {
   "Language": "Dil",
   "Language used for menus and hints.": "Menülerde ve ipuçlarında kullanılan dil.",
   "Level": "Seviye",
+  "LEVEL": "SEVİYE",
   "Mission briefing": "Görev brifingi",
   "Mission paused": "Görev duraklatıldı",
+  "New hangar rank reached": "Yeni hangar rütbesine ulaşıldı",
   "Mobile / Touch": "Mobil / Dokunmatik",
   "The jet follows your finger quickly.": "Uçak parmağını hızla takip eder.",
   "Move your jet": "Uçağını hareket ettir",
@@ -1260,6 +1326,7 @@ const TURKISH_TRANSLATIONS: Readonly<Record<string, string>> = {
   "Open fire": "Ateş aç",
   "PAUSED": "DURAKLATILDI",
   "Pause game": "Oyunu duraklat",
+  "Pilot milestone": "Pilot dönüm noktası",
   "Pilot name": "Pilot adı",
   "Points → credits:": "Puanlar → krediler:",
   "Press P to resume": "Devam etmek için P tuşuna bas",
@@ -1307,6 +1374,8 @@ function translated(language: GameSettings["language"], german: string, english:
     "Back": "Retour", "NEW GAME": "NOUVELLE PARTIE", "Your jet": "Votre chasseur",
     "Great!": "Super !", "Your score": "Votre score",
     "Available credits": "Crédits disponibles",
+    "Pilot milestone": "Étape du pilote", "LEVEL": "NIVEAU",
+    "New hangar rank reached": "Nouveau rang de hangar atteint",
     "Touch controls": "Commandes tactiles", "Music": "Musique", "Sound effects": "Effets sonores",
   } as Record<string, string>)[english] ?? english;
   if (language === "es") return ({
@@ -1314,6 +1383,8 @@ function translated(language: GameSettings["language"], german: string, english:
     "Back": "Atrás", "NEW GAME": "NUEVA PARTIDA", "Your jet": "Tu caza",
     "Great!": "¡Genial!", "Your score": "Tu puntuación",
     "Available credits": "Créditos disponibles",
+    "Pilot milestone": "Hito del piloto", "LEVEL": "NIVEL",
+    "New hangar rank reached": "Nuevo rango de hangar alcanzado",
     "Touch controls": "Controles táctiles", "Music": "Música", "Sound effects": "Efectos de sonido",
   } as Record<string, string>)[english] ?? english;
   return english;
@@ -1327,11 +1398,22 @@ function markTutorialSeen() { try { localStorage.setItem(TUTORIAL_KEY, "1"); } c
 function markBriefingSeen() { try { localStorage.setItem(BRIEFING_KEY, "1"); } catch {} }
 
 const LEADERBOARD_KEY = "fighter-command-lb";
-interface LeaderEntry { name: string; score: number; ts: number }
-function addLeaderboardEntry(name: string, score: number) {
+interface LeaderEntry {
+  name: string;
+  score: number;
+  ts: number;
+  level?: number;
+  mode?: GameMode;
+  durationMs?: number;
+  kills?: number;
+  bosses?: number;
+  maxCombo?: number;
+  nearMisses?: number;
+}
+function addLeaderboardEntry(name: string, score: number, details?: Omit<LeaderEntry, "name" | "score" | "ts">) {
   try {
     const entries: LeaderEntry[] = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) ?? "[]");
-    entries.push({ name: name || "Pilot", score, ts: Date.now() });
+    entries.push({ name: name || "Pilot", score, ts: Date.now(), ...details });
     entries.sort((a, b) => b.score - a.score);
     localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries.slice(0, 50)));
   } catch {}
@@ -2870,7 +2952,15 @@ export default function Game() {
       modeRecord: modeRecord.record,
     });
     saveHighScore(gs.score);
-    addLeaderboardEntry(playerNameRef.current, gs.score);
+    addLeaderboardEntry(playerNameRef.current, gs.score, {
+      level: gs.level,
+      mode: activeModeRef.current,
+      durationMs: runElapsedMsRef.current,
+      kills: runStatsRef.current.kills,
+      bosses: runStatsRef.current.bosses,
+      maxCombo: runStatsRef.current.maxCombo,
+      nearMisses: runStatsRef.current.nearMisses,
+    });
     const creditReward = Math.round(calculateCoinReward(gs.score) * getModeCoinMultiplier(activeModeRef.current));
     addCoins(creditReward);
     addGems(Math.floor(creditReward / 100));
@@ -3372,11 +3462,13 @@ export default function Game() {
         ? enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0)
             .sort((a, b) => Math.hypot(a.x - droneX, a.y - droneY) - Math.hypot(b.x - droneX, b.y - droneY))[0] ?? null
         : null;
-      const weaponSpread = droneWeapon.id === "ion_spread" ? [-.16, 0, .16] : [0];
+      const weaponSpread = Array.from({ length: droneWeapon.shots }, (_, index) =>
+        (index - (droneWeapon.shots - 1) / 2) * droneWeapon.spread,
+      );
       offsets.forEach(offset => weaponSpread.forEach(spread => bulletsRef.current.push({
         x: droneX + 22, y: droneY + offset,
-        vx: droneWeapon.id === "rail_lance" ? 17 : BASE_BULLET_SPEED,
-        vy: spread * BASE_BULLET_SPEED,
+        vx: droneWeapon.projectileSpeed,
+        vy: spread * droneWeapon.projectileSpeed,
         fromPlayer: true,
         damage: (drone.damage + runUpgradesRef.current.damage) * droneWeapon.damageMultiplier * droneDamageMultiplier * buildDamageMultiplier * (role === "assault" ? 1.35 : 1),
         color: droneWeapon.color,
@@ -4417,7 +4509,7 @@ export default function Game() {
         weaponCrateNextActivationRef.current += WEAPON_CRATE_INTERVAL_MS;
         const crate = weaponCrateRef.current;
         waveBannerRef.current = {
-          text: `${crate.name.toUpperCase()} · ${crate.rarity.toUpperCase()} · 5 SEKUNDEN`,
+          text: `${crate.name.toUpperCase()} · ${SHOP_RARITIES[crate.rarity].label} · 5 SEKUNDEN`,
           timer: 110,
         };
         audioRef.current.effect("upgrade", settingsRef.current.soundVolume * .7);
@@ -5971,7 +6063,7 @@ export default function Game() {
         ctx.shadowColor = rarityColor;
         ctx.shadowBlur = weaponCrateActive ? 12 : 4;
         ctx.font = "900 12px 'Inter', sans-serif";
-        ctx.fillText(`${crate.name} · ${crate.rarity.toUpperCase()}`, CANVAS_W - 20, 100);
+        ctx.fillText(`${crate.name} · ${SHOP_RARITIES[crate.rarity].label}`, CANVAS_W - 20, 100);
         ctx.shadowBlur = 0;
         ctx.fillStyle = weaponCrateActive ? "#ffffff" : "#9fb3c8";
         ctx.font = "bold 11px 'Inter', sans-serif";
@@ -6136,18 +6228,40 @@ export default function Game() {
 
   const handleDroneWeaponChange = (id: DroneWeaponId) => {
     const weapon = DRONE_WEAPONS.find(candidate => candidate.id === id);
-    if (!weapon) return;
+    if (!weapon || (weapon.cost > 0 && !loadUnlocks().includes(`drone_weapon_${id}`))) return;
     setSelectedDroneWeapon(id);
     saveDroneWeapon(id);
     droneWeaponRef.current = weapon;
   };
 
+  const handleDroneWeaponBuy = (id: DroneWeaponId) => {
+    const weapon = DRONE_WEAPONS.find(candidate => candidate.id === id);
+    if (!weapon || weapon.cost === 0 || loadUnlocks().includes(`drone_weapon_${id}`) ||
+        !isShopRarityUnlocked(weapon.rarity, getPilotLevelFromKills()) || loadCoins() < weapon.cost) return;
+    spendCoins(weapon.cost);
+    addUnlock(`drone_weapon_${id}`);
+    setCoins(loadCoins());
+    setUnlockedItems(loadUnlocks());
+    handleDroneWeaponChange(id);
+  };
+
   const handleWeaponCrateSelect = (id: string) => {
     const crate = WEAPON_CRATES.find(item => item.id === id);
-    if (!crate) return;
+    if (!crate || (crate.cost > 0 && !loadUnlocks().includes(`weapon_crate_${id}`))) return;
     setSelectedWeaponCrate(id);
     saveWeaponCrate(id);
     weaponCrateRef.current = crate;
+  };
+
+  const handleWeaponCrateBuy = (id: string) => {
+    const crate = WEAPON_CRATES.find(item => item.id === id);
+    if (!crate || crate.cost === 0 || loadUnlocks().includes(`weapon_crate_${id}`) ||
+        !isShopRarityUnlocked(crate.rarity, getPilotLevelFromKills()) || loadCoins() < crate.cost) return;
+    spendCoins(crate.cost);
+    addUnlock(`weapon_crate_${id}`);
+    setCoins(loadCoins());
+    setUnlockedItems(loadUnlocks());
+    handleWeaponCrateSelect(id);
   };
 
   const handleAircraftUpgrade = () => {
@@ -6469,7 +6583,9 @@ export default function Game() {
             onDroneBuildChange={handleDroneBuildChange}
             onDroneRoleChange={handleDroneRoleChange}
             onDroneWeaponChange={handleDroneWeaponChange}
+            onDroneWeaponBuy={handleDroneWeaponBuy}
             onWeaponCrateSelect={handleWeaponCrateSelect}
+            onWeaponCrateBuy={handleWeaponCrateBuy}
             onBuy={handleBuy}
             onUnlockSkin={handleUnlockSkin}
             onUnlockDroneSkin={handleUnlockDroneSkin}
@@ -6621,6 +6737,69 @@ function DroneBuildThumbnail({ skin, level = 4, className = "h-[60px] w-full", c
   return <canvas ref={ref} width={100} height={60} className={`block rounded-lg ${className}`} aria-hidden="true" />;
 }
 
+function CombinedDroneBuildThumbnail({ build, fallback, level = 1, className = "h-[60px] w-full", compact = false }: {
+  build: DroneBuild;
+  fallback: DroneSkin;
+  level?: number;
+  className?: string;
+  compact?: boolean;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!compact) {
+      const body = DRONE_SKINS.find(skin => skin.id === build.bodySkin) ?? fallback;
+      const background = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      background.addColorStop(0, `${body.stroke}28`);
+      background.addColorStop(1, "#070812");
+      ctx.fillStyle = background;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    const scale = compact ? 2 : 1.65;
+    ctx.scale(scale, scale);
+    drawCombinedCombatDrone(ctx, 0, 0, 0, build, fallback, level);
+    ctx.restore();
+  }, [build, compact, fallback, level]);
+  return <canvas ref={ref} width={100} height={60} className={`block rounded-lg ${className}`} aria-hidden="true" />;
+}
+
+function WeaponModuleThumbnail({ module, className = "h-[72px] w-full", compact = false }: {
+  module: WeaponCrateDefinition;
+  className?: string;
+  compact?: boolean;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!compact) {
+      const background = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      background.addColorStop(0, `${module.color}24`);
+      background.addColorStop(1, "#070812");
+      ctx.fillStyle = background;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = `${module.color}24`;
+      for (let x = 10; x < canvas.width; x += 18) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+    }
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    const scale = compact ? 1.65 : 1.5;
+    ctx.scale(scale, scale);
+    drawWeaponCrate(ctx, { x: 25, y: -PLAYER_H / 2 }, module, true, 0);
+    ctx.restore();
+  }, [compact, module]);
+  return <canvas ref={ref} width={120} height={72} className={`block rounded-lg ${className}`} aria-hidden="true" />;
+}
+
 function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDroneSkin, unlockedItems, coins, onBuildChange, onDroneBuildChange, onDroneRoleChange, onBuild, onBack }: {
   build: AircraftBuild;
   droneBuild: DroneBuild;
@@ -6712,7 +6891,7 @@ function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDr
 
 function HangarOverlay({
   selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, hybridActive, droneBuild, droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
-  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onHybridSelect, onHybridBuild, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onWeaponCrateSelect, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onCrateOpen, onAdminActivate,
+  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onHybridSelect, onHybridBuild, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onCrateOpen, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
   selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; aircraftBuild: AircraftBuild; hybridActive: boolean; droneBuild: DroneBuild; droneRole: DroneRoleId; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[]; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
@@ -6729,6 +6908,8 @@ function HangarOverlay({
   onDroneBuildChange: (build: DroneBuild) => void;
   onDroneRoleChange: (role: DroneRoleId) => void;
   onDroneWeaponChange: (weapon: DroneWeaponId) => void;
+  onDroneWeaponBuy: (weapon: DroneWeaponId) => void;
+  onWeaponCrateBuy: (id: string) => void;
   onAircraftUpgrade: () => void;
   onDroneUpgrade: () => void;
   onWeaponSelect: (id: string) => void;
@@ -6747,11 +6928,47 @@ function HangarOverlay({
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminCode, setAdminCode] = useState("");
   const [adminMsg, setAdminMsg] = useState("");
+  const [pilotMilestone, setPilotMilestone] = useState<number | null>(null);
   const previewRef = useRef<HTMLCanvasElement>(null);
   const activeSkinId = hoverSkin ?? selectedSkin;
   const skin = JET_SKINS.find(s => s.id === activeSkinId) ?? JET_SKINS[0];
-  const nextPurchase = [...JET_SKINS.filter(s => s.cost > 0 && !unlockedItems.includes(s.id)), ...DRONE_SKINS.filter(s => s.cost > 0 && !unlockedItems.includes(s.id)), ...SHOP_ITEMS.filter(i => !unlockedItems.includes(i.id))]
+  const selectedDrone = DRONE_SKINS.find(item => item.id === selectedDroneSkin) ?? DRONE_SKINS[0];
+  const droneCombined = new Set([droneBuild.bodySkin, droneBuild.coreSkin, droneBuild.weaponSkin]).size > 1;
+  const combinedDroneLevel = droneLevels[droneBuild.bodySkin] ?? droneLevels[selectedDroneSkin] ?? 1;
+  const combinedDroneNames = [droneBuild.bodySkin, droneBuild.weaponSkin]
+    .map(id => DRONE_SKINS.find(item => item.id === id)?.name ?? selectedDrone.name);
+  const nextPurchase = [
+    ...JET_SKINS.filter(s => s.cost > 0 && !unlockedItems.includes(s.id)),
+    ...DRONE_SKINS.filter(s => s.cost > 0 && !unlockedItems.includes(s.id)),
+    ...WEAPONS.filter(weapon => weapon.cost > 0 && weapon.currency === "credits" && !unlockedItems.includes(`weapon_${weapon.id}`)),
+    ...DRONE_WEAPONS.filter(weapon => weapon.cost > 0 && !unlockedItems.includes(`drone_weapon_${weapon.id}`)),
+    ...WEAPON_CRATES.filter(module => module.cost > 0 && !unlockedItems.includes(`weapon_crate_${module.id}`)),
+    ...SHOP_ITEMS.filter(i => !unlockedItems.includes(i.id)),
+  ]
     .sort((a, b) => a.cost - b.cost)[0];
+
+  useEffect(() => {
+    if (view !== "main") return;
+    const currentLevel = Math.min(30, getPilotLevelFromKills());
+    const lastShown = loadShownPilotMilestone();
+    const pending = [5, 10, 15, 20, 25, 30].filter(level => level > lastShown && level <= currentLevel);
+    if (pending.length === 0) return;
+    const timers: number[] = [];
+    let index = 0;
+    const showNext = () => {
+      const level = pending[index];
+      if (level === undefined) return;
+      setPilotMilestone(level);
+      timers.push(window.setTimeout(() => {
+        saveShownPilotMilestone(level);
+        setPilotMilestone(null);
+        index += 1;
+        if (index < pending.length) timers.push(window.setTimeout(showNext, 350));
+      }, 2800));
+    };
+    timers.push(window.setTimeout(showNext, 300));
+    return () => timers.forEach(window.clearTimeout);
+  }, [view]);
 
   useEffect(() => {
     const c = previewRef.current;
@@ -6767,11 +6984,11 @@ function HangarOverlay({
     ctx.fillStyle = gg; ctx.fillRect(0, 0, 240, 140);
     if (hybridActive) drawCombinedPlayerJet(ctx, 90, 56, 5, false, aircraftBuild, skin, undefined, aircraftLevels[skin.id] ?? 1);
     else drawPlayerJet(ctx, 90, 56, 5, false, skin, undefined, aircraftLevels[skin.id] ?? 1);
-    drawCombinedCombatDrone(ctx, 105, 38, 0, droneBuild, DRONE_SKINS.find(s => s.id === selectedDroneSkin) ?? DRONE_SKINS[0], droneLevels[selectedDroneSkin] ?? 1);
+    drawCombinedCombatDrone(ctx, 105, 38, 0, droneBuild, selectedDrone, combinedDroneLevel);
     drawWeaponCrate(ctx, { x: 90, y: 56 }, WEAPON_CRATES.find(crate => crate.id === selectedWeaponCrate) ?? WEAPON_CRATES[0], true, 0);
   // Sub-views unmount the preview canvas. Redraw when returning to the main
   // hangar even if the selected skins and their levels did not change.
-  }, [view, activeSkinId, skin, selectedDroneSkin, selectedWeaponCrate, aircraftBuild, hybridActive, droneBuild, aircraftLevels, droneLevels]);
+  }, [view, activeSkinId, skin, selectedDrone, selectedWeaponCrate, aircraftBuild, hybridActive, droneBuild, aircraftLevels, combinedDroneLevel]);
 
   if (view === "briefing") {
     return (
@@ -6789,7 +7006,7 @@ function HangarOverlay({
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
         <ShopScreen coins={coins} gems={gems} playerLevel={getPilotLevelFromKills()} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} weaponLevels={weaponLevels} selectedSkin={selectedSkin} ultiLoadout={ultiLoadout} selectedDroneSkin={selectedDroneSkin} selectedDroneWeapon={selectedDroneWeapon} selectedWeapons={selectedWeapons}
           onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect}
-          onUltiLoadoutChange={onUltiLoadoutChange} onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onDroneWeaponChange={onDroneWeaponChange} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} onWeaponSelect={onWeaponSelect} onWeaponBuy={onWeaponBuy} onWeaponUpgrade={onWeaponUpgrade} onCrateOpen={onCrateOpen} />
+          onUltiLoadoutChange={onUltiLoadoutChange} onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onDroneWeaponChange={onDroneWeaponChange} onDroneWeaponBuy={onDroneWeaponBuy} selectedWeaponCrate={selectedWeaponCrate} onWeaponCrateSelect={onWeaponCrateSelect} onWeaponCrateBuy={onWeaponCrateBuy} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} onWeaponSelect={onWeaponSelect} onWeaponBuy={onWeaponBuy} onWeaponUpgrade={onWeaponUpgrade} onCrateOpen={onCrateOpen} />
       </div>
     );
   }
@@ -6820,8 +7037,24 @@ function HangarOverlay({
   return (
     <div className="hangar-layer hangar-main absolute inset-0 flex flex-col items-center justify-between px-6 py-4 overflow-y-auto"
       style={{ background: "rgba(4,12,28,0.90)" }}>
+      {pilotMilestone !== null && (
+        <div className="pilot-level-celebration pointer-events-none fixed inset-0 z-[80] grid place-items-center overflow-hidden" role="status" aria-live="polite">
+          <span className="pilot-level-spark pilot-level-spark-1">✦</span>
+          <span className="pilot-level-spark pilot-level-spark-2">✧</span>
+          <span className="pilot-level-spark pilot-level-spark-3">★</span>
+          <span className="pilot-level-spark pilot-level-spark-4">✦</span>
+          <span className="pilot-level-spark pilot-level-spark-5">✧</span>
+          <span className="pilot-level-spark pilot-level-spark-6">★</span>
+          <div className="pilot-level-card relative rounded-3xl px-10 py-7 text-center text-white">
+            <div className="pilot-level-wings" aria-hidden="true">◆</div>
+            <div className="mt-2 text-[10px] font-black uppercase tracking-[.35em] text-cyan-200">{translated(language, "Pilot-Meilenstein", "Pilot milestone")}</div>
+            <div className="pilot-level-number mt-1 font-black">{translated(language, "LEVEL", "LEVEL")} {pilotMilestone}</div>
+            <div className="mt-2 text-sm font-bold text-violet-200">{translated(language, "Neuer Hangar-Rang erreicht", "New hangar rank reached")}</div>
+          </div>
+        </div>
+      )}
       {/* ── Top bar ── */}
-      <div className="w-full flex items-start justify-between">
+      <div className="hangar-topbar w-full flex items-start justify-between">
         <div>
           <div className="font-black text-2xl tracking-widest" style={{ color: "#00cfff", textShadow: "0 0 14px #00cfff99" }}>
             fighter-game
@@ -6846,7 +7079,7 @@ function HangarOverlay({
       </div>
 
       {/* ── Pilot name ── */}
-      <div className="w-full flex items-center gap-2 px-1">
+      <div className="hangar-pilot w-full flex items-center gap-2 px-1">
         <span className="text-slate-400 text-xs whitespace-nowrap">🧑‍✈️ Name:</span>
         <input
           value={playerName}
@@ -6863,7 +7096,7 @@ function HangarOverlay({
         onPointerDown={event => event.stopPropagation()}
         onTouchStart={event => event.stopPropagation()}
         onClick={event => { event.preventDefault(); event.stopPropagation(); setView("workshop"); }}
-        className="relative z-30 min-h-11 w-full max-w-md shrink-0 touch-manipulation rounded-xl px-4 py-2 text-sm font-black tracking-wide transition active:scale-95"
+        className="hangar-workshop relative z-30 min-h-11 w-full max-w-md shrink-0 touch-manipulation rounded-xl px-4 py-2 text-sm font-black tracking-wide transition active:scale-95"
         style={{ background: "linear-gradient(90deg, rgba(8,145,178,.45), rgba(109,40,217,.45))", border: "2px solid #67e8f9", color: "#cffafe", pointerEvents: "auto" }}
       >
         🔧 BAUKASTEN ÖFFNEN
@@ -6923,35 +7156,48 @@ function HangarOverlay({
         <div className="hangar-drone-skins flex items-center justify-center gap-2 mt-1">
           <span className="text-slate-500 text-xs">Drohne:</span>
           {DRONE_SKINS.filter(s => s.cost === 0 || unlockedItems.includes(s.id)).map(s => {
+            const active = !droneCombined && selectedDroneSkin === s.id;
             return <button key={s.id} onClick={() => onDroneSkinSelect(s.id)}
               aria-label={`${s.name} Drohnen-Skin auswählen`}
               title={s.name}
               className="hangar-skin-button grid place-items-center overflow-hidden"
               style={{ width: 50, height: 38, minWidth: 50, borderRadius: 10, background: `${s.body}cc`,
-                border: selectedDroneSkin === s.id ? "3px solid #fff" : `2px solid ${s.stroke}66`,
-                boxShadow: selectedDroneSkin === s.id ? `0 0 10px ${s.stroke}` : "none" }}>
+                border: active ? "3px solid #fff" : `2px solid ${s.stroke}66`,
+                boxShadow: active ? `0 0 10px ${s.stroke}` : "none" }}>
               <DroneBuildThumbnail skin={s} level={droneLevels[s.id] ?? 1} compact className="h-full w-full" />
             </button>;
           })}
-          <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2 py-0.5 text-[10px] font-black text-violet-300">LV {droneLevels[selectedDroneSkin] ?? 1}</span>
+          {droneCombined && (
+            <div
+              role="img"
+              aria-label={`Kombinierte Drohne ${combinedDroneNames.join(" und ")}`}
+              title={`Kombiniert · ${combinedDroneNames.join(" + ")}`}
+              className="grid place-items-center overflow-hidden"
+              style={{ width: 58, height: 42, minWidth: 58, borderRadius: 11, background: "rgba(109,40,217,.32)", border: "3px solid #fff", boxShadow: "0 0 16px #c084fc" }}
+            >
+              <CombinedDroneBuildThumbnail build={droneBuild} fallback={selectedDrone} level={combinedDroneLevel} compact className="h-full w-full" />
+            </div>
+          )}
+          <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2 py-0.5 text-[10px] font-black text-violet-300">LV {droneCombined ? combinedDroneLevel : (droneLevels[selectedDroneSkin] ?? 1)}</span>
         </div>
-        <div className="hangar-crate-skins flex items-center justify-center gap-2 mt-1">
+        {droneCombined && <div className="text-[10px] font-black text-fuchsia-300">KOMBINIERT · {combinedDroneNames.join(" + ")}</div>}
+        <div className="hangar-crate-skins flex max-w-full flex-wrap items-center justify-center gap-2 mt-1">
           <span className="text-slate-500 text-xs">Waffenmodul:</span>
-          {WEAPON_CRATES.map(crate => (
+          {WEAPON_CRATES.filter(crate => crate.cost === 0 || unlockedItems.includes(`weapon_crate_${crate.id}`)).map(crate => (
             <button
               key={crate.id}
               onClick={() => onWeaponCrateSelect(crate.id)}
               aria-label={`${crate.name} als Waffenmodul auswählen`}
-              title={`${crate.name} · ${crate.rarity}`}
-              className="hangar-skin-button grid place-items-center font-black text-xs"
+              title={`${crate.name} · ${SHOP_RARITIES[crate.rarity].label}`}
+              className="hangar-skin-button grid place-items-center overflow-hidden"
               style={{
-                width: 42, height: 34, minWidth: 42, borderRadius: crate.kind === "plasma" ? "50%" : crate.kind === "laser" ? 5 : 9,
+                width: 52, height: 38, minWidth: 52, borderRadius: 10,
                 color: "#fff", background: `${crate.color}35`,
                 border: selectedWeaponCrate === crate.id ? "3px solid #fff" : `2px solid ${crate.color}`,
                 boxShadow: selectedWeaponCrate === crate.id ? `0 0 12px ${crate.color}` : "none",
               }}
             >
-              {crate.kind === "rockets" ? "••" : crate.kind === "laser" ? "◇" : "●"}
+              <WeaponModuleThumbnail module={crate} compact className="h-full w-full" />
             </button>
           ))}
         </div>
@@ -6973,7 +7219,7 @@ function HangarOverlay({
       </div>
 
       {/* ── Game mode selection ── */}
-      <div className="w-full">
+      <div className="hangar-modes w-full">
         <div className="mb-1 text-center text-[10px] font-black uppercase tracking-[.24em] text-violet-300">Spielmodus</div>
         <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
           {GAME_MODES.map(mode => {
@@ -7039,7 +7285,7 @@ function HangarOverlay({
         </button>
       </div>
       {/* Admin button (bottom-right) */}
-      <div className="w-full flex justify-end gap-2 mt-1">
+      <div className="hangar-footer w-full flex justify-end gap-2 mt-1">
         <button onClick={() => setView("briefing")}
           className="text-xs rounded px-2 py-0.5"
           style={{ color: "#8bdfff", background: "rgba(0,180,255,0.08)", border: "1px solid #1a4466" }}>
@@ -7146,8 +7392,8 @@ function ShopCrateVisual({ rarity, opening }: { rarity: ShopRarity; opening: boo
   );
 }
 
-function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, weaponLevels, selectedSkin, ultiLoadout, selectedDroneSkin, selectedDroneWeapon, selectedWeapons, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onDroneWeaponChange, onAircraftUpgrade, onDroneUpgrade, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onCrateOpen }: {
-  coins: number; gems: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedDroneWeapon: DroneWeaponId; selectedWeapons: string[];
+function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, weaponLevels, selectedSkin, ultiLoadout, selectedDroneSkin, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onAircraftUpgrade, onDroneUpgrade, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onCrateOpen }: {
+  coins: number; gems: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[];
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
   weaponLevels: Record<string, number>;
@@ -7156,6 +7402,9 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
   onUltiLoadoutChange: (ids: UltiLoadoutId[]) => void;
   onUnlockDroneSkin: (id: string) => void; onDroneSkinSelect: (id: string) => void;
   onDroneWeaponChange: (id: DroneWeaponId) => void;
+  onDroneWeaponBuy: (id: DroneWeaponId) => void;
+  onWeaponCrateSelect: (id: string) => void;
+  onWeaponCrateBuy: (id: string) => void;
   onAircraftUpgrade: () => void;
   onDroneUpgrade: () => void;
   onWeaponSelect: (id: string) => void;
@@ -7408,45 +7657,96 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
 
         <div className="mt-6 border-t border-violet-400/25 pt-5">
           <div className="text-xs font-black uppercase tracking-[.2em] text-violet-300">Drohnenwaffen</div>
-          <div className="mt-1 text-xs text-slate-400">Wähle eine separate Waffe für deine Begleitdrohne. Drohnenlevel und Rollen verstärken sie weiterhin.</div>
+          <div className="mt-1 text-xs text-slate-400">Kaufe Drohnenwaffen mit Credits und rüste eine davon aus. Drohnenlevel und Rollen verstärken sie weiterhin.</div>
           <div className="mt-2 text-[10px] font-black uppercase tracking-wider text-violet-200">Drohnen-Waffenslot 1/1 belegt</div>
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {DRONE_WEAPONS.map(weapon => {
-              const active = selectedDroneWeapon === weapon.id;
-              const shots = weapon.id === "ion_spread" ? 3 : 1;
+            {SORTED_DRONE_WEAPONS.map(weapon => {
+              const owned = weapon.cost === 0 || unlockedItems.includes(`drone_weapon_${weapon.id}`);
+              const active = owned && selectedDroneWeapon === weapon.id;
+              const canAfford = coins >= weapon.cost;
+              const levelUnlocked = isShopRarityUnlocked(weapon.rarity, playerLevel);
+              const rarity = SHOP_RARITIES[weapon.rarity];
               const damage = Math.round(droneStats.damage * weapon.damageMultiplier * 10) / 10;
               const fireRate = Math.round(1000 / (280 * droneStats.fireRateMultiplier * weapon.fireRate) * 10) / 10;
               return (
                 <button
                   key={weapon.id}
                   type="button"
-                  onClick={() => onDroneWeaponChange(weapon.id)}
+                  onClick={() => owned
+                    ? onDroneWeaponChange(weapon.id)
+                    : canAfford && levelUnlocked && requestPurchase(`Drohnenwaffe ${weapon.name}`, weapon.cost, () => onDroneWeaponBuy(weapon.id))}
+                  disabled={!owned && (!canAfford || !levelUnlocked)}
                   aria-pressed={active}
-                  className="rounded-2xl p-3 text-left transition active:scale-[.98]"
+                  className="rounded-2xl p-3 text-left transition active:scale-[.98] disabled:cursor-not-allowed"
                   style={{
                     background: active ? `${weapon.color}20` : "rgba(255,255,255,.045)",
                     border: `1px solid ${active ? weapon.color : `${weapon.color}66`}`,
-                    borderLeft: `5px solid ${weapon.color}`,
+                    borderLeft: `5px solid ${rarity.color}`,
                     boxShadow: active ? `0 0 18px ${weapon.color}44` : undefined,
+                    opacity: !owned && (!canAfford || !levelUnlocked) ? .48 : 1,
                   }}
                 >
                   <div className="flex items-start gap-3">
                     <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xl font-black" style={{ color: weapon.color, background: `${weapon.color}16`, border: `1px solid ${weapon.color}88`, textShadow: `0 0 9px ${weapon.color}` }}>{weapon.icon}</span>
                     <span className="min-w-0">
-                      <b className="block text-white">{weapon.name}</b>
+                      <span className="flex flex-wrap items-center gap-2"><b className="block text-white">{weapon.name}</b><span className="text-[9px] font-black" style={shopRarityLabelStyle(weapon.rarity)}>{rarity.label}</span></span>
                       <span className="text-[11px] text-slate-400">{weapon.description}</span>
                     </span>
                   </div>
                   <span className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px] text-slate-300">
                     <span className="rounded bg-black/25 p-1"><b className="block text-white">{damage}</b>Schaden</span>
-                    <span className="rounded bg-black/25 p-1"><b className="block text-white">{shots}</b>Schüsse</span>
+                    <span className="rounded bg-black/25 p-1"><b className="block text-white">{weapon.shots}</b>Schüsse</span>
                     <span className="rounded bg-black/25 p-1"><b className="block text-white">{fireRate}/s</b>Feuerrate</span>
                   </span>
                   <span className="mt-2 block rounded-lg border border-violet-400/50 bg-violet-950/50 px-2 py-2 text-center text-xs font-black text-violet-200">
-                    {active ? "✓ AUSGERÜSTET" : "AUSRÜSTEN"}
+                    {active ? "✓ AUSGERÜSTET" : owned ? "AUSRÜSTEN" : !levelUnlocked ? `🔒 PILOT-LEVEL ${SHOP_RARITY_MIN_LEVEL[weapon.rarity]}` : `${canAfford ? "💰" : "🔒"} ${weapon.cost.toLocaleString("de-DE")} CREDITS`}
                   </span>
                 </button>
               );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-6 border-t border-amber-400/25 pt-5">
+          <div className="text-xs font-black uppercase tracking-[.2em] text-amber-300">Waffenmodule</div>
+          <div className="mt-1 text-xs text-slate-400">Kaufe ein Begleitmodul mit Credits. Das gewählte Modul aktiviert sich im Einsatz regelmäßig für fünf Sekunden.</div>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {SORTED_WEAPON_CRATES.map(module => {
+              const owned = module.cost === 0 || unlockedItems.includes(`weapon_crate_${module.id}`);
+              const active = owned && selectedWeaponCrate === module.id;
+              const canAfford = coins >= module.cost;
+              const levelUnlocked = isShopRarityUnlocked(module.rarity, playerLevel);
+              const rarity = SHOP_RARITIES[module.rarity];
+              const shots = module.kind === "plasma" ? 3 : module.kind === "rockets" ? 2 : 1;
+              const shotsPerSecond = Math.round(1000 / module.fireRate * shots * 10) / 10;
+              return <button key={module.id} type="button"
+                onClick={() => owned
+                  ? onWeaponCrateSelect(module.id)
+                  : canAfford && levelUnlocked && requestPurchase(`Waffenmodul ${module.name}`, module.cost, () => onWeaponCrateBuy(module.id))}
+                disabled={!owned && (!canAfford || !levelUnlocked)}
+                aria-pressed={active}
+                className="rounded-2xl p-3 text-left transition active:scale-[.98] disabled:cursor-not-allowed"
+                style={{
+                  background: active ? `${module.color}20` : "rgba(255,255,255,.045)",
+                  border: `1px solid ${active ? module.color : `${rarity.color}88`}`,
+                  borderLeft: `5px solid ${rarity.color}`,
+                  boxShadow: active ? `0 0 18px ${module.color}44` : undefined,
+                  opacity: !owned && (!canAfford || !levelUnlocked) ? .48 : 1,
+                }}>
+                <WeaponModuleThumbnail module={module} className="h-16 w-full" />
+                <span className="mt-3 block min-w-0">
+                  <span className="flex flex-wrap items-center gap-2"><b className="text-white">{module.name}</b><span className="text-[9px] font-black" style={shopRarityLabelStyle(module.rarity)}>{rarity.label}</span></span>
+                  <span className="block text-[11px] text-slate-400">{module.kind === "rockets" ? "Zielsuchende Raketen" : module.kind === "laser" ? "Schnelle Präzisionsstrahlen" : "Breite Plasmafächer"}</span>
+                </span>
+                <span className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px] text-slate-300">
+                  <span className="rounded bg-black/25 p-1"><b className="block text-white">{module.damage}</b>Schaden</span>
+                  <span className="rounded bg-black/25 p-1"><b className="block text-white">{shots}</b>Schüsse</span>
+                  <span className="rounded bg-black/25 p-1"><b className="block text-white">{shotsPerSecond}/s</b>Feuerrate</span>
+                </span>
+                <span className="mt-2 block rounded-lg border border-amber-400/50 bg-amber-950/40 px-2 py-2 text-center text-xs font-black text-amber-200">
+                  {active ? "✓ AUSGERÜSTET" : owned ? "AUSRÜSTEN" : !levelUnlocked ? `🔒 PILOT-LEVEL ${SHOP_RARITY_MIN_LEVEL[module.rarity]}` : `${canAfford ? "💰" : "🔒"} ${module.cost.toLocaleString("de-DE")} CREDITS`}
+                </span>
+              </button>;
             })}
           </div>
         </div>
@@ -7667,6 +7967,13 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
 
 function LeaderboardScreen({ onBack }: { onBack: () => void }) {
   const entries = loadLeaderboard();
+  const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
+  const leaderScore = entries[0]?.score ?? 0;
+  const formatDuration = (durationMs: number) => {
+    const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    return `${minutes}:${String(totalSeconds % 60).padStart(2, "0")} Min.`;
+  };
   return (
     <div className="flex flex-col h-full px-4 py-4" style={{ color: "#c8d8f0" }}>
       <div className="flex items-center gap-3 mb-4">
@@ -7685,23 +7992,50 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto space-y-1 pr-1" style={{ maxHeight: "calc(100% - 60px)" }}>
-          {entries.slice(0, 30).map((e, i) => (
-            <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
-              style={{
-                background: i === 0 ? "rgba(255,204,0,0.12)" : i === 1 ? "rgba(180,180,180,0.10)" : i === 2 ? "rgba(180,90,0,0.10)" : "rgba(255,255,255,0.04)",
-                border: `1px solid ${i === 0 ? "#ffcc0040" : i < 3 ? "#33445540" : "#1a2a3a"}`,
-              }}>
-              <span className="text-xs font-black w-6 text-center" style={{ color: i === 0 ? "#ffcc00" : i === 1 ? "#aabbcc" : i === 2 ? "#cc8844" : "#446677" }}>
-                {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
-              </span>
-              <span className="flex-1 text-sm font-bold truncate" style={{ color: i < 3 ? "#e0f0ff" : "#8899bb" }}>
-                {e.name}
-              </span>
-              <span className="text-sm font-black tabular-nums" style={{ color: i === 0 ? "#ffcc00" : "#00cfff" }}>
-                {e.score.toLocaleString("de-DE")}
-              </span>
-            </div>
-          ))}
+          {entries.slice(0, 30).map((e, i) => {
+            const entryId = `${e.ts}-${i}`;
+            const expanded = expandedEntry === entryId;
+            const playedAt = new Date(e.ts);
+            const validDate = Number.isFinite(playedAt.getTime());
+            const detailsId = `leaderboard-details-${i}`;
+            return (
+              <div key={entryId} className="overflow-hidden rounded-lg"
+                style={{
+                  background: i === 0 ? "rgba(255,204,0,0.12)" : i === 1 ? "rgba(180,180,180,0.10)" : i === 2 ? "rgba(180,90,0,0.10)" : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${expanded ? "#00cfff88" : i === 0 ? "#ffcc0040" : i < 3 ? "#33445540" : "#1a2a3a"}`,
+                }}>
+                <button
+                  type="button"
+                  aria-expanded={expanded}
+                  aria-controls={detailsId}
+                  onClick={() => setExpandedEntry(expanded ? null : entryId)}
+                  className="flex min-h-11 w-full items-center gap-2 px-3 py-1.5 text-left transition hover:bg-white/5"
+                >
+                  <span className="w-6 text-center text-xs font-black" style={{ color: i === 0 ? "#ffcc00" : i === 1 ? "#aabbcc" : i === 2 ? "#cc8844" : "#446677" }}>
+                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color: i < 3 ? "#e0f0ff" : "#8899bb" }}>{e.name}</span>
+                  <span className="text-sm font-black tabular-nums" style={{ color: i === 0 ? "#ffcc00" : "#00cfff" }}>{e.score.toLocaleString("de-DE")}</span>
+                  <span aria-hidden="true" className={`ml-1 text-xs text-cyan-400 transition-transform ${expanded ? "rotate-180" : ""}`}>▼</span>
+                </button>
+                {expanded && (
+                  <div id={detailsId} className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-cyan-900/70 px-4 py-3 text-xs sm:grid-cols-4">
+                    <div><span className="block text-slate-500">Platzierung</span><b className="text-white">#{i + 1} von {entries.length}</b></div>
+                    <div><span className="block text-slate-500">Abstand zu Platz 1</span><b className="text-cyan-300">{i === 0 ? "Spitzenplatz" : `−${Math.max(0, leaderScore - e.score).toLocaleString("de-DE")}`}</b></div>
+                    <div><span className="block text-slate-500">Datum</span><b className="text-white">{validDate ? playedAt.toLocaleDateString("de-DE") : "Unbekannt"}</b></div>
+                    <div><span className="block text-slate-500">Uhrzeit</span><b className="text-white">{validDate ? playedAt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "—"}</b></div>
+                    {e.mode && <div><span className="block text-slate-500">Spielmodus</span><b className="text-violet-300">{getEffectiveGameModeRules(e.mode).icon} {getEffectiveGameModeRules(e.mode).label}</b></div>}
+                    {e.level !== undefined && <div><span className="block text-slate-500">Erreichtes Level</span><b className="text-emerald-300">Level {e.level}</b></div>}
+                    {e.durationMs !== undefined && <div><span className="block text-slate-500">Einsatzdauer</span><b className="text-white">{formatDuration(e.durationMs)}</b></div>}
+                    {e.kills !== undefined && <div><span className="block text-slate-500">Abschüsse</span><b className="text-red-300">{e.kills}</b></div>}
+                    {e.bosses !== undefined && <div><span className="block text-slate-500">Bosse besiegt</span><b className="text-amber-300">{e.bosses}</b></div>}
+                    {e.maxCombo !== undefined && <div><span className="block text-slate-500">Beste Combo</span><b className="text-orange-300">×{e.maxCombo}</b></div>}
+                    {e.nearMisses !== undefined && <div><span className="block text-slate-500">Near Misses</span><b className="text-sky-300">{e.nearMisses}</b></div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
