@@ -2916,7 +2916,7 @@ function drawBiomeBackground(
 ) {
   const motionTime = reducedMotion ? 0 : time * BACKGROUND_SPEED_MULTIPLIER;
   const groundColors: Record<BiomeDefinition["id"], readonly [string, string]> = {
-    city: ["#303b45", "#151f29"],
+    city: ["#687985", "#3b4b56"],
     desert: ["#d9a14b", "#a9662b"],
     ocean: ["#0aa7c1", "#024f82"],
     plains: ["#65994b", "#2e6838"],
@@ -2955,8 +2955,8 @@ function drawBiomeBackground(
   if (biome.id === "city") {
     // Rooftops, streets and moving lane markings are seen by a camera directly overhead.
     for (const roadY of [112, 302, 492]) {
-      ctx.fillStyle = "#101820"; ctx.fillRect(0, roadY, CANVAS_W, 74);
-      ctx.strokeStyle = "#60708066"; ctx.lineWidth = 2;
+      ctx.fillStyle = night ? "#0d151d" : "#26333b"; ctx.fillRect(0, roadY, CANVAS_W, 74);
+      ctx.strokeStyle = night ? "#60708066" : "#a5b2b877"; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(0, roadY + 8); ctx.lineTo(CANVAS_W, roadY + 8); ctx.moveTo(0, roadY + 66); ctx.lineTo(CANVAS_W, roadY + 66); ctx.stroke();
       const dashOffset = (motionTime * 2.5) % 72;
       ctx.fillStyle = night ? "#ffe58aaa" : "#d9e4d999";
@@ -2971,7 +2971,8 @@ function drawBiomeBackground(
       const height = 82 + building.height % 24;
       ctx.fillStyle = "#07101966"; ctx.fillRect(x + 10, y + 10, width, height);
       const roof = ctx.createLinearGradient(x, y, x + width, y + height);
-      roof.addColorStop(0, index % 2 ? "#536473" : "#40515f"); roof.addColorStop(1, "#1c2a35");
+      roof.addColorStop(0, night ? (index % 2 ? "#40515f" : "#344551") : (index % 2 ? "#8798a3" : "#738791"));
+      roof.addColorStop(1, night ? "#17242e" : "#526570");
       ctx.fillStyle = roof; ctx.fillRect(x, y, width, height);
       ctx.strokeStyle = "#9ec8d044"; ctx.lineWidth = 2; ctx.strokeRect(x + 5, y + 5, width - 10, height - 10);
       ctx.fillStyle = "#16232c"; ctx.fillRect(x + width * .34, y + height * .28, width * .3, height * .26);
@@ -4899,13 +4900,6 @@ export default function Game() {
         return;
       }
 
-      const isAtOneHp = gs.hp > 0 && gs.hp <= 1;
-      if (isAtOneHp && !wasAtOneHpRef.current) {
-        lowHpWarningMsRef.current = 5000;
-      }
-      wasAtOneHpRef.current = isAtOneHp;
-      lowHpWarningMsRef.current = Math.max(0, lowHpWarningMsRef.current - dt);
-
       if (gs.gameOver) {
         if (upwardFlight) ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.save();
@@ -6708,6 +6702,12 @@ export default function Game() {
 
       // ── HUD ──
       if (upwardFlight) ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const isAtOneHp = gs.hp > 0 && gs.hp <= 1;
+      if (isAtOneHp && !wasAtOneHpRef.current) {
+        lowHpWarningMsRef.current = 5000;
+      }
+      wasAtOneHpRef.current = isAtOneHp;
+      lowHpWarningMsRef.current = Math.max(0, lowHpWarningMsRef.current - dt);
       if (lowHpWarningMsRef.current > 0) {
         const warningW = upwardFlight ? CANVAS_H : CANVAS_W;
         const warningH = upwardFlight ? CANVAS_W : CANVAS_H;
