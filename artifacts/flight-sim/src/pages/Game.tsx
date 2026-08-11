@@ -5550,30 +5550,6 @@ export default function Game() {
           ctx.fillText(`GOLD · ${Math.max(0, Math.ceil((e.goldenTimer ?? 0) / 60))}s`, e.x + e.width / 2, e.y - 9);
           ctx.restore();
         }
-        if (isBossEnemy(e)) {
-          const topAlive = (e.bossTopPartHp ?? 0) > 0;
-          const bottomAlive = (e.bossBottomPartHp ?? 0) > 0;
-          ctx.save();
-          for (const [cy, alive, label] of [
-            [e.y + e.height * .26, topAlive, "KANONE"],
-            [e.y + e.height * .74, bottomAlive, "ANTRIEB"],
-          ] as const) {
-            ctx.beginPath();
-            ctx.arc(e.x + e.width * .18, cy, 8, 0, Math.PI * 2);
-            ctx.fillStyle = alive ? "#ff3344aa" : "#223344aa";
-            ctx.strokeStyle = alive ? "#ffffff" : "#667788";
-            ctx.lineWidth = 2;
-            ctx.fill(); ctx.stroke();
-            if (alive) {
-              ctx.font = "bold 8px 'Inter', sans-serif";
-              ctx.textAlign = "left";
-              ctx.fillStyle = "#ffffff";
-              ctx.fillText(label, e.x + e.width * .18 + 12, cy - 4);
-            }
-          }
-          ctx.restore();
-        }
-
         // In Beschützen mode, enemies that reach the package damage the objective.
         if (activeModeRef.current === "protect" && protectPackageHitCooldownRef.current <= 0 &&
             rectHit(protectPackageRef.current.x, protectPackageRef.current.y, PROTECT_PACKAGE_WIDTH, PROTECT_PACKAGE_HEIGHT,
