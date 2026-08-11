@@ -4625,12 +4625,20 @@ export default function Game() {
     const onKey = (e: KeyboardEvent, down: boolean) => {
       const target = e.target as HTMLElement | null;
       const isMenuControl = Boolean(target?.closest("button, input, select, textarea, [role='button']"));
-      const method = down ? "add" : "delete";
-      keysRef.current[method](e.key);
-      keysRef.current[method](e.code);
+      if (!down) {
+        keysRef.current.delete(e.key);
+        keysRef.current.delete(e.code);
+        return;
+      }
+      // Keystrokes intended for a focused menu control must not leak into the
+      // game (for example, typing "n" in the pilot-name input used to start a
+      // new mission and clear the current checkpoint).
+      if (isMenuControl) return;
+      keysRef.current.add(e.key);
+      keysRef.current.add(e.code);
       const bindings = settingsRef.current.keyBindings;
       const movementCodes = [bindings.up, bindings.down, bindings.left, bindings.right, "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
-      if (down && tutorialStageRef.current === 0 && movementCodes.includes(e.code)) {
+      if (tutorialStageRef.current === 0 && movementCodes.includes(e.code)) {
         if (settingsRef.current.autoFire) {
           tutorialStageRef.current = 2;
           setTutorialStage(2);
@@ -4640,19 +4648,19 @@ export default function Game() {
           setTutorialStage(1);
         }
       }
-      if (down && tutorialStageRef.current === 1 && e.code === bindings.fire) {
+      if (tutorialStageRef.current === 1 && e.code === bindings.fire) {
         tutorialStageRef.current = 2; setTutorialStage(2);
         window.setTimeout(finishTutorial, 1100);
       }
-      if (down && !e.repeat && e.code === bindings.fire && !stateRef.current.started && !isMenuControl) {
+      if (!e.repeat && e.code === bindings.fire && !stateRef.current.started) {
         e.preventDefault();
         const shouldContinueClassicSave = saveExistsRef.current && selectedGameMode === "classic";
         startGame(shouldContinueClassicSave, selectedGameMode);
       }
-      if ((e.key === "n" || e.key === "N") && !stateRef.current.started && down) {
+      if ((e.key === "n" || e.key === "N") && !stateRef.current.started) {
         clearSave(); saveExistsRef.current = false; startGame(false);
       }
-      if (down && (e.code === bindings.pause || e.code === "Escape")) {
+      if (e.code === bindings.pause || e.code === "Escape") {
         e.preventDefault();
         if (stateRef.current.started && !stateRef.current.gameOver) {
           stateRef.current.paused = !stateRef.current.paused;
@@ -4660,13 +4668,13 @@ export default function Game() {
           syncDisplay();
         }
       }
-      if (down && e.code === bindings.ability1) {
+      if (e.code === bindings.ability1) {
         activateAbility(activeUltiLoadoutRef.current[0]);
       }
-      if (down && e.code === bindings.ability2) {
+      if (e.code === bindings.ability2) {
         activateAbility(activeUltiLoadoutRef.current[1]);
       }
-      if (down && e.code === bindings.ability3) {
+      if (e.code === bindings.ability3) {
         activateAbility(activeUltiLoadoutRef.current[2]);
       }
     };
@@ -5408,6 +5416,26 @@ export default function Game() {
         }
       }
 
+      // Compute poison-missile targeting data once per frame. Doing these
+      // scans inside the per-bullet callback made projectile updates O(n²),
+      // including for ordinary bullets.
+      const poisonLivingTargets = enemiesRef.current.filter(enemy =>
+        !enemy.dead && enemy.hp > 0 && isEnemyVisible(enemy),
+      );
+      const poisonNormalTargets = poisonLivingTargets.filter(enemy => !isBossEnemy(enemy));
+      const poisonTargetReservations = new Map<Enemy, number>();
+      bulletsRef.current.forEach(bullet => {
+        const target = bullet.isPoisonMissile ? bullet.missileTarget : null;
+        if (!target || target.dead || target.hp <= 0 || !isEnemyVisible(target)) return;
+        poisonTargetReservations.set(target, (poisonTargetReservations.get(target) ?? 0) + 1);
+      });
+      const releasePoisonTarget = (target: Enemy | null | undefined) => {
+        if (!target) return;
+        const count = poisonTargetReservations.get(target) ?? 0;
+        if (count <= 1) poisonTargetReservations.delete(target);
+        else poisonTargetReservations.set(target, count - 1);
+      };
+
       // ── Update bullets ──
       bulletsRef.current = bulletsRef.current.filter(b => {
         // Lifetime expiry (boss missiles)
@@ -5419,23 +5447,32 @@ export default function Game() {
         if (b.fromPlayer && b.color === "#ff3333" && gs.level >= 8) {
           b.vy = Math.sin(timeRef.current * 0.08 + b.x * 0.03) * 3;
         }
-        const living = b.isPoisonMissile
-          ? enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0 && isEnemyVisible(enemy))
-          : [];
-        const normalTargets = living.filter(enemy => !isBossEnemy(enemy));
-        const reservedTargets = new Set(bulletsRef.current
-          .filter(other => other !== b && other.isPoisonMissile && other.missileTarget && !other.missileTarget.dead)
-          .map(other => other.missileTarget));
         if (b.isMissile && b.missileTarget && !isEnemyVisible(b.missileTarget)) {
+          if (b.isPoisonMissile) releasePoisonTarget(b.missileTarget);
           b.missileTarget = null;
         }
         if (b.isPoisonMissile && (!b.missileTarget || b.missileTarget.dead || b.missileTarget.hp <= 0 ||
-          (isBossEnemy(b.missileTarget) && normalTargets.length > 0))) {
-          const eligibleTargets = (normalTargets.length > 0 ? normalTargets : living.filter(isBossEnemy))
-            .filter(enemy => !reservedTargets.has(enemy));
-          b.missileTarget = eligibleTargets.sort((a, target) =>
-            Math.hypot(a.x - b.x, a.y - b.y) - Math.hypot(target.x - b.x, target.y - b.y),
-          )[0] ?? null;
+          (isBossEnemy(b.missileTarget) && poisonNormalTargets.length > 0))) {
+          releasePoisonTarget(b.missileTarget);
+          const candidates = poisonNormalTargets.length > 0
+            ? poisonNormalTargets
+            : poisonLivingTargets.filter(isBossEnemy);
+          let closestTarget: Enemy | null = null;
+          let closestDistanceSquared = Number.POSITIVE_INFINITY;
+          candidates.forEach(enemy => {
+            if ((poisonTargetReservations.get(enemy) ?? 0) > 0) return;
+            const dx = enemy.x - b.x;
+            const dy = enemy.y - b.y;
+            const distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared < closestDistanceSquared) {
+              closestTarget = enemy;
+              closestDistanceSquared = distanceSquared;
+            }
+          });
+          b.missileTarget = closestTarget;
+          if (closestTarget) {
+            poisonTargetReservations.set(closestTarget, (poisonTargetReservations.get(closestTarget) ?? 0) + 1);
+          }
         }
         if (b.isMissile && b.missileTarget && !b.missileTarget.dead) {
           const tx = b.missileTarget.x + b.missileTarget.width / 2;
