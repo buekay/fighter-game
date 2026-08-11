@@ -22,6 +22,7 @@ export type BiomeEnemyVisual =
   | "cruiser";
 
 export type BiomeEnemyBand = "air" | "ground" | "surface";
+export type BiomeTimeOfDay = "day" | "night";
 
 export interface BiomeEnemyDefinition {
   id: string;
@@ -50,6 +51,7 @@ export interface BiomeDefinition {
 }
 
 export const LEVELS_PER_BIOME = 5;
+export const NIGHT_BACKGROUND_CHANCE = 0.2;
 
 export const BIOMES: readonly BiomeDefinition[] = [
   {
@@ -148,6 +150,10 @@ export function getBiomeForLevel(level: number): BiomeDefinition {
   const safeLevel = Math.max(1, Math.floor(level));
   const index = Math.floor((safeLevel - 1) / LEVELS_PER_BIOME) % BIOMES.length;
   return BIOMES[index];
+}
+
+export function selectBiomeTimeOfDay(roll: number): BiomeTimeOfDay {
+  return roll < NIGHT_BACKGROUND_CHANCE ? "night" : "day";
 }
 
 export function getBiomeEnemyDefinition(enemyId: string | undefined): BiomeEnemyDefinition | null {

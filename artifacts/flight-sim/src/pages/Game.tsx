@@ -36,6 +36,7 @@ import {
 import {
   getBiomeEnemyDefinition,
   getBiomeForLevel,
+  selectBiomeTimeOfDay,
   type BiomeDefinition,
 } from "../biomes";
 import {
@@ -3315,6 +3316,7 @@ export default function Game() {
   const cityFarRef  = useRef<Building[]>([]);
   const cityNearRef = useRef<Building[]>([]);
   const backgroundTransitionRef = useRef<BackgroundTransition | null>(null);
+  const backgroundNightRef = useRef(selectBiomeTimeOfDay(Math.random()) === "night");
 
   // ── Checkpoint save tracking ──
   const saveExistsRef = useRef(!!loadSave());
@@ -4295,6 +4297,7 @@ export default function Game() {
     lastWeaponCrateFireRef.current = 0;
     enemySpawnTimerRef.current = 0;
     timeRef.current = 0;
+    backgroundNightRef.current = selectBiomeTimeOfDay(Math.random()) === "night";
     runElapsedMsRef.current = 0;
     protectPackageHpRef.current = PROTECT_PACKAGE_MAX_HP;
     protectPackageHitCooldownRef.current = 0;
@@ -4825,6 +4828,7 @@ export default function Game() {
         getBiomeForLevel(gs.level),
         timeRef.current,
         settingsRef.current.reducedMotion,
+        backgroundNightRef.current,
         starsRef.current,
         cityFarRef.current,
         cityNearRef.current,
@@ -5102,6 +5106,7 @@ export default function Game() {
         const nextBiome = getBiomeForLevel(nextLevel);
         const backgroundChanges = nextBiome.id !== previousBiome.id;
         if (backgroundChanges) {
+          backgroundNightRef.current = selectBiomeTimeOfDay(Math.random()) === "night";
           const activeBiomeEnemies = new Set(nextBiome.enemies.map(enemy => enemy.id));
           enemiesRef.current = enemiesRef.current.filter(enemy =>
             enemy.type !== "biome" || activeBiomeEnemies.has(enemy.biomeEnemyId ?? ""),

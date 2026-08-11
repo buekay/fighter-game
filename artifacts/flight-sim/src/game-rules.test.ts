@@ -46,7 +46,13 @@ import {
   getMutatorForLevel,
   getUpgradeSynergies,
 } from "./game-enhancements";
-import { BIOMES, LEVELS_PER_BIOME, getBiomeForLevel } from "./biomes";
+import {
+  BIOMES,
+  LEVELS_PER_BIOME,
+  NIGHT_BACKGROUND_CHANCE,
+  getBiomeForLevel,
+  selectBiomeTimeOfDay,
+} from "./biomes";
 
 const damagedWithSpareLife: LifeState = {
   hp: 2,
@@ -190,6 +196,11 @@ assert.equal(getBiomeForLevel(51).id, "city");
 assert.equal(getBiomeForLevel(500).id, "space");
 assert.equal(BIOMES.every(biome => biome.enemies.length === 3), true);
 assert.equal(new Set(BIOMES.flatMap(biome => biome.enemies.map(enemy => enemy.id))).size, BIOMES.length * 3);
+assert.equal(NIGHT_BACKGROUND_CHANCE, .2);
+assert.equal(selectBiomeTimeOfDay(0), "night");
+assert.equal(selectBiomeTimeOfDay(.1999), "night");
+assert.equal(selectBiomeTimeOfDay(.2), "day");
+assert.equal(selectBiomeTimeOfDay(.9999), "day");
 
 const shieldedTie: EnemyDamageState = { hp: 3, shieldHp: 2 };
 assert.deepEqual(applyEnemyDamage(shieldedTie, 4), {
