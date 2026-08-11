@@ -1118,6 +1118,9 @@ const DEFAULT_SETTINGS: GameSettings = {
   musicVolume: 0.25,
 };
 
+const RUN_UPGRADE_LEVEL_INTERVAL = 6;
+const RISK_ROUTE_LEVEL_INTERVAL = 10;
+
 function formatKeyCode(code: string): string {
   if (code === "Space") return "SPACE";
   if (code === "Escape") return "ESC";
@@ -4404,16 +4407,15 @@ export default function Game() {
       ? MUTATORS[save.mutatorId]
       : getMutatorForLevel(save?.level ?? 1);
     const legacyCompletedSectorLevels = save && save.sectorChoiceLevels === undefined
-      ? getCrossedMilestoneLevels(0, Math.max(1, stateRef.current.level - 1), 5, 5)
+      ? getCrossedMilestoneLevels(0, Math.max(1, stateRef.current.level - 1), RISK_ROUTE_LEVEL_INTERVAL)
       : [];
     sectorChoiceLevelsRef.current = new Set(save?.sectorChoiceLevels ?? legacyCompletedSectorLevels);
     pendingUpgradeLevelsRef.current = getCrossedMilestoneLevels(
       upgradeLevelRef.current,
       stateRef.current.level,
-      3,
-      3,
+      RUN_UPGRADE_LEVEL_INTERVAL,
     );
-    pendingSectorLevelsRef.current = getCrossedMilestoneLevels(0, stateRef.current.level, 5, 5)
+    pendingSectorLevelsRef.current = getCrossedMilestoneLevels(0, stateRef.current.level, RISK_ROUTE_LEVEL_INTERVAL)
       .filter(level => !sectorChoiceLevelsRef.current.has(level));
     activeUpgradeLevelRef.current = null;
     activeSectorLevelRef.current = null;
@@ -5205,14 +5207,14 @@ export default function Game() {
           backgroundTransitionRef.current = { snapshot, elapsed: 0 };
         }
         const gainedLevels = nextLevel - previousLevel;
-        const crossedUpgradeLevels = getCrossedMilestoneLevels(previousLevel, nextLevel, 3, 3)
+        const crossedUpgradeLevels = getCrossedMilestoneLevels(previousLevel, nextLevel, RUN_UPGRADE_LEVEL_INTERVAL)
           .filter(level =>
             level > upgradeLevelRef.current &&
             level !== activeUpgradeLevelRef.current &&
             !pendingUpgradeLevelsRef.current.includes(level),
           );
         pendingUpgradeLevelsRef.current.push(...crossedUpgradeLevels);
-        const crossedSectorLevels = getCrossedMilestoneLevels(previousLevel, nextLevel, 5, 5)
+        const crossedSectorLevels = getCrossedMilestoneLevels(previousLevel, nextLevel, RISK_ROUTE_LEVEL_INTERVAL)
           .filter(level =>
             !sectorChoiceLevelsRef.current.has(level) &&
             level !== activeSectorLevelRef.current &&
