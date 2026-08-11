@@ -274,9 +274,6 @@ interface RunSummary {
 const CANVAS_W = 900;
 const CANVAS_H = 600;
 const FRAME_MS = 1000 / 60;
-// The animated scenery is much more expensive than the game simulation. It is
-// rendered into its own surface at 30 fps and reused by the 60 fps game loop.
-const BACKGROUND_FRAME_MS = 1000 / 30;
 const PLAYER_W = 52;
 const PLAYER_H = 28;
 const BASE_BULLET_SPEED = 10;
@@ -894,6 +891,8 @@ interface DroneBuild {
 
 const AIRCRAFT_BUILD_KEY = "fighter-command-aircraft-build";
 const HYBRID_ACTIVE_KEY = "fighter-command-hybrid-active";
+const SAVED_AIRCRAFT_BUILDS_KEY = "fighter-command-saved-aircraft-builds";
+const SAVED_DRONE_BUILDS_KEY = "fighter-command-saved-drone-builds";
 const HYBRID_BUILD_COST = 100_000;
 const DRONE_ROLE_KEY = "fighter-command-drone-role";
 const DRONE_WEAPON_KEY = "fighter-command-drone-weapon";
@@ -948,6 +947,46 @@ function loadAircraftBuild(): AircraftBuild {
   }
 }
 function saveAircraftBuild(build: AircraftBuild) { try { localStorage.setItem(AIRCRAFT_BUILD_KEY, JSON.stringify(build)); } catch {} }
+function aircraftBuildLevelKey(build: AircraftBuild) {
+  return `hybrid:${build.bodySkin}:${build.wingSkin}:${build.engineSkin}:${build.wing}:${build.engine}`;
+}
+function droneBuildLevelKey(build: DroneBuild) {
+  return `combined:${build.bodySkin}:${build.coreSkin}:${build.weaponSkin}`;
+}
+function isCombinedDroneBuild(build: DroneBuild) {
+  return new Set([build.bodySkin, build.coreSkin, build.weaponSkin]).size > 1;
+}
+function loadSavedAircraftBuilds(): AircraftBuild[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SAVED_AIRCRAFT_BUILDS_KEY) ?? "[]") as unknown;
+    if (Array.isArray(saved) && saved.length > 0) {
+      return saved.filter(isRecord).map(item => ({
+        wing: WING_MODULES.some(module => module.id === item.wing) ? item.wing as WingModuleId : "balanced",
+        engine: ENGINE_MODULES.some(module => module.id === item.engine) ? item.engine as EngineModuleId : "ion",
+        bodySkin: typeof item.bodySkin === "string" ? item.bodySkin : loadSkin(),
+        wingSkin: typeof item.wingSkin === "string" ? item.wingSkin : loadSkin(),
+        engineSkin: typeof item.engineSkin === "string" ? item.engineSkin : loadSkin(),
+      })).filter(build => JET_SKINS.some(skin => skin.id === build.bodySkin) && JET_SKINS.some(skin => skin.id === build.wingSkin));
+    }
+  } catch {}
+  return loadHybridActive() ? [loadAircraftBuild()] : [];
+}
+function saveSavedAircraftBuilds(builds: AircraftBuild[]) { try { localStorage.setItem(SAVED_AIRCRAFT_BUILDS_KEY, JSON.stringify(builds)); } catch {} }
+function loadSavedDroneBuilds(): DroneBuild[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SAVED_DRONE_BUILDS_KEY) ?? "[]") as unknown;
+    if (Array.isArray(saved) && saved.length > 0) {
+      return saved.filter(isRecord).map(item => ({
+        bodySkin: typeof item.bodySkin === "string" ? item.bodySkin : loadDroneSkin(),
+        coreSkin: typeof item.coreSkin === "string" ? item.coreSkin : loadDroneSkin(),
+        weaponSkin: typeof item.weaponSkin === "string" ? item.weaponSkin : loadDroneSkin(),
+      })).filter(build => isCombinedDroneBuild(build) && DRONE_SKINS.some(skin => skin.id === build.bodySkin) && DRONE_SKINS.some(skin => skin.id === build.weaponSkin));
+    }
+  } catch {}
+  const current = loadDroneBuild();
+  return isCombinedDroneBuild(current) ? [current] : [];
+}
+function saveSavedDroneBuilds(builds: DroneBuild[]) { try { localStorage.setItem(SAVED_DRONE_BUILDS_KEY, JSON.stringify(builds)); } catch {} }
 function loadHybridActive() { try { return localStorage.getItem(HYBRID_ACTIVE_KEY) === "1"; } catch { return false; } }
 function saveHybridActive(active: boolean) { try { localStorage.setItem(HYBRID_ACTIVE_KEY, active ? "1" : "0"); } catch {} }
 function loadDroneRole(): DroneRoleId {
@@ -3281,9 +3320,6 @@ export default function Game() {
   const keysRef = useRef<Set<string>>(new Set());
   const rafRef = useRef<number>(0);
   const wakeGameLoopRef = useRef<() => void>(() => {});
-  const backgroundCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const backgroundRenderedAtRef = useRef(-Infinity);
-  const backgroundKeyRef = useRef("");
   const lastFireRef = useRef<Record<string, number>>({});
   const fireRatePenaltyRef = useRef(1);
   const lastDroneFireRef = useRef(0);
@@ -3393,6 +3429,8 @@ export default function Game() {
   const [aircraftBuild, setAircraftBuild] = useState<AircraftBuild>(() => loadAircraftBuild());
   const [hybridActive, setHybridActive] = useState(() => loadHybridActive());
   const [droneBuild, setDroneBuild] = useState<DroneBuild>(() => loadDroneBuild());
+  const [savedAircraftBuilds, setSavedAircraftBuilds] = useState<AircraftBuild[]>(() => loadSavedAircraftBuilds());
+  const [savedDroneBuilds, setSavedDroneBuilds] = useState<DroneBuild[]>(() => loadSavedDroneBuilds());
   const [droneRole, setDroneRole] = useState<DroneRoleId>(() => loadDroneRole());
   const [selectedDroneWeapon, setSelectedDroneWeapon] = useState<DroneWeaponId>(() => loadDroneWeapon());
   const [selectedWeaponCrate, setSelectedWeaponCrate] = useState(() => loadWeaponCrate());
@@ -4246,8 +4284,9 @@ export default function Game() {
     const modeRules = getEffectiveGameModeRules(mode);
     activeModeRef.current = mode;
     const unlocks = loadUnlocks();
-    const aircraftStats = getAircraftUpgradeStats(loadAircraftLevels()[loadSkin()] ?? 1);
     const build = loadAircraftBuild();
+    const activeAircraftLevelKey = loadHybridActive() ? aircraftBuildLevelKey(build) : loadSkin();
+    const aircraftStats = getAircraftUpgradeStats(loadAircraftLevels()[activeAircraftLevelKey] ?? 1);
     const wingModule = WING_MODULES.find(module => module.id === build.wing) ?? WING_MODULES[0];
     const engineModule = ENGINE_MODULES.find(module => module.id === build.engine) ?? ENGINE_MODULES[0];
     const savedWingModule = save?.aircraftBuild
@@ -4258,10 +4297,12 @@ export default function Game() {
       : engineModule;
     aircraftBuildRef.current = build;
     hybridActiveRef.current = loadHybridActive();
-    droneBuildRef.current = loadDroneBuild();
+    const activeDroneBuild = loadDroneBuild();
+    droneBuildRef.current = activeDroneBuild;
     droneRoleRef.current = loadDroneRole();
     droneWeaponRef.current = DRONE_WEAPONS.find(weapon => weapon.id === loadDroneWeapon()) ?? DRONE_WEAPONS[0];
-    droneLevelRef.current = loadDroneLevels()[loadDroneSkin()] ?? 1;
+    const activeDroneLevelKey = isCombinedDroneBuild(activeDroneBuild) ? droneBuildLevelKey(activeDroneBuild) : loadDroneSkin();
+    droneLevelRef.current = loadDroneLevels()[activeDroneLevelKey] ?? 1;
     const savedAircraftStats = getAircraftUpgradeStats(save?.aircraftLevel ?? 1);
     aircraftUpgradeRef.current = aircraftStats;
     activeUnlocksRef.current = unlocks;
@@ -4865,34 +4906,16 @@ export default function Game() {
       // view: player fire travels up and incoming enemies travel down.
       if (upwardFlight) ctx.setTransform(0, -1, 1, 0, 0, CANVAS_W);
 
-      const biome = getBiomeForLevel(gs.level);
-      const backgroundKey = `${biome.id}:${backgroundNightRef.current}:${settingsRef.current.reducedMotion}`;
-      let backgroundCanvas = backgroundCanvasRef.current;
-      if (!backgroundCanvas) {
-        backgroundCanvas = document.createElement("canvas");
-        backgroundCanvas.width = CANVAS_W;
-        backgroundCanvas.height = CANVAS_H;
-        backgroundCanvasRef.current = backgroundCanvas;
-      }
-      if (backgroundKeyRef.current !== backgroundKey ||
-          timestamp - backgroundRenderedAtRef.current >= BACKGROUND_FRAME_MS) {
-        const backgroundCtx = backgroundCanvas.getContext("2d")!;
-        backgroundCtx.setTransform(1, 0, 0, 1, 0, 0);
-        backgroundCtx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-        drawBiomeBackground(
-          backgroundCtx,
-          biome,
-          timeRef.current,
-          settingsRef.current.reducedMotion,
-          backgroundNightRef.current,
-          starsRef.current,
-          cityFarRef.current,
-          cityNearRef.current,
-        );
-        backgroundKeyRef.current = backgroundKey;
-        backgroundRenderedAtRef.current = timestamp;
-      }
-      ctx.drawImage(backgroundCanvas, 0, 0);
+      drawBiomeBackground(
+        ctx,
+        getBiomeForLevel(gs.level),
+        timeRef.current,
+        settingsRef.current.reducedMotion,
+        backgroundNightRef.current,
+        starsRef.current,
+        cityFarRef.current,
+        cityNearRef.current,
+      );
 
       const backgroundTransition = backgroundTransitionRef.current;
       if (backgroundTransition) {
@@ -6964,10 +6987,40 @@ export default function Game() {
     hybridActiveRef.current = true;
   };
 
+  const handleSavedAircraftBuildSelect = (build: AircraftBuild) => {
+    setAircraftBuild(build);
+    saveAircraftBuild(build);
+    aircraftBuildRef.current = build;
+    handleHybridSelect();
+    const level = loadAircraftLevels()[aircraftBuildLevelKey(build)] ?? 1;
+    aircraftUpgradeRef.current = getAircraftUpgradeStats(level);
+  };
+
+  const handleSavedDroneBuildSelect = (build: DroneBuild) => {
+    setDroneBuild(build);
+    saveDroneBuild(build);
+    droneBuildRef.current = build;
+    const fallback = DRONE_SKINS.find(skin => skin.id === build.bodySkin) ?? DRONE_SKINS[0];
+    setSelectedDroneSkin(fallback.id);
+    saveDroneSkin(fallback.id);
+    activeDroneSkinRef.current = fallback;
+    droneLevelRef.current = loadDroneLevels()[droneBuildLevelKey(build)] ?? 1;
+  };
+
   const handleHybridBuild = () => {
     if (loadCoins() < HYBRID_BUILD_COST) return false;
     spendCoins(HYBRID_BUILD_COST);
     setCoins(loadCoins());
+    const aircraftKey = aircraftBuildLevelKey(aircraftBuild);
+    const nextAircraftBuilds = [aircraftBuild, ...savedAircraftBuilds.filter(build => aircraftBuildLevelKey(build) !== aircraftKey)];
+    setSavedAircraftBuilds(nextAircraftBuilds);
+    saveSavedAircraftBuilds(nextAircraftBuilds);
+    if (isCombinedDroneBuild(droneBuild)) {
+      const droneKey = droneBuildLevelKey(droneBuild);
+      const nextDroneBuilds = [droneBuild, ...savedDroneBuilds.filter(build => droneBuildLevelKey(build) !== droneKey)];
+      setSavedDroneBuilds(nextDroneBuilds);
+      saveSavedDroneBuilds(nextDroneBuilds);
+    }
     handleHybridSelect();
     audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
     return true;
@@ -7024,11 +7077,12 @@ export default function Game() {
   };
 
   const handleAircraftUpgrade = () => {
-    const currentLevel = aircraftLevels[selectedSkin] ?? 1;
+    const levelKey = hybridActive ? aircraftBuildLevelKey(aircraftBuild) : selectedSkin;
+    const currentLevel = aircraftLevels[levelKey] ?? 1;
     const creditCost = getAircraftUpgradeCost(currentLevel);
     const cost = creditCost === null ? null : Math.ceil(creditCost / 100);
     if (cost === null || loadGems() < cost) return;
-    const next = { ...aircraftLevels, [selectedSkin]: currentLevel + 1 };
+    const next = { ...aircraftLevels, [levelKey]: currentLevel + 1 };
     spendGems(cost);
     saveAircraftLevels(next);
     setAircraftLevels(next);
@@ -7038,11 +7092,12 @@ export default function Game() {
   };
 
   const handleDroneUpgrade = () => {
-    const currentLevel = droneLevels[selectedDroneSkin] ?? 1;
+    const levelKey = isCombinedDroneBuild(droneBuild) ? droneBuildLevelKey(droneBuild) : selectedDroneSkin;
+    const currentLevel = droneLevels[levelKey] ?? 1;
     const creditCost = getDroneUpgradeCost(currentLevel);
     const cost = creditCost === null ? null : Math.ceil(creditCost / 100);
     if (cost === null || loadGems() < cost) return;
-    const next = { ...droneLevels, [selectedDroneSkin]: currentLevel + 1 };
+    const next = { ...droneLevels, [levelKey]: currentLevel + 1 };
     spendGems(cost);
     saveDroneLevels(next);
     setDroneLevels(next);
@@ -7316,6 +7371,8 @@ export default function Game() {
             aircraftBuild={aircraftBuild}
             hybridActive={hybridActive}
             droneBuild={droneBuild}
+            savedAircraftBuilds={savedAircraftBuilds}
+            savedDroneBuilds={savedDroneBuilds}
             droneRole={droneRole}
             selectedDroneWeapon={selectedDroneWeapon}
             selectedWeaponCrate={selectedWeaponCrate}
@@ -7338,6 +7395,8 @@ export default function Game() {
             onDroneSkinSelect={handleDroneSkinSelect}
             onAircraftBuildChange={handleAircraftBuildChange}
             onHybridSelect={handleHybridSelect}
+            onSavedAircraftBuildSelect={handleSavedAircraftBuildSelect}
+            onSavedDroneBuildSelect={handleSavedDroneBuildSelect}
             onHybridBuild={handleHybridBuild}
             onDroneBuildChange={handleDroneBuildChange}
             onDroneRoleChange={handleDroneRoleChange}
@@ -7649,11 +7708,11 @@ function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDr
 }
 
 function HangarOverlay({
-  selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, hybridActive, droneBuild, droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
-  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onHybridSelect, onHybridBuild, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onCrateOpen, onAdminActivate,
+  selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, hybridActive, droneBuild, savedAircraftBuilds, savedDroneBuilds, droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
+  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onHybridSelect, onSavedAircraftBuildSelect, onSavedDroneBuildSelect, onHybridBuild, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onCrateOpen, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
-  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; aircraftBuild: AircraftBuild; hybridActive: boolean; droneBuild: DroneBuild; droneRole: DroneRoleId; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[]; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
+  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; aircraftBuild: AircraftBuild; hybridActive: boolean; droneBuild: DroneBuild; savedAircraftBuilds: AircraftBuild[]; savedDroneBuilds: DroneBuild[]; droneRole: DroneRoleId; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[]; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
   weaponLevels: Record<string, number>;
@@ -7663,6 +7722,8 @@ function HangarOverlay({
   onSkinSelect: (id: string) => void; onUltiLoadoutChange: (ids: UltiLoadoutId[]) => void; onDroneSkinSelect: (id: string) => void; onWeaponCrateSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void; onUnlockDroneSkin: (id: string) => void;
   onAircraftBuildChange: (build: AircraftBuild) => void;
   onHybridSelect: () => void;
+  onSavedAircraftBuildSelect: (build: AircraftBuild) => void;
+  onSavedDroneBuildSelect: (build: DroneBuild) => void;
   onHybridBuild: () => boolean;
   onDroneBuildChange: (build: DroneBuild) => void;
   onDroneRoleChange: (role: DroneRoleId) => void;
@@ -7692,8 +7753,10 @@ function HangarOverlay({
   const activeSkinId = hoverSkin ?? selectedSkin;
   const skin = JET_SKINS.find(s => s.id === activeSkinId) ?? JET_SKINS[0];
   const selectedDrone = DRONE_SKINS.find(item => item.id === selectedDroneSkin) ?? DRONE_SKINS[0];
-  const droneCombined = new Set([droneBuild.bodySkin, droneBuild.coreSkin, droneBuild.weaponSkin]).size > 1;
-  const combinedDroneLevel = droneLevels[droneBuild.bodySkin] ?? droneLevels[selectedDroneSkin] ?? 1;
+  const droneCombined = isCombinedDroneBuild(droneBuild);
+  const activeAircraftLevelKey = hybridActive ? aircraftBuildLevelKey(aircraftBuild) : selectedSkin;
+  const activeDroneLevelKey = droneCombined ? droneBuildLevelKey(droneBuild) : selectedDroneSkin;
+  const combinedDroneLevel = droneLevels[activeDroneLevelKey] ?? 1;
   const combinedDroneNames = [droneBuild.bodySkin, droneBuild.weaponSkin]
     .map(id => DRONE_SKINS.find(item => item.id === id)?.name ?? selectedDrone.name);
   const nextPurchase = [
@@ -7741,7 +7804,7 @@ function HangarOverlay({
     const gg = ctx.createRadialGradient(120, 70, 4, 120, 70, 65);
     gg.addColorStop(0, skin.glow + "44"); gg.addColorStop(1, "transparent");
     ctx.fillStyle = gg; ctx.fillRect(0, 0, 240, 140);
-    if (hybridActive) drawCombinedPlayerJet(ctx, 90, 56, 5, false, aircraftBuild, skin, undefined, aircraftLevels[skin.id] ?? 1);
+    if (hybridActive) drawCombinedPlayerJet(ctx, 90, 56, 5, false, aircraftBuild, skin, undefined, aircraftLevels[activeAircraftLevelKey] ?? 1);
     else drawPlayerJet(ctx, 90, 56, 5, false, skin, undefined, aircraftLevels[skin.id] ?? 1);
     drawCombinedCombatDrone(ctx, 105, 38, 0, droneBuild, selectedDrone, combinedDroneLevel);
     drawWeaponCrate(ctx, { x: 90, y: 56 }, WEAPON_CRATES.find(crate => crate.id === selectedWeaponCrate) ?? WEAPON_CRATES[0], true, 0);
@@ -7763,7 +7826,7 @@ function HangarOverlay({
   if (view === "upgrades") {
     return (
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
-        <ShopScreen coins={coins} gems={gems} playerLevel={getPilotLevelFromKills()} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} weaponLevels={weaponLevels} selectedSkin={selectedSkin} ultiLoadout={ultiLoadout} selectedDroneSkin={selectedDroneSkin} selectedDroneWeapon={selectedDroneWeapon} selectedWeapons={selectedWeapons}
+        <ShopScreen coins={coins} gems={gems} playerLevel={getPilotLevelFromKills()} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} weaponLevels={weaponLevels} selectedSkin={selectedSkin} hybridActive={hybridActive} aircraftBuild={aircraftBuild} ultiLoadout={ultiLoadout} selectedDroneSkin={selectedDroneSkin} droneBuild={droneBuild} selectedDroneWeapon={selectedDroneWeapon} selectedWeapons={selectedWeapons}
           onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect}
           onUltiLoadoutChange={onUltiLoadoutChange} onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onDroneWeaponChange={onDroneWeaponChange} onDroneWeaponBuy={onDroneWeaponBuy} selectedWeaponCrate={selectedWeaponCrate} onWeaponCrateSelect={onWeaponCrateSelect} onWeaponCrateBuy={onWeaponCrateBuy} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} onWeaponSelect={onWeaponSelect} onWeaponBuy={onWeaponBuy} onWeaponUpgrade={onWeaponUpgrade} onCrateOpen={onCrateOpen} />
       </div>
