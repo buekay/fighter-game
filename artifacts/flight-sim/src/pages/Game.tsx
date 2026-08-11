@@ -2884,19 +2884,9 @@ function drawAtmosphericClouds(ctx: CanvasRenderingContext2D, time: number, dens
   ctx.restore();
 }
 
-function drawAtmosphericFinish(ctx: CanvasRenderingContext2D, biome: BiomeDefinition) {
+function drawAtmosphericFinish(ctx: CanvasRenderingContext2D) {
   ctx.save();
-  // Horizon haze binds the individual layers together and simulates aerial perspective.
-  if (biome.id !== "space") {
-    const haze = ctx.createLinearGradient(0, 180, 0, 520);
-    haze.addColorStop(0, "rgba(220,239,248,0)");
-    haze.addColorStop(.52, biome.id === "volcano" ? "rgba(255,119,62,.07)" : "rgba(224,241,248,.13)");
-    haze.addColorStop(1, "rgba(7,16,24,.09)");
-    ctx.fillStyle = haze;
-    ctx.fillRect(0, 150, CANVAS_W, 400);
-  }
-
-  // Subtle lens vignette improves contrast at the action area without obscuring the HUD.
+  // Aerial-camera vignette keeps the top-down texture readable behind combat.
   const vignette = ctx.createRadialGradient(CANVAS_W * .48, CANVAS_H * .44, 180, CANVAS_W * .48, CANVAS_H * .44, 590);
   vignette.addColorStop(.45, "rgba(0,0,0,0)");
   vignette.addColorStop(1, "rgba(0,5,12,.34)");
@@ -2919,28 +2909,30 @@ function drawBiomeBackground(
   biome: BiomeDefinition,
   time: number,
   reducedMotion: boolean,
+  night: boolean,
   stars: Star[],
   cityFar: Building[],
   cityNear: Building[],
 ) {
   const motionTime = reducedMotion ? 0 : time * BACKGROUND_SPEED_MULTIPLIER;
-  const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
-  gradient.addColorStop(0, biome.skyTop);
-  gradient.addColorStop(.58, biome.skyBottom);
-  gradient.addColorStop(1, biome.id === "space" ? "#02040b" : "#536a70");
+  const groundColors: Record<BiomeDefinition["id"], readonly [string, string]> = {
+    city: ["#303b45", "#151f29"],
+    desert: ["#d9a14b", "#a9662b"],
+    ocean: ["#0aa7c1", "#024f82"],
+    plains: ["#65994b", "#2e6838"],
+    arctic: ["#d8f6ff", "#82bfd4"],
+    canyon: ["#b75d3e", "#713323"],
+    volcano: ["#2b1a1c", "#100c10"],
+    jungle: ["#286b3b", "#0d3b2b"],
+    storm: ["#405366", "#172b3b"],
+    space: ["#050817", "#000006"],
+  };
+  const [groundLight, groundDark] = groundColors[biome.id];
+  const gradient = ctx.createLinearGradient(0, 0, CANVAS_W, CANVAS_H);
+  gradient.addColorStop(0, groundLight);
+  gradient.addColorStop(1, groundDark);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-  if (!["space", "storm", "volcano"].includes(biome.id)) {
-    const sunX = biome.id === "city" ? 735 : 720;
-    const sunY = biome.id === "arctic" ? 92 : 112;
-    const sunGlow = ctx.createRadialGradient(sunX, sunY, 5, sunX, sunY, 125);
-    sunGlow.addColorStop(0, "rgba(255,252,224,.95)");
-    sunGlow.addColorStop(.12, "rgba(255,226,166,.58)");
-    sunGlow.addColorStop(1, "rgba(255,210,135,0)");
-    ctx.fillStyle = sunGlow; ctx.fillRect(sunX - 130, sunY - 130, 260, 260);
-    drawAtmosphericClouds(ctx, motionTime, biome.id === "arctic" || biome.id === "ocean");
-  }
 
   const movingX = (index: number, spacing: number, speed: number) => {
     const span = spacing * (Math.ceil(CANVAS_W / spacing) + 2);
@@ -2948,70 +2940,61 @@ function drawBiomeBackground(
   };
   const drawRollingLayer = (baseY: number, amplitude: number, color: string, speed: number, phase: number) => {
     const offset = (motionTime * speed) % 240;
-    ctx.beginPath(); ctx.moveTo(0, CANVAS_H); ctx.lineTo(0, baseY);
+    ctx.beginPath();
     for (let x = -40; x <= CANVAS_W + 80; x += 40) {
       const y = baseY + Math.sin((x + offset) * .018 + phase) * amplitude + Math.sin((x + offset) * .041) * amplitude * .22;
-      ctx.lineTo(x, y);
+      if (x === -40) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
-    ctx.lineTo(CANVAS_W, CANVAS_H); ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(5, amplitude * .18);
+    ctx.globalAlpha = .48;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
   };
 
   if (biome.id === "city") {
-    const drawCityLayer = (buildings: Building[], speed: number, fillColor: string) => {
-      const totalW = buildings.reduce((sum, building) => sum + building.width + 10, 0);
-      if (!totalW) return;
-      const offset = (motionTime * speed) % totalW;
-      for (const building of buildings) {
-        let x = building.x - offset;
-        if (x + building.width < 0) x += totalW;
-        if (x > CANVAS_W) continue;
-        const facade = ctx.createLinearGradient(x, 0, x + building.width, 0);
-        facade.addColorStop(0, "#080d17"); facade.addColorStop(.28, fillColor); facade.addColorStop(1, "#070b13");
-        ctx.fillStyle = facade;
-        ctx.fillRect(x, CANVAS_H - building.height, building.width, building.height);
-        ctx.fillStyle = "rgba(255,255,255,.055)";
-        ctx.fillRect(x + building.width * .14, CANVAS_H - building.height, Math.max(2, building.width * .08), building.height);
-        if (building.height > 110) {
-          ctx.strokeStyle = "rgba(130,205,230,.28)"; ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.moveTo(x + building.width * .5, CANVAS_H - building.height); ctx.lineTo(x + building.width * .5, CANVAS_H - building.height - 18); ctx.stroke();
-        }
-        for (const window of building.windows) {
-          if (!window.lit) continue;
-          ctx.shadowColor = "#5edcff"; ctx.shadowBlur = speed > 1 ? 3 : 0;
-          ctx.fillStyle = speed > 1 ? "#9eeeff99" : "#75d8ee55";
-          ctx.fillRect(x + window.wx, CANVAS_H - building.height + window.wy, 5, 7);
-        }
-        ctx.shadowBlur = 0;
-      }
-    };
-    drawCityLayer(cityFar, .55, "#263c5c");
-    drawCityLayer(cityNear, 1.55, "#111f34");
-    ctx.fillStyle = "#0b1322"; ctx.fillRect(0, CANVAS_H - 28, CANVAS_W, 28);
-    ctx.strokeStyle = "#32d9ff99"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(0, CANVAS_H - 25); ctx.lineTo(CANVAS_W, CANVAS_H - 25); ctx.stroke();
+    // Rooftops, streets and moving lane markings are seen by a camera directly overhead.
+    for (const roadY of [112, 302, 492]) {
+      ctx.fillStyle = "#101820"; ctx.fillRect(0, roadY, CANVAS_W, 74);
+      ctx.strokeStyle = "#60708066"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, roadY + 8); ctx.lineTo(CANVAS_W, roadY + 8); ctx.moveTo(0, roadY + 66); ctx.lineTo(CANVAS_W, roadY + 66); ctx.stroke();
+      const dashOffset = (motionTime * 2.5) % 72;
+      ctx.fillStyle = night ? "#ffe58aaa" : "#d9e4d999";
+      for (let x = -dashOffset; x < CANVAS_W + 72; x += 72) ctx.fillRect(x, roadY + 36, 34, 3);
+    }
+    const roofSources = [...cityNear.slice(0, 7), ...cityFar.slice(0, 5)];
+    roofSources.forEach((building, index) => {
+      const x = movingX(index, 158, 1.55);
+      const row = index % 3;
+      const y = row * 190 + 12;
+      const width = 86 + building.width % 48;
+      const height = 82 + building.height % 24;
+      ctx.fillStyle = "#07101966"; ctx.fillRect(x + 10, y + 10, width, height);
+      const roof = ctx.createLinearGradient(x, y, x + width, y + height);
+      roof.addColorStop(0, index % 2 ? "#536473" : "#40515f"); roof.addColorStop(1, "#1c2a35");
+      ctx.fillStyle = roof; ctx.fillRect(x, y, width, height);
+      ctx.strokeStyle = "#9ec8d044"; ctx.lineWidth = 2; ctx.strokeRect(x + 5, y + 5, width - 10, height - 10);
+      ctx.fillStyle = "#16232c"; ctx.fillRect(x + width * .34, y + height * .28, width * .3, height * .26);
+      ctx.fillStyle = night ? "#65e7ffcc" : "#9fc7d477";
+      for (let vent = 0; vent < 3; vent++) ctx.fillRect(x + 12 + vent * 18, y + 14, 8, 5);
+    });
   } else if (biome.id === "desert") {
-    ctx.beginPath(); ctx.arc(720, 110, 48, 0, Math.PI * 2); ctx.fillStyle = "#ffe09a"; ctx.fill();
-    drawRollingLayer(390, 55, "#dca552", .18, 1.2);
-    drawRollingLayer(455, 62, "#bd762d", .58, 2.4);
-    drawRollingLayer(515, 34, "#8e4d20", 1.5, .4);
-    for (let index = 0; index < 5; index++) {
-      const x = movingX(index, 310, 1.55);
-      const y = 493 + (index % 2) * 20;
-      ctx.strokeStyle = index % 2 ? "#295d32" : "#33723a"; ctx.lineWidth = 10; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 55 - index % 3 * 8); ctx.stroke();
-      ctx.lineWidth = 7;
-      ctx.beginPath(); ctx.moveTo(x, y - 34); ctx.lineTo(x - 17, y - 45); ctx.lineTo(x - 17, y - 57); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x, y - 25); ctx.lineTo(x + 16, y - 35); ctx.lineTo(x + 16, y - 48); ctx.stroke();
+    for (let contour = 0; contour < 8; contour++) {
+      drawRollingLayer(35 + contour * 78, 18 + contour % 3 * 8, contour % 2 ? "#f2ca79" : "#8f5426", .9 + contour * .08, contour * .7);
+    }
+    for (let index = 0; index < 7; index++) {
+      const x = movingX(index, 245, 1.75);
+      const y = 60 + (index * 137) % 480;
+      ctx.fillStyle = "#6f431f55"; ctx.beginPath(); ctx.ellipse(x + 10, y + 12, 25, 10, .4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = index % 2 ? "#2f7138" : "#285f32";
+      ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.arc(x - 12, y + 3, 6, 0, Math.PI * 2); ctx.arc(x + 11, y - 5, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#a8cf67"; ctx.beginPath(); ctx.arc(x - 2, y - 2, 3, 0, Math.PI * 2); ctx.fill();
     }
   } else if (biome.id === "ocean") {
-    ctx.beginPath(); ctx.arc(735, 105, 40, 0, Math.PI * 2); ctx.fillStyle = "#fff3b0"; ctx.fill();
-    const sea = ctx.createLinearGradient(0, 315, 0, CANVAS_H);
-    sea.addColorStop(0, "#1cc5d8"); sea.addColorStop(.35, "#087da8"); sea.addColorStop(1, "#023c68");
-    ctx.fillStyle = sea; ctx.fillRect(0, 315, CANVAS_W, CANVAS_H - 315);
-    for (let row = 0; row < 9; row++) {
-      const y = 326 + row * 31;
+    for (let row = 0; row < 12; row++) {
+      const y = 24 + row * 52;
       const waveOffset = (motionTime * (1.2 + row * .14)) % 90;
-      ctx.strokeStyle = row < 3 ? "#d8ffffaa" : "#54d7e966"; ctx.lineWidth = row < 2 ? 3 : 2;
+      ctx.strokeStyle = row % 3 === 0 ? "#d8ffff88" : "#54d7e955"; ctx.lineWidth = row % 3 === 0 ? 3 : 2;
       ctx.beginPath();
       for (let x = -100; x < CANVAS_W + 100; x += 30) {
         const waveY = y + Math.sin((x + waveOffset) * .075) * (3 + row * .35);
@@ -3021,97 +3004,116 @@ function drawBiomeBackground(
     }
     for (let index = 0; index < 4; index++) {
       const x = movingX(index, 360, .45);
-      ctx.fillStyle = "#6f5c35"; ctx.beginPath(); ctx.ellipse(x, 321, 48, 12, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#2f8c4c"; ctx.beginPath(); ctx.ellipse(x, 313, 37, 9, 0, 0, Math.PI * 2); ctx.fill();
+      const y = 95 + index % 3 * 190;
+      ctx.fillStyle = "#e9ffffaa"; ctx.beginPath(); ctx.ellipse(x, y, 70, 34, .15, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#9a8250"; ctx.beginPath(); ctx.ellipse(x, y, 58, 27, .15, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#2f8c4c"; ctx.beginPath(); ctx.ellipse(x, y, 43, 20, .15, 0, Math.PI * 2); ctx.fill();
     }
   } else if (biome.id === "plains") {
-    drawRollingLayer(365, 52, "#88ad72", .18, .5);
-    drawRollingLayer(420, 42, "#568448", .55, 2.1);
-    ctx.fillStyle = "#2f622e"; ctx.fillRect(0, 455, CANVAS_W, 145);
-    for (let index = 0; index < 7; index++) {
+    for (let index = 0; index < 8; index++) {
       const x = movingX(index, 190, 1.45);
-      ctx.strokeStyle = "#d6d8c4"; ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.moveTo(x, 470); ctx.lineTo(x, 400); ctx.stroke();
-      ctx.save(); ctx.translate(x, 400); ctx.rotate(motionTime * .018 + index);
+      const y = 38 + index % 4 * 150;
+      ctx.fillStyle = index % 2 ? "#87a94d55" : "#d2b45b44";
+      ctx.fillRect(x - 55, y - 42, 110, 84);
+      ctx.strokeStyle = "#f0dc8b44"; ctx.lineWidth = 2;
+      for (let crop = -35; crop <= 35; crop += 14) {
+        ctx.beginPath(); ctx.moveTo(x - 50, y + crop); ctx.lineTo(x + 50, y + crop); ctx.stroke();
+      }
+      ctx.save(); ctx.translate(x + 62, y); ctx.rotate(motionTime * .018 + index);
+      ctx.strokeStyle = "#e4ead8"; ctx.lineWidth = 3;
       ctx.lineWidth = 3;
       for (let blade = 0; blade < 3; blade++) {
-        ctx.rotate(Math.PI * 2 / 3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -27); ctx.stroke();
+        ctx.rotate(Math.PI * 2 / 3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -22); ctx.stroke();
       }
+      ctx.fillStyle = "#d9e3dc"; ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
-    const fenceOffset = (motionTime * 2.1) % 72;
-    ctx.strokeStyle = "#d4bd83aa"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(0, 535); ctx.lineTo(CANVAS_W, 535); ctx.stroke();
-    for (let x = -fenceOffset; x < CANVAS_W + 72; x += 72) ctx.fillRect(x, 505, 5, 72);
+    drawRollingLayer(286, 26, "#d7c68a", 1.9, 1.2);
+    drawRollingLayer(315, 26, "#385b35", 1.9, 1.2);
   } else if (biome.id === "arctic") {
-    drawRollingLayer(370, 60, "#c7e8f4", .16, 1.5);
-    drawRollingLayer(425, 48, "#9ecadd", .5, .2);
-    ctx.fillStyle = "#dff8ff"; ctx.fillRect(0, 465, CANVAS_W, 135);
-    ctx.fillStyle = "#8ed7ea";
-    for (let index = 0; index < 7; index++) {
-      const x = movingX(index, 175, 1.6);
-      const height = 35 + (index * 19) % 65;
-      ctx.beginPath(); ctx.moveTo(x - 52, 500); ctx.lineTo(x - 18, 500 - height * .55); ctx.lineTo(x, 500 - height);
-      ctx.lineTo(x + 17, 500 - height * .45); ctx.lineTo(x + 55, 500); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = "#ffffffcc"; ctx.lineWidth = 3; ctx.stroke();
+    for (let index = 0; index < 9; index++) {
+      const x = movingX(index, 155, 1.65);
+      const y = 45 + (index * 127) % 510;
+      const width = 45 + index % 3 * 18;
+      ctx.fillStyle = "#f3fdffcc";
+      ctx.beginPath(); ctx.ellipse(x, y, width, 25 + index % 2 * 12, index * .3, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#62aeca99"; ctx.lineWidth = 3; ctx.stroke();
+      ctx.strokeStyle = "#75b9cf77"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x - width * .6, y); ctx.lineTo(x - 8, y + 7); ctx.lineTo(x + width * .45, y - 5); ctx.stroke();
     }
-    for (let index = 0; index < 45; index++) {
-      const x = movingX(index, 47, 2.2 + index % 3 * .25);
-      const y = 30 + (index * 71) % 430;
-      ctx.fillStyle = "#ffffffbb"; ctx.beginPath(); ctx.arc(x, y, 1 + index % 3, 0, Math.PI * 2); ctx.fill();
+    for (let crack = 0; crack < 7; crack++) {
+      const x = movingX(crack, 210, 2.1);
+      const y = 50 + crack % 4 * 145;
+      ctx.strokeStyle = "#3b8da866"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(x - 55, y - 24); ctx.lineTo(x - 14, y); ctx.lineTo(x + 8, y - 11); ctx.lineTo(x + 58, y + 24); ctx.stroke();
     }
   } else if (biome.id === "canyon") {
-    ctx.fillStyle = "#ffcf88"; ctx.beginPath(); ctx.arc(710, 100, 44, 0, Math.PI * 2); ctx.fill();
-    drawRollingLayer(405, 60, "#b65c3f", .2, 1.1);
-    ctx.fillStyle = "#713423"; ctx.fillRect(0, 505, CANVAS_W, 95);
-    for (let index = 0; index < 6; index++) {
-      const x = movingX(index, 230, 1.4);
-      const height = 95 + index % 3 * 34;
+    drawRollingLayer(170, 32, "#e18a5c", 1.15, .4);
+    drawRollingLayer(385, 42, "#58251d", 1.55, 2.2);
+    for (let index = 0; index < 10; index++) {
+      const x = movingX(index, 150, 1.65);
+      const y = 45 + (index * 113) % 500;
+      const radius = 18 + index % 4 * 9;
+      ctx.fillStyle = "#51251b55"; ctx.beginPath(); ctx.ellipse(x + 9, y + 10, radius * 1.15, radius * .75, .3, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = index % 2 ? "#8f432b" : "#a94f32";
-      ctx.beginPath(); ctx.moveTo(x - 45, 510); ctx.lineTo(x - 30, 510 - height); ctx.lineTo(x + 25, 510 - height);
-      ctx.lineTo(x + 45, 510); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = "#d77b50"; ctx.fillRect(x - 38, 510 - height, 70, 13);
+      ctx.beginPath(); ctx.ellipse(x, y, radius, radius * .72, .3, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#df8155aa"; ctx.lineWidth = 3; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(x - 3, y - 2, radius * .55, radius * .34, .3, 0, Math.PI * 2); ctx.stroke();
     }
   } else if (biome.id === "volcano") {
-    ctx.fillStyle = "#30131a"; ctx.beginPath(); ctx.arc(740, 105, 45, 0, Math.PI * 2); ctx.fill();
-    for (let index = 0; index < 5; index++) {
-      const x = movingX(index, 280, .38);
-      const height = 170 + index % 3 * 55;
-      ctx.beginPath(); ctx.moveTo(x - 150, 490); ctx.lineTo(x, 490 - height); ctx.lineTo(x + 150, 490); ctx.closePath();
-      ctx.fillStyle = "#24151a"; ctx.fill();
-      ctx.strokeStyle = "#ff5a1f88"; ctx.lineWidth = 6;
-      ctx.beginPath(); ctx.moveTo(x, 490 - height + 8); ctx.lineTo(x - 10, 490 - height + 48); ctx.lineTo(x + 18, 490 - height + 92); ctx.stroke();
+    for (let river = 0; river < 4; river++) {
+      const baseY = 75 + river * 155;
+      const offset = motionTime * (1.35 + river * .18);
+      ctx.strokeStyle = "#7a180d"; ctx.lineWidth = 28;
+      ctx.beginPath();
+      for (let x = -60; x < CANVAS_W + 80; x += 35) {
+        const y = baseY + Math.sin((x + offset) * .019 + river) * 22;
+        if (x === -60) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = river % 2 ? "#ff3d00" : "#ff8a19"; ctx.lineWidth = 9; ctx.stroke();
     }
-    ctx.fillStyle = "#1c1114"; ctx.fillRect(0, 485, CANVAS_W, 115);
-    for (let index = 0; index < 12; index++) {
-      const x = movingX(index, 100, 2.0);
-      ctx.strokeStyle = index % 2 ? "#ff3d00" : "#ff9d22"; ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.moveTo(x - 35, 552); ctx.lineTo(x, 535 + index % 3 * 10); ctx.lineTo(x + 35, 560); ctx.stroke();
+    for (let index = 0; index < 7; index++) {
+      const x = movingX(index, 210, 1.1);
+      const y = 62 + index % 4 * 150;
+      const crater = ctx.createRadialGradient(x - 6, y - 6, 3, x, y, 38);
+      crater.addColorStop(0, "#ff5a1f"); crater.addColorStop(.28, "#401514"); crater.addColorStop(1, "#09080a");
+      ctx.fillStyle = crater; ctx.beginPath(); ctx.arc(x, y, 38, 0, Math.PI * 2); ctx.fill();
     }
   } else if (biome.id === "jungle") {
-    drawRollingLayer(375, 55, "#386d43", .18, 1.8);
-    drawRollingLayer(435, 42, "#1f4e32", .55, .7);
-    ctx.fillStyle = "#123822"; ctx.fillRect(0, 470, CANVAS_W, 130);
-    for (let index = 0; index < 9; index++) {
-      const x = movingX(index, 145, 1.7);
-      ctx.fillStyle = "#3e2c1d"; ctx.fillRect(x - 10, 390, 20, 160);
-      ctx.fillStyle = index % 2 ? "#1c6b36" : "#288044";
-      for (let leaf = 0; leaf < 5; leaf++) {
-        ctx.beginPath(); ctx.ellipse(x + (leaf - 2) * 20, 390 + Math.abs(leaf - 2) * 7, 38, 22, leaf * .25, 0, Math.PI * 2); ctx.fill();
-      }
+    const riverOffset = motionTime * 1.35;
+    ctx.strokeStyle = "#0a6c76"; ctx.lineWidth = 75;
+    ctx.beginPath();
+    for (let x = -80; x < CANVAS_W + 100; x += 40) {
+      const y = 305 + Math.sin((x + riverOffset) * .014) * 65;
+      if (x === -80) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = "#55c8bd55"; ctx.lineWidth = 4; ctx.stroke();
+    for (let index = 0; index < 26; index++) {
+      const x = movingX(index, 78, 1.72);
+      const y = 32 + (index * 109) % 535;
+      const radius = 20 + index % 4 * 5;
+      ctx.fillStyle = "#08291b66"; ctx.beginPath(); ctx.arc(x + 8, y + 9, radius, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = index % 3 === 0 ? "#3d9145" : index % 2 ? "#176537" : "#247b3d";
+      ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.arc(x - radius * .55, y + 3, radius * .55, 0, Math.PI * 2); ctx.fill();
       if (index % 3 === 0) {
-        ctx.fillStyle = "#6b765f"; ctx.fillRect(x + 35, 455, 54, 75);
-        ctx.fillStyle = "#172f25"; ctx.fillRect(x + 50, 482, 18, 48);
+        ctx.fillStyle = "#889171"; ctx.fillRect(x - 12, y - 12, 24, 24);
+        ctx.fillStyle = "#243e2c"; ctx.fillRect(x - 5, y - 5, 10, 10);
       }
     }
   } else if (biome.id === "storm") {
-    for (let index = 0; index < 12; index++) {
-      const x = movingX(index, 105, .75);
-      const y = 75 + index % 4 * 60;
-      ctx.fillStyle = index % 2 ? "#263447dd" : "#354459dd";
-      ctx.beginPath(); ctx.ellipse(x, y, 75, 29, 0, 0, Math.PI * 2); ctx.ellipse(x + 35, y - 16, 48, 30, 0, 0, Math.PI * 2); ctx.fill();
+    for (let row = 0; row < 10; row++) {
+      drawRollingLayer(30 + row * 65, 14, row % 2 ? "#8bb6c166" : "#263b4d", 1.8 + row * .08, row);
     }
-    ctx.fillStyle = "#263543"; ctx.fillRect(0, 475, CANVAS_W, 125);
+    ctx.save(); ctx.filter = "blur(12px)";
+    for (let index = 0; index < 11; index++) {
+      const x = movingX(index, 120, .9);
+      const y = 55 + index % 5 * 120;
+      ctx.fillStyle = index % 2 ? "#0b142077" : "#71809255";
+      ctx.beginPath(); ctx.ellipse(x, y, 85, 52, .2, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.filter = "none"; ctx.restore();
     ctx.strokeStyle = "#bdefff88"; ctx.lineWidth = 2;
     for (let index = 0; index < 70; index++) {
       const x = movingX(index, 34, 4.8);
@@ -3121,15 +3123,15 @@ function drawBiomeBackground(
     if (!reducedMotion && Math.floor(time / 95) % 7 === 1) {
       const lightningX = 180 + (Math.floor(time / 95) * 137) % 560;
       ctx.strokeStyle = "#f8ffb0"; ctx.lineWidth = 5; ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 20;
-      ctx.beginPath(); ctx.moveTo(lightningX, 105); ctx.lineTo(lightningX - 25, 205); ctx.lineTo(lightningX + 8, 198); ctx.lineTo(lightningX - 38, 320); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(lightningX, 65); ctx.lineTo(lightningX - 25, 205); ctx.lineTo(lightningX + 8, 198); ctx.lineTo(lightningX - 38, 365); ctx.stroke();
       ctx.shadowBlur = 0;
     }
   } else {
-    ctx.fillStyle = "#000006"; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.fillStyle = night ? "#000006" : "#080b24"; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     for (const star of stars) {
       if (!reducedMotion) star.x -= star.speed * 2.8 * BACKGROUND_SPEED_MULTIPLIER;
       if (star.x < -12) { star.x = CANVAS_W + 12; star.y = rand(0, CANVAS_H); }
-      ctx.globalAlpha = .35 + star.brightness * .65;
+      ctx.globalAlpha = (night ? .35 : .2) + star.brightness * (night ? .65 : .48);
       ctx.fillStyle = star.size > 1.6 ? "#c9dcff" : "#ffffff";
       ctx.fillRect(star.x, star.y, reducedMotion ? star.size : 2 + star.speed * 4, Math.max(1, star.size));
     }
@@ -3144,7 +3146,25 @@ function drawBiomeBackground(
       ctx.strokeStyle = "rgba(200,224,255,.18)"; ctx.lineWidth = 1; ctx.stroke();
     }
   }
-  drawAtmosphericFinish(ctx, biome);
+
+  if (night) {
+    ctx.fillStyle = biome.id === "space" ? "rgba(0,2,14,.16)" : "rgba(2,8,30,.56)";
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    const moonWash = ctx.createRadialGradient(130, 90, 15, 130, 90, 430);
+    moonWash.addColorStop(0, "rgba(170,215,255,.22)");
+    moonWash.addColorStop(1, "rgba(70,110,190,0)");
+    ctx.fillStyle = moonWash; ctx.fillRect(0, 0, 600, 520);
+    for (let index = 0; index < 18; index++) {
+      const x = movingX(index, 82, 2.25);
+      const y = 28 + (index * 103) % 535;
+      ctx.fillStyle = index % 3 === 0 ? "#ffe784aa" : "#8fdcff77";
+      ctx.fillRect(x, y, 7 + index % 3 * 4, 2);
+    }
+  } else if (biome.id !== "space") {
+    ctx.fillStyle = "rgba(255,224,166,.055)";
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  }
+  drawAtmosphericFinish(ctx);
 }
 
 // Small synthesizer: keeps the game self-contained without external audio files.
@@ -3285,6 +3305,8 @@ export default function Game() {
   const comboMilestoneRef = useRef({ combo: 0, timer: 0 });
   const nearMissCooldownRef = useRef(0);
   const screenShakeRef = useRef(0);
+  const lowHpWarningMsRef = useRef(0);
+  const wasAtOneHpRef = useRef(false);
   const waveTimerRef = useRef(0);
   const waveSequenceRef = useRef(0);
   const activeWaveRef = useRef<ActiveWave | null>(null);
@@ -4318,6 +4340,8 @@ export default function Game() {
     comboTimerRef.current = 0;
     comboMilestoneRef.current = { combo: 0, timer: 0 };
     screenShakeRef.current = 0;
+    lowHpWarningMsRef.current = 0;
+    wasAtOneHpRef.current = false;
     waveTimerRef.current = 0;
     waveSequenceRef.current = 0;
     activeWaveRef.current = null;
@@ -4874,6 +4898,13 @@ export default function Game() {
       if (gs.paused) {
         return;
       }
+
+      const isAtOneHp = gs.hp > 0 && gs.hp <= 1;
+      if (isAtOneHp && !wasAtOneHpRef.current) {
+        lowHpWarningMsRef.current = 5000;
+      }
+      wasAtOneHpRef.current = isAtOneHp;
+      lowHpWarningMsRef.current = Math.max(0, lowHpWarningMsRef.current - dt);
 
       if (gs.gameOver) {
         if (upwardFlight) ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -6677,6 +6708,24 @@ export default function Game() {
 
       // ── HUD ──
       if (upwardFlight) ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (lowHpWarningMsRef.current > 0) {
+        const warningW = upwardFlight ? CANVAS_H : CANVAS_W;
+        const warningH = upwardFlight ? CANVAS_W : CANVAS_H;
+        const elapsed = 5000 - lowHpWarningMsRef.current;
+        const pulse = .25 + .75 * Math.pow((Math.sin(elapsed * Math.PI / 260) + 1) / 2, 1.7);
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.strokeStyle = "#ff172f";
+        ctx.shadowColor = "#ff001e";
+        ctx.shadowBlur = 18;
+        ctx.lineWidth = 10;
+        ctx.strokeRect(5, 5, warningW - 10, warningH - 10);
+        ctx.globalAlpha = pulse * .34;
+        ctx.lineWidth = 28;
+        ctx.shadowBlur = 30;
+        ctx.strokeRect(14, 14, warningW - 28, warningH - 28);
+        ctx.restore();
+      }
       drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], activeModeRef.current, runElapsedMsRef.current, upwardFlight);
       const hudW = upwardFlight ? CANVAS_H : CANVAS_W;
       const hudTop = upwardFlight ? 136 : 86;
