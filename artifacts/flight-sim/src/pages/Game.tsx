@@ -12,6 +12,7 @@ import {
   getAircraftUpgradeCost,
   getAircraftUpgradeStats,
   getCrossedMilestoneLevels,
+  getBackgroundMusicTheme,
   getEnemySpawnRate,
   GAME_MODES,
   getDailyChallengeRules,
@@ -32,6 +33,7 @@ import {
   shouldShowVirtualControls,
   selectEnemyVariant,
   type GameMode,
+  type BackgroundMusicTheme,
 } from "../game-rules";
 import {
   MUTATORS,
@@ -211,6 +213,7 @@ type KeyBindings = Record<KeyBindingAction, string>;
 
 interface GameSettings {
   language: "de" | "en" | "tr" | "fr" | "es";
+  flightDirection: "right" | "up";
   tutorial: boolean;
   reducedMotion: boolean;
   highContrast: boolean;
@@ -1043,6 +1046,7 @@ const DEFAULT_KEY_BINDINGS: KeyBindings = {
 };
 const DEFAULT_SETTINGS: GameSettings = {
   language: "de",
+  flightDirection: "right",
   tutorial: true,
   reducedMotion: false,
   highContrast: false,
@@ -1265,6 +1269,7 @@ function loadSettings(): GameSettings {
     if (!isRecord(saved)) return DEFAULT_SETTINGS;
     const languages: GameSettings["language"][] = ["de", "en", "tr", "fr", "es"];
     const touchModes: GameSettings["touchControls"][] = ["auto", "always", "never"];
+    const flightDirections: GameSettings["flightDirection"][] = ["right", "up"];
     const savedBindings = isRecord(saved.keyBindings) ? saved.keyBindings : {};
     const keyBindings = Object.fromEntries(
       Object.entries(DEFAULT_KEY_BINDINGS).map(([action, fallback]) => [
@@ -1274,6 +1279,9 @@ function loadSettings(): GameSettings {
     ) as KeyBindings;
     return {
       language: languages.includes(saved.language as GameSettings["language"]) ? saved.language as GameSettings["language"] : DEFAULT_SETTINGS.language,
+      flightDirection: flightDirections.includes(saved.flightDirection as GameSettings["flightDirection"])
+        ? saved.flightDirection as GameSettings["flightDirection"]
+        : DEFAULT_SETTINGS.flightDirection,
       tutorial: typeof saved.tutorial === "boolean" ? saved.tutorial : DEFAULT_SETTINGS.tutorial,
       reducedMotion: typeof saved.reducedMotion === "boolean" ? saved.reducedMotion : DEFAULT_SETTINGS.reducedMotion,
       highContrast: typeof saved.highContrast === "boolean" ? saved.highContrast : DEFAULT_SETTINGS.highContrast,
@@ -2606,6 +2614,7 @@ class GameAudio {
   context: AudioContext | null = null;
   musicTimer = 0;
   musicStep = 0;
+  musicTheme: BackgroundMusicTheme | null = null;
   unlock(): Promise<boolean> {
     try {
       this.context ??= new AudioContext();
@@ -2635,26 +2644,60 @@ class GameAudio {
     const map = { hit: [150, .07, "sawtooth", -70], explosion: [90, .28, "sawtooth", -50], pickup: [620, .16, "sine", 500], boss: [55, .7, "sawtooth", -20], upgrade: [440, .35, "triangle", 440] } as const;
     const [f, d, t, s] = map[kind]; this.tone(f, d, volume * .35, t, s);
   }
-  updateMusic(level: number, volume: number, dtScale: number) {
+  updateMusic(theme: BackgroundMusicTheme, volume: number, dtScale: number) {
     if (volume <= 0) return;
+    if (theme !== this.musicTheme) {
+      this.musicTheme = theme;
+      this.musicTimer = 0;
+      this.musicStep = 0;
+    }
     this.musicTimer -= dtScale;
     if (this.musicTimer > 0) return;
-    this.musicTimer = level >= 50 ? 18 : level >= 20 ? 23 : 28;
 
-    // Minor, open intervals make the procedural soundtrack feel spacious
-    // instead of resembling a conventional arcade pulse.
-    const sequences = level >= 50
-      ? [110, 164.81, 220, 261.63, 329.63, 261.63, 220, 164.81]
-      : level >= 20
-        ? [98, 146.83, 196, 246.94, 293.66, 246.94, 196, 146.83]
-        : [82.41, 123.47, 164.81, 220, 246.94, 220, 164.81, 123.47];
+    const themes: Record<BackgroundMusicTheme, {
+      interval: number;
+      sequence: readonly number[];
+      voice: OscillatorType;
+      bassDuration: number;
+    }> = {
+      city: {
+        interval: 24,
+        sequence: [130.81, 164.81, 196, 261.63, 220, 196, 164.81, 196],
+        voice: "triangle",
+        bassDuration: 1.5,
+      },
+      sky: {
+        interval: 28,
+        sequence: [82.41, 123.47, 164.81, 220, 246.94, 220, 164.81, 123.47],
+        voice: "sine",
+        bassDuration: 2.2,
+      },
+      clouds: {
+        interval: 22,
+        sequence: [146.83, 220, 293.66, 369.99, 329.63, 293.66, 220, 196],
+        voice: "triangle",
+        bassDuration: 1.8,
+      },
+      space: {
+        interval: 18,
+        sequence: [110, 164.81, 220, 261.63, 329.63, 261.63, 220, 164.81],
+        voice: "sine",
+        bassDuration: 2.8,
+      },
+    };
+    const activeTheme = themes[theme];
+    this.musicTimer = activeTheme.interval;
+
+    // Each visual environment has its own tempo, melody and timbre. Resetting
+    // the sequence above makes a background transition audible immediately.
+    const sequences = activeTheme.sequence;
     const step = this.musicStep++;
     const note = sequences[step % sequences.length];
 
     // Soft arpeggio, slow sub-space drone and a sparse stellar shimmer.
-    this.tone(note, .55, volume * .22, "triangle", note * .015);
-    if (step % 4 === 0) this.tone(sequences[0] / 2, 2.2, volume * .12, "sine", -2);
-    if (step % 8 === 6) this.tone(note * 4, .7, volume * .055, "sine", note * .3);
+    this.tone(note, .55, volume * .22, activeTheme.voice, note * .015);
+    if (step % 4 === 0) this.tone(sequences[0] / 2, activeTheme.bassDuration, volume * .12, "sine", -2);
+    if (step % 8 === 6) this.tone(note * (theme === "space" ? 4 : 2), .7, volume * .055, "sine", note * .3);
   }
 }
 
@@ -3777,15 +3820,21 @@ export default function Game() {
     syncDisplay();
   }, [syncDisplay]);
 
-  // Helper: map a clientX/Y to canvas-space coords
+  // Map pointer coordinates to the currently visible canvas. The upward mode
+  // uses a real 600x900 playfield instead of stretching a landscape canvas.
   const toCanvas = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     return {
-      x: (clientX - rect.left) * (CANVAS_W / rect.width),
-      y: (clientY - rect.top)  * (CANVAS_H / rect.height),
+      x: (clientX - rect.left) * (canvas.width / rect.width),
+      y: (clientY - rect.top)  * (canvas.height / rect.height),
     };
+  }, []);
+
+  const screenToWorld = useCallback((point: Vec2): Vec2 => {
+    if (settingsRef.current.flightDirection !== "up") return point;
+    return { x: CANVAS_W - point.y, y: point.x };
   }, []);
 
   const firePoisonMissiles = useCallback(() => {
@@ -4054,7 +4103,8 @@ export default function Game() {
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         const { x, y } = toCanvas(t.clientX, t.clientY);
-        if (x < CANVAS_W / 2) {
+        const viewWidth = settingsRef.current.flightDirection === "up" ? CANVAS_H : CANVAS_W;
+        if (x < viewWidth / 2) {
           if (tutorialStageRef.current === 0) {
             if (settingsRef.current.autoFire) {
               tutorialStageRef.current = 2;
@@ -4073,7 +4123,7 @@ export default function Game() {
           // Check ULTI button first
           const titanDashing = enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0);
           const distanceToUlti = (id: UltiLoadoutId) => {
-            const position = getUltiButtonPosition(activeUltiLoadoutRef.current, id);
+            const position = getUltiButtonPosition(activeUltiLoadoutRef.current, id, settingsRef.current.flightDirection === "up");
             return position ? Math.hypot(x - position[0], y - position[1]) : Number.POSITIVE_INFINITY;
           };
           const du = distanceToUlti("jet");
@@ -4433,7 +4483,7 @@ export default function Game() {
         }
       }
 
-      audioRef.current.updateMusic(gs.level, settingsRef.current.musicVolume, dtScale);
+      audioRef.current.updateMusic(getBackgroundMusicTheme(gs.level), settingsRef.current.musicVolume, dtScale);
 
       if (screenShakeRef.current > 0 && !settingsRef.current.reducedMotion) {
         const strength = screenShakeRef.current;

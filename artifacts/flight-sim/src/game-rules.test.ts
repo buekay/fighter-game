@@ -6,6 +6,7 @@ import {
   calculateCoinReward,
   formatLockedSkinPrice,
   getCrossedMilestoneLevels,
+  getBackgroundMusicTheme,
   getLevelForScore,
   getProgressedLevel,
   getPilotLevelForScore,
@@ -146,6 +147,15 @@ assert.equal(shouldUseAboveCloudsBackground(50), false);
 
 assert.equal(shouldUseCityBackground(10), true);
 assert.equal(shouldUseCityBackground(11), false);
+
+assert.equal(getBackgroundMusicTheme(1), "city");
+assert.equal(getBackgroundMusicTheme(10), "city");
+assert.equal(getBackgroundMusicTheme(11), "sky");
+assert.equal(getBackgroundMusicTheme(19), "sky");
+assert.equal(getBackgroundMusicTheme(20), "clouds");
+assert.equal(getBackgroundMusicTheme(49), "clouds");
+assert.equal(getBackgroundMusicTheme(50), "space");
+assert.equal(getBackgroundMusicTheme(500), "space");
 
 const shieldedTie: EnemyDamageState = { hp: 3, shieldHp: 2 };
 assert.deepEqual(applyEnemyDamage(shieldedTie, 4), {

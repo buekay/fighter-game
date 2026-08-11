@@ -32,6 +32,7 @@ export const MAX_LEVEL = 500;
 export const CITY_BACKGROUND_MAX_LEVEL = 10;
 export const ABOVE_CLOUDS_BACKGROUND_LEVEL = 20;
 export const SPACE_BACKGROUND_LEVEL = 50;
+export type BackgroundMusicTheme = "city" | "sky" | "clouds" | "space";
 export const PLAYER_SHIELD_HP = 5;
 export const COIN_REWARD_MULTIPLIER = 1;
 export const HEAL_ULTI_RESTORE = 5;
@@ -317,6 +318,13 @@ export function shouldUseAboveCloudsBackground(level: number): boolean {
 
 export function shouldUseCityBackground(level: number): boolean {
   return level <= CITY_BACKGROUND_MAX_LEVEL;
+}
+
+export function getBackgroundMusicTheme(level: number): BackgroundMusicTheme {
+  if (shouldUseSpaceBackground(level)) return "space";
+  if (shouldUseAboveCloudsBackground(level)) return "clouds";
+  if (shouldUseCityBackground(level)) return "city";
+  return "sky";
 }
 
 export function calculateCoinReward(score: number): number {
