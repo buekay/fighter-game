@@ -7485,6 +7485,7 @@ export default function Game() {
                   <button autoFocus onClick={() => { stateRef.current.paused = false; setPauseView("menu"); syncDisplay(); }} className="pause-primary rounded-xl py-3 font-black tracking-widest">{translated(language, "▶ WEITERSPIELEN", "▶ RESUME")}</button>
                   <button onClick={() => startGame(false, activeModeRef.current)} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "↻ NEU STARTEN", "↻ RESTART")}</button>
                   <button onClick={() => setPauseView("settings")} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⚙ EINSTELLUNGEN", "⚙ SETTINGS")}</button>
+                  <button onClick={returnToHangar} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⌂ ZUM HANGAR", "⌂ RETURN TO HANGAR")}</button>
                   <button onClick={cashOutRunToHangar} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "■ BEENDEN & SCORE HOLEN", "■ END & CLAIM SCORE")}</button>
                 </div>
                 <div className="mt-4 text-xs text-slate-500">ESC oder {formatKeyCode(settings.keyBindings.pause)} drücken, um weiterzuspielen</div>
