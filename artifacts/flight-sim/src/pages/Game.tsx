@@ -50,6 +50,13 @@ import {
   type MutatorDefinition,
   type SectorChoice,
 } from "../game-enhancements";
+import {
+  readStoredJson,
+  readStoredText,
+  removeStoredValue,
+  writeStoredJson,
+  writeStoredText,
+} from "../storage";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -622,8 +629,8 @@ const MAX_WEAPON_LEVEL = 10;
 
 function loadWeapons(): string[] {
   try {
-    const raw = localStorage.getItem(WEAPON_KEY);
-    const legacy = localStorage.getItem("fighter-command-weapon");
+    const raw = readStoredText(WEAPON_KEY);
+    const legacy = readStoredText("fighter-command-weapon");
     const parsed = raw ? JSON.parse(raw) as unknown : legacy ? [legacy] : [WEAPONS[0].id];
     if (!Array.isArray(parsed)) return [WEAPONS[0].id];
     const unlocks = loadUnlocks();
@@ -635,15 +642,15 @@ function loadWeapons(): string[] {
     return [...new Set(valid)].slice(0, 2).length ? [...new Set(valid)].slice(0, 2) : [WEAPONS[0].id];
   } catch { return [WEAPONS[0].id]; }
 }
-function saveWeapons(ids: string[]) { try { localStorage.setItem(WEAPON_KEY, JSON.stringify(ids.slice(0, 2))); } catch {} }
+function saveWeapons(ids: string[]) { writeStoredJson(WEAPON_KEY, ids.slice(0, 2)); }
 function loadWeaponLevels(): Record<string, number> {
   try {
-    const parsed = JSON.parse(localStorage.getItem(WEAPON_LEVELS_KEY) ?? "{}") as unknown;
+    const parsed = readStoredJson(WEAPON_LEVELS_KEY, {});
     if (!isRecord(parsed)) return {};
     return Object.fromEntries(WEAPONS.map(weapon => [weapon.id, Math.max(1, Math.min(MAX_WEAPON_LEVEL, Math.floor(finiteNumber(parsed[weapon.id]) ?? 1)))]));
   } catch { return {}; }
 }
-function saveWeaponLevels(levels: Record<string, number>) { try { localStorage.setItem(WEAPON_LEVELS_KEY, JSON.stringify(levels)); } catch {} }
+function saveWeaponLevels(levels: Record<string, number>) { writeStoredJson(WEAPON_LEVELS_KEY, levels); }
 function getWeaponUpgradeCost(level: number): number | null {
   return level >= MAX_WEAPON_LEVEL ? null : 120 + level * level * 55;
 }
@@ -688,12 +695,8 @@ function finiteNumber(value: unknown): number | null {
 }
 
 function loadStringArray(key: string): string[] {
-  try {
-    const saved = JSON.parse(localStorage.getItem(key) ?? "[]") as unknown;
-    return Array.isArray(saved) ? saved.filter((value): value is string => typeof value === "string") : [];
-  } catch {
-    return [];
-  }
+  const saved = readStoredJson(key, []);
+  return Array.isArray(saved) ? saved.filter((value): value is string => typeof value === "string") : [];
 }
 
 function saveGame(
@@ -720,13 +723,13 @@ function saveGame(
       mutatorId,
       savedAt: Date.now(),
     };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    writeStoredJson(SAVE_KEY, data);
   } catch { /* storage unavailable */ }
 }
 
 function loadSave(): SaveData | null {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    const raw = readStoredText(SAVE_KEY);
     if (!raw) return null;
     const saved = JSON.parse(raw) as unknown;
     if (!isRecord(saved)) return null;
@@ -800,7 +803,7 @@ function loadSave(): SaveData | null {
 }
 
 function clearSave() {
-  try { localStorage.removeItem(SAVE_KEY); } catch {}
+  removeStoredValue(SAVE_KEY);
 }
 
 // ─── Skins, shop & persistent data ───────────────────────────────────────────
@@ -933,7 +936,7 @@ const DRONE_WEAPONS: readonly DroneWeaponDefinition[] = [
 
 function loadAircraftBuild(): AircraftBuild {
   try {
-    const parsed = JSON.parse(localStorage.getItem(AIRCRAFT_BUILD_KEY) ?? "{}") as Partial<AircraftBuild>;
+    const parsed = readStoredJson(AIRCRAFT_BUILD_KEY, {}) as Partial<AircraftBuild>;
     const fallbackSkin = loadSkin();
     const validSkin = (id: unknown) => typeof id === "string" && JET_SKINS.some(skin => skin.id === id) ? id : fallbackSkin;
     return {
@@ -948,7 +951,7 @@ function loadAircraftBuild(): AircraftBuild {
     return { wing: "balanced", engine: "ion", bodySkin: fallbackSkin, wingSkin: fallbackSkin, engineSkin: fallbackSkin };
   }
 }
-function saveAircraftBuild(build: AircraftBuild) { try { localStorage.setItem(AIRCRAFT_BUILD_KEY, JSON.stringify(build)); } catch {} }
+function saveAircraftBuild(build: AircraftBuild) { writeStoredJson(AIRCRAFT_BUILD_KEY, build); }
 function aircraftBuildLevelKey(build: AircraftBuild) {
   return `hybrid:${build.bodySkin}:${build.wingSkin}:${build.engineSkin}:${build.wing}:${build.engine}`;
 }
@@ -960,7 +963,7 @@ function isCombinedDroneBuild(build: DroneBuild) {
 }
 function loadSavedAircraftBuilds(): AircraftBuild[] {
   try {
-    const saved = JSON.parse(localStorage.getItem(SAVED_AIRCRAFT_BUILDS_KEY) ?? "[]") as unknown;
+    const saved = readStoredJson(SAVED_AIRCRAFT_BUILDS_KEY, []);
     if (Array.isArray(saved) && saved.length > 0) {
       return saved.filter(isRecord).map(item => ({
         wing: WING_MODULES.some(module => module.id === item.wing) ? item.wing as WingModuleId : "balanced",
@@ -973,10 +976,10 @@ function loadSavedAircraftBuilds(): AircraftBuild[] {
   } catch {}
   return loadHybridActive() ? [loadAircraftBuild()] : [];
 }
-function saveSavedAircraftBuilds(builds: AircraftBuild[]) { try { localStorage.setItem(SAVED_AIRCRAFT_BUILDS_KEY, JSON.stringify(builds)); } catch {} }
+function saveSavedAircraftBuilds(builds: AircraftBuild[]) { writeStoredJson(SAVED_AIRCRAFT_BUILDS_KEY, builds); }
 function loadSavedDroneBuilds(): DroneBuild[] {
   try {
-    const saved = JSON.parse(localStorage.getItem(SAVED_DRONE_BUILDS_KEY) ?? "[]") as unknown;
+    const saved = readStoredJson(SAVED_DRONE_BUILDS_KEY, []);
     if (Array.isArray(saved) && saved.length > 0) {
       return saved.filter(isRecord).map(item => ({
         bodySkin: typeof item.bodySkin === "string" ? item.bodySkin : loadDroneSkin(),
@@ -988,33 +991,33 @@ function loadSavedDroneBuilds(): DroneBuild[] {
   const current = loadDroneBuild();
   return isCombinedDroneBuild(current) ? [current] : [];
 }
-function saveSavedDroneBuilds(builds: DroneBuild[]) { try { localStorage.setItem(SAVED_DRONE_BUILDS_KEY, JSON.stringify(builds)); } catch {} }
-function loadHybridActive() { try { return localStorage.getItem(HYBRID_ACTIVE_KEY) === "1"; } catch { return false; } }
-function saveHybridActive(active: boolean) { try { localStorage.setItem(HYBRID_ACTIVE_KEY, active ? "1" : "0"); } catch {} }
+function saveSavedDroneBuilds(builds: DroneBuild[]) { writeStoredJson(SAVED_DRONE_BUILDS_KEY, builds); }
+function loadHybridActive() { return readStoredText(HYBRID_ACTIVE_KEY) === "1"; }
+function saveHybridActive(active: boolean) { writeStoredText(HYBRID_ACTIVE_KEY, active ? "1" : "0"); }
 function loadDroneRole(): DroneRoleId {
   try {
-    const saved = localStorage.getItem(DRONE_ROLE_KEY) as DroneRoleId | null;
+    const saved = readStoredText(DRONE_ROLE_KEY) as DroneRoleId | null;
     return DRONE_ROLES.some(role => role.id === saved) ? saved! : "assault";
   } catch { return "assault"; }
 }
-function saveDroneRole(role: DroneRoleId) { try { localStorage.setItem(DRONE_ROLE_KEY, role); } catch {} }
+function saveDroneRole(role: DroneRoleId) { writeStoredText(DRONE_ROLE_KEY, role); }
 function loadDroneWeapon(): DroneWeaponId {
   try {
-    const saved = localStorage.getItem(DRONE_WEAPON_KEY) as DroneWeaponId | null;
+    const saved = readStoredText(DRONE_WEAPON_KEY) as DroneWeaponId | null;
     const weapon = DRONE_WEAPONS.find(candidate => candidate.id === saved);
     return weapon && (weapon.cost === 0 || loadUnlocks().includes(`drone_weapon_${weapon.id}`)) ? weapon.id : "pulse";
   } catch { return "pulse"; }
 }
-function saveDroneWeapon(weapon: DroneWeaponId) { try { localStorage.setItem(DRONE_WEAPON_KEY, weapon); } catch {} }
+function saveDroneWeapon(weapon: DroneWeaponId) { writeStoredText(DRONE_WEAPON_KEY, weapon); }
 function loadDroneBuild(): DroneBuild {
   const fallback = loadDroneSkin();
   try {
-    const parsed = JSON.parse(localStorage.getItem(DRONE_BUILD_KEY) ?? "{}") as Partial<DroneBuild>;
+    const parsed = readStoredJson(DRONE_BUILD_KEY, {}) as Partial<DroneBuild>;
     const valid = (id: unknown) => typeof id === "string" && DRONE_SKINS.some(skin => skin.id === id) ? id : fallback;
     return { bodySkin: valid(parsed.bodySkin), coreSkin: valid(parsed.coreSkin), weaponSkin: valid(parsed.weaponSkin) };
   } catch { return { bodySkin: fallback, coreSkin: fallback, weaponSkin: fallback }; }
 }
-function saveDroneBuild(build: DroneBuild) { try { localStorage.setItem(DRONE_BUILD_KEY, JSON.stringify(build)); } catch {} }
+function saveDroneBuild(build: DroneBuild) { writeStoredJson(DRONE_BUILD_KEY, build); }
 
 interface ShopItem {
   id: string;
@@ -1080,12 +1083,12 @@ const ULTI_LOADOUT_OPTIONS: readonly { id: UltiLoadoutId; name: string; key: str
 function loadUltiLoadout(): UltiLoadoutId[] {
   const available = ULTI_LOADOUT_OPTIONS.filter(option => !option.requires || loadUnlocks().includes(option.requires)).map(option => option.id);
   try {
-    const saved = JSON.parse(localStorage.getItem(ULTI_LOADOUT_KEY) ?? "null") as unknown;
+    const saved = readStoredJson(ULTI_LOADOUT_KEY, null);
     if (!Array.isArray(saved)) return available.slice(0, ULTI_LOADOUT_SLOTS);
     return saved.filter((id): id is UltiLoadoutId => typeof id === "string" && available.includes(id as UltiLoadoutId)).slice(0, ULTI_LOADOUT_SLOTS);
   } catch { return available.slice(0, ULTI_LOADOUT_SLOTS); }
 }
-function saveUltiLoadout(ids: UltiLoadoutId[]) { try { localStorage.setItem(ULTI_LOADOUT_KEY, JSON.stringify(ids)); } catch {} }
+function saveUltiLoadout(ids: UltiLoadoutId[]) { writeStoredJson(ULTI_LOADOUT_KEY, ids); }
 
 const NAME_KEY         = "fighter-command-name";
 const PILOT_KILLS_KEY  = "fighter-command-pilot-kills";
@@ -1236,24 +1239,20 @@ const ACHIEVEMENTS: Achievement[] = [
   { id: "mission_five", icon: "🎖", name: "Elite-Einsatzkraft", description: "Schließe fünf Missionsziele in einem Einsatz ab", target: 5, reward: 20000, stat: "missions" },
 ];
 function loadAchievements(): string[] { return loadStringArray(ACHIEVEMENT_KEY); }
-function saveAchievements(ids: string[]) { try { localStorage.setItem(ACHIEVEMENT_KEY, JSON.stringify(ids)); } catch {} }
-function saveHighScore(s: number) { try { if (s > loadHighScore()) localStorage.setItem(HS_KEY, String(s)); } catch {} }
-function loadHighScore(): number  { try { return parseInt(localStorage.getItem(HS_KEY) ?? "0", 10) || 0; } catch { return 0; } }
-function addCoins(n: number)      { try { localStorage.setItem(COINS_KEY, String(loadCoins() + n)); } catch {} }
-function setCoinsAbsolute(n: number) { try { localStorage.setItem(COINS_KEY, String(n)); } catch {} }
-function spendCoins(n: number)    { try { const c = loadCoins(); if (c >= n) localStorage.setItem(COINS_KEY, String(c - n)); } catch {} }
-function addGems(n: number)       { try { localStorage.setItem(GEMS_KEY, String(loadGems() + n)); } catch {} }
-function spendGems(n: number)     { try { const gems = loadGems(); if (gems >= n) localStorage.setItem(GEMS_KEY, String(gems - n)); } catch {} }
-function loadGems(): number       { try { return Math.max(0, parseInt(localStorage.getItem(GEMS_KEY) ?? "0", 10) || 0); } catch { return 0; } }
+function saveAchievements(ids: string[]) { writeStoredJson(ACHIEVEMENT_KEY, ids); }
+function saveHighScore(s: number) { if (s > loadHighScore()) writeStoredText(HS_KEY, String(s)); }
+function loadHighScore(): number  { return parseInt(readStoredText(HS_KEY) ?? "0", 10) || 0; }
+function addCoins(n: number)      { writeStoredText(COINS_KEY, String(loadCoins() + n)); }
+function setCoinsAbsolute(n: number) { writeStoredText(COINS_KEY, String(n)); }
+function spendCoins(n: number)    { const c = loadCoins(); if (c >= n) writeStoredText(COINS_KEY, String(c - n)); }
+function addGems(n: number)       { writeStoredText(GEMS_KEY, String(loadGems() + n)); }
+function spendGems(n: number)     { const gems = loadGems(); if (gems >= n) writeStoredText(GEMS_KEY, String(gems - n)); }
+function loadGems(): number       { return Math.max(0, parseInt(readStoredText(GEMS_KEY) ?? "0", 10) || 0); }
 function loadCoins(): number      {
-  try {
-    const savedCoins = localStorage.getItem(COINS_KEY);
-    if (savedCoins === null) return STARTING_COINS;
-    const coins = parseInt(savedCoins, 10);
-    return Number.isFinite(coins) ? coins : STARTING_COINS;
-  } catch {
-    return STARTING_COINS;
-  }
+  const savedCoins = readStoredText(COINS_KEY);
+  if (savedCoins === null) return STARTING_COINS;
+  const coins = parseInt(savedCoins, 10);
+  return Number.isFinite(coins) ? coins : STARTING_COINS;
 }
 function getLocalDateKey(date = new Date()): string {
   const year = date.getFullYear();
@@ -1275,60 +1274,60 @@ function getEffectiveGameModeRules(mode: GameMode) {
   };
 }
 function canClaimDailyChest(): boolean {
-  try { return localStorage.getItem(DAILY_CHEST_KEY) !== getLocalDateKey(); } catch { return false; }
+  return readStoredText(DAILY_CHEST_KEY) !== getLocalDateKey();
 }
 function markDailyChestClaimed() {
-  try { localStorage.setItem(DAILY_CHEST_KEY, getLocalDateKey()); } catch {}
+  writeStoredText(DAILY_CHEST_KEY, getLocalDateKey());
 }
-function saveSkin(id: string)     { try { localStorage.setItem(SKIN_KEY, id); } catch {} }
-function loadSkin(): string       { try { return localStorage.getItem(SKIN_KEY) ?? "steel"; } catch { return "steel"; } }
-function saveDroneSkin(id: string) { try { localStorage.setItem(DRONE_SKIN_KEY, id); } catch {} }
-function loadDroneSkin(): string   { try { return localStorage.getItem(DRONE_SKIN_KEY) ?? "drone_violet"; } catch { return "drone_violet"; } }
-function saveWeaponCrate(id: string) { try { localStorage.setItem(WEAPON_CRATE_KEY, id); } catch {} }
+function saveSkin(id: string)     { writeStoredText(SKIN_KEY, id); }
+function loadSkin(): string       { return readStoredText(SKIN_KEY) ?? "steel"; }
+function saveDroneSkin(id: string) { writeStoredText(DRONE_SKIN_KEY, id); }
+function loadDroneSkin(): string   { return readStoredText(DRONE_SKIN_KEY) ?? "drone_violet"; }
+function saveWeaponCrate(id: string) { writeStoredText(WEAPON_CRATE_KEY, id); }
 function loadWeaponCrate(): string {
   try {
-    const saved = localStorage.getItem(WEAPON_CRATE_KEY);
+    const saved = readStoredText(WEAPON_CRATE_KEY);
     const crate = WEAPON_CRATES.find(candidate => candidate.id === saved);
     return crate && (crate.cost === 0 || loadUnlocks().includes(`weapon_crate_${crate.id}`)) ? crate.id : WEAPON_CRATES[0].id;
   } catch { return WEAPON_CRATES[0].id; }
 }
-function addUnlock(id: string)    { try { const u = loadUnlocks(); if (!u.includes(id)) localStorage.setItem(UNLOCKS_KEY, JSON.stringify([...u, id])); } catch {} }
+function addUnlock(id: string)    { const u = loadUnlocks(); if (!u.includes(id)) writeStoredJson(UNLOCKS_KEY, [...u, id]); }
 function loadUnlocks(): string[]  { return loadStringArray(UNLOCKS_KEY); }
 function loadAircraftLevels(): Record<string, number> {
   try {
-    const saved = JSON.parse(localStorage.getItem(AIRCRAFT_LEVELS_KEY) ?? "{}") as unknown;
+    const saved = readStoredJson(AIRCRAFT_LEVELS_KEY, {});
     if (!isRecord(saved)) return {};
     return Object.fromEntries(Object.entries(saved).map(([id, level]) => [id, getAircraftUpgradeStats(finiteNumber(level) ?? 1).level]));
   } catch { return {}; }
 }
-function saveAircraftLevels(levels: Record<string, number>) { try { localStorage.setItem(AIRCRAFT_LEVELS_KEY, JSON.stringify(levels)); } catch {} }
+function saveAircraftLevels(levels: Record<string, number>) { writeStoredJson(AIRCRAFT_LEVELS_KEY, levels); }
 function loadDroneLevels(): Record<string, number> {
   try {
-    const saved = JSON.parse(localStorage.getItem(DRONE_LEVELS_KEY) ?? "{}") as unknown;
+    const saved = readStoredJson(DRONE_LEVELS_KEY, {});
     if (!isRecord(saved)) return {};
     return Object.fromEntries(Object.entries(saved).map(([id, level]) => [id, Math.max(1, Math.min(10, Math.floor(finiteNumber(level) ?? 1))) ]));
   } catch { return {}; }
 }
-function saveDroneLevels(levels: Record<string, number>) { try { localStorage.setItem(DRONE_LEVELS_KEY, JSON.stringify(levels)); } catch {} }
-function unlockAll()              { try { const all = [...JET_SKINS.map(s => s.id), ...DRONE_SKINS.map(s => s.id), ...WEAPONS.filter(weapon => weapon.cost > 0).map(weapon => `weapon_${weapon.id}`), ...DRONE_WEAPONS.filter(weapon => weapon.cost > 0).map(weapon => `drone_weapon_${weapon.id}`), ...WEAPON_CRATES.filter(crate => crate.cost > 0).map(crate => `weapon_crate_${crate.id}`), ...SHOP_ITEMS.map(i => i.id)]; localStorage.setItem(UNLOCKS_KEY, JSON.stringify(all)); } catch {} }
-function saveName(n: string)      { try { localStorage.setItem(NAME_KEY, n); } catch {} }
-function loadName(): string       { try { return localStorage.getItem(NAME_KEY) ?? "Pilot"; } catch { return "Pilot"; } }
-function loadPilotKills(): number { try { return Math.max(0, Number(localStorage.getItem(PILOT_KILLS_KEY)) || 0); } catch { return 0; } }
+function saveDroneLevels(levels: Record<string, number>) { writeStoredJson(DRONE_LEVELS_KEY, levels); }
+function unlockAll()              { const all = [...JET_SKINS.map(s => s.id), ...DRONE_SKINS.map(s => s.id), ...WEAPONS.filter(weapon => weapon.cost > 0).map(weapon => `weapon_${weapon.id}`), ...DRONE_WEAPONS.filter(weapon => weapon.cost > 0).map(weapon => `drone_weapon_${weapon.id}`), ...WEAPON_CRATES.filter(crate => crate.cost > 0).map(crate => `weapon_crate_${crate.id}`), ...SHOP_ITEMS.map(i => i.id)]; writeStoredJson(UNLOCKS_KEY, all); }
+function saveName(n: string)      { writeStoredText(NAME_KEY, n); }
+function loadName(): string       { return readStoredText(NAME_KEY) ?? "Pilot"; }
+function loadPilotKills(): number { return Math.max(0, Number(readStoredText(PILOT_KILLS_KEY)) || 0); }
 function addPilotKill(): number {
   const kills = loadPilotKills() + 1;
-  try { localStorage.setItem(PILOT_KILLS_KEY, String(kills)); } catch {}
+  writeStoredText(PILOT_KILLS_KEY, String(kills));
   return kills;
 }
 function getPilotLevelFromKills(kills = loadPilotKills()) { return getPilotLevelForScore(kills * 1000); }
 function loadShownPilotMilestone(): number {
-  try { return Math.max(0, Math.min(30, Number(localStorage.getItem(PILOT_MILESTONE_KEY)) || 0)); } catch { return 0; }
+  return Math.max(0, Math.min(30, Number(readStoredText(PILOT_MILESTONE_KEY)) || 0));
 }
 function saveShownPilotMilestone(level: number) {
-  try { localStorage.setItem(PILOT_MILESTONE_KEY, String(Math.max(0, Math.min(30, level)))); } catch {}
+  writeStoredText(PILOT_MILESTONE_KEY, String(Math.max(0, Math.min(30, level))));
 }
 function loadSettings(): GameSettings {
   try {
-    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as unknown;
+    const saved = readStoredJson(SETTINGS_KEY, {});
     if (!isRecord(saved)) return DEFAULT_SETTINGS;
     const languages: GameSettings["language"][] = ["de", "en", "tr", "fr", "es"];
     const touchModes: GameSettings["touchControls"][] = ["auto", "always", "never"];
@@ -1357,7 +1356,7 @@ function loadSettings(): GameSettings {
     };
   } catch { return DEFAULT_SETTINGS; }
 }
-function saveSettings(settings: GameSettings) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {} }
+function saveSettings(settings: GameSettings) { writeStoredJson(SETTINGS_KEY, settings); }
 
 const TURKISH_TRANSLATIONS: Readonly<Record<string, string>> = {
   "2D fighter jet simulator": "2D savaş uçağı simülatörü",
@@ -1464,9 +1463,9 @@ function translated(language: GameSettings["language"], german: string, english:
 function localeFor(language: GameSettings["language"]) {
   return language === "de" ? "de-DE" : language === "tr" ? "tr-TR" : language === "fr" ? "fr-FR" : language === "es" ? "es-ES" : "en-US";
 }
-function tutorialSeen(): boolean { try { return localStorage.getItem(TUTORIAL_KEY) === "1"; } catch { return false; } }
-function markTutorialSeen() { try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch {} }
-function markBriefingSeen() { try { localStorage.setItem(BRIEFING_KEY, "1"); } catch {} }
+function tutorialSeen(): boolean { return readStoredText(TUTORIAL_KEY) === "1"; }
+function markTutorialSeen() { writeStoredText(TUTORIAL_KEY, "1"); }
+function markBriefingSeen() { writeStoredText(BRIEFING_KEY, "1"); }
 
 const LEADERBOARD_KEY = "fighter-command-lb";
 interface LeaderEntry {
@@ -1482,15 +1481,19 @@ interface LeaderEntry {
   nearMisses?: number;
 }
 function addLeaderboardEntry(name: string, score: number, details?: Omit<LeaderEntry, "name" | "score" | "ts">) {
-  try {
-    const entries: LeaderEntry[] = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) ?? "[]");
-    entries.push({ name: name || "Pilot", score, ts: Date.now(), ...details });
-    entries.sort((a, b) => b.score - a.score);
-    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries.slice(0, 50)));
-  } catch {}
+  const entries = loadLeaderboard();
+  entries.push({ name: name || "Pilot", score, ts: Date.now(), ...details });
+  entries.sort((a, b) => b.score - a.score);
+  writeStoredJson(LEADERBOARD_KEY, entries.slice(0, 50));
 }
 function loadLeaderboard(): LeaderEntry[] {
-  try { return JSON.parse(localStorage.getItem(LEADERBOARD_KEY) ?? "[]") as LeaderEntry[]; } catch { return []; }
+  const stored = readStoredJson(LEADERBOARD_KEY, []);
+  if (!Array.isArray(stored)) return [];
+  return stored.filter((entry): entry is LeaderEntry =>
+    isRecord(entry) && typeof entry.name === "string" &&
+    typeof entry.score === "number" && Number.isFinite(entry.score) &&
+    typeof entry.ts === "number" && Number.isFinite(entry.ts),
+  );
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

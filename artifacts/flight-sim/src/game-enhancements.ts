@@ -1,3 +1,5 @@
+import { readStoredJson, writeStoredJson } from "./storage";
+
 export type MutatorId = "none" | "swarm" | "bullet_time" | "volatile" | "glass_skies";
 
 export interface MutatorDefinition {
@@ -108,14 +110,11 @@ export function formatRunDuration(milliseconds: number): string {
 const MODE_RECORDS_KEY = "fighter-command-mode-records";
 
 export function loadModeRecords(): Record<string, number> {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(MODE_RECORDS_KEY) ?? "{}") as Record<string, unknown>;
-    return Object.fromEntries(Object.entries(parsed).filter((entry): entry is [string, number] =>
-      typeof entry[1] === "number" && Number.isFinite(entry[1]) && entry[1] >= 0,
-    ));
-  } catch {
-    return {};
-  }
+  const parsed = readStoredJson(MODE_RECORDS_KEY, {});
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
+  return Object.fromEntries(Object.entries(parsed).filter((entry): entry is [string, number] =>
+    typeof entry[1] === "number" && Number.isFinite(entry[1]) && entry[1] >= 0,
+  ));
 }
 
 export function saveModeRecord(mode: string, score: number): { record: number; isNew: boolean } {
@@ -123,8 +122,6 @@ export function saveModeRecord(mode: string, score: number): { record: number; i
   const previous = records[mode] ?? 0;
   const isNew = score > previous;
   const record = Math.max(previous, score);
-  try {
-    localStorage.setItem(MODE_RECORDS_KEY, JSON.stringify({ ...records, [mode]: record }));
-  } catch {}
+  writeStoredJson(MODE_RECORDS_KEY, { ...records, [mode]: record });
   return { record, isNew };
 }

@@ -54,6 +54,7 @@ pnpm run build
 ## Workspace Map
 
 - `artifacts/flight-sim` - React/Vite canvas game app
+- `docs/architecture.md` - Modulgrenzen, Persistenz- und Performance-Regeln
 
 ## Gameplay Rules
 
