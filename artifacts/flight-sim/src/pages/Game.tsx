@@ -274,6 +274,9 @@ interface RunSummary {
 const CANVAS_W = 900;
 const CANVAS_H = 600;
 const FRAME_MS = 1000 / 60;
+// The animated scenery is much more expensive than the game simulation. It is
+// rendered into its own surface at 30 fps and reused by the 60 fps game loop.
+const BACKGROUND_FRAME_MS = 1000 / 30;
 const PLAYER_W = 52;
 const PLAYER_H = 28;
 const BASE_BULLET_SPEED = 10;
@@ -293,6 +296,10 @@ const LASER_DEVICE_DAMAGE = 5;
 const LASER_DEVICE_BEAM_WIDTH = 12;
 const WEAPON_CRATE_INTERVAL_MS = 20_000;
 const WEAPON_CRATE_DURATION_MS = 5_000;
+
+const isEnemyVisible = (enemy: Enemy) =>
+  enemy.x < CANVAS_W && enemy.x + enemy.width > 0 &&
+  enemy.y < CANVAS_H && enemy.y + enemy.height > 0;
 const PROTECT_PACKAGE_MAX_HP = 300;
 const PROTECT_PACKAGE_WIDTH = 72;
 const PROTECT_PACKAGE_HEIGHT = 42;
@@ -3273,6 +3280,10 @@ export default function Game() {
   const [displayState, setDisplayState] = useState({ ...stateRef.current });
   const keysRef = useRef<Set<string>>(new Set());
   const rafRef = useRef<number>(0);
+  const wakeGameLoopRef = useRef<() => void>(() => {});
+  const backgroundCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const backgroundRenderedAtRef = useRef(-Infinity);
+  const backgroundKeyRef = useRef("");
   const lastFireRef = useRef<Record<string, number>>({});
   const fireRatePenaltyRef = useRef(1);
   const lastDroneFireRef = useRef(0);
@@ -3512,7 +3523,7 @@ export default function Game() {
     }
     if (activeMutatorRef.current.id === "volatile") {
       enemiesRef.current.forEach(other => {
-        if (other === enemy || other.dead || other.hp <= 0 || Math.hypot(other.x - enemy.x, other.y - enemy.y) > 125) return;
+        if (other === enemy || other.dead || other.hp <= 0 || !isEnemyVisible(other) || Math.hypot(other.x - enemy.x, other.y - enemy.y) > 125) return;
         const blastDamage = Math.max(2, enemy.maxHp * .18);
         const hpBeforeBlast = other.hp;
         other.hp = Math.max(1, other.hp - blastDamage);
@@ -4095,7 +4106,7 @@ export default function Game() {
       const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22) + Math.sin(timeRef.current * 0.08) * 4;
       const offsets = drone.guns === 3 ? [-7, 0, 7] : drone.guns === 2 ? [-4, 4] : [0];
       const collectorTarget = role === "collector"
-        ? enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0)
+        ? enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0 && isEnemyVisible(enemy))
             .sort((a, b) => Math.hypot(a.x - droneX, a.y - droneY) - Math.hypot(b.x - droneX, b.y - droneY))[0] ?? null
         : null;
       const weaponSpread = Array.from({ length: droneWeapon.shots }, (_, index) =>
@@ -4119,7 +4130,7 @@ export default function Game() {
     if (ultimaActiveRef.current > 0 && (aircraftUltiIds.has("xwing") || aircraftUltiIds.has("n1")) &&
         now - lastWingmanFireRef.current >= 500) {
       lastWingmanFireRef.current = now;
-      const livingTargets = enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0);
+      const livingTargets = enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0 && isEnemyVisible(enemy));
       [-50, 50].forEach((wingOffset, index) => {
         const wingY = clamp(playerRef.current.y + PLAYER_H / 2 + wingOffset, PLAYER_H, CANVAS_H - PLAYER_H);
         const target = [...livingTargets].sort((a, b) =>
@@ -4445,7 +4456,7 @@ export default function Game() {
   }, []);
 
   const firePoisonMissiles = useCallback(() => {
-    const living = enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0);
+    const living = enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0 && isEnemyVisible(enemy));
     const normalTargets = living.filter(enemy => !isBossEnemy(enemy));
     const eligibleTargets = normalTargets.length > 0 ? normalTargets : living.filter(isBossEnemy);
     if (eligibleTargets.length === 0) return false;
@@ -4502,7 +4513,7 @@ export default function Game() {
     }
     if (droneId === "drone_void") {
       enemiesRef.current.forEach(enemy => {
-        if (enemy.dead || enemy.hp <= 0 || isTitanInvulnerable(enemy)) return;
+        if (enemy.dead || enemy.hp <= 0 || !isEnemyVisible(enemy) || isTitanInvulnerable(enemy)) return;
         const ruptureDamage = isBossEnemy(enemy) ? Math.min(20, enemy.maxHp * .15) : enemy.hp * .35;
         const hpBeforeRupture = enemy.hp;
         enemy.hp = Math.max(1, enemy.hp - ruptureDamage);
@@ -4829,9 +4840,15 @@ export default function Game() {
     const ctx = canvas.getContext("2d")!;
 
     let lastTime = 0;
+    let loopRunning = false;
 
     const loop = (timestamp: number) => {
+      if (document.hidden || stateRef.current.paused) {
+        loopRunning = false;
+        return;
+      }
       rafRef.current = requestAnimationFrame(loop);
+      loopRunning = true;
       const dt = lastTime === 0 ? FRAME_MS : Math.min(timestamp - lastTime, 50);
       const dtScale = dt / FRAME_MS;
       lastTime = timestamp;
@@ -4848,16 +4865,34 @@ export default function Game() {
       // view: player fire travels up and incoming enemies travel down.
       if (upwardFlight) ctx.setTransform(0, -1, 1, 0, 0, CANVAS_W);
 
-      drawBiomeBackground(
-        ctx,
-        getBiomeForLevel(gs.level),
-        timeRef.current,
-        settingsRef.current.reducedMotion,
-        backgroundNightRef.current,
-        starsRef.current,
-        cityFarRef.current,
-        cityNearRef.current,
-      );
+      const biome = getBiomeForLevel(gs.level);
+      const backgroundKey = `${biome.id}:${backgroundNightRef.current}:${settingsRef.current.reducedMotion}`;
+      let backgroundCanvas = backgroundCanvasRef.current;
+      if (!backgroundCanvas) {
+        backgroundCanvas = document.createElement("canvas");
+        backgroundCanvas.width = CANVAS_W;
+        backgroundCanvas.height = CANVAS_H;
+        backgroundCanvasRef.current = backgroundCanvas;
+      }
+      if (backgroundKeyRef.current !== backgroundKey ||
+          timestamp - backgroundRenderedAtRef.current >= BACKGROUND_FRAME_MS) {
+        const backgroundCtx = backgroundCanvas.getContext("2d")!;
+        backgroundCtx.setTransform(1, 0, 0, 1, 0, 0);
+        backgroundCtx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+        drawBiomeBackground(
+          backgroundCtx,
+          biome,
+          timeRef.current,
+          settingsRef.current.reducedMotion,
+          backgroundNightRef.current,
+          starsRef.current,
+          cityFarRef.current,
+          cityNearRef.current,
+        );
+        backgroundKeyRef.current = backgroundKey;
+        backgroundRenderedAtRef.current = timestamp;
+      }
+      ctx.drawImage(backgroundCanvas, 0, 0);
 
       const backgroundTransition = backgroundTransitionRef.current;
       if (backgroundTransition) {
@@ -5357,11 +5392,16 @@ export default function Game() {
         if (b.fromPlayer && b.color === "#ff3333" && gs.level >= 8) {
           b.vy = Math.sin(timeRef.current * 0.08 + b.x * 0.03) * 3;
         }
-        const living = b.isPoisonMissile ? enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0) : [];
+        const living = b.isPoisonMissile
+          ? enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0 && isEnemyVisible(enemy))
+          : [];
         const normalTargets = living.filter(enemy => !isBossEnemy(enemy));
         const reservedTargets = new Set(bulletsRef.current
           .filter(other => other !== b && other.isPoisonMissile && other.missileTarget && !other.missileTarget.dead)
           .map(other => other.missileTarget));
+        if (b.isMissile && b.missileTarget && !isEnemyVisible(b.missileTarget)) {
+          b.missileTarget = null;
+        }
         if (b.isPoisonMissile && (!b.missileTarget || b.missileTarget.dead || b.missileTarget.hp <= 0 ||
           (isBossEnemy(b.missileTarget) && normalTargets.length > 0))) {
           const eligibleTargets = (normalTargets.length > 0 ? normalTargets : living.filter(isBossEnemy))
@@ -5477,7 +5517,7 @@ export default function Game() {
         }
       }
 
-      const halfLifeTitan = enemiesRef.current.find(e => e.type === "titan" && !e.dead &&
+      const halfLifeTitan = enemiesRef.current.find(e => e.type === "titan" && !e.dead && isEnemyVisible(e) &&
         e.hp <= e.maxHp * .5 && !e.titanReinforcementsSpawned);
       if (halfLifeTitan) {
         halfLifeTitan.titanReinforcementsSpawned = true;
@@ -5502,6 +5542,18 @@ export default function Game() {
       }
 
       enemiesRef.current = enemiesRef.current.filter(e => {
+        if (e.dead) return false;
+
+        // Spawned enemies begin just outside the right edge. Off-screen they
+        // only perform the minimum entry movement required to reach the game;
+        // AI, weapons, status effects, collisions and damage remain dormant.
+        if (!isEnemyVisible(e)) {
+          const entrySpeed = activeMutatorRef.current.enemySpeedMultiplier;
+          e.x += e.vx * dtScale * entrySpeed;
+          e.y += e.vy * dtScale * entrySpeed;
+          return e.x + e.width > 0 && e.y + e.height > 0 && e.y < CANVAS_H;
+        }
+
         if (e.type === "titan") {
           e.titanShieldTimer = Math.max(0, (e.titanShieldTimer ?? 0) - dtScale);
           e.titanShieldCooldown = (e.titanShieldCooldown ?? TITAN_SHIELD_COOLDOWN) - dtScale;
@@ -5549,7 +5601,6 @@ export default function Game() {
             return false;
           }
         }
-        if (e.dead) return false;
         // From level 10 onward, a boss that survives for 20 seconds evolves.
         if (e.type === "boss" && gs.level >= 10) {
           e.bossAge = (e.bossAge ?? 0) + dtScale;
@@ -5640,7 +5691,7 @@ export default function Game() {
           e.supportCooldown = (e.supportCooldown ?? 120) - dtScale;
           if (e.supportCooldown <= 0) {
             const nearbyAllies = enemiesRef.current.filter(ally =>
-              ally !== e && !ally.dead && ally.hp > 0 && !isBossEnemy(ally) &&
+              ally !== e && !ally.dead && ally.hp > 0 && isEnemyVisible(ally) && !isBossEnemy(ally) &&
               Math.hypot(ally.x - e.x, ally.y - e.y) <= 210,
             );
             if (e.archetype === "healer") {
@@ -6188,7 +6239,7 @@ export default function Game() {
             e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, 90);
           }
           if (runUpgradesRef.current.chain_lightning > 0 && Math.random() < Math.min(.6, runUpgradesRef.current.chain_lightning * .2)) {
-            const chained = enemiesRef.current.find(other => other !== e && !other.dead && other.hp > 1 &&
+            const chained = enemiesRef.current.find(other => other !== e && !other.dead && other.hp > 1 && isEnemyVisible(other) &&
               Math.hypot(other.x - e.x, other.y - e.y) < 210);
             if (chained) {
               const chainedHpBefore = chained.hp;
@@ -6203,7 +6254,7 @@ export default function Game() {
           }
           if (b.isMissile && runUpgradesRef.current.missile_mastery > 0 && runUpgradesRef.current.cryo_rounds > 0) {
             enemiesRef.current.forEach(other => {
-              if (other === e || other.dead || other.hp <= 1 || Math.hypot(other.x - e.x, other.y - e.y) > 115) return;
+              if (other === e || other.dead || other.hp <= 1 || !isEnemyVisible(other) || Math.hypot(other.x - e.x, other.y - e.y) > 115) return;
               const splashDamage = 2 + runUpgradesRef.current.missile_mastery * 2;
               const splashHpBefore = other.hp;
               other.hp = Math.max(1, other.hp - splashDamage);
@@ -6457,7 +6508,7 @@ export default function Game() {
         }
         // Damage enemies in laser path
         for (const e of enemiesRef.current) {
-          if (e.dead) continue;
+          if (e.dead || !isEnemyVisible(e)) continue;
           if (e.x + e.width < lx) continue;
           const beamHits = laserBeams.filter(ly => e.y + e.height >= ly - 18 && e.y <= ly + 18).length;
           if (beamHits === 0) continue;
@@ -6577,6 +6628,7 @@ export default function Game() {
         ctx.shadowColor = "#35bfff";
         ctx.shadowBlur = 24;
         for (const e of enemiesRef.current) {
+          if (e.dead || !isEnemyVisible(e)) continue;
           const ex = e.x + e.width / 2, ey = e.y + e.height / 2;
           const dx = ex - cx, dy = ey - cy;
           const distance = Math.max(1, Math.hypot(dx, dy));
@@ -6835,9 +6887,35 @@ export default function Game() {
       }
     };
 
-    rafRef.current = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(rafRef.current);
+    const wakeLoop = () => {
+      if (loopRunning || document.hidden || stateRef.current.paused) return;
+      lastTime = 0;
+      loopRunning = true;
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(rafRef.current);
+        loopRunning = false;
+      } else {
+        wakeLoop();
+      }
+    };
+
+    wakeGameLoopRef.current = wakeLoop;
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    wakeLoop();
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      loopRunning = false;
+      wakeGameLoopRef.current = () => {};
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [checkAchievements, fireBullets, grantRunReward, openNextProgressionChoice, recordPlayerDamage, registerKill, screenToWorld, spawnBossRushEnemy, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
+
+  useEffect(() => {
+    if (!displayState.paused) wakeGameLoopRef.current();
+  }, [displayState.paused]);
 
   const handleSkinSelect = (id: string) => {
     const skin = JET_SKINS.find(s => s.id === id);
