@@ -70,6 +70,23 @@
   );
 }
 
+/* The upward flight mode is a genuine portrait playfield. Its internal canvas
+   is 600x900 as well, so aircraft, text and touch targets stay crisp and keep
+   their proportions on phones, tablets and desktop displays. */
+.game-frame.flight-up {
+  width: min(
+    100%,
+    calc(
+      (
+        100dvh
+        - env(safe-area-inset-top)
+        - env(safe-area-inset-bottom)
+      ) * 0.666667
+    )
+  );
+  aspect-ratio: 2 / 3;
+}
+
 .game-canvas {
   width: 100%;
   height: 100%;

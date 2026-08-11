@@ -14,6 +14,7 @@ import {
   getCrossedMilestoneLevels,
   getBackgroundMusicTheme,
   getEnemySpawnRate,
+  getEnemyAttackTarget,
   GAME_MODES,
   getDailyChallengeRules,
   getGameModeRules,
@@ -4232,6 +4233,15 @@ export default function Game() {
       const gs = stateRef.current;
       timeRef.current += dtScale;
 
+      const upwardFlight = settingsRef.current.flightDirection === "up";
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = 1;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Gameplay continues to use the proven 900x600 world coordinates. This
+      // transform turns the complete world counter-clockwise into a 600x900
+      // view: player fire travels up and incoming enemies travel down.
+      if (upwardFlight) ctx.setTransform(0, -1, 1, 0, 0, CANVAS_W);
+
       const spaceBackground = shouldUseSpaceBackground(gs.level);
       const aboveCloudsBackground = shouldUseAboveCloudsBackground(gs.level);
       const cityBackground = shouldUseCityBackground(gs.level);
@@ -4349,7 +4359,7 @@ export default function Game() {
         return; // Hangar React overlay handles this screen
       }
 
-      if (isPortraitPhoneRef.current) {
+      if (isPortraitPhoneRef.current && !upwardFlight) {
         return;
       }
 
@@ -4358,9 +4368,13 @@ export default function Game() {
       }
 
       if (gs.gameOver) {
+        if (upwardFlight) ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.save();
         ctx.fillStyle = "rgba(4,12,28,0.84)";
-        ctx.beginPath(); ctx.roundRect(CANVAS_W/2-260, CANVAS_H/2-78, 520, 195, 14); ctx.fill();
+        const resultW = upwardFlight ? CANVAS_H : CANVAS_W;
+        const resultH = upwardFlight ? CANVAS_W : CANVAS_H;
+        const panelW = Math.min(520, resultW - 32);
+        ctx.beginPath(); ctx.roundRect(resultW/2-panelW/2, resultH/2-110, panelW, 235, 14); ctx.fill();
         ctx.textAlign = "center";
         const completed = runResultRef.current === "complete";
         const completedCelebrationMission = completed &&
@@ -4371,24 +4385,24 @@ export default function Game() {
           : completed ? "MISSION GESCHAFFT" : "GAME OVER";
         ctx.fillStyle = completed ? "#4ade80" : "#ff4444"; ctx.font = "bold 46px 'Inter', sans-serif";
         ctx.shadowColor = completed ? "#4ade80" : "#ff4444"; ctx.shadowBlur = 20;
-        ctx.fillText(resultTitle, CANVAS_W/2, CANVAS_H/2-36);
+        ctx.fillText(resultTitle, resultW/2, resultH/2-72);
         ctx.shadowBlur = 0;
         ctx.fillStyle = "#fff"; ctx.font = "24px 'Inter', sans-serif";
         const scoreLabel = completedCelebrationMission
           ? translated(resultLanguage, "Dein Score", "Your score")
           : "Score";
-        ctx.fillText(`${scoreLabel}: ${gs.score.toLocaleString(localeFor(resultLanguage))}`, CANVAS_W/2, CANVAS_H/2+10);
+        ctx.fillText(`${scoreLabel}: ${gs.score.toLocaleString(localeFor(resultLanguage))}`, resultW/2, resultH/2-20);
         ctx.fillStyle = "#aaa"; ctx.font = "15px 'Inter', sans-serif";
-        ctx.fillText(`Level ${gs.level}  ·  ${WEAPON_TIERS[gs.weaponTier].name}`, CANVAS_W/2, CANVAS_H/2+40);
+        ctx.fillText(`Level ${gs.level}  ·  ${WEAPON_TIERS[gs.weaponTier].name}`, resultW/2, resultH/2+16);
         ctx.fillStyle = "#ffcc44"; ctx.font = "13px 'Inter', sans-serif";
-        ctx.fillText("🏆 Score gespeichert — Rangliste im Hangar!", CANVAS_W/2, CANVAS_H/2+62);
+        ctx.fillText("🏆 Score gespeichert — Rangliste im Hangar!", resultW/2, resultH/2+42);
         ctx.fillStyle = "#ffd966"; ctx.font = "bold 16px 'Inter', sans-serif";
         const modeReward = Math.round(calculateCoinReward(gs.score) * getModeCoinMultiplier(activeModeRef.current));
         const gemReward = Math.floor(modeReward / 100);
-        ctx.fillText(`Belohnung: +${modeReward.toLocaleString("de-DE")} Credits · +${gemReward.toLocaleString("de-DE")} Juwelen`, CANVAS_W/2, CANVAS_H/2+86);
+        ctx.fillText(`Belohnung: +${modeReward.toLocaleString("de-DE")} Credits · +${gemReward.toLocaleString("de-DE")} Juwelen`, resultW/2, resultH/2+70);
         ctx.fillStyle = "#ffcc00";
         ctx.font = "13px 'Inter', sans-serif";
-        ctx.fillText("Einsatzbilanz wird geöffnet …", CANVAS_W/2, CANVAS_H/2+110);
+        ctx.fillText("Einsatzbilanz wird geöffnet …", resultW/2, resultH/2+98);
         ctx.restore();
         return;
       }
@@ -4523,8 +4537,9 @@ export default function Game() {
 
       movementStunRef.current = Math.max(0, movementStunRef.current - dtScale);
       if (movementStunRef.current <= 0 && js.active) {
-        const targetX = clamp(js.curX - PLAYER_W / 2, 0, CANVAS_W - PLAYER_W);
-        const targetY = clamp(js.curY - PLAYER_H / 2, 0, CANVAS_H - PLAYER_H);
+        const target = screenToWorld({ x: js.curX, y: js.curY });
+        const targetX = clamp(target.x - PLAYER_W / 2, 0, CANVAS_W - PLAYER_W);
+        const targetY = clamp(target.y - PLAYER_H / 2, 0, CANVAS_H - PLAYER_H);
         const dx = targetX - playerRef.current.x;
         const dy = targetY - playerRef.current.y;
         const distance = Math.hypot(dx, dy);
@@ -4533,21 +4548,29 @@ export default function Game() {
         playerRef.current.x += dx * stepRatio;
         playerRef.current.y += dy * stepRatio;
       } else if (movementStunRef.current <= 0) {
-        if (keyPressed("up") || keysRef.current.has("ArrowUp")) {
-          playerRef.current.y = clamp(playerRef.current.y - spd * dtScale, 0, CANVAS_H - PLAYER_H);
-        }
-        if (keyPressed("down") || keysRef.current.has("ArrowDown")) {
-          playerRef.current.y = clamp(playerRef.current.y + spd * dtScale, 0, CANVAS_H - PLAYER_H);
-        }
-        if (keyPressed("left") || keysRef.current.has("ArrowLeft")) {
-          playerRef.current.x = clamp(playerRef.current.x - spd * 0.8 * dtScale, 0, CANVAS_W - PLAYER_W);
-        }
-        if (keyPressed("right") || keysRef.current.has("ArrowRight")) {
-          playerRef.current.x = clamp(playerRef.current.x + spd * 0.8 * dtScale, 0, CANVAS_W - PLAYER_W);
-        }
-        if (gamepad.x !== 0 || gamepad.y !== 0) {
-          playerRef.current.x = clamp(playerRef.current.x + gamepad.x * spd * 0.8 * dtScale, 0, CANVAS_W - PLAYER_W);
-          playerRef.current.y = clamp(playerRef.current.y + gamepad.y * spd * dtScale, 0, CANVAS_H - PLAYER_H);
+        const upward = settingsRef.current.flightDirection === "up";
+        const moveUp = keyPressed("up") || keysRef.current.has("ArrowUp");
+        const moveDown = keyPressed("down") || keysRef.current.has("ArrowDown");
+        const moveLeft = keyPressed("left") || keysRef.current.has("ArrowLeft");
+        const moveRight = keyPressed("right") || keysRef.current.has("ArrowRight");
+        if (upward) {
+          if (moveUp) playerRef.current.x = clamp(playerRef.current.x + spd * dtScale, 0, CANVAS_W - PLAYER_W);
+          if (moveDown) playerRef.current.x = clamp(playerRef.current.x - spd * dtScale, 0, CANVAS_W - PLAYER_W);
+          if (moveLeft) playerRef.current.y = clamp(playerRef.current.y - spd * 0.8 * dtScale, 0, CANVAS_H - PLAYER_H);
+          if (moveRight) playerRef.current.y = clamp(playerRef.current.y + spd * 0.8 * dtScale, 0, CANVAS_H - PLAYER_H);
+          if (gamepad.x !== 0 || gamepad.y !== 0) {
+            playerRef.current.x = clamp(playerRef.current.x - gamepad.y * spd * dtScale, 0, CANVAS_W - PLAYER_W);
+            playerRef.current.y = clamp(playerRef.current.y + gamepad.x * spd * 0.8 * dtScale, 0, CANVAS_H - PLAYER_H);
+          }
+        } else {
+          if (moveUp) playerRef.current.y = clamp(playerRef.current.y - spd * dtScale, 0, CANVAS_H - PLAYER_H);
+          if (moveDown) playerRef.current.y = clamp(playerRef.current.y + spd * dtScale, 0, CANVAS_H - PLAYER_H);
+          if (moveLeft) playerRef.current.x = clamp(playerRef.current.x - spd * 0.8 * dtScale, 0, CANVAS_W - PLAYER_W);
+          if (moveRight) playerRef.current.x = clamp(playerRef.current.x + spd * 0.8 * dtScale, 0, CANVAS_W - PLAYER_W);
+          if (gamepad.x !== 0 || gamepad.y !== 0) {
+            playerRef.current.x = clamp(playerRef.current.x + gamepad.x * spd * 0.8 * dtScale, 0, CANVAS_W - PLAYER_W);
+            playerRef.current.y = clamp(playerRef.current.y + gamepad.y * spd * dtScale, 0, CANVAS_H - PLAYER_H);
+          }
         }
       }
 
@@ -4820,10 +4843,13 @@ export default function Game() {
           const ms = b.isPoisonMissile ? POISON_MISSILE_SPEED : 7;
           if (spd2 > ms) { b.vx = b.vx / spd2 * ms; b.vy = b.vy / spd2 * ms; }
         }
-        // Enemy homing missile tracks player
+        // Enemy homing missiles track the protected package in protect mode.
         if (b.trackPlayer && !b.fromPlayer) {
-          const tx = playerRef.current.x + PLAYER_W / 2;
-          const ty = playerRef.current.y + PLAYER_H / 2;
+          const { x: tx, y: ty } = getEnemyAttackTarget(
+            activeModeRef.current,
+            { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+            { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
+          );
           const ang = Math.atan2(ty - b.y, tx - b.x);
           const steer = 1 - Math.pow(1 - 0.06, dtScale);
           b.vx += (Math.cos(ang) * 0.5 - b.vx) * steer;
@@ -5216,8 +5242,11 @@ export default function Game() {
             e.specialAttackTimer = (e.specialAttackTimer ?? 180) - dtScale;
             if (e.specialAttackTimer <= 0) {
               e.specialAttackTimer = 180;
-              const px = playerRef.current.x + PLAYER_W / 2;
-              const py = playerRef.current.y + PLAYER_H / 2;
+              const { x: px, y: py } = getEnemyAttackTarget(
+                activeModeRef.current,
+                { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
+              );
               const originX = e.x + 12;
               const originY = e.y + e.height / 2;
               const aim = Math.atan2(py - originY, px - originX);
@@ -5268,9 +5297,12 @@ export default function Game() {
           e.shootCooldown = baseCooldown * (e.bossCannonsDisabled ? 1.8 : 1) *
             (e.eliteModifier === "frenzied" ? .55 : 1);
           if (e.type === "tiefighter" || e.type === "emeraldtiefighter" || e.type === "plasmawing") {
-            // TIE Fighter: aimed shot toward player
-            const px = playerRef.current.x + PLAYER_W / 2;
-            const py = playerRef.current.y + PLAYER_H / 2;
+            // Aimed enemies attack the package in protect mode and the player otherwise.
+            const { x: px, y: py } = getEnemyAttackTarget(
+              activeModeRef.current,
+              { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+              { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
+            );
             const dx = px - e.x; const dy = py - (e.y + e.height / 2);
             const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
             const spd2 = ENEMY_BULLET_SPEED * (e.type === "plasmawing" ? 1.8 : 1.4);
@@ -5282,15 +5314,34 @@ export default function Game() {
               stunFrames: e.type === "emeraldtiefighter" ? 120 : undefined,
             });
           } else {
+            const originX = e.x;
+            const originY = e.y + e.height / 2;
+            const protectTarget = activeModeRef.current === "protect"
+              ? getEnemyAttackTarget(
+                  activeModeRef.current,
+                  { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                  { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
+                )
+              : null;
+            const aim = protectTarget
+              ? Math.atan2(protectTarget.y - originY, protectTarget.x - originX)
+              : Math.PI;
             const shotCount = isBossEnemy(e)
               ? Math.max(1, (bossPhase === 3 ? 7 : bossPhase === 2 ? 5 : 3) - (e.bossCannonsDisabled ? 2 : 0))
               : e.type === "bomber" ? 2 : 1;
             for (let s = 0; s < shotCount; s++) {
               const spread = (s - (shotCount - 1) / 2) * 0.25;
+              const projectileSpeed = ENEMY_BULLET_SPEED + (isBossEnemy(e) ? 1 : 0);
+              const vx = protectTarget
+                ? Math.cos(aim + spread) * projectileSpeed
+                : -projectileSpeed;
+              const vy = protectTarget
+                ? Math.sin(aim + spread) * projectileSpeed
+                : spread * ENEMY_BULLET_SPEED;
               bulletsRef.current.push({
-                x: e.x, y: e.y + e.height / 2,
-                vx: -ENEMY_BULLET_SPEED + (isBossEnemy(e) ? -1 : 0),
-                vy: spread * ENEMY_BULLET_SPEED,
+                x: originX, y: originY,
+                vx,
+                vy,
                 fromPlayer: false,
                 damage: isBossEnemy(e) ? 3 : 2,
                 normalBossProjectile: e.type === "boss",
@@ -6099,7 +6150,10 @@ export default function Game() {
       }
 
       // ── HUD ──
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], activeModeRef.current, runElapsedMsRef.current);
+      if (upwardFlight) ctx.setTransform(1, 0, 0, 1, 0, 0);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], activeModeRef.current, runElapsedMsRef.current, upwardFlight);
+      const hudW = upwardFlight ? CANVAS_H : CANVAS_W;
+      const hudTop = upwardFlight ? 136 : 86;
       {
         const crate = weaponCrateRef.current;
         const remainingMs = weaponCrateActive
@@ -6113,11 +6167,11 @@ export default function Game() {
         ctx.shadowColor = rarityColor;
         ctx.shadowBlur = weaponCrateActive ? 12 : 4;
         ctx.font = "900 12px 'Inter', sans-serif";
-        ctx.fillText(`${crate.name} · ${SHOP_RARITIES[crate.rarity].label}`, CANVAS_W - 20, 100);
+        ctx.fillText(`${crate.name} · ${SHOP_RARITIES[crate.rarity].label}`, hudW - 20, hudTop + 14);
         ctx.shadowBlur = 0;
         ctx.fillStyle = weaponCrateActive ? "#ffffff" : "#9fb3c8";
         ctx.font = "bold 11px 'Inter', sans-serif";
-        ctx.fillText(weaponCrateActive ? `AKTIV · ${seconds}s` : `BEREIT IN ${seconds}s`, CANVAS_W - 20, 116);
+        ctx.fillText(weaponCrateActive ? `AKTIV · ${seconds}s` : `BEREIT IN ${seconds}s`, hudW - 20, hudTop + 30);
         ctx.restore();
       }
       {
@@ -6127,10 +6181,10 @@ export default function Game() {
         ctx.textAlign = "right";
         ctx.font = "900 10px 'Inter', sans-serif";
         ctx.fillStyle = mutator.id === "none" ? "#64748b" : "#fbbf24";
-        ctx.fillText(`${mutator.icon} ${mutator.name.toUpperCase()}`, CANVAS_W - 20, 136);
+        ctx.fillText(`${mutator.icon} ${mutator.name.toUpperCase()}`, hudW - 20, hudTop + 50);
         if (synergies.length > 0) {
           ctx.fillStyle = "#c4b5fd";
-          ctx.fillText(synergies.map(synergy => `${synergy.icon} ${synergy.name}`).join("  "), CANVAS_W - 20, 151);
+          ctx.fillText(synergies.map(synergy => `${synergy.icon} ${synergy.name}`).join("  "), hudW - 20, hudTop + 65);
         }
         ctx.restore();
       }
@@ -6138,19 +6192,20 @@ export default function Game() {
       const progress = Math.min(mission.target, missionProgress(mission, runStatsRef.current));
       ctx.save();
       ctx.fillStyle = "rgba(4,10,24,.82)";
-      ctx.beginPath(); ctx.roundRect(12, 94, 265, 50, 9); ctx.fill();
+      const missionY = hudTop + 8;
+      ctx.beginPath(); ctx.roundRect(12, missionY, 265, 50, 9); ctx.fill();
       ctx.strokeStyle = mission.completed ? "#4ade80" : "#38bdf8";
       ctx.stroke();
       ctx.textAlign = "left";
       ctx.fillStyle = mission.completed ? "#4ade80" : "#7dd3fc";
       ctx.font = "bold 10px 'Inter', sans-serif";
-      ctx.fillText(mission.completed ? "MISSION ERFÜLLT" : "MISSIONSZIEL", 22, 102);
+      ctx.fillText(mission.completed ? "MISSION ERFÜLLT" : "MISSIONSZIEL", 22, missionY + 8);
       ctx.fillStyle = "#ffffff";
       ctx.font = "bold 12px 'Inter', sans-serif";
-      ctx.fillText(`${mission.title}  ${progress}/${mission.target}`, 22, 118);
-      ctx.fillStyle = "#18263c"; ctx.fillRect(22, 135, 235, 4);
+      ctx.fillText(`${mission.title}  ${progress}/${mission.target}`, 22, missionY + 24);
+      ctx.fillStyle = "#18263c"; ctx.fillRect(22, missionY + 41, 235, 4);
       ctx.fillStyle = mission.completed ? "#4ade80" : "#38bdf8";
-      ctx.fillRect(22, 135, 235 * Math.min(1, progress / mission.target), 4);
+      ctx.fillRect(22, missionY + 41, 235 * Math.min(1, progress / mission.target), 4);
       if (comboMilestoneRef.current.timer > 0) {
         comboMilestoneRef.current.timer = Math.max(0, comboMilestoneRef.current.timer - dtScale);
         const milestoneCombo = comboMilestoneRef.current.combo;
@@ -6159,7 +6214,7 @@ export default function Game() {
         ctx.fillStyle = "#ffe45c";
         ctx.shadowColor = "#ff7a18"; ctx.shadowBlur = 12;
         ctx.font = "bold 34px 'Inter', sans-serif";
-        ctx.fillText(`${milestoneCombo}× MEGA-COMBO · SCORE ×${comboMultiplier.toFixed(2)}`, CANVAS_W / 2, 96);
+        ctx.fillText(`${milestoneCombo}× MEGA-COMBO · SCORE ×${comboMultiplier.toFixed(2)}`, hudW / 2, hudTop + 100);
       }
       if (waveBannerRef.current.timer > 0) {
         waveBannerRef.current.timer = Math.max(0, waveBannerRef.current.timer - dtScale);
@@ -6167,7 +6222,7 @@ export default function Game() {
         ctx.fillStyle = "#ffffff";
         ctx.shadowColor = "#00cfff"; ctx.shadowBlur = 20;
         ctx.font = "bold 24px 'Inter', sans-serif";
-        ctx.fillText(waveBannerRef.current.text, CANVAS_W / 2, 155);
+        ctx.fillText(waveBannerRef.current.text, hudW / 2, hudTop + 125);
       }
       if (titanWarningRef.current > 0) {
         titanWarningRef.current = Math.max(0, titanWarningRef.current - dtScale);
@@ -6178,17 +6233,18 @@ export default function Game() {
         ctx.shadowColor = "#ff001e";
         ctx.shadowBlur = 22;
         ctx.font = "900 34px 'Inter', sans-serif";
-        ctx.fillText("⚠ WARNING: TITAN APPROACHING ⚠", CANVAS_W / 2, 188);
+        ctx.font = `900 ${upwardFlight ? 23 : 34}px 'Inter', sans-serif`;
+        ctx.fillText("⚠ WARNING: TITAN APPROACHING ⚠", hudW / 2, hudTop + 160);
       }
       ctx.restore();
 
       // ── Virtual controls overlay ──
       if (showVirtualControlsRef.current) {
-        drawVirtualControls(ctx, joystickRef.current, settingsRef.current.showJoystick, touchFireRef.current.active, settingsRef.current.autoFire, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current);
+        drawVirtualControls(ctx, joystickRef.current, settingsRef.current.showJoystick, touchFireRef.current.active, settingsRef.current.autoFire, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, upwardFlight);
         if (enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0)) {
           ctx.save(); ctx.font = "bold 25px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
           activeUltiLoadoutRef.current.forEach(id => {
-            const pos = getUltiButtonPosition(activeUltiLoadoutRef.current, id); if (!pos) return;
+            const pos = getUltiButtonPosition(activeUltiLoadoutRef.current, id, upwardFlight); if (!pos) return;
             ctx.fillStyle = "#120008dd"; ctx.beginPath(); ctx.arc(pos[0], pos[1], 31, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = "#ff3344"; ctx.fillText("☠", pos[0], pos[1] + 1);
           });
@@ -6206,7 +6262,7 @@ export default function Game() {
 
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [checkAchievements, fireBullets, grantRunReward, openNextProgressionChoice, recordPlayerDamage, registerKill, spawnBossRushEnemy, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
+  }, [checkAchievements, fireBullets, grantRunReward, openNextProgressionChoice, recordPlayerDamage, registerKill, screenToWorld, spawnBossRushEnemy, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
 
   const handleSkinSelect = (id: string) => {
     const skin = JET_SKINS.find(s => s.id === id);
@@ -6472,17 +6528,17 @@ export default function Game() {
       className={`game-shell flex flex-col items-center justify-center w-full bg-[#08080e] select-none ${settings.highContrast ? "high-contrast" : ""}`}
       style={{ touchAction: "none" }}
     >
-      <div className="game-frame relative rounded overflow-hidden shadow-[0_0_40px_#00cfff22]"
+      <div className={`game-frame ${settings.flightDirection === "up" ? "flight-up" : ""} relative rounded overflow-hidden shadow-[0_0_40px_#00cfff22]`}
         style={{ border: "1px solid rgba(0,207,255,0.15)" }}>
         <canvas
           ref={canvasRef}
-          width={CANVAS_W}
-          height={CANVAS_H}
+          width={settings.flightDirection === "up" ? CANVAS_H : CANVAS_W}
+          height={settings.flightDirection === "up" ? CANVAS_W : CANVAS_H}
           className="game-canvas block"
           style={{ objectFit: "contain", touchAction: "none" }}
           tabIndex={0}
         />
-        {displayState.started && isPortraitPhone && (
+        {displayState.started && isPortraitPhone && settings.flightDirection !== "up" && (
           <div className="orientation-gate fixed inset-0 z-[70] flex items-center justify-center bg-[#030814]/95 p-6 text-center text-white">
             <div className="max-w-sm rounded-3xl border border-cyan-400/60 bg-slate-950/95 p-7 shadow-[0_0_45px_#22d3ee33]">
               <div className="text-6xl" aria-hidden="true">📱↻</div>
@@ -8216,6 +8272,12 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
             <option value="de">Deutsch</option><option value="en">English</option><option value="tr">Türkçe</option><option value="fr">Français</option><option value="es">Español</option>
           </select>
         </label>
+        <SettingToggle
+          label={translated(language, "Nach oben fliegen", "Fly upward")}
+          description={translated(language, "Dreht Spieler, Gegner, Schüsse und Spielwelt ins Hochformat.", "Rotates the player, enemies, projectiles and playfield into portrait mode.")}
+          checked={settings.flightDirection === "up"}
+          onClick={() => onChange({ ...settings, flightDirection: settings.flightDirection === "up" ? "right" : "up" })}
+        />
         <SettingToggle label={translated(language, "Einführung anzeigen", "Show tutorial")} description={translated(language, "Erklärt Bewegung und Schießen beim ersten Start.", "Explains movement and shooting on the first start.")} checked={settings.tutorial} onClick={() => toggle("tutorial")} />
         <SettingToggle label="Automatisches Dauerfeuer" description="Der Jet schießt selbstständig; FIRE bleibt optional." checked={settings.autoFire} onClick={() => toggle("autoFire")} />
         <SettingToggle
@@ -8351,8 +8413,11 @@ const ULTI_SLOT_POSITIONS: readonly [number, number][] = [
   [CANVAS_W - 210, CANVAS_H - 90],
 ];
 
-function getUltiButtonPosition(loadout: UltiLoadoutId[], id: UltiLoadoutId): [number, number] | null {
-  return ULTI_SLOT_POSITIONS[loadout.indexOf(id)] ?? null;
+function getUltiButtonPosition(loadout: UltiLoadoutId[], id: UltiLoadoutId, upward = false): [number, number] | null {
+  const portraitPositions: readonly [number, number][] = [
+    [390, 810], [490, 700], [390, 700], [490, 600], [390, 600],
+  ];
+  return (upward ? portraitPositions : ULTI_SLOT_POSITIONS)[loadout.indexOf(id)] ?? null;
 }
 
 type ActiveUltiCountdown = { key: string; remaining: number; color: string };
@@ -8415,10 +8480,11 @@ function drawVirtualControls(
   ultimateActive: number,
   unlocks: string[],
   ultiLoadout: UltiLoadoutId[],
+  upward = false,
 ) {
   ctx.save();
   ctx.globalAlpha = 0.45;
-  const position = (id: UltiLoadoutId) => getUltiButtonPosition(ultiLoadout, id) ?? [0, 0];
+  const position = (id: UltiLoadoutId) => getUltiButtonPosition(ultiLoadout, id, upward) ?? [0, 0];
   const [ultiX, ultiY] = position("jet");
   const [laserX, laserY] = position("laser");
   const [stealthX, stealthY] = position("stealth_ulti");
@@ -8429,7 +8495,7 @@ function drawVirtualControls(
 
   if (showJoystick) {
     const baseX = js.active ? js.centerX : 110;
-    const baseY = js.active ? js.centerY : CANVAS_H - 100;
+    const baseY = js.active ? js.centerY : (upward ? CANVAS_W : CANVAS_H) - 100;
 
     ctx.beginPath();
     ctx.arc(baseX, baseY, JOY_BASE_R, 0, Math.PI * 2);
@@ -8460,8 +8526,10 @@ function drawVirtualControls(
 
   // ── Fire button (right zone) ──
   if (!autoFire) {
+    const fireX = upward ? CANVAS_H - 82 : FIRE_BTN_X;
+    const fireY = upward ? CANVAS_W - 90 : FIRE_BTN_Y;
     ctx.beginPath();
-    ctx.arc(FIRE_BTN_X, FIRE_BTN_Y, FIRE_BTN_R, 0, Math.PI * 2);
+    ctx.arc(fireX, fireY, FIRE_BTN_R, 0, Math.PI * 2);
     ctx.fillStyle = fireActive ? "#ff443388" : "#ff443322";
     ctx.fill();
     ctx.strokeStyle = fireActive ? "#ff6644cc" : "#ff444466";
@@ -8473,7 +8541,7 @@ function drawVirtualControls(
     ctx.font = "bold 14px 'Inter', sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("FIRE", FIRE_BTN_X, FIRE_BTN_Y);
+    ctx.fillText("FIRE", fireX, fireY);
   }
 
   // ── ULTI button ──

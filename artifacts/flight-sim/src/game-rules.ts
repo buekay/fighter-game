@@ -65,6 +65,25 @@ export function selectEnemyVariant(
 
 export type GameMode = "classic" | "blitz" | "boss_rush" | "one_life" | "protect" | "daily";
 
+export interface AttackTargetBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export function getEnemyAttackTarget(
+  mode: GameMode,
+  player: AttackTargetBounds,
+  protectObjective: AttackTargetBounds,
+): { x: number; y: number } {
+  const target = mode === "protect" ? protectObjective : player;
+  return {
+    x: target.x + target.width / 2,
+    y: target.y + target.height / 2,
+  };
+}
+
 export interface GameModeRules {
   id: GameMode;
   label: string;

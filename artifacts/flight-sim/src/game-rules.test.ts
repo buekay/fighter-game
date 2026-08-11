@@ -17,6 +17,7 @@ import {
   getAircraftUpgradeCost,
   getAircraftUpgradeStats,
   getEnemySpawnRate,
+  getEnemyAttackTarget,
   getNormalBossDamage,
   GAME_MODES,
   getGameModeRules,
@@ -52,6 +53,23 @@ const damagedWithSpareLife: LifeState = {
   lives: 2,
   gameOver: false,
 };
+
+assert.deepEqual(
+  getEnemyAttackTarget(
+    "protect",
+    { x: 20, y: 30, width: 40, height: 20 },
+    { x: 100, y: 200, width: 60, height: 40 },
+  ),
+  { x: 130, y: 220 },
+);
+assert.deepEqual(
+  getEnemyAttackTarget(
+    "classic",
+    { x: 20, y: 30, width: 40, height: 20 },
+    { x: 100, y: 200, width: 60, height: 40 },
+  ),
+  { x: 40, y: 40 },
+);
 
 assert.deepEqual(applyPlayerDamage(damagedWithSpareLife, 3), {
   hp: 10,
