@@ -46,6 +46,7 @@ import {
   getMutatorForLevel,
   getUpgradeSynergies,
 } from "./game-enhancements";
+import { BIOMES, LEVELS_PER_BIOME, getBiomeForLevel } from "./biomes";
 
 const damagedWithSpareLife: LifeState = {
   hp: 2,
@@ -154,26 +155,41 @@ assert.ok(Math.abs(getNormalBossDamage(3, 9) - 0.6) < Number.EPSILON);
 assert.equal(getNormalBossDamage(1, 9), 0.2);
 assert.equal(getNormalBossDamage(3, 10), 3);
 
-assert.equal(shouldUseSpaceBackground(49), false);
+assert.equal(shouldUseSpaceBackground(45), false);
+assert.equal(shouldUseSpaceBackground(46), true);
 assert.equal(shouldUseSpaceBackground(50), true);
+assert.equal(shouldUseSpaceBackground(51), false);
 assert.equal(shouldUseSpaceBackground(500), true);
 
-assert.equal(shouldUseAboveCloudsBackground(19), false);
-assert.equal(shouldUseAboveCloudsBackground(20), true);
-assert.equal(shouldUseAboveCloudsBackground(49), true);
-assert.equal(shouldUseAboveCloudsBackground(50), false);
+assert.equal(shouldUseAboveCloudsBackground(20), false);
+assert.equal(shouldUseAboveCloudsBackground(21), true);
+assert.equal(shouldUseAboveCloudsBackground(25), true);
+assert.equal(shouldUseAboveCloudsBackground(26), false);
+assert.equal(shouldUseAboveCloudsBackground(41), true);
 
-assert.equal(shouldUseCityBackground(10), true);
-assert.equal(shouldUseCityBackground(11), false);
+assert.equal(shouldUseCityBackground(5), true);
+assert.equal(shouldUseCityBackground(6), false);
+assert.equal(shouldUseCityBackground(51), true);
 
 assert.equal(getBackgroundMusicTheme(1), "city");
-assert.equal(getBackgroundMusicTheme(10), "city");
-assert.equal(getBackgroundMusicTheme(11), "sky");
-assert.equal(getBackgroundMusicTheme(19), "sky");
-assert.equal(getBackgroundMusicTheme(20), "clouds");
-assert.equal(getBackgroundMusicTheme(49), "clouds");
-assert.equal(getBackgroundMusicTheme(50), "space");
+assert.equal(getBackgroundMusicTheme(6), "sky");
+assert.equal(getBackgroundMusicTheme(11), "clouds");
+assert.equal(getBackgroundMusicTheme(16), "sky");
+assert.equal(getBackgroundMusicTheme(31), "space");
+assert.equal(getBackgroundMusicTheme(36), "clouds");
+assert.equal(getBackgroundMusicTheme(46), "space");
+assert.equal(getBackgroundMusicTheme(51), "city");
 assert.equal(getBackgroundMusicTheme(500), "space");
+
+assert.equal(LEVELS_PER_BIOME, 5);
+assert.deepEqual(
+  [1, 6, 11, 16, 21, 26, 31, 36, 41, 46].map(level => getBiomeForLevel(level).id),
+  ["city", "desert", "ocean", "plains", "arctic", "canyon", "volcano", "jungle", "storm", "space"],
+);
+assert.equal(getBiomeForLevel(51).id, "city");
+assert.equal(getBiomeForLevel(500).id, "space");
+assert.equal(BIOMES.every(biome => biome.enemies.length === 3), true);
+assert.equal(new Set(BIOMES.flatMap(biome => biome.enemies.map(enemy => enemy.id))).size, BIOMES.length * 3);
 
 const shieldedTie: EnemyDamageState = { hp: 3, shieldHp: 2 };
 assert.deepEqual(applyEnemyDamage(shieldedTie, 4), {

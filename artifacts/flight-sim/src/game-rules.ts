@@ -1,3 +1,5 @@
+import { getBiomeForLevel } from "./biomes";
+
 export interface LifeState {
   hp: number;
   maxHp: number;
@@ -29,9 +31,9 @@ export interface PlayerHitProtectionResult {
 }
 
 export const MAX_LEVEL = 500;
-export const CITY_BACKGROUND_MAX_LEVEL = 10;
-export const ABOVE_CLOUDS_BACKGROUND_LEVEL = 20;
-export const SPACE_BACKGROUND_LEVEL = 50;
+export const CITY_BACKGROUND_MAX_LEVEL = 5;
+export const ABOVE_CLOUDS_BACKGROUND_LEVEL = 41;
+export const SPACE_BACKGROUND_LEVEL = 46;
 export type BackgroundMusicTheme = "city" | "sky" | "clouds" | "space";
 export const PLAYER_SHIELD_HP = 5;
 export const COIN_REWARD_MULTIPLIER = 1;
@@ -52,7 +54,7 @@ export function selectEnemyVariant(
   variantRoll: number,
 ): EnemyVariant | null {
   const eligible = level >= 20 &&
-    !["boss", "overlord", "titan", "laserdevice", "emeraldtiefighter"].includes(enemyType);
+    !["boss", "overlord", "titan", "laserdevice", "emeraldtiefighter", "biome"].includes(enemyType);
   if (!eligible) return null;
   if (specialistRoll < .16) {
     return variantRoll < .36 ? "healer" : variantRoll < .7 ? "shield" : "kamikaze";
@@ -328,21 +330,22 @@ export function getNormalBossDamage(damage: number, level: number): number {
 }
 
 export function shouldUseSpaceBackground(level: number): boolean {
-  return level >= SPACE_BACKGROUND_LEVEL;
+  return getBiomeForLevel(level).id === "space";
 }
 
 export function shouldUseAboveCloudsBackground(level: number): boolean {
-  return level >= ABOVE_CLOUDS_BACKGROUND_LEVEL && level < SPACE_BACKGROUND_LEVEL;
+  return ["arctic", "storm"].includes(getBiomeForLevel(level).id);
 }
 
 export function shouldUseCityBackground(level: number): boolean {
-  return level <= CITY_BACKGROUND_MAX_LEVEL;
+  return getBiomeForLevel(level).id === "city";
 }
 
 export function getBackgroundMusicTheme(level: number): BackgroundMusicTheme {
-  if (shouldUseSpaceBackground(level)) return "space";
-  if (shouldUseAboveCloudsBackground(level)) return "clouds";
-  if (shouldUseCityBackground(level)) return "city";
+  const biome = getBiomeForLevel(level).id;
+  if (biome === "city") return "city";
+  if (biome === "space" || biome === "volcano") return "space";
+  if (["ocean", "arctic", "jungle", "storm"].includes(biome)) return "clouds";
   return "sky";
 }
 
