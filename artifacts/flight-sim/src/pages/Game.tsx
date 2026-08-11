@@ -4060,7 +4060,7 @@ export default function Game() {
       angle: 0,
       oscillate: 0,
       bossAge: type === "boss" ? 0 : undefined,
-      missileTimer: titan ? 180 : undefined,
+      missileTimer: titan ? 360 : undefined,
       specialAttackTimer: titan || overlord ? 150 : undefined,
       titanShieldCooldown: titan ? TITAN_SHIELD_COOLDOWN : undefined,
       titanShieldTimer: titan ? 0 : undefined,
@@ -5259,7 +5259,7 @@ export default function Game() {
           color: "#ff3fd2",
           angle: 0,
           oscillate: 0,
-          missileTimer: 180,
+          missileTimer: 360,
           specialAttackTimer: 150,
           titanShieldCooldown: TITAN_SHIELD_COOLDOWN,
           titanShieldTimer: 0,
@@ -5867,11 +5867,11 @@ export default function Game() {
             : (phase === 3 ? "#ff3300" : phase === 2 ? "#ff00aa" : e.color);
           if (phase >= 2) e.vy += Math.sin(timeRef.current * .055) * (phase === 3 ? 1.7 : .9);
 
-          // Homing missile every 4 s (level 10+)
+          // Homing missile every 8 s (level 10+)
           if (gs.level >= 10) {
-            e.missileTimer = (e.missileTimer ?? 240) - dtScale;
+            e.missileTimer = (e.missileTimer ?? 480) - dtScale;
             if (e.missileTimer <= 0) {
-              e.missileTimer = 240;
+              e.missileTimer = 480;
               bulletsRef.current.push({
                 x: e.x, y: e.y + e.height / 2,
                 vx: -4, vy: 0,
