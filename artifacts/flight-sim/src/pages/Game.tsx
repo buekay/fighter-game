@@ -2027,6 +2027,11 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       const overlordPulse = .72 + Math.sin(now * .008) * .28;
       const overlordPhase = getBossPhase(e.hp, e.maxHp);
       const accent = overlordPhase === 3 ? "#ffffff" : overlordPhase === 2 ? "#6fe9ff" : "#ff4fc8";
+      const overlordSpectrum = ctx.createLinearGradient(-67, -50, 60, 50);
+      overlordSpectrum.addColorStop(0, "#22d3ee");
+      overlordSpectrum.addColorStop(.35, "#8b5cf6");
+      overlordSpectrum.addColorStop(.68, "#ff4fc8");
+      overlordSpectrum.addColorStop(1, "#fbbf24");
       ctx.shadowColor = accent;
       ctx.shadowBlur = 16 + overlordPulse * 14;
 
@@ -2040,45 +2045,51 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       hull.addColorStop(0, "#020611"); hull.addColorStop(.32, "#182b45");
       hull.addColorStop(.58, "#0b1428"); hull.addColorStop(1, "#17051c");
       ctx.fillStyle = hull; ctx.fill();
-      ctx.strokeStyle = accent; ctx.lineWidth = 3; ctx.stroke();
+      ctx.strokeStyle = overlordSpectrum; ctx.lineWidth = 3; ctx.stroke();
 
       // Mirrored armor plates add depth and make the split wings readable.
       [-1, 1].forEach(side => {
+        const wingAccent = side < 0 ? "#35e7ff" : "#ff4fc8";
         const plate = ctx.createLinearGradient(-45, side * 48, 25, side * 12);
-        plate.addColorStop(0, "#263e5d"); plate.addColorStop(.55, "#10192d"); plate.addColorStop(1, accent + "44");
+        plate.addColorStop(0, side < 0 ? "#174e68" : "#5d174f");
+        plate.addColorStop(.5, "#15142d"); plate.addColorStop(1, wingAccent + "66");
         ctx.beginPath();
         ctx.moveTo(29, side * 11); ctx.lineTo(4, side * 26); ctx.lineTo(-10, side * 45);
         ctx.lineTo(-43, side * 49); ctx.lineTo(-30, side * 27); ctx.lineTo(-8, side * 17); ctx.closePath();
         ctx.fillStyle = plate; ctx.fill(); ctx.strokeStyle = "#a9eaff88"; ctx.lineWidth = 1.2; ctx.stroke();
         ctx.beginPath(); ctx.moveTo(-35, side * 43); ctx.lineTo(-4, side * 33); ctx.lineTo(24, side * 13);
-        ctx.strokeStyle = accent + "bb"; ctx.lineWidth = 1.6; ctx.stroke();
+        ctx.strokeStyle = wingAccent; ctx.lineWidth = 1.6; ctx.stroke();
 
         // Heavy outer cannons sit in armored pods instead of floating dots.
         ctx.beginPath(); ctx.roundRect(27, side * 24 - 6, 26, 12, 5);
-        ctx.fillStyle = "#07101e"; ctx.fill(); ctx.strokeStyle = "#7eeaff"; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.fillStyle = "#dffcff"; ctx.fillRect(48, side * 24 - 2, 12, 4);
+        ctx.fillStyle = side < 0 ? "#062a38" : "#300923"; ctx.fill();
+        ctx.strokeStyle = wingAccent; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = side < 0 ? "#b9f8ff" : "#ffd0f1"; ctx.fillRect(48, side * 24 - 2, 12, 4);
       });
 
       // Raised command spine and layered reactor rings.
       ctx.beginPath(); ctx.moveTo(-47, 0); ctx.lineTo(-12, -15); ctx.lineTo(38, -9);
       ctx.lineTo(55, 0); ctx.lineTo(38, 9); ctx.lineTo(-12, 15); ctx.closePath();
       const spine = ctx.createLinearGradient(-45, 0, 55, 0);
-      spine.addColorStop(0, "#050913"); spine.addColorStop(.55, "#253650"); spine.addColorStop(1, "#080713");
+      spine.addColorStop(0, "#12052c"); spine.addColorStop(.36, "#263f64");
+      spine.addColorStop(.7, "#512050"); spine.addColorStop(1, "#2c1905");
       ctx.fillStyle = spine; ctx.fill(); ctx.strokeStyle = "#d8f7ff99"; ctx.lineWidth = 1.4; ctx.stroke();
       ctx.shadowBlur = 22;
       ctx.beginPath(); ctx.arc(12, 0, 17, 0, Math.PI * 2); ctx.fillStyle = "#040711"; ctx.fill();
       ctx.strokeStyle = accent; ctx.lineWidth = 4; ctx.stroke();
       ctx.beginPath(); ctx.arc(12, 0, 10 + overlordPulse * 2.5, 0, Math.PI * 2);
       const reactor = ctx.createRadialGradient(9, -3, 1, 12, 0, 12);
-      reactor.addColorStop(0, "#ffffff"); reactor.addColorStop(.32, accent); reactor.addColorStop(1, accent + "11");
+      reactor.addColorStop(0, "#ffffff"); reactor.addColorStop(.2, "#fef08a");
+      reactor.addColorStop(.48, "#ff4fc8"); reactor.addColorStop(.74, "#8b5cf6"); reactor.addColorStop(1, "#22d3ee11");
       ctx.fillStyle = reactor; ctx.fill();
-      ctx.beginPath(); ctx.arc(50, 0, 5, 0, Math.PI * 2); ctx.fillStyle = "#ffffff"; ctx.fill();
+      ctx.beginPath(); ctx.arc(50, 0, 5, 0, Math.PI * 2); ctx.fillStyle = "#fbbf24"; ctx.fill();
 
       ctx.shadowBlur = 0;
       const barW = 112, barH = 7;
       ctx.fillStyle = "#170d20"; ctx.fillRect(-barW / 2, -e.height / 2 - 17, barW, barH);
       const hpGradient = ctx.createLinearGradient(-barW / 2, 0, barW / 2, 0);
-      hpGradient.addColorStop(0, "#6fe9ff"); hpGradient.addColorStop(1, accent);
+      hpGradient.addColorStop(0, "#22d3ee"); hpGradient.addColorStop(.45, "#8b5cf6");
+      hpGradient.addColorStop(.75, "#ff4fc8"); hpGradient.addColorStop(1, "#fbbf24");
       ctx.fillStyle = hpGradient; ctx.fillRect(-barW / 2, -e.height / 2 - 17, barW * (e.hp / e.maxHp), barH);
       ctx.strokeStyle = "#ffffff88"; ctx.lineWidth = 1; ctx.strokeRect(-barW / 2, -e.height / 2 - 17, barW, barH);
       break;
@@ -2087,6 +2098,13 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       const phase = e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1;
       const titanPulse = .65 + Math.sin(now * .012) * .35;
       const phaseColor = phase === 3 ? "#fff36a" : phase === 2 ? "#45f6ff" : "#ff3fd2";
+      const titanSecondary = phase === 3 ? "#ff6b35" : phase === 2 ? "#ff4fd8" : "#45f6ff";
+      const titanTertiary = phase === 3 ? "#e879f9" : phase === 2 ? "#fbbf24" : "#8b5cf6";
+      const titanSpectrum = ctx.createLinearGradient(-76, -70, 78, 65);
+      titanSpectrum.addColorStop(0, titanSecondary);
+      titanSpectrum.addColorStop(.42, titanTertiary);
+      titanSpectrum.addColorStop(.72, phaseColor);
+      titanSpectrum.addColorStop(1, "#fbbf24");
       ctx.shadowColor = phaseColor; ctx.shadowBlur = 24 + titanPulse * 22;
 
       // Crown-like dreadnought silhouette, wider and more imposing than the Overlord.
@@ -2096,45 +2114,49 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       ctx.lineTo(-76, 28); ctx.lineTo(-35, 42); ctx.lineTo(-42, 76); ctx.lineTo(7, 58);
       ctx.lineTo(22, 31); ctx.lineTo(46, 15); ctx.closePath();
       const titanHull = ctx.createLinearGradient(-75, -65, 75, 55);
-      titanHull.addColorStop(0, phase === 1 ? "#190622" : "#071b2b");
-      titanHull.addColorStop(.42, phase === 3 ? "#573b00" : "#311449");
-      titanHull.addColorStop(.72, "#11152b");
+      titanHull.addColorStop(0, phase === 1 ? "#24105c" : "#06475b");
+      titanHull.addColorStop(.3, phase === 3 ? "#7c2d12" : "#5b195f");
+      titanHull.addColorStop(.57, phase === 3 ? "#6b5100" : "#162e58");
+      titanHull.addColorStop(.78, "#32104b");
       titanHull.addColorStop(1, "#03040d");
-      ctx.fillStyle = titanHull; ctx.fill(); ctx.strokeStyle = phaseColor; ctx.lineWidth = 4; ctx.stroke();
+      ctx.fillStyle = titanHull; ctx.fill(); ctx.strokeStyle = titanSpectrum; ctx.lineWidth = 4; ctx.stroke();
 
       // Layered mirrored plates, crown blades and energy veins change with phase.
       [-1, 1].forEach(side => {
+        const plateAccent = side < 0 ? titanSecondary : titanTertiary;
         ctx.beginPath();
         ctx.moveTo(37, side * 16); ctx.lineTo(9, side * 34); ctx.lineTo(-4, side * 57);
         ctx.lineTo(-38, side * 68); ctx.lineTo(-27, side * 39); ctx.lineTo(1, side * 25); ctx.closePath();
         const armor = ctx.createLinearGradient(-38, side * 66, 37, side * 16);
-        armor.addColorStop(0, phase === 3 ? "#765300" : "#273b58");
-        armor.addColorStop(.5, "#111426"); armor.addColorStop(1, phaseColor + "55");
+        armor.addColorStop(0, side < 0 ? titanSecondary + "99" : titanTertiary + "99");
+        armor.addColorStop(.5, "#111426"); armor.addColorStop(1, phaseColor + "66");
         ctx.fillStyle = armor; ctx.fill(); ctx.strokeStyle = "#ffffff99"; ctx.lineWidth = 1.4; ctx.stroke();
         ctx.beginPath(); ctx.moveTo(-31, side * 61); ctx.lineTo(-1, side * 43); ctx.lineTo(31, side * 18);
-        ctx.strokeStyle = phaseColor; ctx.lineWidth = phase >= 2 ? 2.4 : 1.5; ctx.stroke();
+        ctx.strokeStyle = plateAccent; ctx.lineWidth = phase >= 2 ? 2.4 : 1.5; ctx.stroke();
         ctx.beginPath(); ctx.moveTo(-35, side * 69); ctx.lineTo(-17, side * (phase === 3 ? 89 : 82));
-        ctx.lineTo(3, side * 58); ctx.closePath(); ctx.fillStyle = phaseColor + "38"; ctx.fill();
-        ctx.strokeStyle = phaseColor; ctx.lineWidth = 2; ctx.stroke();
+        ctx.lineTo(3, side * 58); ctx.closePath(); ctx.fillStyle = plateAccent + "44"; ctx.fill();
+        ctx.strokeStyle = plateAccent; ctx.lineWidth = 2; ctx.stroke();
       });
 
       // Central armor spine and a multi-ring reactor give the ship a focal point.
       ctx.beginPath(); ctx.moveTo(-56, 0); ctx.lineTo(-15, -20); ctx.lineTo(53, -13);
       ctx.lineTo(73, 0); ctx.lineTo(53, 13); ctx.lineTo(-15, 20); ctx.closePath();
-      ctx.fillStyle = "#080914"; ctx.fill(); ctx.strokeStyle = phaseColor + "cc"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = "#110a25"; ctx.fill(); ctx.strokeStyle = titanSpectrum; ctx.lineWidth = 2; ctx.stroke();
       ctx.beginPath(); ctx.arc(18, 0, 25, 0, Math.PI * 2); ctx.fillStyle = "#05050d"; ctx.fill();
       ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.stroke();
       ctx.beginPath(); ctx.arc(18, 0, 18, 0, Math.PI * 2); ctx.strokeStyle = phaseColor; ctx.lineWidth = 5; ctx.stroke();
       ctx.beginPath(); ctx.arc(18, 0, 9 + titanPulse * 4, 0, Math.PI * 2);
       const titanCore = ctx.createRadialGradient(15, -3, 1, 18, 0, 14);
-      titanCore.addColorStop(0, "#ffffff"); titanCore.addColorStop(.3, phaseColor); titanCore.addColorStop(1, phaseColor + "11");
+      titanCore.addColorStop(0, "#ffffff"); titanCore.addColorStop(.22, "#fef08a");
+      titanCore.addColorStop(.45, phaseColor); titanCore.addColorStop(.7, titanSecondary); titanCore.addColorStop(1, titanTertiary + "11");
       ctx.fillStyle = titanCore; ctx.fill();
 
       // Six visible gun housings with protruding barrels.
-      [-31, -19, -7, 7, 19, 31].forEach(offset => {
+      [-31, -19, -7, 7, 19, 31].forEach((offset, index) => {
+        const cannonColor = ["#45f6ff", "#8b5cf6", "#ff4fd8", "#fbbf24", "#ff6b35", phaseColor][index];
         ctx.beginPath(); ctx.roundRect(47, offset - 4, 20, 8, 3);
-        ctx.fillStyle = "#070a13"; ctx.fill(); ctx.strokeStyle = phaseColor; ctx.lineWidth = 1.2; ctx.stroke();
-        ctx.fillStyle = "#ffffff"; ctx.fillRect(64, offset - 1.5, 13, 3);
+        ctx.fillStyle = cannonColor + "33"; ctx.fill(); ctx.strokeStyle = cannonColor; ctx.lineWidth = 1.2; ctx.stroke();
+        ctx.fillStyle = cannonColor; ctx.fillRect(64, offset - 1.5, 13, 3);
       });
 
       if ((e.titanShieldTimer ?? 0) > 0) {
@@ -2146,12 +2168,15 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
         }
         ctx.closePath();
         ctx.fillStyle = `rgba(255,35,190,${.10 + titanPulse * .1})`; ctx.fill();
-        ctx.strokeStyle = "#ff6bda"; ctx.lineWidth = 4; ctx.stroke();
+        ctx.strokeStyle = titanSpectrum; ctx.lineWidth = 4; ctx.stroke();
         ctx.setLineDash([7, 7]); ctx.strokeStyle = "#ffffffaa"; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
       }
       const barW = 146, barH = 9;
       ctx.shadowBlur = 0; ctx.fillStyle = "#160718"; ctx.fillRect(-barW / 2, -e.height / 2 - 20, barW, barH);
-      ctx.fillStyle = phaseColor; ctx.fillRect(-barW / 2, -e.height / 2 - 20, barW * (e.hp / e.maxHp), barH);
+      const titanHpGradient = ctx.createLinearGradient(-barW / 2, 0, barW / 2, 0);
+      titanHpGradient.addColorStop(0, titanSecondary); titanHpGradient.addColorStop(.42, titanTertiary);
+      titanHpGradient.addColorStop(.72, phaseColor); titanHpGradient.addColorStop(1, "#fbbf24");
+      ctx.fillStyle = titanHpGradient; ctx.fillRect(-barW / 2, -e.height / 2 - 20, barW * (e.hp / e.maxHp), barH);
       ctx.strokeStyle = "#ffffffaa"; ctx.lineWidth = 1; ctx.strokeRect(-barW / 2, -e.height / 2 - 20, barW, barH);
       break;
     }
