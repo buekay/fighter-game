@@ -3537,7 +3537,7 @@ export default function Game() {
       text: comboRef.current >= 2 ? `${comboRef.current}× COMBO` : `+${enemy.points}`,
       color: comboRef.current >= 10 ? "#ffcc33" : "#ffffff", life: 55, maxLife: 55,
     });
-    screenShakeRef.current = Math.max(screenShakeRef.current, isBossEnemy(enemy) ? 16 : 3);
+    screenShakeRef.current = Math.max(screenShakeRef.current, isBossEnemy(enemy) ? 8 : 1.5);
     const bloodEngineActive = runUpgradesRef.current.vampiric > 0 && runUpgradesRef.current.glass_cannon > 0;
     if (runUpgradesRef.current.vampiric > 0 && runStatsRef.current.kills % (bloodEngineActive ? 10 : 15) === 0) {
       stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + runUpgradesRef.current.vampiric);
@@ -3581,7 +3581,7 @@ export default function Game() {
     comboTimerRef.current = 0;
     comboMilestoneRef.current = { combo: 0, timer: 0 };
     nearMissCooldownRef.current = 0;
-    screenShakeRef.current = Math.max(screenShakeRef.current, 10);
+    screenShakeRef.current = Math.max(screenShakeRef.current, 5);
     checkAchievements();
   }, [checkAchievements]);
 
