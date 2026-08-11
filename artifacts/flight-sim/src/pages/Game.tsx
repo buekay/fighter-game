@@ -705,12 +705,14 @@ function saveGame(
   mutatorId: MutatorDefinition["id"] = "none",
 ) {
   try {
+    const aircraftBuild = loadAircraftBuild();
+    const aircraftLevelKey = loadHybridActive() ? aircraftBuildLevelKey(aircraftBuild) : loadSkin();
     const data: SaveData = {
       score: gs.score, level: gs.level, hp: gs.hp, maxHp: gs.maxHp,
       weaponTier: gs.weaponTier, speed: gs.speed, lives: gs.lives,
       runUpgrades: { ...runUpgrades }, upgradeLevel,
-      aircraftLevel: loadAircraftLevels()[loadSkin()] ?? 1,
-      aircraftBuild: loadAircraftBuild(),
+      aircraftLevel: loadAircraftLevels()[aircraftLevelKey] ?? 1,
+      aircraftBuild,
       sectorChoiceLevels: [...sectorChoiceLevels]
         .filter(level => Number.isInteger(level) && level >= 5 && level <= MAX_LEVEL)
         .sort((a, b) => a - b),
@@ -7936,7 +7938,7 @@ function HangarOverlay({
           <div className="text-xs font-black uppercase tracking-wider" style={{ color: skin.glow }}>{skin.ultiName}</div>
         </div>
         <div className="rounded-full border border-cyan-400/40 bg-cyan-950/50 px-3 py-0.5 text-[11px] font-black tracking-wider text-cyan-300">
-          JET-LEVEL {aircraftLevels[selectedSkin] ?? 1}
+          JET-LEVEL {aircraftLevels[activeAircraftLevelKey] ?? 1}
         </div>
         {/* Colour picker dots */}
         <div className="hangar-skins flex max-w-full gap-2.5 mt-0.5 overflow-x-auto px-2 py-2">
@@ -7974,6 +7976,19 @@ function HangarOverlay({
               boxShadow: hybridActive ? "0 0 16px #67e8f9" : "none",
             }}
           >H</button>
+          {savedAircraftBuilds
+            .filter(build => aircraftBuildLevelKey(build) !== aircraftBuildLevelKey(aircraftBuild))
+            .map((build, index) => {
+              const body = JET_SKINS.find(item => item.id === build.bodySkin) ?? JET_SKINS[0];
+              const wing = JET_SKINS.find(item => item.id === build.wingSkin) ?? JET_SKINS[0];
+              return <button key={aircraftBuildLevelKey(build)} type="button" onClick={() => onSavedAircraftBuildSelect(build)}
+                aria-label={`Gespeicherten Hybrid ${body.name} und ${wing.name} auswählen`}
+                title={`${body.name} + ${wing.name} · Level ${aircraftLevels[aircraftBuildLevelKey(build)] ?? 1}`}
+                className="hangar-skin-button grid place-items-center text-[10px] font-black text-white"
+                style={{ width: 46, height: 38, minWidth: 46, borderRadius: 10, background: `linear-gradient(135deg, ${body.glow} 0 50%, ${wing.glow} 50% 100%)`, border: "2px solid #67e8f9" }}>
+                H{index + 2}
+              </button>;
+            })}
         </div>
         <div className="hangar-drone-skins flex items-center justify-center gap-2 mt-1">
           <span className="text-slate-500 text-xs">Drohne:</span>
@@ -8000,6 +8015,19 @@ function HangarOverlay({
               <CombinedDroneBuildThumbnail build={droneBuild} fallback={selectedDrone} level={combinedDroneLevel} compact className="h-full w-full" />
             </div>
           )}
+          {savedDroneBuilds
+            .filter(build => droneBuildLevelKey(build) !== droneBuildLevelKey(droneBuild))
+            .map(build => {
+              const fallback = DRONE_SKINS.find(item => item.id === build.bodySkin) ?? selectedDrone;
+              const names = [build.bodySkin, build.weaponSkin].map(id => DRONE_SKINS.find(item => item.id === id)?.name ?? fallback.name);
+              return <button key={droneBuildLevelKey(build)} type="button" onClick={() => onSavedDroneBuildSelect(build)}
+                aria-label={`Gespeicherte kombinierte Drohne ${names.join(" und ")} auswählen`}
+                title={`${names.join(" + ")} · Level ${droneLevels[droneBuildLevelKey(build)] ?? 1}`}
+                className="hangar-skin-button grid place-items-center overflow-hidden"
+                style={{ width: 58, height: 42, minWidth: 58, borderRadius: 11, background: "rgba(109,40,217,.2)", border: "2px solid #c084fc" }}>
+                <CombinedDroneBuildThumbnail build={build} fallback={fallback} level={droneLevels[droneBuildLevelKey(build)] ?? 1} compact className="h-full w-full" />
+              </button>;
+            })}
           <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2 py-0.5 text-[10px] font-black text-violet-300">LV {droneCombined ? combinedDroneLevel : (droneLevels[selectedDroneSkin] ?? 1)}</span>
         </div>
         {droneCombined && <div className="text-[10px] font-black text-fuchsia-300">KOMBINIERT · {combinedDroneNames.join(" + ")}</div>}
@@ -8214,8 +8242,8 @@ function ShopCrateVisual({ rarity, opening }: { rarity: ShopRarity; opening: boo
   );
 }
 
-function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, weaponLevels, selectedSkin, ultiLoadout, selectedDroneSkin, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onAircraftUpgrade, onDroneUpgrade, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onCrateOpen }: {
-  coins: number; gems: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[];
+function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, weaponLevels, selectedSkin, hybridActive, aircraftBuild, ultiLoadout, selectedDroneSkin, droneBuild, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onAircraftUpgrade, onDroneUpgrade, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onCrateOpen }: {
+  coins: number; gems: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; hybridActive: boolean; aircraftBuild: AircraftBuild; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; droneBuild: DroneBuild; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[];
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
   weaponLevels: Record<string, number>;
@@ -8285,11 +8313,20 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
     }, 1800));
   };
   const selectedJet = JET_SKINS.find(s => s.id === selectedSkin) ?? JET_SKINS[0];
-  const aircraftStats = getAircraftUpgradeStats(aircraftLevels[selectedSkin] ?? 1);
+  const aircraftLevelKey = hybridActive ? aircraftBuildLevelKey(aircraftBuild) : selectedSkin;
+  const aircraftName = hybridActive
+    ? `Hybrid ${JET_SKINS.find(s => s.id === aircraftBuild.bodySkin)?.name ?? selectedJet.name} + ${JET_SKINS.find(s => s.id === aircraftBuild.wingSkin)?.name ?? selectedJet.name}`
+    : selectedJet.name;
+  const aircraftStats = getAircraftUpgradeStats(aircraftLevels[aircraftLevelKey] ?? 1);
   const aircraftCreditCost = getAircraftUpgradeCost(aircraftStats.level);
   const aircraftUpgradeCost = aircraftCreditCost === null ? null : Math.ceil(aircraftCreditCost / 100);
   const selectedDrone = DRONE_SKINS.find(s => s.id === selectedDroneSkin) ?? DRONE_SKINS[0];
-  const droneLevel = droneLevels[selectedDroneSkin] ?? 1;
+  const droneCombined = isCombinedDroneBuild(droneBuild);
+  const droneLevelKey = droneCombined ? droneBuildLevelKey(droneBuild) : selectedDroneSkin;
+  const droneName = droneCombined
+    ? `Kombiniert ${DRONE_SKINS.find(s => s.id === droneBuild.bodySkin)?.name ?? selectedDrone.name} + ${DRONE_SKINS.find(s => s.id === droneBuild.weaponSkin)?.name ?? selectedDrone.name}`
+    : selectedDrone.name;
+  const droneLevel = droneLevels[droneLevelKey] ?? 1;
   const droneCreditCost = getDroneUpgradeCost(droneLevel);
   const droneUpgradeCost = droneCreditCost === null ? null : Math.ceil(droneCreditCost / 100);
   const mkUpgrades = ["drone_mk2", "drone_mk3", "drone_mk4", "drone_mk5", "drone_mk6", "drone_mk7", "drone_mk8"].filter(id => unlockedItems.includes(id)).length;
@@ -8581,13 +8618,13 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
           <div className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl" style={{ background: selectedJet.body, border: `2px solid ${selectedJet.glow}`, boxShadow: `0 0 12px ${selectedJet.glow}66` }}>✈</div>
           <div className="min-w-0 flex-1">
             <div className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-300">Flugzeug verbessern</div>
-            <div className="font-black">{selectedJet.name} · Level {aircraftStats.level}/10</div>
+            <div className="font-black">{aircraftName} · Level {aircraftStats.level}/10</div>
             <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${aircraftStats.level * 10}%`, boxShadow: "0 0 8px #22d3ee" }} /></div>
           </div>
           {aircraftUpgradeCost === null ? (
             <span className="shrink-0 rounded-lg border border-emerald-400/50 px-3 py-2 text-xs font-black text-emerald-300">MAX</span>
           ) : (
-            <button onClick={() => requestPurchase(`${selectedJet.name} auf Level ${aircraftStats.level + 1}`, aircraftUpgradeCost, onAircraftUpgrade, "gems")} disabled={gems < aircraftUpgradeCost}
+            <button onClick={() => requestPurchase(`${aircraftName} auf Level ${aircraftStats.level + 1}`, aircraftUpgradeCost, onAircraftUpgrade, "gems")} disabled={gems < aircraftUpgradeCost}
               className="shrink-0 rounded-lg px-3 py-2 text-xs font-black transition active:scale-95 disabled:opacity-40"
               style={{ background: "rgba(8,90,120,.65)", border: "1px solid #22d3ee", color: "#a5f3fc" }}>
               LEVEL {aircraftStats.level + 1}<br />💎 {aircraftUpgradeCost.toLocaleString("de-DE")}
@@ -8607,13 +8644,13 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
           <div className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl" style={{ background: selectedDrone.body, border: `2px solid ${selectedDrone.stroke}`, boxShadow: `0 0 12px ${selectedDrone.stroke}66` }}>🛸</div>
           <div className="min-w-0 flex-1">
             <div className="text-[10px] font-black uppercase tracking-[.2em] text-violet-300">Drohne verbessern</div>
-            <div className="font-black">{selectedDrone.name} · Level {droneLevel}/10</div>
+            <div className="font-black">{droneName} · Level {droneLevel}/10</div>
             <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-violet-400" style={{ width: `${droneLevel * 10}%`, boxShadow: "0 0 8px #c084fc" }} /></div>
           </div>
           {droneUpgradeCost === null ? (
             <span className="shrink-0 rounded-lg border border-emerald-400/50 px-3 py-2 text-xs font-black text-emerald-300">MAX</span>
           ) : (
-            <button onClick={() => requestPurchase(`${selectedDrone.name} auf Level ${droneLevel + 1}`, droneUpgradeCost, onDroneUpgrade, "gems")} disabled={gems < droneUpgradeCost}
+            <button onClick={() => requestPurchase(`${droneName} auf Level ${droneLevel + 1}`, droneUpgradeCost, onDroneUpgrade, "gems")} disabled={gems < droneUpgradeCost}
               className="shrink-0 rounded-lg px-3 py-2 text-xs font-black transition active:scale-95 disabled:opacity-40"
               style={{ background: "rgba(80,25,120,.65)", border: "1px solid #c084fc", color: "#e9d5ff" }}>
               LEVEL {droneLevel + 1}<br />💎 {droneUpgradeCost.toLocaleString("de-DE")}
