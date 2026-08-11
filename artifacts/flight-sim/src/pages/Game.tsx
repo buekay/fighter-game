@@ -153,6 +153,8 @@ interface Enemy {
   baseShootCooldown?: number;
   bossPhase?: 1 | 2 | 3;
   phaseTelegraphTimer?: number;
+  bossTrackedTargetY?: number;
+  bossTargetVelocityY?: number;
 }
 
 const isBossEnemy = (enemy: Enemy) => enemy.type === "boss" || enemy.type === "overlord" || enemy.type === "titan";
@@ -272,6 +274,10 @@ const PLAYER_W = 52;
 const PLAYER_H = 28;
 const BASE_BULLET_SPEED = 10;
 const ENEMY_BULLET_SPEED = 3;
+const OVERLORD_WIDTH = 162;
+const OVERLORD_HEIGHT = 122;
+const TITAN_WIDTH = 190;
+const TITAN_HEIGHT = 164;
 const BACKGROUND_TRANSITION_MS = 1100;
 const TITAN_SHIELD_COOLDOWN = 15 * 60;
 const TITAN_SHIELD_DURATION = 5 * 60;
@@ -1852,7 +1858,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
   ctx.save();
   ctx.translate(e.x + e.width / 2, e.y + e.height / 2);
   ctx.rotate(Math.PI); // facing left
-  const visualScale = e.type === "boss" ? 1.14 : isBossEnemy(e) ? 1.06 : e.type === "gunship" || e.type === "sentinel" ? 1.14 : 1.22;
+  const visualScale = e.type === "titan" ? 1.28 : e.type === "overlord" ? 1.25 : e.type === "boss" ? 1.14 : e.type === "gunship" || e.type === "sentinel" ? 1.14 : 1.22;
   ctx.scale(visualScale, visualScale);
 
   const now = performance.now();
@@ -2018,37 +2024,62 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       break;
     }
     case "overlord": {
-      const overlordPulse = 0.75 + Math.sin(now * 0.008) * 0.25;
-      ctx.shadowColor = e.color;
-      ctx.shadowBlur = 18 + overlordPulse * 12;
-      // Broad armored silhouette with split wings and a glowing reactor core.
+      const overlordPulse = .72 + Math.sin(now * .008) * .28;
+      const overlordPhase = getBossPhase(e.hp, e.maxHp);
+      const accent = overlordPhase === 3 ? "#ffffff" : overlordPhase === 2 ? "#6fe9ff" : "#ff4fc8";
+      ctx.shadowColor = accent;
+      ctx.shadowBlur = 16 + overlordPulse * 14;
+
+      // A broad, forked command-ship silhouette with a recessed armored center.
       ctx.beginPath();
-      ctx.moveTo(52, 0); ctx.lineTo(18, -18); ctx.lineTo(-8, -42); ctx.lineTo(-46, -48);
-      ctx.lineTo(-34, -20); ctx.lineTo(-58, -10); ctx.lineTo(-40, 0);
-      ctx.lineTo(-58, 10); ctx.lineTo(-34, 20); ctx.lineTo(-46, 48);
-      ctx.lineTo(-8, 42); ctx.lineTo(18, 18); ctx.closePath();
-      const hull = ctx.createLinearGradient(-58, 0, 52, 0);
-      hull.addColorStop(0, "#050914"); hull.addColorStop(.55, "#16233b"); hull.addColorStop(1, "#09030f");
+      ctx.moveTo(60, 0); ctx.lineTo(34, -13); ctx.lineTo(13, -25); ctx.lineTo(-5, -49);
+      ctx.lineTo(-49, -57); ctx.lineTo(-39, -28); ctx.lineTo(-67, -13); ctx.lineTo(-48, 0);
+      ctx.lineTo(-67, 13); ctx.lineTo(-39, 28); ctx.lineTo(-49, 57); ctx.lineTo(-5, 49);
+      ctx.lineTo(13, 25); ctx.lineTo(34, 13); ctx.closePath();
+      const hull = ctx.createLinearGradient(-65, -48, 58, 36);
+      hull.addColorStop(0, "#020611"); hull.addColorStop(.32, "#182b45");
+      hull.addColorStop(.58, "#0b1428"); hull.addColorStop(1, "#17051c");
       ctx.fillStyle = hull; ctx.fill();
-      ctx.strokeStyle = e.color; ctx.lineWidth = 3; ctx.stroke();
-      ctx.shadowBlur = 8;
-      ctx.strokeStyle = "#7eeaff"; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(29, 0); ctx.lineTo(-22, -31); ctx.lineTo(-43, -35); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(29, 0); ctx.lineTo(-22, 31); ctx.lineTo(-43, 35); ctx.stroke();
-      ctx.beginPath(); ctx.arc(10, 0, 14, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,70,190,${.55 + overlordPulse * .35})`; ctx.fill();
-      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.stroke();
-      ctx.beginPath(); ctx.arc(10, 0, 6 + overlordPulse * 2, 0, Math.PI * 2);
-      ctx.fillStyle = "#ffffff"; ctx.fill();
-      // Three forward weapon ports telegraph its spread and special attack.
-      [-18, 0, 18].forEach(offset => {
-        ctx.beginPath(); ctx.arc(34, offset, 4, 0, Math.PI * 2);
-        ctx.fillStyle = offset === 0 ? "#ff4fc8" : "#6fe9ff"; ctx.fill();
+      ctx.strokeStyle = accent; ctx.lineWidth = 3; ctx.stroke();
+
+      // Mirrored armor plates add depth and make the split wings readable.
+      [-1, 1].forEach(side => {
+        const plate = ctx.createLinearGradient(-45, side * 48, 25, side * 12);
+        plate.addColorStop(0, "#263e5d"); plate.addColorStop(.55, "#10192d"); plate.addColorStop(1, accent + "44");
+        ctx.beginPath();
+        ctx.moveTo(29, side * 11); ctx.lineTo(4, side * 26); ctx.lineTo(-10, side * 45);
+        ctx.lineTo(-43, side * 49); ctx.lineTo(-30, side * 27); ctx.lineTo(-8, side * 17); ctx.closePath();
+        ctx.fillStyle = plate; ctx.fill(); ctx.strokeStyle = "#a9eaff88"; ctx.lineWidth = 1.2; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-35, side * 43); ctx.lineTo(-4, side * 33); ctx.lineTo(24, side * 13);
+        ctx.strokeStyle = accent + "bb"; ctx.lineWidth = 1.6; ctx.stroke();
+
+        // Heavy outer cannons sit in armored pods instead of floating dots.
+        ctx.beginPath(); ctx.roundRect(27, side * 24 - 6, 26, 12, 5);
+        ctx.fillStyle = "#07101e"; ctx.fill(); ctx.strokeStyle = "#7eeaff"; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = "#dffcff"; ctx.fillRect(48, side * 24 - 2, 12, 4);
       });
+
+      // Raised command spine and layered reactor rings.
+      ctx.beginPath(); ctx.moveTo(-47, 0); ctx.lineTo(-12, -15); ctx.lineTo(38, -9);
+      ctx.lineTo(55, 0); ctx.lineTo(38, 9); ctx.lineTo(-12, 15); ctx.closePath();
+      const spine = ctx.createLinearGradient(-45, 0, 55, 0);
+      spine.addColorStop(0, "#050913"); spine.addColorStop(.55, "#253650"); spine.addColorStop(1, "#080713");
+      ctx.fillStyle = spine; ctx.fill(); ctx.strokeStyle = "#d8f7ff99"; ctx.lineWidth = 1.4; ctx.stroke();
+      ctx.shadowBlur = 22;
+      ctx.beginPath(); ctx.arc(12, 0, 17, 0, Math.PI * 2); ctx.fillStyle = "#040711"; ctx.fill();
+      ctx.strokeStyle = accent; ctx.lineWidth = 4; ctx.stroke();
+      ctx.beginPath(); ctx.arc(12, 0, 10 + overlordPulse * 2.5, 0, Math.PI * 2);
+      const reactor = ctx.createRadialGradient(9, -3, 1, 12, 0, 12);
+      reactor.addColorStop(0, "#ffffff"); reactor.addColorStop(.32, accent); reactor.addColorStop(1, accent + "11");
+      ctx.fillStyle = reactor; ctx.fill();
+      ctx.beginPath(); ctx.arc(50, 0, 5, 0, Math.PI * 2); ctx.fillStyle = "#ffffff"; ctx.fill();
+
       ctx.shadowBlur = 0;
-      const barW = 92, barH = 7;
+      const barW = 112, barH = 7;
       ctx.fillStyle = "#170d20"; ctx.fillRect(-barW / 2, -e.height / 2 - 17, barW, barH);
-      ctx.fillStyle = e.color; ctx.fillRect(-barW / 2, -e.height / 2 - 17, barW * (e.hp / e.maxHp), barH);
+      const hpGradient = ctx.createLinearGradient(-barW / 2, 0, barW / 2, 0);
+      hpGradient.addColorStop(0, "#6fe9ff"); hpGradient.addColorStop(1, accent);
+      ctx.fillStyle = hpGradient; ctx.fillRect(-barW / 2, -e.height / 2 - 17, barW * (e.hp / e.maxHp), barH);
       ctx.strokeStyle = "#ffffff88"; ctx.lineWidth = 1; ctx.strokeRect(-barW / 2, -e.height / 2 - 17, barW, barH);
       break;
     }
@@ -2056,37 +2087,69 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
       const phase = e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1;
       const titanPulse = .65 + Math.sin(now * .012) * .35;
       const phaseColor = phase === 3 ? "#fff36a" : phase === 2 ? "#45f6ff" : "#ff3fd2";
-      ctx.shadowColor = phaseColor; ctx.shadowBlur = 26 + titanPulse * 20;
-      // Crown-like outer wings become more elaborate in every damage phase.
+      ctx.shadowColor = phaseColor; ctx.shadowBlur = 24 + titanPulse * 22;
+
+      // Crown-like dreadnought silhouette, wider and more imposing than the Overlord.
       ctx.beginPath();
-      ctx.moveTo(68, 0); ctx.lineTo(27, -20); ctx.lineTo(5, -48); ctx.lineTo(-40, -63);
-      ctx.lineTo(-32, -31); ctx.lineTo(-68, -18); ctx.lineTo(-49, 0);
-      ctx.lineTo(-68, 18); ctx.lineTo(-32, 31); ctx.lineTo(-40, 63);
-      ctx.lineTo(5, 48); ctx.lineTo(27, 20); ctx.closePath();
-      const titanHull = ctx.createLinearGradient(-70, -55, 68, 50);
+      ctx.moveTo(78, 0); ctx.lineTo(46, -15); ctx.lineTo(22, -31); ctx.lineTo(7, -58);
+      ctx.lineTo(-42, -76); ctx.lineTo(-35, -42); ctx.lineTo(-76, -28); ctx.lineTo(-55, 0);
+      ctx.lineTo(-76, 28); ctx.lineTo(-35, 42); ctx.lineTo(-42, 76); ctx.lineTo(7, 58);
+      ctx.lineTo(22, 31); ctx.lineTo(46, 15); ctx.closePath();
+      const titanHull = ctx.createLinearGradient(-75, -65, 75, 55);
       titanHull.addColorStop(0, phase === 1 ? "#190622" : "#071b2b");
-      titanHull.addColorStop(.5, phase === 3 ? "#573b00" : "#26103d");
+      titanHull.addColorStop(.42, phase === 3 ? "#573b00" : "#311449");
+      titanHull.addColorStop(.72, "#11152b");
       titanHull.addColorStop(1, "#03040d");
       ctx.fillStyle = titanHull; ctx.fill(); ctx.strokeStyle = phaseColor; ctx.lineWidth = 4; ctx.stroke();
-      if (phase >= 2) {
-        [-1, 1].forEach(side => {
-          ctx.beginPath(); ctx.moveTo(-15, side * 38); ctx.lineTo(-55, side * (phase === 3 ? 78 : 70)); ctx.lineTo(12, side * 51); ctx.closePath();
-          ctx.fillStyle = phase === 3 ? "#ffb00044" : "#00ddff33"; ctx.fill(); ctx.strokeStyle = phaseColor; ctx.lineWidth = 2; ctx.stroke();
-        });
-      }
-      // Armored reactor, crown prongs and six weapon ports.
-      ctx.beginPath(); ctx.arc(15, 0, 21, 0, Math.PI * 2); ctx.fillStyle = "#090914"; ctx.fill(); ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.stroke();
-      ctx.beginPath(); ctx.arc(15, 0, 10 + titanPulse * 4, 0, Math.PI * 2); ctx.fillStyle = phaseColor; ctx.fill();
-      [-27, -16, -5, 5, 16, 27].forEach(offset => { ctx.beginPath(); ctx.arc(48, offset, 4, 0, Math.PI * 2); ctx.fillStyle = offset % 2 ? "#fff" : phaseColor; ctx.fill(); });
-      if (phase === 3) {
-        [-1, 1].forEach(side => { ctx.beginPath(); ctx.moveTo(-12, side * 47); ctx.lineTo(20, side * 72); ctx.lineTo(32, side * 35); ctx.closePath(); ctx.fillStyle = "#ffe34a55"; ctx.fill(); ctx.stroke(); });
-      }
+
+      // Layered mirrored plates, crown blades and energy veins change with phase.
+      [-1, 1].forEach(side => {
+        ctx.beginPath();
+        ctx.moveTo(37, side * 16); ctx.lineTo(9, side * 34); ctx.lineTo(-4, side * 57);
+        ctx.lineTo(-38, side * 68); ctx.lineTo(-27, side * 39); ctx.lineTo(1, side * 25); ctx.closePath();
+        const armor = ctx.createLinearGradient(-38, side * 66, 37, side * 16);
+        armor.addColorStop(0, phase === 3 ? "#765300" : "#273b58");
+        armor.addColorStop(.5, "#111426"); armor.addColorStop(1, phaseColor + "55");
+        ctx.fillStyle = armor; ctx.fill(); ctx.strokeStyle = "#ffffff99"; ctx.lineWidth = 1.4; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-31, side * 61); ctx.lineTo(-1, side * 43); ctx.lineTo(31, side * 18);
+        ctx.strokeStyle = phaseColor; ctx.lineWidth = phase >= 2 ? 2.4 : 1.5; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-35, side * 69); ctx.lineTo(-17, side * (phase === 3 ? 89 : 82));
+        ctx.lineTo(3, side * 58); ctx.closePath(); ctx.fillStyle = phaseColor + "38"; ctx.fill();
+        ctx.strokeStyle = phaseColor; ctx.lineWidth = 2; ctx.stroke();
+      });
+
+      // Central armor spine and a multi-ring reactor give the ship a focal point.
+      ctx.beginPath(); ctx.moveTo(-56, 0); ctx.lineTo(-15, -20); ctx.lineTo(53, -13);
+      ctx.lineTo(73, 0); ctx.lineTo(53, 13); ctx.lineTo(-15, 20); ctx.closePath();
+      ctx.fillStyle = "#080914"; ctx.fill(); ctx.strokeStyle = phaseColor + "cc"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(18, 0, 25, 0, Math.PI * 2); ctx.fillStyle = "#05050d"; ctx.fill();
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.stroke();
+      ctx.beginPath(); ctx.arc(18, 0, 18, 0, Math.PI * 2); ctx.strokeStyle = phaseColor; ctx.lineWidth = 5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(18, 0, 9 + titanPulse * 4, 0, Math.PI * 2);
+      const titanCore = ctx.createRadialGradient(15, -3, 1, 18, 0, 14);
+      titanCore.addColorStop(0, "#ffffff"); titanCore.addColorStop(.3, phaseColor); titanCore.addColorStop(1, phaseColor + "11");
+      ctx.fillStyle = titanCore; ctx.fill();
+
+      // Six visible gun housings with protruding barrels.
+      [-31, -19, -7, 7, 19, 31].forEach(offset => {
+        ctx.beginPath(); ctx.roundRect(47, offset - 4, 20, 8, 3);
+        ctx.fillStyle = "#070a13"; ctx.fill(); ctx.strokeStyle = phaseColor; ctx.lineWidth = 1.2; ctx.stroke();
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(64, offset - 1.5, 13, 3);
+      });
+
       if ((e.titanShieldTimer ?? 0) > 0) {
-        ctx.beginPath(); ctx.ellipse(0, 0, 84, 75, 0, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,35,190,${.12 + titanPulse * .12})`; ctx.fill();
-        ctx.strokeStyle = "#ff23be"; ctx.lineWidth = 5; ctx.stroke();
+        ctx.beginPath();
+        for (let side = 0; side < 6; side++) {
+          const angle = Math.PI / 3 * side;
+          const x = Math.cos(angle) * 92, y = Math.sin(angle) * 84;
+          if (side === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = `rgba(255,35,190,${.10 + titanPulse * .1})`; ctx.fill();
+        ctx.strokeStyle = "#ff6bda"; ctx.lineWidth = 4; ctx.stroke();
+        ctx.setLineDash([7, 7]); ctx.strokeStyle = "#ffffffaa"; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
       }
-      const barW = 130, barH = 9;
+      const barW = 146, barH = 9;
       ctx.shadowBlur = 0; ctx.fillStyle = "#160718"; ctx.fillRect(-barW / 2, -e.height / 2 - 20, barW, barH);
       ctx.fillStyle = phaseColor; ctx.fillRect(-barW / 2, -e.height / 2 - 20, barW * (e.hp / e.maxHp), barH);
       ctx.strokeStyle = "#ffffffaa"; ctx.lineWidth = 1; ctx.strokeRect(-barW / 2, -e.height / 2 - 20, barW, barH);
@@ -2879,6 +2942,11 @@ export default function Game() {
     settingsRef.current = next;
     setSettings(next);
     saveSettings(next);
+    if (next.flightDirection !== previous.flightDirection) {
+      backgroundTransitionRef.current = null;
+      joystickRef.current.active = false;
+      touchFireRef.current.active = false;
+    }
     // Range input events are trusted gestures, so they are also a reliable way
     // to unlock Web Audio and give immediate feedback for both volume controls.
     if (next.musicVolume !== previous.musicVolume && next.musicVolume > 0) {
@@ -3398,8 +3466,8 @@ export default function Game() {
     const overlord = !titan && power % 3 === 0;
     const type: Enemy["type"] = titan ? "titan" : overlord ? "overlord" : "boss";
     const hp = increasedBossHealth((titan ? 520 : overlord ? 240 : 100) + power * (titan ? 70 : 32));
-    const width = titan ? 158 : overlord ? 138 : 112;
-    const height = titan ? 136 : overlord ? 104 : 86;
+    const width = titan ? TITAN_WIDTH : overlord ? OVERLORD_WIDTH : 112;
+    const height = titan ? TITAN_HEIGHT : overlord ? OVERLORD_HEIGHT : 86;
     if (titan) titanWarningRef.current = 180;
     enemiesRef.current.push({
       x: CANVAS_W + 24,
@@ -4598,7 +4666,7 @@ export default function Game() {
           shouldUseSpaceBackground(nextLevel) !== shouldUseSpaceBackground(gs.level) ||
           shouldUseAboveCloudsBackground(nextLevel) !== shouldUseAboveCloudsBackground(gs.level) ||
           shouldUseCityBackground(nextLevel) !== shouldUseCityBackground(gs.level);
-        if (backgroundChanges && !settingsRef.current.reducedMotion) {
+        if (backgroundChanges && !settingsRef.current.reducedMotion && !upwardFlight) {
           const snapshot = document.createElement("canvas");
           snapshot.width = CANVAS_W;
           snapshot.height = CANVAS_H;
@@ -4650,10 +4718,10 @@ export default function Game() {
         titanWarningRef.current = 180;
         enemiesRef.current.push({
           x: CANVAS_W + 25,
-          y: CANVAS_H / 2 - 68,
+          y: CANVAS_H / 2 - TITAN_HEIGHT / 2,
           vx: -.55, vy: 0,
           hp: titanHp, maxHp: titanHp,
-          width: 158, height: 136,
+          width: TITAN_WIDTH, height: TITAN_HEIGHT,
           type: "titan",
           shootCooldown: 14,
           points: 5000 + gs.level * 250,
@@ -5019,7 +5087,7 @@ export default function Game() {
             const centerY = e.y + e.height / 2;
             const bonusHp = Math.round(e.maxHp * .5);
             e.type = "overlord";
-            e.width = 138; e.height = 104;
+            e.width = OVERLORD_WIDTH; e.height = OVERLORD_HEIGHT;
             e.x = centerX - e.width / 2; e.y = centerY - e.height / 2;
             e.maxHp += bonusHp; e.hp += bonusHp;
             e.points *= 2;
@@ -5190,8 +5258,40 @@ export default function Game() {
             }
           }
 
-          // Vertical dodge every 4 s (level 10+)
-          if (gs.level >= 10) {
+          // Titan and Overlord track the target, estimate its vertical movement and
+          // evade player projectiles that are on course to intersect their hull.
+          const isAdvancedBoss = e.type === "overlord" || e.type === "titan";
+          if (isAdvancedBoss && (e.titanDashTimer ?? 0) <= 0) {
+            const attackTarget = getEnemyAttackTarget(
+              activeModeRef.current,
+              { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+              { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
+            );
+            const previousTargetY = e.bossTrackedTargetY ?? attackTarget.y;
+            const measuredVelocity = (attackTarget.y - previousTargetY) / Math.max(dtScale, .25);
+            e.bossTargetVelocityY = (e.bossTargetVelocityY ?? 0) * .78 + measuredVelocity * .22;
+            e.bossTrackedTargetY = attackTarget.y;
+
+            const centerY = e.y + e.height / 2;
+            const phaseSpeed = getBossPhase(e.hp, e.maxHp) === 3 ? 4.2 : e.type === "titan" ? 3.3 : 3.7;
+            let desiredVy = clamp((attackTarget.y - centerY) * .045, -phaseSpeed, phaseSpeed);
+            const incomingThreat = bulletsRef.current
+              .filter(bullet => bullet.fromPlayer && bullet.vx > .5 && bullet.x < e.x + e.width / 2)
+              .map(bullet => {
+                const framesToBoss = (e.x - bullet.x) / bullet.vx;
+                return { bullet, framesToBoss, predictedY: bullet.y + bullet.vy * framesToBoss };
+              })
+              .filter(threat => threat.framesToBoss > 0 && threat.framesToBoss < 42 &&
+                Math.abs(threat.predictedY - centerY) < e.height / 2 + 22)
+              .sort((a, b) => a.framesToBoss - b.framesToBoss)[0];
+            if (incomingThreat) {
+              desiredVy = incomingThreat.predictedY >= centerY ? -phaseSpeed : phaseSpeed;
+              if (centerY < e.height * .62) desiredVy = phaseSpeed;
+              if (centerY > CANVAS_H - e.height * .62) desiredVy = -phaseSpeed;
+            }
+            e.vy += (desiredVy - e.vy) * Math.min(1, .2 * dtScale);
+          // Other bosses retain their less sophisticated periodic dodge.
+          } else if (gs.level >= 10 && !isAdvancedBoss) {
             e.bossVyTimer = (e.bossVyTimer ?? 0) + dtScale;
             if (e.bossVyTimer >= 240) {
               e.bossVyTimer = 0;
@@ -5316,15 +5416,18 @@ export default function Game() {
           } else {
             const originX = e.x;
             const originY = e.y + e.height / 2;
-            const protectTarget = activeModeRef.current === "protect"
+            const tacticalTarget = (e.type === "overlord" || e.type === "titan" || activeModeRef.current === "protect")
               ? getEnemyAttackTarget(
                   activeModeRef.current,
                   { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
                   { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
                 )
               : null;
-            const aim = protectTarget
-              ? Math.atan2(protectTarget.y - originY, protectTarget.x - originX)
+            const predictedTargetY = tacticalTarget && (e.type === "overlord" || e.type === "titan")
+              ? clamp(tacticalTarget.y + (e.bossTargetVelocityY ?? 0) * 16, 0, CANVAS_H)
+              : tacticalTarget?.y;
+            const aim = tacticalTarget
+              ? Math.atan2((predictedTargetY ?? tacticalTarget.y) - originY, tacticalTarget.x - originX)
               : Math.PI;
             const shotCount = isBossEnemy(e)
               ? Math.max(1, (bossPhase === 3 ? 7 : bossPhase === 2 ? 5 : 3) - (e.bossCannonsDisabled ? 2 : 0))
@@ -5332,10 +5435,10 @@ export default function Game() {
             for (let s = 0; s < shotCount; s++) {
               const spread = (s - (shotCount - 1) / 2) * 0.25;
               const projectileSpeed = ENEMY_BULLET_SPEED + (isBossEnemy(e) ? 1 : 0);
-              const vx = protectTarget
+              const vx = tacticalTarget
                 ? Math.cos(aim + spread) * projectileSpeed
                 : -projectileSpeed;
-              const vy = protectTarget
+              const vy = tacticalTarget
                 ? Math.sin(aim + spread) * projectileSpeed
                 : spread * ENEMY_BULLET_SPEED;
               bulletsRef.current.push({
@@ -8709,7 +8812,64 @@ function drawVirtualControls(
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string, string], mode: GameMode, elapsedMs: number) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string, string], mode: GameMode, elapsedMs: number, upward = false) {
+  if (upward) {
+    const viewW = CANVAS_H;
+    const modeRules = getEffectiveGameModeRules(mode);
+    const remaining = modeRules.durationSeconds === null ? null : Math.max(0, modeRules.durationSeconds - Math.floor(elapsedMs / 1000));
+    const timerText = remaining === null ? "" : ` · ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
+    const abilityState: Record<UltiLoadoutId, { label: string; charge: number; max: number; active: number; color: string }> = {
+      jet: { label: "JET", charge: ultimaCharge, max: ULTI_MAX, active: ultimaActive, color: "#ff44ff" },
+      laser: { label: "LASER", charge: laserCharge, max: LASER_MAX, active: laserActive, color: "#ffaa22" },
+      stealth_ulti: { label: "STEALTH", charge: stealthCharge, max: STEALTH_MAX, active: stealthActive, color: "#00ddcc" },
+      heal_ulti: { label: "HEAL", charge: healCharge, max: HEAL_MAX, active: healActive, color: "#ff4466" },
+      poison_missiles_ulti: { label: "GIFT", charge: poisonMissileCharge, max: POISON_MISSILE_MAX, active: 0, color: "#ff4040" },
+      absorber_ulti: { label: `ABS ${absorberHits > 0 ? Math.pow(2, absorberHits) : 1}×`, charge: absorberCharge, max: ABSORBER_MAX, active: absorberActive, color: "#ff72dc" },
+      ultimate_ulti: { label: "OMEGA", charge: ultimateCharge, max: ULTIMATE_MAX, active: ultimateActive, color: "#62ddff" },
+    };
+
+    ctx.save();
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "rgba(4,10,24,0.78)";
+    ctx.fillRect(0, 0, viewW, 136);
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#00cfff"; ctx.font = "bold 13px 'Inter', sans-serif"; ctx.fillText("SCORE", 14, 8);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 21px 'Inter', sans-serif"; ctx.fillText(String(gs.score), 14, 25);
+    ctx.fillStyle = "#ffaa00"; ctx.font = "10px 'Inter', sans-serif"; ctx.fillText(`BEST ${bestScore.toLocaleString("de-DE")}`, 14, 52);
+    ctx.fillStyle = "#67e8f9"; ctx.fillText(`PILOT ${pilotLevel}`, 14, 67);
+
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffcc00"; ctx.font = "bold 15px 'Inter', sans-serif"; ctx.fillText(`LEVEL ${gs.level}`, viewW / 2, 7);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 12px 'Inter', sans-serif"; ctx.fillText(WEAPON_TIERS[gs.weaponTier].name.toUpperCase(), viewW / 2, 27);
+    ctx.fillStyle = "#a78bfa"; ctx.font = "bold 10px 'Inter', sans-serif"; ctx.fillText(`${modeRules.icon} ${modeRules.label.toUpperCase()}${timerText}`, viewW / 2, 47);
+
+    const hpX = viewW - 150;
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#ff6666"; ctx.font = "bold 12px 'Inter', sans-serif"; ctx.fillText(`HP ${Math.ceil(gs.hp)}/${gs.maxHp}`, viewW - 14, 8);
+    ctx.fillStyle = "#25131a"; ctx.fillRect(hpX, 27, 136, 11);
+    const hpGradient = ctx.createLinearGradient(hpX, 0, viewW - 14, 0);
+    hpGradient.addColorStop(0, "#ff2222"); hpGradient.addColorStop(1, "#ff9900");
+    ctx.fillStyle = hpGradient; ctx.fillRect(hpX, 27, 136 * Math.max(0, gs.hp / gs.maxHp), 11);
+    ctx.fillStyle = "#bbb"; ctx.font = "11px 'Inter', sans-serif"; ctx.fillText(`LIVES ${"★".repeat(Math.max(0, gs.lives))}`, viewW - 14, 48);
+
+    const visibleAbilities = ultiLoadout.filter(id => id === "jet" || id === "laser" || unlocks.includes(id));
+    visibleAbilities.forEach((id, index) => {
+      const item = abilityState[id];
+      const column = index % 3;
+      const row = Math.floor(index / 3);
+      const x = 14 + column * 195;
+      const y = 91 + row * 20;
+      const width = 112;
+      ctx.textAlign = "left"; ctx.fillStyle = item.color; ctx.font = "bold 9px 'Inter', sans-serif";
+      ctx.fillText(`${abilityKeys[index] ?? index + 1} ${item.label}`, x, y);
+      ctx.fillStyle = "#131722"; ctx.fillRect(x + 67, y + 1, width, 7);
+      ctx.fillStyle = item.color;
+      ctx.fillRect(x + 67, y + 1, width * (item.active > 0 ? 1 : Math.min(1, item.charge / item.max)), 7);
+    });
+    ctx.restore();
+    return;
+  }
+
   ctx.save();
   ctx.textBaseline = "top";
 
