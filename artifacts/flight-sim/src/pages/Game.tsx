@@ -615,6 +615,8 @@ interface WeaponDefinition {
   fireRate: number;
   color: string;
   meleeRange?: number;
+  lightningIntervalMs?: number;
+  lightningDamageMultiplier?: number;
 }
 
 const WEAPONS: readonly WeaponDefinition[] = [
@@ -639,6 +641,7 @@ const WEAPONS: readonly WeaponDefinition[] = [
   { id: "omega_prism", name: "Omega-Prisma", icon: "✺", description: "Ultimate Energiestreuer mit sieben Strahlen.", rarity: "ultimate", cost: 9_000, currency: "gems", pattern: "spread", guns: 7, damage: 8, fireRate: 175, color: "#f9a8d4" },
   { id: "celestial_storm", name: "Himmelssturm", icon: "✹", description: "Neun Energielanzen füllen den gesamten Feuerkorridor.", rarity: "ultimate", cost: 1_000_000, currency: "credits", pattern: "spread", guns: 9, damage: 9, fireRate: 165, color: "#f0abfc" },
   { id: "solar_glaive", name: "Solar-Gleve", icon: "◒", description: "Eine gewaltige Lichtklinge mit der größten Nahkampfreichweite.", rarity: "ultimate", cost: 11_000, currency: "gems", pattern: "melee", guns: 1, damage: 55, fireRate: 860, color: "#fde047", meleeRange: 150 },
+  { id: "fire_sword", name: "Feuerschwert", icon: "🔥", description: "Extrem starke Ultimate-Klinge. Entlädt alle 10 Sekunden gelbe Blitze auf alle Gegner in Reichweite.", rarity: "ultimate", cost: 15_000, currency: "gems", pattern: "melee", guns: 1, damage: 80, fireRate: 780, color: "#ffd21f", meleeRange: 160, lightningIntervalMs: 10_000, lightningDamageMultiplier: .75 },
   { id: "apocalypse_swarm", name: "Apokalypse-Schwarm", icon: "♨", description: "Ultimate Lenkraketen suchen selbstständig neue Ziele.", rarity: "ultimate", cost: 1_250_000, currency: "credits", pattern: "missile", guns: 5, damage: 13, fireRate: 205, color: "#fde047" },
 ] as const;
 const WEAPON_KEY = "fighter-command-weapons";
@@ -2647,6 +2650,25 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
     ctx.shadowColor = "#b84cff"; ctx.shadowBlur = 10;
     ctx.beginPath(); ctx.moveTo(-13, -2.8); ctx.lineTo(-28, 0); ctx.lineTo(-13, 2.8); ctx.closePath();
     ctx.fillStyle = exhaust; ctx.fill();
+  } else if (b.weaponId === "fire_sword_lightning") {
+    ctx.translate(b.x, b.y);
+    ctx.rotate(Math.atan2(b.vy, b.vx));
+    ctx.shadowColor = "#ffe13b";
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = "#ffe13b";
+    ctx.lineWidth = 5;
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(-18, 0);
+    ctx.lineTo(-10, -5);
+    ctx.lineTo(-3, 4);
+    ctx.lineTo(5, -4);
+    ctx.lineTo(13, 3);
+    ctx.lineTo(22, 0);
+    ctx.stroke();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
   } else if (b.weaponId === "seraph_barrage" && b.isMissile) {
     ctx.translate(b.x, b.y);
     ctx.rotate(Math.atan2(b.vy, b.vx));
@@ -3362,6 +3384,7 @@ export default function Game() {
   const lastDroneFireRef = useRef(0);
   const lastWingmanFireRef = useRef(0);
   const lastMissileRef = useRef(0);
+  const nextFireSwordLightningRef = useRef(10_000);
   const playerRef = useRef({ x: 60, y: CANVAS_H / 2 - PLAYER_H / 2 });
   const bulletsRef = useRef<Bullet[]>([]);
   const enemiesRef = useRef<Enemy[]>([]);
@@ -4431,6 +4454,7 @@ export default function Game() {
     lastDroneFireRef.current = 0;
     lastWingmanFireRef.current = 0;
     lastMissileRef.current = 0;
+    nextFireSwordLightningRef.current = 10_000;
     shieldTimerRef.current = 0;
     invincibleRef.current = 0;
     movementStunRef.current = 0;
@@ -5278,6 +5302,46 @@ export default function Game() {
       const firing = settingsRef.current.autoFire || keyPressed("fire") || touchFireRef.current.active || gamepad.firing;
       if (firing) fireBullets(timestamp);
 
+      const fireSword = activeWeaponsRef.current.find(weapon => weapon.id === "fire_sword");
+      if (fireSword?.meleeRange && fireSword.lightningIntervalMs &&
+          runElapsedMsRef.current >= nextFireSwordLightningRef.current) {
+        while (nextFireSwordLightningRef.current <= runElapsedMsRef.current) {
+          nextFireSwordLightningRef.current += fireSword.lightningIntervalMs;
+        }
+        const originX = playerRef.current.x + PLAYER_W;
+        const originY = playerRef.current.y + PLAYER_H / 2;
+        const weaponStats = getWeaponStats(fireSword, weaponLevelsRef.current[fireSword.id] ?? 1);
+        const lightningDamage = weaponStats.damage * (fireSword.lightningDamageMultiplier ?? 1);
+        const targets = enemiesRef.current.filter(enemy => {
+          if (enemy.dead || enemy.hp <= 0 || !isEnemyVisible(enemy)) return false;
+          const targetX = enemy.x + enemy.width / 2;
+          const targetY = enemy.y + enemy.height / 2;
+          return Math.hypot(targetX - originX, targetY - originY) <=
+            fireSword.meleeRange! + Math.max(enemy.width, enemy.height) / 2;
+        });
+        targets.forEach(enemy => {
+          const targetX = enemy.x + enemy.width / 2;
+          const targetY = enemy.y + enemy.height / 2;
+          const angle = Math.atan2(targetY - originY, targetX - originX);
+          bulletsRef.current.push({
+            x: originX,
+            y: originY,
+            vx: Math.cos(angle) * 14,
+            vy: Math.sin(angle) * 14,
+            fromPlayer: true,
+            damage: lightningDamage,
+            color: "#ffe13b",
+            weaponId: "fire_sword_lightning",
+            isMissile: true,
+            missileTarget: enemy,
+            lifetime: 18,
+          });
+        });
+        waveBannerRef.current = { text: "⚡ FEUERSCHWERT · BLITZENTLADUNG", timer: 90 };
+        screenShakeRef.current = Math.max(screenShakeRef.current, 5);
+        audioRef.current.tone(180, .16, settingsRef.current.soundVolume * .4, "sawtooth", 720);
+      }
+
       if (runElapsedMsRef.current >= weaponCrateNextActivationRef.current) {
         weaponCrateActiveUntilRef.current = runElapsedMsRef.current + WEAPON_CRATE_DURATION_MS;
         weaponCrateNextActivationRef.current += WEAPON_CRATE_INTERVAL_MS;
@@ -5582,12 +5646,13 @@ export default function Game() {
           const tx = b.missileTarget.x + b.missileTarget.width / 2;
           const ty = b.missileTarget.y + b.missileTarget.height / 2;
           const ang = Math.atan2(ty - b.y, tx - b.x);
-          const targetSpeed = b.isPoisonMissile ? POISON_MISSILE_SPEED : 0.6;
-          const steer = 1 - Math.pow(1 - (b.isPoisonMissile ? 0.2 : 0.08), dtScale);
+          const fireSwordLightning = b.weaponId === "fire_sword_lightning";
+          const targetSpeed = b.isPoisonMissile ? POISON_MISSILE_SPEED : fireSwordLightning ? 14 : 0.6;
+          const steer = 1 - Math.pow(1 - (b.isPoisonMissile ? 0.2 : fireSwordLightning ? .3 : 0.08), dtScale);
           b.vx += (Math.cos(ang) * targetSpeed - b.vx) * steer;
           b.vy += (Math.sin(ang) * targetSpeed - b.vy) * steer;
           const spd2 = Math.hypot(b.vx, b.vy);
-          const ms = b.isPoisonMissile ? POISON_MISSILE_SPEED : 7;
+          const ms = b.isPoisonMissile ? POISON_MISSILE_SPEED : fireSwordLightning ? 14 : 7;
           if (spd2 > ms) { b.vx = b.vx / spd2 * ms; b.vy = b.vy / spd2 * ms; }
         }
         // Enemy homing missiles track the protected package in protect mode.
