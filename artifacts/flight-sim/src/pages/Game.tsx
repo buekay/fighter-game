@@ -7033,17 +7033,57 @@ export default function Game() {
         else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level);
         ctx.restore();
         ctx.save();
-        ctx.strokeStyle = "#8be8ff";
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
         ctx.shadowColor = "#35bfff";
         ctx.shadowBlur = 24;
-        ctx.lineWidth = 3;
-        enemiesRef.current.forEach(enemy => {
-          if (enemy.dead || !isEnemyVisible(enemy)) return;
-          ctx.beginPath();
-          ctx.moveTo(cx, cy);
-          ctx.lineTo(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
-          ctx.stroke();
-        });
+        for (const enemy of enemiesRef.current) {
+          if (enemy.dead || !isEnemyVisible(enemy)) continue;
+          const ex = enemy.x + enemy.width / 2;
+          const ey = enemy.y + enemy.height / 2;
+          const dx = ex - cx;
+          const dy = ey - cy;
+          const distance = Math.max(1, Math.hypot(dx, dy));
+          const normalX = -dy / distance;
+          const normalY = dx / distance;
+          const points: Vec2[] = [{ x: cx, y: cy }];
+          for (let i = 1; i < 9; i++) {
+            const progress = i / 9;
+            const jag = Math.sin(timeRef.current * 1.7 + i * 8.31 + enemy.x * .17 + enemy.y * .11) *
+              (i % 2 === 0 ? 15 : 10);
+            points.push({
+              x: cx + dx * progress + normalX * jag,
+              y: cy + dy * progress + normalY * jag,
+            });
+          }
+          points.push({ x: ex, y: ey });
+
+          const strokeBolt = (color: string, width: number) => {
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (const point of points.slice(1)) ctx.lineTo(point.x, point.y);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+          };
+          strokeBolt("#168cff99", 10);
+          strokeBolt("#57d9ff", 5);
+          strokeBolt("#e9fbff", 1.8);
+
+          for (const branchIndex of [3, 6]) {
+            const start = points[branchIndex];
+            const direction = branchIndex === 3 ? -1 : 1;
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(start.x + dx * .07 + normalX * 24 * direction,
+              start.y + dy * .07 + normalY * 24 * direction);
+            ctx.lineTo(start.x + dx * .12 + normalX * 36 * direction,
+              start.y + dy * .12 + normalY * 36 * direction);
+            ctx.strokeStyle = "#8be8ff";
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+          }
+        }
         ctx.restore();
       } else if (stealthActiveRef.current > 0) {
         ctx.save();
