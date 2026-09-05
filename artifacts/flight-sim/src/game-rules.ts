@@ -31,6 +31,7 @@ export interface PlayerHitProtectionResult {
 }
 
 export const MAX_LEVEL = 500;
+export const MAX_ACTIVE_ENEMIES = 20;
 export const CITY_BACKGROUND_MAX_LEVEL = 5;
 export const ABOVE_CLOUDS_BACKGROUND_LEVEL = 41;
 export const SPACE_BACKGROUND_LEVEL = 46;
@@ -40,6 +41,12 @@ export const COIN_REWARD_MULTIPLIER = 1;
 export const HEAL_ULTI_RESTORE = 5;
 export const MAX_AIRCRAFT_LEVEL = 10;
 export const MAX_DRONE_LEVEL = 10;
+
+export function addEnemyWithinLimit<T>(enemies: T[], enemy: T): boolean {
+  if (enemies.length >= MAX_ACTIVE_ENEMIES) return false;
+  enemies.push(enemy);
+  return true;
+}
 export const EARLY_GAME_LEVEL_LIMIT = 10;
 export const EARLY_GAME_ENEMY_SPAWN_MULTIPLIER = 2;
 export const EARLY_NORMAL_BOSS_DAMAGE_MULTIPLIER = 0.2;

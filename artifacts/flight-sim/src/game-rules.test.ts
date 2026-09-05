@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import {
+  addEnemyWithinLimit,
+  MAX_ACTIVE_ENEMIES,
   applyEnemyDamage,
   applyPlayerHitProtection,
   applyPlayerDamage,
@@ -301,6 +303,13 @@ assert.deepEqual(getDroneStats(3, 1), { level: 5, guns: 2, damage: 3, fireRateMu
 assert.deepEqual(getDroneStats(5), { level: 6, guns: 3, damage: 4, fireRateMultiplier: 0.4 });
 assert.deepEqual(getDroneStats(7), { level: 8, guns: 3, damage: 5, fireRateMultiplier: 0.28 });
 assert.deepEqual(getDroneStats(20), { level: 21, guns: 3, damage: 11, fireRateMultiplier: 0.28 });
+
+const cappedEnemies: number[] = [];
+for (let enemy = 0; enemy < MAX_ACTIVE_ENEMIES; enemy++) {
+  assert.equal(addEnemyWithinLimit(cappedEnemies, enemy), true);
+}
+assert.equal(addEnemyWithinLimit(cappedEnemies, MAX_ACTIVE_ENEMIES), false);
+assert.equal(cappedEnemies.length, 20);
 
 assert.equal(getBossPhase(100, 100), 1);
 assert.equal(getBossPhase(60, 100), 2);

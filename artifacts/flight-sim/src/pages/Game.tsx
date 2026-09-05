@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   MAX_LEVEL,
+  MAX_ACTIVE_ENEMIES,
+  addEnemyWithinLimit,
   PLAYER_SHIELD_HP,
   applyEnemyDamage,
   applyPlayerHitProtection,
@@ -45,7 +47,6 @@ import {
   formatRunDuration,
   getBossPhase,
   getMutatorForLevel,
-  getUpgradeSynergies,
   saveModeRecord,
   type MutatorDefinition,
   type SectorChoice,
@@ -243,7 +244,6 @@ type RunUpgradeId = "rapid_fire" | "damage" | "max_hp" | "drone" | "critical" | 
   "missile_mastery" | "chain_lightning" | "cryo_rounds" | "glass_cannon" | "vampiric" | "graze_core" |
   "afterburner" | "extra_life" | "repair_nanites" | "bounty_hunter" | "boss_hunter" |
   "kinetic_accelerator" | "reactive_armor" | "salvager" | "flux_capacitor" | "shield_matrix";
-interface RunUpgrade { id: RunUpgradeId; icon: string; name: string; description: string }
 interface RunStats {
   kills: number;
   bosses: number;
@@ -269,9 +269,6 @@ interface RunSummary {
   durationMs: number;
   stats: RunStats;
   mutator: MutatorDefinition;
-  synergies: ReturnType<typeof getUpgradeSynergies>;
-  strongestUpgrade: RunUpgrade | null;
-  strongestUpgradeLevel: number;
   newRecord: boolean;
   modeRecord: number;
 }
@@ -1123,7 +1120,6 @@ const DEFAULT_SETTINGS: GameSettings = {
   musicVolume: 0.25,
 };
 
-const RUN_UPGRADE_LEVEL_INTERVAL = 6;
 const RISK_ROUTE_LEVEL_INTERVAL = 10;
 
 function formatKeyCode(code: string): string {
@@ -1134,31 +1130,6 @@ function formatKeyCode(code: string): string {
   if (code.startsWith("Arrow")) return ({ ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→" } as Record<string, string>)[code] ?? code;
   return code;
 }
-
-const RUN_UPGRADES: RunUpgrade[] = [
-  { id: "rapid_fire", icon: "⚡", name: "Overdrive", description: "20% schneller feuern (stapelbar)" },
-  { id: "damage", icon: "💥", name: "Schwere Munition", description: "+1 Schaden für alle Geschosse" },
-  { id: "max_hp", icon: "❤", name: "Nanopanzerung", description: "+3 maximale HP und sofort heilen" },
-  { id: "drone", icon: "🛸", name: "Drohnen-Overclock", description: "Drohne wird für diesen Einsatz eine Stufe stärker" },
-  { id: "critical", icon: "🎯", name: "Zielcomputer", description: "15% Chance auf dreifachen Schaden" },
-  { id: "shield", icon: "🛡", name: "Notfallschild", description: "Sofort ein Schild; lädt nach Bossen neu" },
-  { id: "missile_mastery", icon: "🚀", name: "Raketenlabor", description: "Raketen feuern schneller und verursachen +4 Schaden" },
-  { id: "chain_lightning", icon: "🌩", name: "Tesla-Munition", description: "Treffer können auf einen zweiten Gegner überspringen" },
-  { id: "cryo_rounds", icon: "❄", name: "Kryo-Geschosse", description: "Treffer verlangsamen Gegner gelegentlich" },
-  { id: "glass_cannon", icon: "☄", name: "Glaskanone", description: "Massiv mehr Schaden, aber 2 weniger maximale HP" },
-  { id: "vampiric", icon: "🩸", name: "Energieernte", description: "Jeder 15. Abschuss repariert 1 HP" },
-  { id: "graze_core", icon: "🌀", name: "Risiko-Reaktor", description: "Near Misses laden beide Ultis deutlich auf" },
-  { id: "afterburner", icon: "🔥", name: "Nachbrenner", description: "+0,4 Bewegungsgeschwindigkeit" },
-  { id: "extra_life", icon: "💚", name: "Rettungskapsel", description: "+1 zusätzliches Leben" },
-  { id: "repair_nanites", icon: "🔧", name: "Reparatur-Naniten", description: "Jeder 10. Abschuss repariert 1 HP" },
-  { id: "bounty_hunter", icon: "💰", name: "Kopfgeld-Protokoll", description: "+25% Punkte für Abschüsse" },
-  { id: "boss_hunter", icon: "👹", name: "Bossbrecher", description: "+30% Schaden gegen Bosse" },
-  { id: "kinetic_accelerator", icon: "➶", name: "Kinetik-Beschleuniger", description: "Geschosse fliegen 20% schneller" },
-  { id: "reactive_armor", icon: "🧱", name: "Reaktivpanzerung", description: "15% weniger eingehender Schaden" },
-  { id: "salvager", icon: "🧲", name: "Bergungsdrohne", description: "+10% Chance auf Power-ups" },
-  { id: "flux_capacitor", icon: "🔋", name: "Flux-Kondensator", description: "Beide Ultis laden 25% schneller" },
-  { id: "shield_matrix", icon: "🔷", name: "Schildmatrix", description: "Schilde erhalten +2 Trefferpunkte" },
-];
 
 function createMission(index = 0): Mission {
   const missions: Omit<Mission, "completed">[] = [
@@ -3373,9 +3344,7 @@ export default function Game() {
   const missionRef = useRef<Mission>({ type: "kills", title: "Zerstöre 30 Gegner", target: 30, reward: 5000, completed: false });
   const activeMutatorRef = useRef<MutatorDefinition>(MUTATORS.none);
   const sectorChoiceLevelsRef = useRef<Set<number>>(new Set());
-  const pendingUpgradeLevelsRef = useRef<number[]>([]);
   const pendingSectorLevelsRef = useRef<number[]>([]);
-  const activeUpgradeLevelRef = useRef<number | null>(null);
   const activeSectorLevelRef = useRef<number | null>(null);
   const [sectorChoices, setSectorChoices] = useState<SectorChoice[]>([]);
 
@@ -3477,7 +3446,6 @@ export default function Game() {
   const [selectedGameMode, setSelectedGameMode] = useState<GameMode>("classic");
   const runResultRef = useRef<"game_over" | "complete">("game_over");
   const rewardGrantedRef = useRef(false);
-  const [runUpgradeChoices, setRunUpgradeChoices] = useState<RunUpgrade[]>([]);
   const upgradeLevelRef = useRef(0);
   const [achievementToast, setAchievementToast] = useState<Achievement | null>(null);
   const [achievements, setAchievements] = useState<string[]>(() => loadAchievements());
@@ -3602,11 +3570,6 @@ export default function Game() {
       clearSave();
       saveExistsRef.current = false;
     }
-    const strongestEntry = Object.entries(runUpgradesRef.current)
-      .sort(([, a], [, b]) => b - a)[0] as [RunUpgradeId, number] | undefined;
-    const strongestUpgrade = strongestEntry && strongestEntry[1] > 0
-      ? RUN_UPGRADES.find(upgrade => upgrade.id === strongestEntry[0]) ?? null
-      : null;
     const modeRecord = saveModeRecord(activeModeRef.current, gs.score);
     setRunSummary({
       score: gs.score,
@@ -3615,9 +3578,6 @@ export default function Game() {
       durationMs: runElapsedMsRef.current,
       stats: { ...runStatsRef.current },
       mutator: activeMutatorRef.current,
-      synergies: getUpgradeSynergies(runUpgradesRef.current),
-      strongestUpgrade,
-      strongestUpgradeLevel: strongestEntry?.[1] ?? 0,
       newRecord: gs.score > runStartHighScoreRef.current || modeRecord.isNew,
       modeRecord: modeRecord.record,
     });
@@ -3638,18 +3598,7 @@ export default function Game() {
   }, [syncDisplay]);
 
   const openNextProgressionChoice = useCallback(() => {
-    if (activeUpgradeLevelRef.current !== null || activeSectorLevelRef.current !== null) return true;
-
-    const upgradeLevel = pendingUpgradeLevelsRef.current.shift();
-    if (upgradeLevel !== undefined) {
-      activeUpgradeLevelRef.current = upgradeLevel;
-      const availableUpgrades = runUpgradesRef.current.extra_life >= 1
-        ? RUN_UPGRADES.filter(upgrade => upgrade.id !== "extra_life")
-        : RUN_UPGRADES;
-      setRunUpgradeChoices([...availableUpgrades].sort(() => Math.random() - 0.5).slice(0, 3));
-      stateRef.current.paused = true;
-      return true;
-    }
+    if (activeSectorLevelRef.current !== null) return true;
 
     const sectorLevel = pendingSectorLevelsRef.current.shift();
     if (sectorLevel !== undefined) {
@@ -3759,33 +3708,6 @@ export default function Game() {
       saveExistsRef.current = true;
     }
     openNextProgressionChoice();
-    syncDisplay();
-  }, [openNextProgressionChoice, syncDisplay]);
-
-  const chooseRunUpgrade = useCallback((upgrade: RunUpgrade) => {
-    if (upgrade.id === "extra_life" && runUpgradesRef.current.extra_life >= 1) return;
-    runUpgradesRef.current[upgrade.id] += 1;
-    if (upgrade.id === "max_hp") { stateRef.current.maxHp += 3; stateRef.current.hp = stateRef.current.maxHp; }
-    if (upgrade.id === "shield") { shieldTimerRef.current = 600; playerShieldHpRef.current = PLAYER_SHIELD_HP + runUpgradesRef.current.shield_matrix * 2; }
-    if (upgrade.id === "shield_matrix" && shieldTimerRef.current > 0) { playerShieldHpRef.current += 2; }
-    if (upgrade.id === "afterburner") { stateRef.current.speed += .4; }
-    if (upgrade.id === "extra_life") { stateRef.current.lives += 1; }
-    if (upgrade.id === "glass_cannon") {
-      stateRef.current.maxHp = Math.max(3, stateRef.current.maxHp - 2);
-      stateRef.current.hp = Math.min(stateRef.current.hp, stateRef.current.maxHp);
-    }
-    upgradeLevelRef.current = activeUpgradeLevelRef.current ?? stateRef.current.level;
-    activeUpgradeLevelRef.current = null;
-    if (activeModeRef.current === "classic") {
-      saveGame(stateRef.current, runUpgradesRef.current, upgradeLevelRef.current, sectorChoiceLevelsRef.current,
-        fireRatePenaltyRef.current, activeMutatorRef.current.id);
-      saveExistsRef.current = true;
-    }
-    setRunUpgradeChoices([]);
-    if (!openNextProgressionChoice()) {
-      stateRef.current.paused = false;
-    }
-    audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
     syncDisplay();
   }, [openNextProgressionChoice, syncDisplay]);
 
@@ -4032,11 +3954,11 @@ export default function Game() {
       }
     }
     if (isBossEnemy(enemy)) bossDamageStartRef.current = runStatsRef.current.damageTaken;
-    enemiesRef.current.push(enemy);
+    addEnemyWithinLimit(enemiesRef.current, enemy);
 
     if (type === "emeraldtiefighter") {
       const pairOffset = y < CANVAS_H / 2 ? 58 : -58;
-      enemiesRef.current.push({
+      addEnemyWithinLimit(enemiesRef.current, {
         ...enemy,
         x: enemy.x + 64,
         y: clamp(enemy.y + pairOffset, 20, CANVAS_H - h - 20),
@@ -4054,7 +3976,7 @@ export default function Game() {
     const width = titan ? TITAN_WIDTH : overlord ? OVERLORD_WIDTH : 112;
     const height = titan ? TITAN_HEIGHT : overlord ? OVERLORD_HEIGHT : 86;
     if (titan) titanWarningRef.current = 180;
-    enemiesRef.current.push({
+    addEnemyWithinLimit(enemiesRef.current, {
       x: CANVAS_W + 24,
       y: CANVAS_H / 2 - height / 2,
       vx: titan ? -.55 : -.75,
@@ -4105,7 +4027,7 @@ export default function Game() {
         ? centerY + (index - Math.floor(count / 2)) * 52
         : centerY + side * (35 + row * 45);
       const hp = isBomber ? 8 + level : type === "interceptor" ? 2 : 3 + Math.floor(level / 3);
-      enemiesRef.current.push({
+      addEnemyWithinLimit(enemiesRef.current, {
         x: CANVAS_W + 50 + row * 65,
         y: clamp(y, 90, CANVAS_H - height - 25),
         vx: isBomber ? -1.1 : type === "interceptor" ? -4.3 : -2.5,
@@ -4349,7 +4271,6 @@ export default function Game() {
     };
     bossDamageStartRef.current = 0;
     upgradeLevelRef.current = save?.upgradeLevel ?? 0;
-    setRunUpgradeChoices([]);
     setSectorChoices([]);
     setRunSummary(null);
     const baseMaxHp = Math.max(3, (unlocks.includes("max_hp") ? 15 : 10) + aircraftStats.maxHpBonus + wingModule.hp);
@@ -4418,14 +4339,8 @@ export default function Game() {
       ? getCrossedMilestoneLevels(0, Math.max(1, stateRef.current.level - 1), RISK_ROUTE_LEVEL_INTERVAL)
       : [];
     sectorChoiceLevelsRef.current = new Set(save?.sectorChoiceLevels ?? legacyCompletedSectorLevels);
-    pendingUpgradeLevelsRef.current = getCrossedMilestoneLevels(
-      upgradeLevelRef.current,
-      stateRef.current.level,
-      RUN_UPGRADE_LEVEL_INTERVAL,
-    );
     pendingSectorLevelsRef.current = getCrossedMilestoneLevels(0, stateRef.current.level, RISK_ROUTE_LEVEL_INTERVAL)
       .filter(level => !sectorChoiceLevelsRef.current.has(level));
-    activeUpgradeLevelRef.current = null;
     activeSectorLevelRef.current = null;
     waveBannerRef.current = { text: "MISSION GESTARTET", timer: 120 };
     droneSupportTimerRef.current = 0;
@@ -4467,11 +4382,8 @@ export default function Game() {
     gs.gameOver = false;
     keysRef.current.clear();
     setRunSummary(null);
-    setRunUpgradeChoices([]);
     setSectorChoices([]);
-    pendingUpgradeLevelsRef.current = [];
     pendingSectorLevelsRef.current = [];
-    activeUpgradeLevelRef.current = null;
     activeSectorLevelRef.current = null;
     setPauseView("menu");
     tutorialStageRef.current = -1;
@@ -4615,6 +4527,27 @@ export default function Game() {
       absorberActiveRef.current = ABSORBER_DURATION;
       absorberChargeRef.current = 0;
       absorberHitsRef.current = 0;
+      return true;
+    }
+    if (id === "emp_ulti" && empChargeRef.current >= EMP_MAX && activeUnlocksRef.current.includes(id)) {
+      const removedProjectiles = bulletsRef.current.reduce((count, bullet) => count + (bullet.fromPlayer ? 0 : 1), 0);
+      bulletsRef.current = bulletsRef.current.filter(bullet => bullet.fromPlayer);
+      enemiesRef.current.forEach(enemy => {
+        if (enemy.dead || enemy.hp <= 0 || !isEnemyVisible(enemy) || isTitanInvulnerable(enemy)) return;
+        const damage = isBossEnemy(enemy) ? Math.min(EMP_BOSS_DAMAGE, enemy.maxHp * .05) : EMP_DAMAGE;
+        const hpBefore = enemy.hp;
+        const result = applyEnemyDamage(enemy, damage);
+        enemy.hp = Math.max(1, result.hp);
+        enemy.shieldHp = result.shieldHp;
+        runStatsRef.current.damageDealt += Math.max(0, hpBefore - enemy.hp);
+        if (!isBossEnemy(enemy)) enemy.ultimateFreezeTimer = Math.max(enemy.ultimateFreezeTimer ?? 0, EMP_FREEZE_DURATION);
+        spawnExplosion(particlesRef.current, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, false);
+      });
+      empChargeRef.current = 0;
+      screenShakeRef.current = Math.max(screenShakeRef.current, 10);
+      waveBannerRef.current = { text: `EMP-PULS · ${removedProjectiles} GESCHOSSE NEUTRALISIERT`, timer: 140 };
+      audioRef.current.tone(110, .35, settingsRef.current.soundVolume * .55, "sawtooth");
+      syncDisplay();
       return true;
     }
     if (id === "ultimate_ulti" && ultimateChargeRef.current >= ULTIMATE_MAX && ultimateActiveRef.current === 0 &&
@@ -4813,8 +4746,12 @@ export default function Game() {
           const dx = distanceToUlti("ultimate_ulti");
           const dp = distanceToUlti("poison_missiles_ulti");
           const da = distanceToUlti("absorber_ulti");
-          if (titanDashing && Math.min(du, dl, ds, dh, dx, dp, da) <= 50) {
+          const de = distanceToUlti("emp_ulti");
+          if (titanDashing && Math.min(du, dl, ds, dh, dx, dp, da, de) <= 50) {
             continue;
+          } else if (de <= EMP_BTN_R + 12 && empChargeRef.current >= EMP_MAX
+              && activeUnlocksRef.current.includes("emp_ulti") && activeUltiLoadoutRef.current.includes("emp_ulti")) {
+            activateAbility("emp_ulti");
           } else if (da <= ABSORBER_BTN_R + 12 && absorberChargeRef.current >= ABSORBER_MAX && absorberActiveRef.current === 0
               && activeUnlocksRef.current.includes("absorber_ulti") && activeUltiLoadoutRef.current.includes("absorber_ulti")) {
             absorberActiveRef.current = ABSORBER_DURATION;
@@ -4894,7 +4831,7 @@ export default function Game() {
       canvas.removeEventListener("touchend",    onTouchEnd);
       canvas.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, [finishTutorial, firePoisonMissiles, startGame, syncDisplay, toCanvas]);
+  }, [activateAbility, finishTutorial, firePoisonMissiles, startGame, syncDisplay, toCanvas]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -5224,13 +5161,6 @@ export default function Game() {
           backgroundTransitionRef.current = { snapshot, elapsed: 0 };
         }
         const gainedLevels = nextLevel - previousLevel;
-        const crossedUpgradeLevels = getCrossedMilestoneLevels(previousLevel, nextLevel, RUN_UPGRADE_LEVEL_INTERVAL)
-          .filter(level =>
-            level > upgradeLevelRef.current &&
-            level !== activeUpgradeLevelRef.current &&
-            !pendingUpgradeLevelsRef.current.includes(level),
-          );
-        pendingUpgradeLevelsRef.current.push(...crossedUpgradeLevels);
         const crossedSectorLevels = getCrossedMilestoneLevels(previousLevel, nextLevel, RISK_ROUTE_LEVEL_INTERVAL)
           .filter(level =>
             !sectorChoiceLevelsRef.current.has(level) &&
@@ -5266,7 +5196,7 @@ export default function Game() {
         enemiesRef.current = [];
         bulletsRef.current = bulletsRef.current.filter(b => b.fromPlayer);
         titanWarningRef.current = 180;
-        enemiesRef.current.push({
+        addEnemyWithinLimit(enemiesRef.current, {
           x: CANVAS_W + 25,
           y: CANVAS_H / 2 - TITAN_HEIGHT / 2,
           vx: -.55, vy: 0,
@@ -5323,7 +5253,7 @@ export default function Game() {
             waveBannerRef.current = { text: "☄ SELTENES EREIGNIS · METEORSTURM", timer: 180 };
             for (let index = 0; index < 9; index++) {
               const hp = 2 + Math.floor(gs.level / 4);
-              enemiesRef.current.push({
+              addEnemyWithinLimit(enemiesRef.current, {
                 x: CANVAS_W + 80 + index * 65, y: rand(25, CANVAS_H - 45),
                 vx: -rand(5.5, 8), vy: rand(-.5, .5), hp, maxHp: hp,
                 width: 30, height: 18, type: "interceptor", shootCooldown: 999,
@@ -5344,7 +5274,7 @@ export default function Game() {
             waveBannerRef.current = { text: `◆ SCHATZKONVOI · +${eventCredits.toLocaleString("de-DE")} CREDITS`, timer: 180 };
             for (let index = 0; index < 5; index++) {
               const hp = 3 + Math.floor(gs.level / 3);
-              enemiesRef.current.push({
+              addEnemyWithinLimit(enemiesRef.current, {
                 x: CANVAS_W + 60 + index * 75, y: 110 + index * 78,
                 vx: -2.2, vy: 0, hp, maxHp: hp, width: 45, height: 25,
                 type: "fighter", shootCooldown: rand(90, 140), points: 250,
@@ -5358,11 +5288,12 @@ export default function Game() {
 
       // ── Milestone boss: spawn a mega-boss when entering key levels ──
       if (activeModeRef.current !== "boss_rush" && !titanActive && !isTitanBossLevel(gs.level) && isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
+          enemiesRef.current.length < MAX_ACTIVE_ENEMIES &&
           enemiesRef.current.filter(isBossEnemy).length === 0) {
         milestoneBossFiredRef.current.add(gs.level);
         const ml = gs.level;
         const mbHp = increasedBossHealth(80 + ml * 12);
-        enemiesRef.current.push({
+        addEnemyWithinLimit(enemiesRef.current, {
           x: CANVAS_W + 20,
           y: rand(40, CANVAS_H - 100),
           vx: -rand(0.45, 0.8),
@@ -5389,7 +5320,8 @@ export default function Game() {
         bossRushSpawnTimerRef.current = 0;
       } else if (activeModeRef.current === "boss_rush") {
         bossRushSpawnTimerRef.current += dtScale;
-        if (!enemiesRef.current.some(enemy => isBossEnemy(enemy) && !enemy.dead) && bossRushSpawnTimerRef.current >= 90) {
+        if (enemiesRef.current.length < MAX_ACTIVE_ENEMIES &&
+            !enemiesRef.current.some(enemy => isBossEnemy(enemy) && !enemy.dead) && bossRushSpawnTimerRef.current >= 90) {
           bossRushSpawnTimerRef.current = 0;
           spawnBossRushEnemy(runStatsRef.current.bosses + 1);
         }
@@ -5399,11 +5331,12 @@ export default function Game() {
           activeMutatorRef.current.spawnRateMultiplier;
         enemySpawnTimerRef.current += dtScale;
         waveTimerRef.current += dtScale;
-        if (!titanActive && waveTimerRef.current >= 780 && !activeWaveRef.current?.active) {
+        if (!titanActive && enemiesRef.current.length < MAX_ACTIVE_ENEMIES &&
+            waveTimerRef.current >= 780 && !activeWaveRef.current?.active) {
           waveTimerRef.current = 0;
           spawnFormationWave(gs.level);
         }
-        if (!titanActive && enemySpawnTimerRef.current >= spawnRate) {
+        if (!titanActive && enemiesRef.current.length < MAX_ACTIVE_ENEMIES && enemySpawnTimerRef.current >= spawnRate) {
           enemySpawnTimerRef.current = 0;
           spawnEnemy(gs.level);
         }
@@ -5571,6 +5504,10 @@ export default function Game() {
       } else if (ultimateChargeRef.current < ULTIMATE_MAX && activeUnlocksRef.current.includes("ultimate_ulti")) {
         ultimateChargeRef.current = Math.min(ULTIMATE_MAX, ultimateChargeRef.current + ULTIMATE_CHARGE_RATE * dtScale);
       }
+      if (empChargeRef.current < EMP_MAX && activeUnlocksRef.current.includes("emp_ulti")) {
+        const fluxBonus = 1 + runUpgradesRef.current.flux_capacitor * .25;
+        empChargeRef.current = Math.min(EMP_MAX, empChargeRef.current + EMP_CHARGE_RATE * fluxBonus * dtScale);
+      }
       // ── Heal charge & countdown ──
       if (healActiveRef.current > 0) {
         healActiveRef.current = Math.max(0, healActiveRef.current - dtScale);
@@ -5595,7 +5532,7 @@ export default function Game() {
       if (halfLifeTitan) {
         halfLifeTitan.titanReinforcementsSpawned = true;
         [-70, 0, 70].forEach((offset, index) => {
-          enemiesRef.current.push({
+          addEnemyWithinLimit(enemiesRef.current, {
             x: CANVAS_W + 30 + index * 45,
             y: clamp(playerRef.current.y + offset, 18, CANVAS_H - 42),
             vx: -13, vy: 0,
@@ -6851,7 +6788,7 @@ export default function Game() {
         ctx.strokeRect(14, 14, warningW - 28, warningH - 28);
         ctx.restore();
       }
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], activeModeRef.current, runElapsedMsRef.current, upwardFlight);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, empChargeRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], activeModeRef.current, runElapsedMsRef.current, upwardFlight);
       const hudW = upwardFlight ? CANVAS_H : CANVAS_W;
       const hudTop = upwardFlight ? 136 : 86;
       {
@@ -6876,16 +6813,11 @@ export default function Game() {
       }
       {
         const mutator = activeMutatorRef.current;
-        const synergies = getUpgradeSynergies(runUpgradesRef.current);
         ctx.save();
         ctx.textAlign = "right";
         ctx.font = "900 10px 'Inter', sans-serif";
         ctx.fillStyle = mutator.id === "none" ? "#64748b" : "#fbbf24";
         ctx.fillText(`${mutator.icon} ${mutator.name.toUpperCase()}`, hudW - 20, hudTop + 50);
-        if (synergies.length > 0) {
-          ctx.fillStyle = "#c4b5fd";
-          ctx.fillText(synergies.map(synergy => `${synergy.icon} ${synergy.name}`).join("  "), hudW - 20, hudTop + 65);
-        }
         ctx.restore();
       }
       const mission = missionRef.current;
@@ -6940,7 +6872,7 @@ export default function Game() {
 
       // ── Virtual controls overlay ──
       if (showVirtualControlsRef.current) {
-        drawVirtualControls(ctx, joystickRef.current, settingsRef.current.showJoystick, touchFireRef.current.active, settingsRef.current.autoFire, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, upwardFlight);
+        drawVirtualControls(ctx, joystickRef.current, settingsRef.current.showJoystick, touchFireRef.current.active, settingsRef.current.autoFire, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, empChargeRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, upwardFlight);
         if (enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0)) {
           ctx.save(); ctx.font = "bold 25px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
           activeUltiLoadoutRef.current.forEach(id => {
@@ -7317,23 +7249,6 @@ export default function Game() {
             <div className="text-sm text-slate-300">+{achievementToast.reward.toLocaleString("de-DE")} Credits</div>
           </div>
         )}
-        {runUpgradeChoices.length > 0 && (
-          <div className="progression-layer absolute inset-0 z-40 flex items-center justify-center overflow-y-auto overscroll-contain bg-slate-950/90 p-4 touch-pan-y">
-            <div className="w-full max-w-2xl text-center">
-              <div className="text-xs font-black uppercase tracking-[.3em] text-violet-300">Sektor geschafft</div>
-              <h2 className="mt-2 text-3xl font-black text-white">WÄHLE EIN UPGRADE</h2>
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                {runUpgradeChoices.map(upgrade => (
-                  <button key={upgrade.id} onClick={() => chooseRunUpgrade(upgrade)} className="rounded-2xl border border-violet-400/60 bg-violet-950/60 p-5 text-left transition hover:-translate-y-1 hover:border-violet-200 hover:bg-violet-900/70">
-                    <div className="text-4xl">{upgrade.icon}</div><div className="mt-3 font-black text-white">{upgrade.name}</div>
-                    <div className="mt-1 text-sm text-slate-300">{upgrade.description}</div>
-                    {runUpgradesRef.current[upgrade.id] > 0 && <div className="mt-3 text-xs font-bold text-violet-300">Aktuell: Stufe {runUpgradesRef.current[upgrade.id]}</div>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
         {sectorChoices.length > 0 && (
           <div className="progression-layer absolute inset-0 z-40 flex items-center justify-center overflow-y-auto overscroll-contain bg-slate-950/92 p-4 touch-pan-y">
             <div className="w-full max-w-3xl text-center">
@@ -7377,14 +7292,6 @@ export default function Game() {
                     <div className="mt-1 text-lg font-black">{value}</div>
                   </div>
                 ))}
-              </div>
-              <div className="mt-4 rounded-xl border border-violet-400/30 bg-violet-950/30 p-3 text-sm">
-                <span className="font-black text-violet-200">Stärkstes Upgrade: </span>
-                {runSummary.strongestUpgrade ? `${runSummary.strongestUpgrade.icon} ${runSummary.strongestUpgrade.name} · Stufe ${runSummary.strongestUpgradeLevel}` : "Keines"}
-              </div>
-              <div className="mt-2 rounded-xl border border-cyan-400/30 bg-cyan-950/25 p-3 text-sm">
-                <span className="font-black text-cyan-200">Synergien: </span>
-                {runSummary.synergies.length > 0 ? runSummary.synergies.map(synergy => `${synergy.icon} ${synergy.name}`).join(" · ") : "Noch keine aktiviert"}
               </div>
               <button onClick={returnToHangar} className="pause-primary mt-5 w-full rounded-xl py-3 font-black tracking-widest">⌂ ZUM HANGAR</button>
             </div>
@@ -9214,6 +9121,12 @@ const ULTIMATE_DOT_DAMAGE = 8;
 const ULTIMATE_HEAL = 3;
 const ULTIMATE_SLOW_FACTOR = 0.45;
 const ULTIMATE_BTN_R = 38;
+const EMP_MAX = 520;
+const EMP_CHARGE_RATE = 0.065;
+const EMP_DAMAGE = 18;
+const EMP_BOSS_DAMAGE = 24;
+const EMP_FREEZE_DURATION = 240;
+const EMP_BTN_R = 38;
 
 const ULTI_SLOT_POSITIONS: readonly [number, number][] = [
   [CANVAS_W - 420, CANVAS_H - 195],
@@ -9288,6 +9201,7 @@ function drawVirtualControls(
   absorberHits: number,
   ultimateCharge: number,
   ultimateActive: number,
+  empCharge: number,
   unlocks: string[],
   ultiLoadout: UltiLoadoutId[],
   upward = false,
@@ -9302,6 +9216,7 @@ function drawVirtualControls(
   const [poisonX, poisonY] = position("poison_missiles_ulti");
   const [absorberX, absorberY] = position("absorber_ulti");
   const [ultimateX, ultimateY] = position("ultimate_ulti");
+  const [empX, empY] = position("emp_ulti");
 
   if (showJoystick) {
     const baseX = js.active ? js.centerX : 110;
@@ -9509,6 +9424,23 @@ function drawVirtualControls(
     ctx.fillText(ultimateActive > 0 ? `${Math.ceil(ultimateActive / 60)}s` : "ULTIMATE", ultimateX, ultimateY);
   }
 
+  if (unlocks.includes("emp_ulti") && ultiLoadout.includes("emp_ulti")) {
+    const ready = empCharge >= EMP_MAX;
+    ctx.globalAlpha = ready ? 0.95 : 0.48;
+    ctx.beginPath(); ctx.arc(empX, empY, EMP_BTN_R, 0, Math.PI * 2);
+    ctx.fillStyle = ready ? "#00f5ff55" : "#06283a44";
+    ctx.strokeStyle = ready ? "#c8ffff" : "#237d92";
+    ctx.lineWidth = 3; ctx.fill(); ctx.stroke();
+    if (!ready) {
+      ctx.beginPath();
+      ctx.arc(empX, empY, EMP_BTN_R - 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * empCharge / EMP_MAX);
+      ctx.strokeStyle = "#22e7ff"; ctx.lineWidth = 4; ctx.stroke();
+    }
+    ctx.globalAlpha = 1; ctx.fillStyle = ready ? "#ffffff" : "#65bccc";
+    ctx.font = "bold 10px 'Inter', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("EMP", empX, empY);
+  }
+
   ctx.globalAlpha = healReady ? 0.95 : 0.55;
   ctx.fillStyle = healActive > 0 ? "#ff6699" : healReady ? "#ff4466" : "#884455";
   ctx.font = `bold ${healReady ? 10 : 9}px 'Inter', sans-serif`;
@@ -9519,7 +9451,7 @@ function drawVirtualControls(
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string, string], mode: GameMode, elapsedMs: number, upward = false) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, empCharge: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string, string], mode: GameMode, elapsedMs: number, upward = false) {
   if (upward) {
     const viewW = CANVAS_H;
     const modeRules = getEffectiveGameModeRules(mode);
@@ -9533,6 +9465,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
       poison_missiles_ulti: { label: "GIFT", charge: poisonMissileCharge, max: POISON_MISSILE_MAX, active: 0, color: "#ff4040" },
       absorber_ulti: { label: `ABS ${absorberHits > 0 ? Math.pow(2, absorberHits) : 1}×`, charge: absorberCharge, max: ABSORBER_MAX, active: absorberActive, color: "#ff72dc" },
       ultimate_ulti: { label: "OMEGA", charge: ultimateCharge, max: ULTIMATE_MAX, active: ultimateActive, color: "#62ddff" },
+      emp_ulti: { label: "EMP", charge: empCharge, max: EMP_MAX, active: 0, color: "#9ff8ff" },
     };
 
     ctx.save();
@@ -9703,6 +9636,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     poison_missiles_ulti: { label: "GIFT", key: "T", charge: poisonMissileCharge, max: POISON_MISSILE_MAX, active: 0, duration: 1, activeColors: ["#ff3030","#8b0000"], chargeColors: ["#681010","#ff3030"], color: "#ff4040" },
     absorber_ulti: { label: `ABS ${multiplier}×`, key: "F", charge: absorberCharge, max: ABSORBER_MAX, active: absorberActive, duration: ABSORBER_DURATION, activeColors: ["#ff8bea","#ff2dbd"], chargeColors: ["#7a145f","#ff55cf"], color: "#ff72dc" },
     ultimate_ulti: { label: "OMEGA", key: "U", charge: ultimateCharge, max: ULTIMATE_MAX, active: ultimateActive, duration: ULTIMATE_DURATION, activeColors: ["#55e8ff","#087cff"], chargeColors: ["#075080","#28c8ff"], color: "#62ddff" },
+    emp_ulti: { label: "EMP", key: "I", charge: empCharge, max: EMP_MAX, active: 0, duration: 1, activeColors: ["#ffffff","#22d3ee"], chargeColors: ["#075985","#a5f3fc"], color: "#9ff8ff" },
   };
   ultiLoadout.forEach((id, slot) => {
     const item = hudUltis[id];
