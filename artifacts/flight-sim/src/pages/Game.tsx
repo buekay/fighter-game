@@ -622,9 +622,11 @@ const WEAPONS: readonly WeaponDefinition[] = [
   { id: "twin_fang", name: "Doppelzahn", icon: "ᐅᐅ", description: "Zwei parallele Läufe für konstanten Schaden.", rarity: "rare", cost: 35_000, currency: "credits", pattern: "twin", guns: 2, damage: 2, fireRate: 235, color: "#34d399" },
   { id: "comet_blaster", name: "Kometenblaster", icon: "✧", description: "Leichte Kanone mit hoher Kadenz.", rarity: "rare", cost: 50_000, currency: "credits", pattern: "rapid", guns: 1, damage: 2, fireRate: 150, color: "#38bdf8" },
   { id: "scarab_twins", name: "Skarabäus-Zwillinge", icon: "»", description: "Eng geführtes Doppelfeuer für schnelle Ziele.", rarity: "rare", cost: 65_000, currency: "credits", pattern: "twin", guns: 2, damage: 3, fireRate: 245, color: "#a3e635" },
+  { id: "ion_dagger", name: "Ionen-Dolch", icon: "†", description: "Sehr schneller Nahkampfstich für wendige Piloten.", rarity: "rare", cost: 70_000, currency: "credits", pattern: "melee", guns: 1, damage: 8, fireRate: 300, color: "#a3e635", meleeRange: 64 },
   { id: "nova_scatter", name: "Nova-Streuer", icon: "✦", description: "Breite Fächersalve gegen Gegnergruppen.", rarity: "epic", cost: 90_000, currency: "credits", pattern: "spread", guns: 5, damage: 2, fireRate: 390, color: "#c084fc" },
   { id: "arc_scatter", name: "Ark-Streuer", icon: "⌁", description: "Vier geladene Bolzen in engem Fächer.", rarity: "epic", cost: 110_000, currency: "credits", pattern: "spread", guns: 4, damage: 3, fireRate: 330, color: "#e879f9" },
   { id: "ion_drill", name: "Ionenbohrer", icon: "⟿", description: "Durchgehender Strom schneller Energieschüsse.", rarity: "epic", cost: 140_000, currency: "credits", pattern: "rapid", guns: 2, damage: 3, fireRate: 118, color: "#2dd4bf" },
+  { id: "thunder_ram", name: "Donner-Ramme", icon: "➠", description: "Ein kompakter Schockstoß mit hohem Nahkampfschaden.", rarity: "epic", cost: 165_000, currency: "credits", pattern: "melee", guns: 1, damage: 15, fireRate: 580, color: "#facc15", meleeRange: 76 },
   { id: "volt_repeater", name: "Volt-Repetierer", icon: "ϟ", description: "Extrem schnelle Ionenprojektile.", rarity: "epic", cost: 900, currency: "gems", pattern: "rapid", guns: 2, damage: 2, fireRate: 105, color: "#facc15" },
   { id: "titan_lance", name: "Titanenlanze", icon: "◆", description: "Langsame, gebündelte Schüsse mit enormem Schaden.", rarity: "legendary", cost: 240_000, currency: "credits", pattern: "focused", guns: 1, damage: 12, fireRate: 520, color: "#fb7185" },
   { id: "meteor_missiles", name: "Meteor-Schwarm", icon: "☄", description: "Zielsuchende Raketen mit schwerem Einschlag.", rarity: "legendary", cost: 260_000, currency: "credits", pattern: "missile", guns: 2, damage: 8, fireRate: 310, color: "#f97316" },
@@ -636,6 +638,7 @@ const WEAPONS: readonly WeaponDefinition[] = [
   { id: "void_scythe", name: "Leeren-Sense", icon: "☾", description: "Breiter Nahkampfschwung, der mehrere Gegner vor dem Flugzeug trifft.", rarity: "ultraLegendary", cost: 700_000, currency: "credits", pattern: "melee", guns: 1, damage: 34, fireRate: 720, color: "#c084fc", meleeRange: 116 },
   { id: "omega_prism", name: "Omega-Prisma", icon: "✺", description: "Ultimate Energiestreuer mit sieben Strahlen.", rarity: "ultimate", cost: 9_000, currency: "gems", pattern: "spread", guns: 7, damage: 8, fireRate: 175, color: "#f9a8d4" },
   { id: "celestial_storm", name: "Himmelssturm", icon: "✹", description: "Neun Energielanzen füllen den gesamten Feuerkorridor.", rarity: "ultimate", cost: 1_000_000, currency: "credits", pattern: "spread", guns: 9, damage: 9, fireRate: 165, color: "#f0abfc" },
+  { id: "solar_glaive", name: "Solar-Gleve", icon: "◒", description: "Eine gewaltige Lichtklinge mit der größten Nahkampfreichweite.", rarity: "ultimate", cost: 11_000, currency: "gems", pattern: "melee", guns: 1, damage: 55, fireRate: 860, color: "#fde047", meleeRange: 150 },
   { id: "apocalypse_swarm", name: "Apokalypse-Schwarm", icon: "♨", description: "Ultimate Lenkraketen suchen selbstständig neue Ziele.", rarity: "ultimate", cost: 1_250_000, currency: "credits", pattern: "missile", guns: 5, damage: 13, fireRate: 205, color: "#fde047" },
 ] as const;
 const WEAPON_KEY = "fighter-command-weapons";
@@ -872,7 +875,7 @@ type EngineModuleId = "ion" | "afterburner" | "phase";
 type DroneRoleId = "assault" | "guardian" | "repair" | "collector";
 type DroneWeaponId = "pulse" | "rail_lance" | "ion_spread" | "spark_twin" | "frost_needle" |
   "ember_fan" | "hunter_rockets" | "phantom_ray" | "titan_burst" | "quantum_spinner" |
-  "void_spike" | "seraph_crown" | "omega_swarm" | "rotor_blade";
+  "void_spike" | "seraph_crown" | "omega_swarm" | "rotor_blade" | "ion_claw" | "seraph_halo";
 interface DroneWeaponDefinition {
   id: DroneWeaponId;
   icon: string;
@@ -940,11 +943,13 @@ const DRONE_WEAPONS: readonly DroneWeaponDefinition[] = [
   { id: "rotor_blade", icon: "✣", name: "Rotor-Klinge", description: "Nahkampfwaffe: Die Drohne zerlegt Gegner mit einer kreisenden Energieklinge.", rarity: "epic", cost: 125_000, shots: 1, spread: 0, projectileSpeed: 0, fireRate: 1.8, damageMultiplier: 3.2, color: "#f0abfc", meleeRange: 64 },
   { id: "ember_fan", icon: "⌁", name: "Glutfächer", description: "Fünf kurze Plasmabolzen räumen Gegnergruppen.", rarity: "epic", cost: 135_000, shots: 5, spread: .12, projectileSpeed: 9, fireRate: 1.65, damageMultiplier: .52, color: "#fb923c" },
   { id: "hunter_rockets", icon: "➹", name: "Jäger-Raketen", description: "Schwere Doppelsalve für robuste Ziele.", rarity: "legendary", cost: 220_000, shots: 2, spread: .05, projectileSpeed: 12, fireRate: 2.05, damageMultiplier: 2.1, color: "#facc15" },
+  { id: "ion_claw", icon: "⋔", name: "Ionen-Kralle", description: "Nahkampfwaffe: Drei Energieklingen schlagen vor der Drohne zu.", rarity: "legendary", cost: 260_000, shots: 1, spread: 0, projectileSpeed: 0, fireRate: 2.15, damageMultiplier: 4.2, color: "#22d3ee", meleeRange: 82 },
   { id: "phantom_ray", icon: "◇", name: "Phantomstrahl", description: "Drei schnelle Strahlen mit engem Fokus.", rarity: "legendary", cost: 280_000, shots: 3, spread: .035, projectileSpeed: 16, fireRate: 1.1, damageMultiplier: 1.05, color: "#e879f9" },
   { id: "titan_burst", icon: "⬢", name: "Titanenbrecher", description: "Langsame Einzelsalve mit enormem Schaden.", rarity: "legendary", cost: 340_000, shots: 1, spread: 0, projectileSpeed: 13, fireRate: 2.4, damageMultiplier: 4.6, color: "#f43f5e" },
   { id: "quantum_spinner", icon: "✺", name: "Quantenspirale", description: "Sieben Phasenbolzen erzeugen einen Energiekorridor.", rarity: "ultraLegendary", cost: 500_000, shots: 7, spread: .075, projectileSpeed: 12, fireRate: 1.25, damageMultiplier: .7, color: "#2dd4bf" },
   { id: "void_spike", icon: "◆", name: "Leerenspitze", description: "Ultraschnelles Geschoss mit konzentrierter Leerenenergie.", rarity: "ultraLegendary", cost: 650_000, shots: 1, spread: 0, projectileSpeed: 20, fireRate: 1.55, damageMultiplier: 5.4, color: "#818cf8" },
   { id: "seraph_crown", icon: "♛", name: "Seraph-Krone", description: "Neun symmetrische Lichtbolzen überziehen das Schlachtfeld.", rarity: "ultimate", cost: 1_000_000, shots: 9, spread: .065, projectileSpeed: 14, fireRate: 1.05, damageMultiplier: .9, color: "#f9a8d4" },
+  { id: "seraph_halo", icon: "⊛", name: "Seraph-Halo", description: "Nahkampfwaffe: Ein riesiger Lichtkreis trifft Gegner im Nahbereich.", rarity: "ultimate", cost: 1_100_000, shots: 1, spread: 0, projectileSpeed: 0, fireRate: 2.8, damageMultiplier: 7, color: "#f9a8d4", meleeRange: 105 },
   { id: "omega_swarm", icon: "☄", name: "Omega-Schwarm", description: "Fünf schwere Energiesalven mit maximaler Wirkung.", rarity: "ultimate", cost: 1_250_000, shots: 5, spread: .045, projectileSpeed: 18, fireRate: 1.35, damageMultiplier: 2.2, color: "#fde68a" },
 ] as const;
 
@@ -2591,7 +2596,7 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
   ctx.save();
   if (b.meleeRange) {
     const progress = 1 - Math.max(0, b.lifetime ?? 0) / 10;
-    const isDroneBlade = b.weaponId === "drone_rotor_blade";
+    const isDroneBlade = b.weaponId?.startsWith("drone_") ?? false;
     ctx.translate(b.x, b.y);
     ctx.strokeStyle = b.color ?? "#ffffff";
     ctx.shadowColor = b.color ?? "#ffffff";
