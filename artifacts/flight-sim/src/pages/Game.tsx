@@ -4,6 +4,9 @@ import {
   MAX_ACTIVE_ENEMIES,
   BOSS_FIGHT_TITAN_COUNT,
   addEnemyWithinLimit,
+  isEnemyReturningToPlayfield,
+  rechargeGuardianShield,
+  getWaveClearReward,
   PLAYER_SHIELD_HP,
   applyEnemyDamage,
   applyPlayerHitProtection,
@@ -279,7 +282,7 @@ interface Achievement { id: string; icon: string; name: string; description: str
 interface FloatingText { x: number; y: number; text: string; color: string; life: number; maxLife: number }
 type MissionType = "kills" | "combo" | "near_miss" | "flawless_boss";
 interface Mission { type: MissionType; title: string; target: number; reward: number; completed: boolean }
-interface ActiveWave { id: number; name: string; active: boolean; isMajor: boolean; damageAtStart: number }
+interface ActiveWave { id: number; name: string; active: boolean; isMajor: boolean; damageAtStart: number; spawned: number; defeated: Set<Enemy> }
 interface RunSummary {
   score: number;
   level: number;
@@ -3578,6 +3581,8 @@ export default function Game() {
   }, []);
 
   const registerKill = useCallback((enemy: Enemy) => {
+    const wave = activeWaveRef.current;
+    if (wave?.active && enemy.waveId === wave.id) wave.defeated.add(enemy);
     runStatsRef.current.kills += 1;
     runStatsRef.current.flawlessKills += 1;
     comboRef.current += 1;
@@ -4130,7 +4135,11 @@ export default function Game() {
         waveId,
       });
     }
-    activeWaveRef.current = { id: waveId, name, active: true, isMajor, damageAtStart: runStatsRef.current.damageTaken };
+    activeWaveRef.current = {
+      id: waveId, name, active: true, isMajor, damageAtStart: runStatsRef.current.damageTaken,
+      spawned: enemiesRef.current.filter(enemy => enemy.waveId === waveId).length,
+      defeated: new Set(),
+    };
     if (isMajor) {
       waveBannerRef.current = { text: `⚠ ${name} · ${count} GEGNER`, timer: 150 };
       audioRef.current.effect("boss", settingsRef.current.soundVolume * .6);
@@ -5453,7 +5462,7 @@ export default function Game() {
         droneSupportTimerRef.current = 0;
         if (droneRole === "guardian") {
           shieldTimerRef.current = Math.max(shieldTimerRef.current, 8 * 60);
-          playerShieldHpRef.current = Math.min(5, playerShieldHpRef.current + 1);
+          playerShieldHpRef.current = rechargeGuardianShield(playerShieldHpRef.current);
           waveBannerRef.current = { text: "🛡 WÄCHTERDROHNE · SCHILD +1", timer: 90 };
         } else if (gs.hp < gs.maxHp) {
           gs.hp = Math.min(gs.maxHp, gs.hp + 1);
@@ -5572,10 +5581,12 @@ export default function Game() {
           !enemiesRef.current.some(enemy => enemy.waveId === activeWaveRef.current?.id && !enemy.dead)) {
         const flawlessWave = runStatsRef.current.damageTaken === activeWaveRef.current.damageAtStart;
         activeWaveRef.current.active = false;
-        const waveReward = flawlessWave ? 1_500 : 500;
+        const waveReward = getWaveClearReward(
+          activeWaveRef.current.spawned, activeWaveRef.current.defeated.size, flawlessWave,
+        );
         addCoins(waveReward);
         gs.score += waveReward;
-        if (activeWaveRef.current.isMajor || flawlessWave) {
+        if (waveReward > 0 && (activeWaveRef.current.isMajor || flawlessWave)) {
           waveBannerRef.current = {
             text: flawlessWave ? `PERFEKTE WELLE · +${waveReward}` : `GROSSANGRIFF ABGEWEHRT · +${waveReward}`,
             timer: 130,
@@ -5835,7 +5846,7 @@ export default function Game() {
         // Spawned enemies begin just outside the right edge. Off-screen they
         // only perform the minimum entry movement required to reach the game;
         // AI, weapons, status effects, collisions and damage remain dormant.
-        if (!isEnemyVisible(e)) {
+        if (!isEnemyVisible(e) && !isEnemyReturningToPlayfield(e)) {
           const entrySpeed = activeMutatorRef.current.enemySpeedMultiplier;
           e.x += e.vx * dtScale * entrySpeed;
           e.y += e.vy * dtScale * entrySpeed;
@@ -6263,7 +6274,7 @@ export default function Game() {
         }
 
         // Off screen left
-        if (e.x + e.width < -20) return false;
+        if (e.x + e.width < -20 && !isEnemyReturningToPlayfield(e)) return false;
 
         // Enemy shooting
         if (e.type !== "laserdevice" && (e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;

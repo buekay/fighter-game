@@ -42,6 +42,20 @@ export const HEAL_ULTI_RESTORE = 5;
 export const MAX_AIRCRAFT_LEVEL = 10;
 export const MAX_DRONE_LEVEL = 10;
 
+// A Titan may leave the playfield temporarily during its dash return path.
+export function isEnemyReturningToPlayfield(enemy: { type: string; titanDashTimer?: number }): boolean {
+  return enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0;
+}
+
+export function rechargeGuardianShield(shieldHp: number): number {
+  return Math.max(shieldHp, Math.min(PLAYER_SHIELD_HP, shieldHp + 1));
+}
+
+export function getWaveClearReward(spawned: number, defeated: number, flawless: boolean): number {
+  if (spawned <= 0 || defeated !== spawned) return 0;
+  return flawless ? 1_500 : 500;
+}
+
 export function addEnemyWithinLimit<T>(enemies: T[], enemy: T): boolean {
   if (enemies.length >= MAX_ACTIVE_ENEMIES) return false;
   enemies.push(enemy);

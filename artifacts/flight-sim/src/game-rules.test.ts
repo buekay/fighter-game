@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import {
   addEnemyWithinLimit,
+  isEnemyReturningToPlayfield,
+  rechargeGuardianShield,
+  getWaveClearReward,
   BOSS_FIGHT_TITAN_COUNT,
   MAX_ACTIVE_ENEMIES,
   applyEnemyDamage,
@@ -312,6 +315,34 @@ for (let enemy = 0; enemy < MAX_ACTIVE_ENEMIES; enemy++) {
 }
 assert.equal(addEnemyWithinLimit(cappedEnemies, MAX_ACTIVE_ENEMIES), false);
 assert.equal(cappedEnemies.length, 20);
+
+// Temporary departures must keep the Titan's dash timer and return path running.
+assert.equal(isEnemyReturningToPlayfield({ type: "titan", titanDashTimer: 75 }), true);
+assert.equal(isEnemyReturningToPlayfield({ type: "titan", titanDashTimer: 0 }), false);
+assert.equal(isEnemyReturningToPlayfield({ type: "titan" }), false);
+assert.equal(isEnemyReturningToPlayfield({ type: "fighter", titanDashTimer: 75 }), false);
+
+// Guardian support recharges ordinary shields without weakening route/ultimate shields.
+assert.equal(rechargeGuardianShield(0), 1);
+assert.equal(rechargeGuardianShield(4), 5);
+assert.equal(rechargeGuardianShield(5), 5);
+assert.equal(rechargeGuardianShield(6), 6);
+assert.equal(rechargeGuardianShield(12), 12);
+
+assert.equal(getWaveClearReward(7, 0, true), 0); // Entire wave escaped.
+assert.equal(getWaveClearReward(7, 6, true), 0); // One escaped or was removed.
+assert.equal(getWaveClearReward(7, 6, false), 0);
+assert.equal(getWaveClearReward(7, 7, true), 1500);
+assert.equal(getWaveClearReward(7, 7, false), 500);
+assert.equal(getWaveClearReward(0, 0, true), 0);
+// A wave limited by the enemy cap can still be cleared in full.
+const crowdedEnemies = Array.from({ length: MAX_ACTIVE_ENEMIES - 2 }, () => ({ wave: false }));
+let spawned = 0;
+for (let index = 0; index < 7; index++) {
+  if (addEnemyWithinLimit(crowdedEnemies, { wave: true })) spawned++;
+}
+assert.equal(spawned, 2);
+assert.equal(getWaveClearReward(spawned, 2, true), 1500);
 
 assert.equal(getBossPhase(100, 100), 1);
 assert.equal(getBossPhase(60, 100), 2);
