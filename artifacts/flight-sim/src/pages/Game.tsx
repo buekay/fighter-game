@@ -1047,6 +1047,7 @@ const SHOP_ITEMS: readonly ShopItem[] = [
   { id: "poison_missiles_ulti", name: "Gift-Raketen-Ulti ☣", desc: "3 Lenkraketen: 20 Schaden + 5 Sek. Gift [Taste T]", cost: 200000, rarity: "legendary" },
   { id: "absorber_ulti", name: "Absorber-Ulti ◖", desc: "10 Sek. unzerstörbares pinkes Frontschild; Treffer erhöhen den Schaden auf 2×, 4×, dann 8× [Taste F]", cost: 400000, rarity: "ultraLegendary" },
   { id: "ultimate_ulti", name: "Ultimate Ulti ⚡", desc: "10 Sek. Titanenschild, 2× Schaden, Frost & Kettenblitze [Taste U]", cost: 1000000, rarity: "ultimate" },
+  { id: "emp_ulti", name: "EMP-Ulti ◉", desc: "Löscht feindliche Geschosse, verursacht Flächenschaden und friert normale Gegner 4 Sek. ein [Taste I]", cost: 400000, rarity: "ultraLegendary" },
   { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 50000,  rarity: "rare" },
   { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 50000,  rarity: "rare" },
   { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 100000, rarity: "epic" },
@@ -1070,7 +1071,7 @@ const SORTED_DRONE_SKINS = [...DRONE_SKINS].sort(
   (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
 );
 
-type UltiLoadoutId = "jet" | "laser" | "stealth_ulti" | "heal_ulti" | "poison_missiles_ulti" | "absorber_ulti" | "ultimate_ulti";
+type UltiLoadoutId = "jet" | "laser" | "stealth_ulti" | "heal_ulti" | "poison_missiles_ulti" | "absorber_ulti" | "ultimate_ulti" | "emp_ulti";
 const ULTI_LOADOUT_OPTIONS: readonly { id: UltiLoadoutId; name: string; key: string; requires?: string }[] = [
   { id: "jet", name: "Flugzeug-Ulti", key: "Q" },
   { id: "laser", name: "Laser-Ulti", key: "E" },
@@ -1079,6 +1080,7 @@ const ULTI_LOADOUT_OPTIONS: readonly { id: UltiLoadoutId; name: string; key: str
   { id: "poison_missiles_ulti", name: "Gift-Raketen-Ulti", key: "T", requires: "poison_missiles_ulti" },
   { id: "absorber_ulti", name: "Absorber-Ulti", key: "F", requires: "absorber_ulti" },
   { id: "ultimate_ulti", name: "Ultimate Ulti", key: "U", requires: "ultimate_ulti" },
+  { id: "emp_ulti", name: "EMP-Ulti", key: "I", requires: "emp_ulti" },
 ];
 function loadUltiLoadout(): UltiLoadoutId[] {
   const available = ULTI_LOADOUT_OPTIONS.filter(option => !option.requires || loadUnlocks().includes(option.requires)).map(option => option.id);
@@ -3423,6 +3425,7 @@ export default function Game() {
   const absorberHitsRef = useRef(0);
   const ultimateChargeRef = useRef(0);
   const ultimateActiveRef = useRef(0);
+  const empChargeRef = useRef(0);
   const speedBoostRef = useRef(0);
   const n1ShieldTimerRef = useRef(0);
   const playerShieldHpRef = useRef(0);
@@ -3740,6 +3743,7 @@ export default function Game() {
         poisonMissileChargeRef.current = POISON_MISSILE_MAX;
         absorberChargeRef.current = ABSORBER_MAX;
         ultimateChargeRef.current = ULTIMATE_MAX;
+        empChargeRef.current = EMP_MAX;
         break;
     }
     const chosenLevel = activeSectorLevelRef.current;
@@ -4328,6 +4332,7 @@ export default function Game() {
     absorberHitsRef.current = 0;
     ultimateChargeRef.current = ULTIMATE_MAX;
     ultimateActiveRef.current = 0;
+    empChargeRef.current = EMP_MAX;
     speedBoostRef.current = 0;
     n1ShieldTimerRef.current = 0;
     playerShieldHpRef.current = 0;
@@ -4434,6 +4439,7 @@ export default function Game() {
     laserActiveRef.current = 0;
     ultimateChargeRef.current = ULTIMATE_MAX;
     ultimateActiveRef.current = 0;
+    empChargeRef.current = EMP_MAX;
     milestoneBossFiredRef.current = new Set();
     titanBossFiredRef.current = new Set();
     saveExistsRef.current = !!loadSave();
@@ -7861,7 +7867,7 @@ function HangarOverlay({
     return (
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.98)" }}>
         <BriefingScreen
-          language={language}
+          settings={settings}
           onDone={() => { markBriefingSeen(); setView("main"); }}
         />
       </div>
@@ -8956,14 +8962,16 @@ function AchievementsScreen({ unlocked, onBack }: { unlocked: string[]; onBack: 
 
 // ─── First-mission briefing ───────────────────────────────────────────────────
 
-function BriefingScreen({ language, onDone }: { language: GameSettings["language"]; onDone: () => void }) {
+function BriefingScreen({ settings, onDone }: { settings: GameSettings; onDone: () => void }) {
+  const language = settings.language;
   const sections = language === "de" ? [
-    { icon: "🎯", title: "Dein Auftrag", text: "Steuere deinen Jet durch automatisch scrollende, immer schwierigere Sektoren. Weiche Feinden und Geschossen aus, schieße Gegner ab und sammle möglichst viele Punkte. Mit deiner Punktzahl steigt auch dein Pilot-Level; Bosskämpfe markieren die großen Etappen eines Einsatzes." },
-    { icon: "❤", title: "Überleben", text: "Jeder gegnerische Treffer zieht dir HP ab. Fallen deine HP auf null, verlierst du ein Leben und kehrst mit voller Energie zurück. Nach dem letzten Leben ist der Einsatz beendet. Ein aktiver Schild fängt Schaden zuerst ab – Ausweichen bleibt trotzdem die sicherste Taktik." },
-    { icon: "📦", title: "Power-ups", text: "Zerstörte Gegner können nützliche Pick-ups hinterlassen: Heilung stellt HP wieder her, Schilde geben zusätzlichen Schutz und Tempo-Boosts machen deinen Jet vorübergehend schneller. Berühre ein Symbol mit deinem Jet, bevor es vom Bildschirm verschwindet." },
-    { icon: "⚡", title: "Waffen & Fähigkeiten", text: "Halte die Feuertaste gedrückt oder aktiviere optional Auto-Fire in den Einstellungen. Vor dem Start rüstest du höchstens zwei Spezialfähigkeiten aus; sobald eine Anzeige voll ist, aktivierst du sie mit der eingeblendeten Taste oder dem Touch-Knopf." },
-    { icon: "⬆", title: "Fortschritt", text: "Nach abgeschlossenen Sektoren pausiert das Gefecht und du wählst eines von drei Upgrades für den aktuellen Lauf. Diese Boni gelten bis zum Missionsende. Checkpoints speichern Level, Punktzahl und Waffenstufe, sodass du einen unterbrochenen Einsatz später über „Weiterspielen“ fortsetzen kannst." },
-    { icon: "💎", title: "Credits, Juwelen & Hangar", text: "Nach dem Missionsende wird jeder erzielte Punkt in einen Credit umgewandelt. Zusätzlich erhältst du je 100 Einsatz-Credits ein Juwel. Flugzeug- und Drohnen-Level bezahlst du mit Juwelen; Skins und weitere Shopartikel weiterhin mit Credits." },
+    { icon: "①", title: "Im Hangar vorbereiten", text: "Wähle unter dem Jet einen Spielmodus. Öffne die Werkstatt, um Flugzeug und Drohne zusammenzustellen, oder den Shop, um Skins, Waffen und bis zu drei Spezialfähigkeiten auszurüsten. Der große mittlere Knopf startet den gewählten Modus; „Weiterspielen“ lädt einen vorhandenen Checkpoint." },
+    { icon: "②", title: "Fliegen & feuern", text: "Bewege den Jet in alle vier Richtungen. Der Bildschirm scrollt automatisch – du steuerst nur den Jet. Halte die Feuertaste gedrückt, sofern Auto-Fire ausgeschaltet ist. Weiche gegnerischen Flugzeugen, Hindernissen und ihren Geschossen aus und schieße Ziele ab, um Punkte zu erhalten." },
+    { icon: "❤", title: "Schaden & Leben", text: "Treffer reduzieren zuerst einen aktiven Schild, danach deine HP. Bei 0 HP verlierst du ein Leben und kehrst mit voller Energie zurück. Sind keine Leben mehr übrig, endet der Einsatz. Im Modus „Beschützen“ greifen Gegner vorrangig das Paket an; fällt dessen Energie auf 0, ist die Mission verloren." },
+    { icon: "📦", title: "Power-ups einsammeln", text: "Zerstörte Gegner können Symbole hinterlassen. Fliege mit dem Jet darüber, bevor sie den Bildschirm verlassen: Herzen heilen HP, Schilde absorbieren Treffer und Tempo-Boosts erhöhen vorübergehend deine Fluggeschwindigkeit." },
+    { icon: "⚡", title: "Spezialfähigkeiten", text: "Du kannst im Shop bis zu drei Fähigkeiten für einen Einsatz ausrüsten. Jede besitzt im HUD eine eigene Ladeanzeige. Erst wenn die Anzeige voll leuchtet, löst du die Fähigkeit mit ihrer eingeblendeten Taste beziehungsweise dem Touch-Knopf aus." },
+    { icon: "⬆", title: "Upgrades im Einsatz", text: "Beim Erreichen jedes 6. Levels pausiert das Spiel: Wähle genau eines von drei Lauf-Upgrades. Bei jedem 10. Level wählst du zusätzlich eine Route mit eigenem Risiko und Bonus. Diese Entscheidungen gelten nur für den aktuellen Einsatz." },
+    { icon: "💎", title: "Belohnung & dauerhafte Stärke", text: "Am Missionsende wird dein Score in Credits umgerechnet; bestimmte Modi erhöhen den Credit-Ertrag. Je 100 verdiente Einsatz-Credits erhältst du außerdem ein Juwel. Credits kaufen Shopartikel, Juwelen verbessern dauerhaft die Level von Flugzeug und Drohne." },
   ] : language === "tr" ? [
     { icon: "🎯", title: "Görevin", text: "Uçağını giderek zorlaşan ve otomatik kayan sektörlerde yönlendir. Düşmanlardan ve mermilerden kaç, hedefleri vur ve mümkün olduğunca çok puan topla. Puanın arttıkça pilot seviyen yükselir; bölüm sonu savaşları görevin büyük aşamalarını belirler." },
     { icon: "❤", title: "Hayatta kalma", text: "Her düşman isabeti HP'ni azaltır. HP sıfıra düştüğünde bir can kaybeder ve tam enerjiyle geri dönersin. Son canından sonra görev biter. Aktif kalkan önce hasarı emer, ancak kaçınmak hâlâ en güvenli taktiktir." },
@@ -8980,23 +8988,29 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
     { icon: "💎", title: "Credits, gems & hangar", text: "At the end of a mission, every point becomes one credit, and every 100 mission credits also earn one gem. Aircraft and drone levels cost gems; skins and other shop items continue to cost credits." },
   ];
   const keyboardHelp = language === "de" ? [
-    ["WASD / Pfeile", "Bewegen"],
-    ["AUTO", "Dauerfeuer"],
-    ["1", "Fähigkeit 1"],
-    ["2", "Fähigkeit 2"],
-    ["ESC", "Pause"],
+    [`${formatKeyCode(settings.keyBindings.up)} / ${formatKeyCode(settings.keyBindings.down)}`, "Hoch / runter"],
+    [`${formatKeyCode(settings.keyBindings.left)} / ${formatKeyCode(settings.keyBindings.right)}`, "Links / rechts"],
+    [settings.autoFire ? "AUTO" : formatKeyCode(settings.keyBindings.fire), settings.autoFire ? "Dauerfeuer ist aktiv" : "Gedrückt halten zum Feuern"],
+    [formatKeyCode(settings.keyBindings.ability1), "Fähigkeit 1"],
+    [formatKeyCode(settings.keyBindings.ability2), "Fähigkeit 2"],
+    [formatKeyCode(settings.keyBindings.ability3), "Fähigkeit 3"],
+    [formatKeyCode(settings.keyBindings.pause), "Pause / fortsetzen"],
   ] as const : language === "tr" ? [
-    ["WASD / Oklar", "Hareket"],
-    ["AUTO", "Otomatik ateş"],
-    ["1", "Yetenek 1"],
-    ["2", "Yetenek 2"],
-    ["ESC", "Duraklat"],
+    [`${formatKeyCode(settings.keyBindings.up)} / ${formatKeyCode(settings.keyBindings.down)}`, "Yukarı / aşağı"],
+    [`${formatKeyCode(settings.keyBindings.left)} / ${formatKeyCode(settings.keyBindings.right)}`, "Sol / sağ"],
+    [settings.autoFire ? "AUTO" : formatKeyCode(settings.keyBindings.fire), settings.autoFire ? "Otomatik ateş açık" : "Ateş etmek için basılı tut"],
+    [formatKeyCode(settings.keyBindings.ability1), "Yetenek 1"],
+    [formatKeyCode(settings.keyBindings.ability2), "Yetenek 2"],
+    [formatKeyCode(settings.keyBindings.ability3), "Yetenek 3"],
+    [formatKeyCode(settings.keyBindings.pause), "Duraklat / devam et"],
   ] as const : [
-    ["WASD / Arrows", "Move"],
-    ["AUTO", "Auto-fire"],
-    ["1", "Ability 1"],
-    ["2", "Ability 2"],
-    ["ESC", "Pause"],
+    [`${formatKeyCode(settings.keyBindings.up)} / ${formatKeyCode(settings.keyBindings.down)}`, "Up / down"],
+    [`${formatKeyCode(settings.keyBindings.left)} / ${formatKeyCode(settings.keyBindings.right)}`, "Left / right"],
+    [settings.autoFire ? "AUTO" : formatKeyCode(settings.keyBindings.fire), settings.autoFire ? "Auto-fire is active" : "Hold to fire"],
+    [formatKeyCode(settings.keyBindings.ability1), "Ability 1"],
+    [formatKeyCode(settings.keyBindings.ability2), "Ability 2"],
+    [formatKeyCode(settings.keyBindings.ability3), "Ability 3"],
+    [formatKeyCode(settings.keyBindings.pause), "Pause / resume"],
   ] as const;
 
   return (
@@ -9028,8 +9042,8 @@ function BriefingScreen({ language, onDone }: { language: GameSettings["language
             <h3 className="text-xs font-black uppercase tracking-[.2em] text-violet-300">{translated(language, "Touch-Steuerung", "Touch controls")}</h3>
             <div className="mt-3 space-y-2 text-xs text-slate-300">
               <p><strong className="text-white">{translated(language, "Links ziehen:", "Drag left:")}</strong> {translated(language, "Der Jet folgt deinem Finger schnell.", "The jet follows your finger quickly.")}</p>
-              <p><strong className="text-white">AUTO-FIRE:</strong> Optional in den Einstellungen aktivierbar.</p>
-              <p><strong className="text-white">FÄHIGKEIT 1 · 2:</strong> Die zwei ausgerüsteten Knöpfe antippen, sobald sie bereit sind.</p>
+              <p><strong className="text-white">AUTO-FIRE:</strong> {translated(language, settings.autoFire ? "Ist aktiv; der Jet feuert ohne Eingabe." : "Ist aus; halte rechts den roten FIRE-Knopf gedrückt." , settings.autoFire ? "Active; the jet fires without input." : "Off; hold the red FIRE button on the right.")}</p>
+              <p><strong className="text-white">FÄHIGKEIT 1 · 2 · 3:</strong> {translated(language, "Tippe einen ausgerüsteten Knopf erst an, wenn seine Anzeige voll ist.", "Tap an equipped button only when its meter is full.")}</p>
             </div>
           </div>
         </div>
