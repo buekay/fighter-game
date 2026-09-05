@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   MAX_LEVEL,
   MAX_ACTIVE_ENEMIES,
+  BOSS_FIGHT_TITAN_COUNT,
   addEnemyWithinLimit,
   PLAYER_SHIELD_HP,
   applyEnemyDamage,
@@ -109,6 +110,11 @@ interface Bullet {
   normalBossProjectile?: boolean;
   nearMissed?: boolean;
   weaponId?: string;
+  sourceEnemy?: Enemy;
+  collisionWidth?: number;
+  collisionHeight?: number;
+  meleeRange?: number;
+  hitTargets?: Set<Enemy>;
 }
 
 interface Enemy {
@@ -169,6 +175,9 @@ interface Enemy {
   phaseTelegraphTimer?: number;
   bossTrackedTargetY?: number;
   bossTargetVelocityY?: number;
+  ultimateKnockbackVx?: number;
+  ultimateKnockbackVy?: number;
+  ultimateKnockbackTimer?: number;
 }
 
 const isBossEnemy = (enemy: Enemy) => enemy.type === "boss" || enemy.type === "overlord" || enemy.type === "titan";
@@ -593,7 +602,7 @@ const WEAPON_TIERS = [
 ];
 
 type WeaponCurrency = "credits" | "gems";
-type WeaponPattern = "focused" | "twin" | "spread" | "rapid" | "missile";
+type WeaponPattern = "focused" | "twin" | "spread" | "rapid" | "missile" | "melee";
 interface WeaponDefinition {
   id: string;
   name: string;
@@ -607,6 +616,7 @@ interface WeaponDefinition {
   damage: number;
   fireRate: number;
   color: string;
+  meleeRange?: number;
 }
 
 const WEAPONS: readonly WeaponDefinition[] = [
@@ -621,9 +631,11 @@ const WEAPONS: readonly WeaponDefinition[] = [
   { id: "titan_lance", name: "Titanenlanze", icon: "◆", description: "Langsame, gebündelte Schüsse mit enormem Schaden.", rarity: "legendary", cost: 240_000, currency: "credits", pattern: "focused", guns: 1, damage: 12, fireRate: 520, color: "#fb7185" },
   { id: "meteor_missiles", name: "Meteor-Schwarm", icon: "☄", description: "Zielsuchende Raketen mit schwerem Einschlag.", rarity: "legendary", cost: 260_000, currency: "credits", pattern: "missile", guns: 2, damage: 8, fireRate: 310, color: "#f97316" },
   { id: "helix_cannon", name: "Helix-Kanone", icon: "∞", description: "Versetzte Zwillingssalven mit hoher Präzision.", rarity: "legendary", cost: 320_000, currency: "credits", pattern: "twin", guns: 4, damage: 5, fireRate: 215, color: "#f43f5e" },
+  { id: "plasma_sabre", name: "Plasma-Säbel", icon: "╱", description: "Kurzer, schneller Energieschnitt direkt vor dem Flugzeug.", rarity: "legendary", cost: 300_000, currency: "credits", pattern: "melee", guns: 1, damage: 18, fireRate: 460, color: "#67e8f9", meleeRange: 82 },
   { id: "seraph_barrage", name: "Seraph-Salve", icon: "♛", description: "Lenkraketen und Dreifachfeuer in einer Waffe.", rarity: "ultraLegendary", cost: 3_500, currency: "gems", pattern: "missile", guns: 3, damage: 7, fireRate: 260, color: "#67e8f9" },
   { id: "quantum_barrage", name: "Quanten-Salve", icon: "⎊", description: "Phasenbolzen mit extremer Feuerrate.", rarity: "ultraLegendary", cost: 520_000, currency: "credits", pattern: "rapid", guns: 4, damage: 5, fireRate: 88, color: "#06b6d4" },
   { id: "void_hammer", name: "Leerenhammer", icon: "⬢", description: "Ein konzentrierter Schuss zerreißt schwere Panzerung.", rarity: "ultraLegendary", cost: 650_000, currency: "credits", pattern: "focused", guns: 1, damage: 24, fireRate: 560, color: "#8b5cf6" },
+  { id: "void_scythe", name: "Leeren-Sense", icon: "☾", description: "Breiter Nahkampfschwung, der mehrere Gegner vor dem Flugzeug trifft.", rarity: "ultraLegendary", cost: 700_000, currency: "credits", pattern: "melee", guns: 1, damage: 34, fireRate: 720, color: "#c084fc", meleeRange: 116 },
   { id: "omega_prism", name: "Omega-Prisma", icon: "✺", description: "Ultimate Energiestreuer mit sieben Strahlen.", rarity: "ultimate", cost: 9_000, currency: "gems", pattern: "spread", guns: 7, damage: 8, fireRate: 175, color: "#f9a8d4" },
   { id: "celestial_storm", name: "Himmelssturm", icon: "✹", description: "Neun Energielanzen füllen den gesamten Feuerkorridor.", rarity: "ultimate", cost: 1_000_000, currency: "credits", pattern: "spread", guns: 9, damage: 9, fireRate: 165, color: "#f0abfc" },
   { id: "apocalypse_swarm", name: "Apokalypse-Schwarm", icon: "♨", description: "Ultimate Lenkraketen suchen selbstständig neue Ziele.", rarity: "ultimate", cost: 1_250_000, currency: "credits", pattern: "missile", guns: 5, damage: 13, fireRate: 205, color: "#fde047" },
@@ -862,7 +874,7 @@ type EngineModuleId = "ion" | "afterburner" | "phase";
 type DroneRoleId = "assault" | "guardian" | "repair" | "collector";
 type DroneWeaponId = "pulse" | "rail_lance" | "ion_spread" | "spark_twin" | "frost_needle" |
   "ember_fan" | "hunter_rockets" | "phantom_ray" | "titan_burst" | "quantum_spinner" |
-  "void_spike" | "seraph_crown" | "omega_swarm";
+  "void_spike" | "seraph_crown" | "omega_swarm" | "rotor_blade";
 interface DroneWeaponDefinition {
   id: DroneWeaponId;
   icon: string;
@@ -876,6 +888,7 @@ interface DroneWeaponDefinition {
   fireRate: number;
   damageMultiplier: number;
   color: string;
+  meleeRange?: number;
 }
 interface AircraftBuild {
   wing: WingModuleId;
@@ -926,6 +939,7 @@ const DRONE_WEAPONS: readonly DroneWeaponDefinition[] = [
   { id: "frost_needle", icon: "✧", name: "Frostnadel", description: "Schnelles Präzisionsgeschoss mit verstärktem Kern.", rarity: "rare", cost: 60_000, shots: 1, spread: 0, projectileSpeed: 14, fireRate: 1.22, damageMultiplier: 1.45, color: "#7dd3fc" },
   { id: "rail_lance", icon: "━", name: "Rail-Lanze", description: "Extrem schnelle Präzisionsschüsse mit hohem Schaden.", rarity: "epic", cost: 75_000, shots: 1, spread: 0, projectileSpeed: 17, fireRate: 1.8, damageMultiplier: 2.4, color: "#fb7185" },
   { id: "ion_spread", icon: "ϟ", name: "Ionenstreuer", description: "Drei Energieschüsse decken einen breiten Bereich ab.", rarity: "epic", cost: 100_000, shots: 3, spread: .16, projectileSpeed: 10, fireRate: 1.35, damageMultiplier: .72, color: "#22d3ee" },
+  { id: "rotor_blade", icon: "✣", name: "Rotor-Klinge", description: "Nahkampfwaffe: Die Drohne zerlegt Gegner mit einer kreisenden Energieklinge.", rarity: "epic", cost: 125_000, shots: 1, spread: 0, projectileSpeed: 0, fireRate: 1.8, damageMultiplier: 3.2, color: "#f0abfc", meleeRange: 64 },
   { id: "ember_fan", icon: "⌁", name: "Glutfächer", description: "Fünf kurze Plasmabolzen räumen Gegnergruppen.", rarity: "epic", cost: 135_000, shots: 5, spread: .12, projectileSpeed: 9, fireRate: 1.65, damageMultiplier: .52, color: "#fb923c" },
   { id: "hunter_rockets", icon: "➹", name: "Jäger-Raketen", description: "Schwere Doppelsalve für robuste Ziele.", rarity: "legendary", cost: 220_000, shots: 2, spread: .05, projectileSpeed: 12, fireRate: 2.05, damageMultiplier: 2.1, color: "#facc15" },
   { id: "phantom_ray", icon: "◇", name: "Phantomstrahl", description: "Drei schnelle Strahlen mit engem Fokus.", rarity: "legendary", cost: 280_000, shots: 3, spread: .035, projectileSpeed: 16, fireRate: 1.1, damageMultiplier: 1.05, color: "#e879f9" },
@@ -1048,7 +1062,7 @@ const SHOP_ITEMS: readonly ShopItem[] = [
   { id: "heal_ulti",     name: "Heil-Ulti ❤",      desc: "Heilt 5 HP sofort [Taste H]",                    cost: 200000, rarity: "legendary" },
   { id: "poison_missiles_ulti", name: "Gift-Raketen-Ulti ☣", desc: "3 Lenkraketen: 20 Schaden + 5 Sek. Gift [Taste T]", cost: 200000, rarity: "legendary" },
   { id: "absorber_ulti", name: "Absorber-Ulti ◖", desc: "10 Sek. unzerstörbares pinkes Frontschild; Treffer erhöhen den Schaden auf 2×, 4×, dann 8× [Taste F]", cost: 400000, rarity: "ultraLegendary" },
-  { id: "ultimate_ulti", name: "Ultimate Ulti ⚡", desc: "10 Sek. Titanenschild, 2× Schaden, Frost & Kettenblitze [Taste U]", cost: 1000000, rarity: "ultimate" },
+  { id: "ultimate_ulti", name: "Gravitations-Ulti ✹", desc: "5 Sek. Sog (Bosse immun), dann Explosion: 30 Schaden + Rückstoß. Währenddessen 50 % weniger Schaden und 20 % Reflexion [Taste U]", cost: 1_500_000, rarity: "ultimate" },
   { id: "emp_ulti", name: "EMP-Ulti ◉", desc: "Löscht feindliche Geschosse, verursacht Flächenschaden und friert normale Gegner 4 Sek. ein [Taste I]", cost: 400000, rarity: "ultraLegendary" },
   { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 50000,  rarity: "rare" },
   { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 50000,  rarity: "rare" },
@@ -1081,7 +1095,7 @@ const ULTI_LOADOUT_OPTIONS: readonly { id: UltiLoadoutId; name: string; key: str
   { id: "heal_ulti", name: "Heil-Ulti", key: "H", requires: "heal_ulti" },
   { id: "poison_missiles_ulti", name: "Gift-Raketen-Ulti", key: "T", requires: "poison_missiles_ulti" },
   { id: "absorber_ulti", name: "Absorber-Ulti", key: "F", requires: "absorber_ulti" },
-  { id: "ultimate_ulti", name: "Ultimate Ulti", key: "U", requires: "ultimate_ulti" },
+  { id: "ultimate_ulti", name: "Gravitations-Ulti", key: "U", requires: "ultimate_ulti" },
   { id: "emp_ulti", name: "EMP-Ulti", key: "I", requires: "emp_ulti" },
 ];
 function loadUltiLoadout(): UltiLoadoutId[] {
@@ -2586,7 +2600,28 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
 
 function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
   ctx.save();
-  if (b.isPoisonMissile) {
+  if (b.meleeRange) {
+    const progress = 1 - Math.max(0, b.lifetime ?? 0) / 10;
+    const isDroneBlade = b.weaponId === "drone_rotor_blade";
+    ctx.translate(b.x, b.y);
+    ctx.strokeStyle = b.color ?? "#ffffff";
+    ctx.shadowColor = b.color ?? "#ffffff";
+    ctx.shadowBlur = isDroneBlade ? 20 : 26;
+    ctx.lineCap = "round";
+    ctx.lineWidth = isDroneBlade ? 6 : 9;
+    ctx.globalAlpha = Math.max(.2, 1 - progress * .7);
+    ctx.beginPath();
+    if (isDroneBlade) {
+      ctx.arc(0, 0, b.meleeRange * .72, -Math.PI * .7 + progress * Math.PI, Math.PI * .35 + progress * Math.PI);
+    } else {
+      ctx.arc(0, 0, b.meleeRange * .72, -Math.PI * .58 + progress * .8, Math.PI * .42 + progress * .8);
+    }
+    ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#ffffff";
+    ctx.globalAlpha *= .85;
+    ctx.stroke();
+  } else if (b.isPoisonMissile) {
     ctx.translate(b.x, b.y);
     ctx.rotate(Math.atan2(b.vy, b.vx));
     ctx.shadowColor = "#65ff38";
@@ -3351,7 +3386,7 @@ export default function Game() {
   const protectPackageHitCooldownRef = useRef(0);
   const protectPackageRef = useRef({ x: 150, y: CANVAS_H / 2 - PROTECT_PACKAGE_HEIGHT / 2, direction: 1 });
   const protectPackageLastFireRef = useRef(0);
-  const bossRushSpawnTimerRef = useRef(0);
+  const bossFightSpawnTimerRef = useRef(0);
   const displaySyncTimerRef = useRef(0);
   const shieldTimerRef = useRef(0);
   const invincibleRef = useRef(0);
@@ -3562,6 +3597,15 @@ export default function Game() {
       runStatsRef.current.bosses += 1;
       if (runStatsRef.current.damageTaken === bossDamageStartRef.current) {
         runStatsRef.current.perfectBosses += 1;
+      }
+      if (activeModeRef.current === "boss_fight" && enemy.type === "titan") {
+        const defeated = Math.min(runStatsRef.current.bosses, BOSS_FIGHT_TITAN_COUNT);
+        waveBannerRef.current = {
+          text: defeated === BOSS_FIGHT_TITAN_COUNT
+            ? "ALLE TITANEN BESIEGT"
+            : `TITAN BESIEGT · ${defeated}/${BOSS_FIGHT_TITAN_COUNT}`,
+          timer: 110,
+        };
       }
     }
     if (activeMutatorRef.current.id === "volatile") {
@@ -3993,45 +4037,42 @@ export default function Game() {
     }
   }, []);
 
-  const spawnBossRushEnemy = useCallback((bossNumber: number) => {
-    const power = Math.max(1, bossNumber);
-    const titan = power % 5 === 0;
-    const overlord = !titan && power % 3 === 0;
-    const type: Enemy["type"] = titan ? "titan" : overlord ? "overlord" : "boss";
-    const hp = increasedBossHealth((titan ? 520 : overlord ? 240 : 100) + power * (titan ? 70 : 32));
-    const width = titan ? TITAN_WIDTH : overlord ? OVERLORD_WIDTH : 112;
-    const height = titan ? TITAN_HEIGHT : overlord ? OVERLORD_HEIGHT : 86;
-    if (titan) titanWarningRef.current = 180;
+  const spawnBossFightTitan = useCallback((bossNumber: number) => {
+    const power = Math.max(1, Math.min(BOSS_FIGHT_TITAN_COUNT, bossNumber));
+    const hp = increasedBossHealth(120 + power * 45);
+    const width = TITAN_WIDTH;
+    const height = TITAN_HEIGHT;
+    titanWarningRef.current = 180;
     addEnemyWithinLimit(enemiesRef.current, {
       x: CANVAS_W + 24,
       y: CANVAS_H / 2 - height / 2,
-      vx: titan ? -.55 : -.75,
+      vx: -.55,
       vy: 0,
       hp,
       maxHp: hp,
       width,
       height,
-      type,
-      shootCooldown: titan ? 14 : 18,
-      points: 900 + power * 350,
-      color: titan ? "#ff3fd2" : overlord ? "#ff4fc8" : "#ff2200",
+      type: "titan",
+      shootCooldown: Math.max(10, 16 - power),
+      points: 2500 + power * 1000,
+      color: power === 1 ? "#45f6ff" : power === 2 ? "#ff4fd8" : "#ff6b35",
       angle: 0,
       oscillate: 0,
-      bossAge: type === "boss" ? 0 : undefined,
-      missileTimer: titan ? 360 : undefined,
-      specialAttackTimer: titan || overlord ? 150 : undefined,
-      titanShieldCooldown: titan ? TITAN_SHIELD_COOLDOWN : undefined,
-      titanShieldTimer: titan ? 0 : undefined,
-      titanHealTimer: titan ? 60 : undefined,
-      titanDashCooldown: titan ? TITAN_DASH_COOLDOWN : undefined,
-      titanDashWarningTimer: titan ? 0 : undefined,
-      titanLaserDamageTimer: titan ? TITAN_LASER_DAMAGE_INTERVAL : undefined,
-      titanDashTimer: titan ? 0 : undefined,
-      titanReinforcementsSpawned: titan ? false : undefined,
+      missileTimer: Math.max(240, 380 - power * 40),
+      specialAttackTimer: Math.max(100, 170 - power * 20),
+      titanShieldCooldown: TITAN_SHIELD_COOLDOWN,
+      titanShieldTimer: 0,
+      titanHealTimer: 60,
+      titanDashCooldown: Math.max(300, TITAN_DASH_COOLDOWN - power * 30),
+      titanDashWarningTimer: 0,
+      titanLaserDamageTimer: TITAN_LASER_DAMAGE_INTERVAL,
+      titanDashTimer: 0,
+      titanReinforcementsSpawned: true,
       bossTopPartHp: Math.max(8, Math.round(hp * .12)),
       bossBottomPartHp: Math.max(8, Math.round(hp * .12)),
     });
     bossDamageStartRef.current = runStatsRef.current.damageTaken;
+    waveBannerRef.current = { text: `TITAN ${power}/${BOSS_FIGHT_TITAN_COUNT}`, timer: 150 };
     audioRef.current.effect("boss", settingsRef.current.soundVolume);
   }, []);
 
@@ -4104,6 +4145,26 @@ export default function Game() {
       lastDroneFireRef.current = now;
       const droneX = playerRef.current.x + PLAYER_W / 2;
       const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22) + Math.sin(timeRef.current * 0.08) * 4;
+      if (droneWeapon.meleeRange) {
+        const damage = (drone.damage + routeModifiersRef.current.damage) * droneWeapon.damageMultiplier *
+          droneDamageMultiplier * buildDamageMultiplier * (role === "assault" ? 1.35 : 1);
+        bulletsRef.current.push({
+          x: droneX + 12,
+          y: droneY,
+          vx: 0,
+          vy: 0,
+          fromPlayer: true,
+          damage,
+          color: droneWeapon.color,
+          weaponId: `drone_${droneWeapon.id}`,
+          lifetime: 10,
+          meleeRange: droneWeapon.meleeRange,
+          collisionWidth: droneWeapon.meleeRange,
+          collisionHeight: droneWeapon.meleeRange * 1.45,
+          hitTargets: new Set<Enemy>(),
+        });
+        audioRef.current.tone(310, .09, settingsRef.current.soundVolume * .22, "sawtooth", 180);
+      } else {
       const offsets = drone.guns === 3 ? [-7, 0, 7] : drone.guns === 2 ? [-4, 4] : [0];
       const collectorTarget = role === "collector"
         ? enemiesRef.current.filter(enemy => !enemy.dead && enemy.hp > 0 && isEnemyVisible(enemy))
@@ -4123,6 +4184,7 @@ export default function Game() {
         missileTarget: collectorTarget,
         weaponId: `drone_${droneWeapon.id}`,
       })));
+      }
     }
 
     const px = playerRef.current.x + PLAYER_W;
@@ -4158,6 +4220,29 @@ export default function Game() {
       lastFireRef.current[weapon.id] = now;
       const offsets = gunOffsets[Math.min(weapon.guns - 1, gunOffsets.length - 1)];
       const slotOffset = activeWeaponsRef.current.length > 1 ? (weaponIndex === 0 ? -4 : 4) : 0;
+      const weaponDamage = (weaponStats.damage + Math.floor(gs.weaponTier / 2) + routeModifiersRef.current.damage +
+        aircraftUpgradeRef.current.damageBonus) * buildDamageMultiplier * (1 + wingModule.damage);
+
+      if (weapon.pattern === "melee" && weapon.meleeRange) {
+        bulletsRef.current.push({
+          x: px - 2,
+          y: py + slotOffset,
+          vx: 0,
+          vy: 0,
+          fromPlayer: true,
+          damage: weaponDamage,
+          color: weapon.color,
+          weaponId: weapon.id,
+          lifetime: 10,
+          meleeRange: weapon.meleeRange,
+          collisionWidth: weapon.meleeRange,
+          collisionHeight: weapon.meleeRange * (weapon.id === "void_scythe" ? 1.25 : .9),
+          hitTargets: new Set<Enemy>(),
+        });
+        audioRef.current.tone(weapon.id === "void_scythe" ? 120 : 240, .11,
+          settingsRef.current.soundVolume * .3, "sawtooth", 260);
+        return;
+      }
 
       offsets.forEach((oy, i) => {
       let vx = BASE_BULLET_SPEED * Math.pow(1.2, routeModifiersRef.current.kinetic_accelerator);
@@ -4170,7 +4255,7 @@ export default function Game() {
         x: px, y: py + oy + slotOffset,
         vx, vy,
         fromPlayer: true,
-        damage: (weaponStats.damage + Math.floor(gs.weaponTier / 2) + routeModifiersRef.current.damage + aircraftUpgradeRef.current.damageBonus) * buildDamageMultiplier * (1 + wingModule.damage),
+        damage: weaponDamage,
         color: weapon.color,
         weaponId: weapon.id,
       });
@@ -4339,7 +4424,7 @@ export default function Game() {
     protectPackageHitCooldownRef.current = 0;
     protectPackageRef.current = { x: 150, y: CANVAS_H / 2 - PROTECT_PACKAGE_HEIGHT / 2, direction: 1 };
     protectPackageLastFireRef.current = 0;
-    bossRushSpawnTimerRef.current = 0;
+    bossFightSpawnTimerRef.current = 0;
     runResultRef.current = "game_over";
     rewardGrantedRef.current = false;
     lastFireRef.current = {};
@@ -4369,7 +4454,10 @@ export default function Game() {
     pendingSectorLevelsRef.current = getCrossedMilestoneLevels(0, stateRef.current.level, RISK_ROUTE_LEVEL_INTERVAL)
       .filter(level => !sectorChoiceLevelsRef.current.has(level));
     activeSectorLevelRef.current = null;
-    waveBannerRef.current = { text: "MISSION GESTARTET", timer: 120 };
+    waveBannerRef.current = {
+      text: mode === "boss_fight" ? `BOSSKAMPF · ${BOSS_FIGHT_TITAN_COUNT} TITANEN` : "MISSION GESTARTET",
+      timer: 120,
+    };
     droneSupportTimerRef.current = 0;
     rareEventTimerRef.current = 0;
     nextRareEventRef.current = rand(2100, 3300);
@@ -4581,7 +4669,8 @@ export default function Game() {
         activeUnlocksRef.current.includes(id)) {
       ultimateActiveRef.current = ULTIMATE_DURATION;
       ultimateChargeRef.current = 0;
-      stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + ULTIMATE_HEAL);
+      waveBannerRef.current = { text: "GRAVITATIONSKERN AKTIV · 5 SEKUNDEN", timer: 120 };
+      audioRef.current.tone(85, .45, settingsRef.current.soundVolume * .5, "sawtooth");
       syncDisplay();
       return true;
     }
@@ -4790,10 +4879,7 @@ export default function Game() {
             poisonMissileChargeRef.current = 0;
           } else if (dx <= ULTIMATE_BTN_R + 12 && ultimateChargeRef.current >= ULTIMATE_MAX && ultimateActiveRef.current === 0
               && activeUnlocksRef.current.includes("ultimate_ulti") && activeUltiLoadoutRef.current.includes("ultimate_ulti")) {
-            ultimateActiveRef.current = ULTIMATE_DURATION;
-            ultimateChargeRef.current = 0;
-            stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + ULTIMATE_HEAL);
-            syncDisplay();
+            activateAbility("ultimate_ulti");
           } else if (dh <= HEAL_BTN_R + 12 && healChargeRef.current >= HEAL_MAX && healActiveRef.current === 0
               && activeUnlocksRef.current.includes("heal_ulti") && activeUltiLoadoutRef.current.includes("heal_ulti")) {
             stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + HEAL_ULTI_RESTORE);
@@ -4988,7 +5074,7 @@ export default function Game() {
         enemiesRef.current = [];
         bulletsRef.current = bulletsRef.current.filter(bullet => bullet.fromPlayer);
         enemySpawnTimerRef.current = 0;
-        bossRushSpawnTimerRef.current = 0;
+        bossFightSpawnTimerRef.current = 0;
         invincibleRef.current = Math.max(invincibleRef.current, 10);
       } else {
         runElapsedMsRef.current += dt;
@@ -5103,6 +5189,32 @@ export default function Game() {
 
       // ── Input & Player Movement ──
       const aircraftUltiIds = getAircraftUltiIds(hybridActiveRef.current, aircraftBuildRef.current, activeUltiSkinRef.current);
+      const applyUltimateDefense = (rawDamage: number, source?: Enemy) => {
+        if (ultimateActiveRef.current <= 0) return rawDamage;
+        if (source && !source.dead && source.hp > 0 && !isTitanInvulnerable(source)) {
+          const reflectedDamage = rawDamage * ULTIMATE_REFLECT_PERCENT;
+          const hpBefore = source.hp;
+          const result = applyEnemyDamage(source, reflectedDamage);
+          source.hp = result.hp;
+          source.shieldHp = result.shieldHp;
+          runStatsRef.current.damageDealt += Math.max(0, hpBefore - source.hp);
+          floatingTextsRef.current.push({
+            x: source.x + source.width / 2,
+            y: source.y,
+            text: result.absorbedByShield ? "REFLEX BLOCK" : `REFLEX ${reflectedDamage.toFixed(1)}`,
+            color: "#f0abfc",
+            life: 42,
+            maxLife: 42,
+          });
+          if (result.destroyed) {
+            source.dead = true;
+            gs.score += source.points;
+            registerKill(source);
+            spawnExplosion(particlesRef.current, source.x + source.width / 2, source.y + source.height / 2, isBossEnemy(source));
+          }
+        }
+        return rawDamage * ULTIMATE_DAMAGE_REDUCTION;
+      };
       const n1UltiSpeed = aircraftUltiIds.has("n1") && ultimaActiveRef.current > 0 ? 2 : 1;
       const speedMult = (activeSkinRef.current?.id === "n1" ? 1.15 : 1) * n1UltiSpeed * (speedBoostRef.current > 0 ? 2 : 1);
       const spd = gs.speed * speedMult;
@@ -5188,12 +5300,14 @@ export default function Game() {
           backgroundTransitionRef.current = { snapshot, elapsed: 0 };
         }
         const gainedLevels = nextLevel - previousLevel;
-        const crossedSectorLevels = getCrossedMilestoneLevels(previousLevel, nextLevel, RISK_ROUTE_LEVEL_INTERVAL)
-          .filter(level =>
-            !sectorChoiceLevelsRef.current.has(level) &&
-            level !== activeSectorLevelRef.current &&
-            !pendingSectorLevelsRef.current.includes(level),
-          );
+        const crossedSectorLevels = activeModeRef.current === "boss_fight"
+          ? []
+          : getCrossedMilestoneLevels(previousLevel, nextLevel, RISK_ROUTE_LEVEL_INTERVAL)
+            .filter(level =>
+              !sectorChoiceLevelsRef.current.has(level) &&
+              level !== activeSectorLevelRef.current &&
+              !pendingSectorLevelsRef.current.includes(level),
+            );
         pendingSectorLevelsRef.current.push(...crossedSectorLevels);
         gs.level = nextLevel;
         waveBannerRef.current = { text: `LEVEL ${nextLevel} · WAFFEN VERBESSERT`, timer: 110 };
@@ -5215,7 +5329,7 @@ export default function Game() {
       }
 
       // ── Titan: exclusive boss fight every tenth level, starting at level 20 ──
-      if (activeModeRef.current !== "boss_rush" && isTitanBossLevel(gs.level) && !titanBossFiredRef.current.has(gs.level)) {
+      if (activeModeRef.current !== "boss_fight" && isTitanBossLevel(gs.level) && !titanBossFiredRef.current.has(gs.level)) {
         titanBossFiredRef.current.add(gs.level);
         // An evolved milestone Overlord has 1.5x its initial HP. The Titan has exactly 15x that value.
         const overlordHp = Math.round((80 + gs.level * 12) * 1.5);
@@ -5272,7 +5386,7 @@ export default function Game() {
       }
 
       // ── Rare encounters: one surprising event roughly every 35–55 seconds ──
-      if (!tutorialActive && activeModeRef.current !== "boss_rush") {
+      if (!tutorialActive && activeModeRef.current !== "boss_fight") {
         rareEventTimerRef.current += dtScale;
         if (rareEventTimerRef.current >= nextRareEventRef.current && !titanActive) {
           rareEventTimerRef.current = 0;
@@ -5316,7 +5430,7 @@ export default function Game() {
       }
 
       // ── Milestone boss: spawn a mega-boss when entering key levels ──
-      if (activeModeRef.current !== "boss_rush" && !titanActive && !isTitanBossLevel(gs.level) && isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
+      if (activeModeRef.current !== "boss_fight" && !titanActive && !isTitanBossLevel(gs.level) && isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
           enemiesRef.current.length < MAX_ACTIVE_ENEMIES &&
           enemiesRef.current.filter(isBossEnemy).length === 0) {
         milestoneBossFiredRef.current.add(gs.level);
@@ -5346,13 +5460,19 @@ export default function Game() {
       // ── Spawn enemies ──
       if (tutorialActive) {
         enemySpawnTimerRef.current = 0;
-        bossRushSpawnTimerRef.current = 0;
-      } else if (activeModeRef.current === "boss_rush") {
-        bossRushSpawnTimerRef.current += dtScale;
+        bossFightSpawnTimerRef.current = 0;
+      } else if (activeModeRef.current === "boss_fight") {
+        bossFightSpawnTimerRef.current += dtScale;
         if (enemiesRef.current.length < MAX_ACTIVE_ENEMIES &&
-            !enemiesRef.current.some(enemy => isBossEnemy(enemy) && !enemy.dead) && bossRushSpawnTimerRef.current >= 90) {
-          bossRushSpawnTimerRef.current = 0;
-          spawnBossRushEnemy(runStatsRef.current.bosses + 1);
+            !enemiesRef.current.some(enemy => isBossEnemy(enemy) && !enemy.dead) && bossFightSpawnTimerRef.current >= 90) {
+          bossFightSpawnTimerRef.current = 0;
+          if (runStatsRef.current.bosses >= BOSS_FIGHT_TITAN_COUNT) {
+            runResultRef.current = "complete";
+            gs.gameOver = true;
+            grantRunReward();
+            return;
+          }
+          spawnBossFightTitan(runStatsRef.current.bosses + 1);
         }
       } else {
         const spawnRate = getEnemySpawnRate(gs.level) *
@@ -5529,7 +5649,52 @@ export default function Game() {
       drawWeaponCrate(ctx, playerRef.current, weaponCrateRef.current, weaponCrateActive, timeRef.current);
 
       if (ultimateActiveRef.current > 0) {
+        const wasActive = ultimateActiveRef.current;
         ultimateActiveRef.current = Math.max(0, ultimateActiveRef.current - dtScale);
+        if (wasActive > 0 && ultimateActiveRef.current === 0) {
+          const centerX = playerRef.current.x + PLAYER_W / 2;
+          const centerY = playerRef.current.y + PLAYER_H / 2;
+          enemiesRef.current.forEach(enemy => {
+            if (enemy.dead || enemy.hp <= 0 || !isEnemyVisible(enemy)) return;
+            const enemyX = enemy.x + enemy.width / 2;
+            const enemyY = enemy.y + enemy.height / 2;
+            const dx = enemyX - centerX;
+            const dy = enemyY - centerY;
+            const distance = Math.hypot(dx, dy);
+            if (distance > ULTIMATE_EXPLOSION_RADIUS) return;
+
+            const hpBefore = enemy.hp;
+            const result = isTitanInvulnerable(enemy)
+              ? { hp: enemy.hp, shieldHp: enemy.shieldHp ?? 0, absorbedByShield: true, destroyed: false }
+              : applyEnemyDamage(enemy, ULTIMATE_EXPLOSION_DAMAGE);
+            enemy.hp = result.hp;
+            enemy.shieldHp = result.shieldHp;
+            runStatsRef.current.damageDealt += Math.max(0, hpBefore - enemy.hp);
+
+            const safeDistance = Math.max(1, distance);
+            enemy.ultimateKnockbackVx = dx / safeDistance * ULTIMATE_KNOCKBACK_SPEED;
+            enemy.ultimateKnockbackVy = dy / safeDistance * ULTIMATE_KNOCKBACK_SPEED;
+            enemy.ultimateKnockbackTimer = ULTIMATE_KNOCKBACK_DURATION;
+            floatingTextsRef.current.push({
+              x: enemyX,
+              y: enemyY - 10,
+              text: result.absorbedByShield ? "BLOCK" : `-${ULTIMATE_EXPLOSION_DAMAGE}`,
+              color: "#f0abfc",
+              life: 52,
+              maxLife: 52,
+            });
+            if (result.destroyed) {
+              enemy.dead = true;
+              gs.score += enemy.points;
+              registerKill(enemy);
+            }
+          });
+          spawnExplosion(particlesRef.current, centerX, centerY, true);
+          screenShakeRef.current = Math.max(screenShakeRef.current, 18);
+          waveBannerRef.current = { text: "GRAVITATIONSKERN DETONIERT · 30 SCHADEN", timer: 130 };
+          audioRef.current.effect("boss", settingsRef.current.soundVolume);
+          syncDisplay();
+        }
       } else if (ultimateChargeRef.current < ULTIMATE_MAX && activeUnlocksRef.current.includes("ultimate_ulti")) {
         ultimateChargeRef.current = Math.min(ULTIMATE_MAX, ultimateChargeRef.current + ULTIMATE_CHARGE_RATE * dtScale);
       }
@@ -5556,7 +5721,7 @@ export default function Game() {
         }
       }
 
-      const halfLifeTitan = enemiesRef.current.find(e => e.type === "titan" && !e.dead && isEnemyVisible(e) &&
+      const halfLifeTitan = activeModeRef.current === "boss_fight" ? undefined : enemiesRef.current.find(e => e.type === "titan" && !e.dead && isEnemyVisible(e) &&
         e.hp <= e.maxHp * .5 && !e.titanReinforcementsSpawned);
       if (halfLifeTitan) {
         halfLifeTitan.titanReinforcementsSpawned = true;
@@ -5617,7 +5782,7 @@ export default function Game() {
             );
             while ((e.titanLaserDamageTimer ?? 0) <= 0) {
               e.titanLaserDamageTimer = (e.titanLaserDamageTimer ?? 0) + TITAN_LASER_DAMAGE_INTERVAL;
-              if (!playerTouchesLaser || ultimateActiveRef.current > 0) continue;
+              if (!playerTouchesLaser) continue;
 
               const protection = applyPlayerHitProtection({
                 shieldTimer: shieldTimerRef.current,
@@ -5628,15 +5793,16 @@ export default function Game() {
               shieldTimerRef.current = protection.shieldTimer;
               playerShieldHpRef.current = protection.shieldHp;
               if (!protection.protected) {
-                recordPlayerDamage(TITAN_LASER_DAMAGE);
-                const nextLifeState = applyPlayerDamage(gs, TITAN_LASER_DAMAGE);
+                const titanLaserDamage = applyUltimateDefense(TITAN_LASER_DAMAGE, e);
+                recordPlayerDamage(titanLaserDamage);
+                const nextLifeState = applyPlayerDamage(gs, titanLaserDamage);
                 gs.hp = nextLifeState.hp;
                 gs.lives = nextLifeState.lives;
                 gs.gameOver = nextLifeState.gameOver;
                 floatingTextsRef.current.push({
                   x: playerRef.current.x + PLAYER_W / 2,
                   y: playerRef.current.y,
-                  text: `-${TITAN_LASER_DAMAGE} TITAN-LASER`,
+                  text: `-${titanLaserDamage} TITAN-LASER`,
                   color: "#ff3344",
                   life: 55,
                   maxLife: 55,
@@ -5746,24 +5912,11 @@ export default function Game() {
             return false;
           }
         }
-        if (ultimateActiveRef.current > 0 && !isTitanInvulnerable(e)) {
-          e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimateActiveRef.current);
-          e.ultimateDotTimer = (e.ultimateDotTimer ?? ULTIMATE_DOT_INTERVAL) - dtScale;
-          if (e.ultimateDotTimer <= 0) {
-            const hpBeforeUltimateDot = e.hp;
-            e.hp -= ULTIMATE_DOT_DAMAGE;
-            runStatsRef.current.damageDealt += Math.min(ULTIMATE_DOT_DAMAGE, Math.max(0, hpBeforeUltimateDot));
-            e.ultimateDotTimer += ULTIMATE_DOT_INTERVAL;
-            spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
-            if (e.hp <= 0) {
-              gs.score += e.points * (ultimaActiveRef.current > 0 && aircraftUltiIds.has("gold") ? 2 : 1);
-              registerKill(e);
-              e.dead = true;
-              audioRef.current.effect("explosion", settingsRef.current.soundVolume);
-              syncDisplay();
-              return false;
-            }
-          }
+        if (ultimateActiveRef.current > 0 && !isBossEnemy(e)) {
+          const targetX = playerRef.current.x + PLAYER_W / 2;
+          const targetY = playerRef.current.y + PLAYER_H / 2;
+          e.x += (targetX - (e.x + e.width / 2)) * ULTIMATE_PULL_STRENGTH * dtScale;
+          e.y += (targetY - (e.y + e.height / 2)) * ULTIMATE_PULL_STRENGTH * dtScale;
         }
         e.ultimateFreezeTimer = Math.max(0, (e.ultimateFreezeTimer ?? 0) - dtScale);
         e.ultimateSlowTimer = Math.max(0, (e.ultimateSlowTimer ?? 0) - dtScale);
@@ -5941,6 +6094,7 @@ export default function Game() {
                 isMissile: true,
                 trackPlayer: true,
                 lifetime: 720,
+                sourceEnemy: e,
               });
             }
           }
@@ -5966,6 +6120,7 @@ export default function Game() {
                   fromPlayer: false, damage: 3,
                   color: s === 0 ? "#ffffff" : e.type === "titan" ? e.color : "#ff4fc8",
                   lifetime: 300,
+                  sourceEnemy: e,
                 });
               }
               spawnExplosion(particlesRef.current, originX, originY, false);
@@ -5992,6 +6147,16 @@ export default function Game() {
           }
           const tDecay = Math.max(0, 1 - (e.tieDodgeTimer % 90) / 45);
           e.vy = (e.tieDodgeDir ?? 0) * 3.5 * tDecay;
+        }
+
+        if ((e.ultimateKnockbackTimer ?? 0) > 0) {
+          e.x += (e.ultimateKnockbackVx ?? 0) * dtScale;
+          e.y += (e.ultimateKnockbackVy ?? 0) * dtScale;
+          const decay = Math.pow(0.88, dtScale);
+          e.ultimateKnockbackVx = (e.ultimateKnockbackVx ?? 0) * decay;
+          e.ultimateKnockbackVy = (e.ultimateKnockbackVy ?? 0) * decay;
+          e.ultimateKnockbackTimer = Math.max(0, (e.ultimateKnockbackTimer ?? 0) - dtScale);
+          e.y = clamp(e.y, 0, CANVAS_H - e.height);
         }
 
         // Off screen left
@@ -6021,6 +6186,7 @@ export default function Game() {
               fromPlayer: false, damage: e.type === "plasmawing" ? 1 : 2,
               color: e.type === "plasmawing" ? "#cc55ff" : e.type === "emeraldtiefighter" ? "#ff8fda" : undefined,
               stunFrames: e.type === "emeraldtiefighter" ? 120 : undefined,
+              sourceEnemy: e,
             });
           } else {
             const originX = e.x;
@@ -6058,6 +6224,7 @@ export default function Game() {
                 damage: isBossEnemy(e) ? 3 : 2,
                 normalBossProjectile: e.type === "boss",
                 color: e.type === "titan" ? e.color : e.type === "overlord" ? "#6fe9ff" : e.type === "boss" && bossPhase === 3 ? "#ff3300" : undefined,
+                sourceEnemy: e,
               });
             }
           }
@@ -6076,7 +6243,7 @@ export default function Game() {
             beamX, e.y + e.height, LASER_DEVICE_BEAM_WIDTH, CANVAS_H - e.y - e.height,
           );
           if ((playerTouchesUpperBeam || playerTouchesLowerBeam) &&
-              invincibleRef.current <= 0 && stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0) {
+              invincibleRef.current <= 0 && stealthActiveRef.current <= 0) {
             const protection = applyPlayerHitProtection({
               shieldTimer: shieldTimerRef.current,
               shieldHp: playerShieldHpRef.current,
@@ -6094,7 +6261,10 @@ export default function Game() {
             );
             audioRef.current.effect("hit", settingsRef.current.soundVolume);
             if (!protection.protected) {
-              const laserDamage = LASER_DEVICE_DAMAGE * Math.pow(.85, routeModifiersRef.current.reactive_armor);
+              const laserDamage = applyUltimateDefense(
+                LASER_DEVICE_DAMAGE * Math.pow(.85, routeModifiersRef.current.reactive_armor),
+                e,
+              );
               recordPlayerDamage(laserDamage);
               const nextLifeState = applyPlayerDamage(gs, laserDamage);
               gs.hp = nextLifeState.hp;
@@ -6105,6 +6275,7 @@ export default function Game() {
             syncDisplay();
           }
         }
+        if (e.dead) return false;
 
         // Draw enemy
         if (e.type === "titan" && (e.titanDashWarningTimer ?? 0) > 0) {
@@ -6167,7 +6338,7 @@ export default function Game() {
         // Enemy-player collision
         const playerTouchesEnemy = rectHit(playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H, e.x, e.y, e.width, e.height);
         if (e.type === "titan" && playerTouchesEnemy && invincibleRef.current <= 0 &&
-            stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0) {
+            stealthActiveRef.current <= 0) {
           const protection = applyPlayerHitProtection({
             shieldTimer: shieldTimerRef.current,
             shieldHp: playerShieldHpRef.current,
@@ -6182,8 +6353,10 @@ export default function Game() {
             audioRef.current.effect("hit", settingsRef.current.soundVolume);
             return true;
           }
-          const collisionDamage = ((e.titanDashTimer ?? 0) > 0 ? 10 : 1) *
-            Math.pow(.85, routeModifiersRef.current.reactive_armor);
+          const collisionDamage = applyUltimateDefense(
+            ((e.titanDashTimer ?? 0) > 0 ? 10 : 1) * Math.pow(.85, routeModifiersRef.current.reactive_armor),
+            e,
+          );
           recordPlayerDamage(collisionDamage);
           const nextLifeState = applyPlayerDamage(gs, collisionDamage);
           gs.hp = nextLifeState.hp;
@@ -6195,6 +6368,7 @@ export default function Game() {
           if (gs.gameOver) grantRunReward();
           syncDisplay();
         }
+        if (e.dead) return false;
         const absorberShieldHit = absorberActiveRef.current > 0 &&
           rectHit(playerRef.current.x + PLAYER_W - 2 + ABSORBER_SHIELD_FORWARD_OFFSET, playerRef.current.y - ABSORBER_SHIELD_PADDING,
             ABSORBER_SHIELD_WIDTH, PLAYER_H + ABSORBER_SHIELD_PADDING * 2,
@@ -6208,7 +6382,7 @@ export default function Game() {
           e.dead = true;
           return false;
         }
-        if ((invincibleRef.current <= 0 || e.trackPlayerRam) && stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0 &&
+        if ((invincibleRef.current <= 0 || e.trackPlayerRam) && stealthActiveRef.current <= 0 &&
           e.type !== "titan" && playerTouchesEnemy) {
           const collidedWithBoss = isBossEnemy(e);
           if (collidedWithBoss) e.hp = Math.max(0, e.hp - 1);
@@ -6234,7 +6408,11 @@ export default function Game() {
             ? getNormalBossDamage(1, gs.level)
             : collidedWithBoss ? 1
             : activeUnlocksRef.current.includes("armor") ? 0.5 : 1);
-          const collDmg = rawCollisionDamage * Math.pow(.85, routeModifiersRef.current.reactive_armor);
+          const collDmg = applyUltimateDefense(
+            rawCollisionDamage * Math.pow(.85, routeModifiersRef.current.reactive_armor),
+            e,
+          );
+          const killedByReflection = Boolean(e.dead);
           recordPlayerDamage(collDmg);
           const nextLifeState = applyPlayerDamage(gs, collDmg);
           gs.hp = nextLifeState.hp;
@@ -6242,8 +6420,8 @@ export default function Game() {
           gs.gameOver = nextLifeState.gameOver;
           invincibleRef.current = 140;
           spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, !collidedWithBoss || e.hp <= 0);
-          e.dead = collidedWithBoss ? e.hp <= 0 : true;
-          if (e.dead) {
+          e.dead = e.dead || (collidedWithBoss ? e.hp <= 0 : true);
+          if (e.dead && !killedByReflection) {
             gs.score += e.points;
             registerKill(e);
             audioRef.current.effect("explosion", settingsRef.current.soundVolume);
@@ -6258,8 +6436,9 @@ export default function Game() {
         bulletsRef.current = bulletsRef.current.filter(b => {
           if (!b.fromPlayer || hit) return true;
           if (b.isPoisonMissile && b.missileTarget !== e) return true;
-          const bw = b.isMissile ? 14 : 14;
-          const bh = b.isMissile ? 8 : 4;
+          if (b.hitTargets?.has(e)) return true;
+          const bw = b.collisionWidth ?? 14;
+          const bh = b.collisionHeight ?? (b.isMissile ? 8 : 4);
           if (!rectHit(b.x, b.y - bh / 2, bw, bh, e.x, e.y, e.width, e.height)) return true;
           const critical = routeModifiersRef.current.critical > 0 && Math.random() < Math.min(.45, .15 * routeModifiersRef.current.critical);
           const aircraftDamage = ultimaActiveRef.current > 0
@@ -6317,8 +6496,7 @@ export default function Game() {
           }
           const bossHunterMultiplier = isBossEnemy(e) ? 1 + routeModifiersRef.current.boss_hunter * .3 : 1;
           const dealtDamage = b.damage * (critical ? 3 : 1) * aircraftDamage * absorberDamage *
-            (ultimateActiveRef.current > 0 ? 2 : 1) * weakpointMultiplier * bossHunterMultiplier *
-            activeMutatorRef.current.playerDamageMultiplier;
+            weakpointMultiplier * bossHunterMultiplier * activeMutatorRef.current.playerDamageMultiplier;
           const enemyHpBeforeDamage = e.hp;
           const damageResult = isTitanInvulnerable(e)
             ? { hp: e.hp, shieldHp: e.shieldHp ?? 0, absorbedByShield: true, destroyed: false }
@@ -6364,7 +6542,6 @@ export default function Game() {
             e.poisonTimer = POISON_DURATION;
             e.poisonTickTimer = POISON_TICK_INTERVAL;
           }
-          if (ultimateActiveRef.current > 0 && !isTitanInvulnerable(e)) e.ultimateFreezeTimer = ultimateActiveRef.current;
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           if (critical) {
             audioRef.current.tone(920, .07, settingsRef.current.soundVolume * .28, "square");
@@ -6374,6 +6551,7 @@ export default function Game() {
             audioRef.current.effect("hit", settingsRef.current.soundVolume);
           }
           hit = true;
+          b.hitTargets?.add(e);
           if (damageResult.destroyed) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points * (ultimaActiveRef.current > 0 && aircraftUltiIds.has("gold") ? 2 : 1);
@@ -6406,9 +6584,9 @@ export default function Game() {
               });
             }
             syncDisplay();
-            return false;
+            return Boolean(b.meleeRange);
           }
-          return false;
+          return Boolean(b.meleeRange);
         });
         return !e.dead;
       });
@@ -6469,10 +6647,6 @@ export default function Game() {
           }
           return true;
         }
-        if (ultimateActiveRef.current > 0) {
-          spawnExplosion(particlesRef.current, b.x, b.y, false);
-          return false;
-        }
         const protection = applyPlayerHitProtection({
           shieldTimer: shieldTimerRef.current,
           shieldHp: playerShieldHpRef.current,
@@ -6490,8 +6664,11 @@ export default function Game() {
         const rawBulletDamage = b.normalBossProjectile
           ? getNormalBossDamage(protectedBulletDamage, gs.level)
           : protectedBulletDamage;
-        const bulletDmg = rawBulletDamage * Math.pow(.85, routeModifiersRef.current.reactive_armor) *
-          activeMutatorRef.current.enemyDamageMultiplier;
+        const bulletDmg = applyUltimateDefense(
+          rawBulletDamage * Math.pow(.85, routeModifiersRef.current.reactive_armor) *
+            activeMutatorRef.current.enemyDamageMultiplier,
+          b.sourceEnemy,
+        );
         if (activeUnlocksRef.current.includes("armor")) {
           audioRef.current.tone(120, .08, settingsRef.current.soundVolume * .2, "square");
         }
@@ -6720,48 +6897,23 @@ export default function Game() {
         else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level);
         ctx.restore();
         ctx.save();
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.shadowColor = "#35bfff";
-        ctx.shadowBlur = 24;
-        for (const e of enemiesRef.current) {
-          if (e.dead || !isEnemyVisible(e)) continue;
-          const ex = e.x + e.width / 2, ey = e.y + e.height / 2;
-          const dx = ex - cx, dy = ey - cy;
-          const distance = Math.max(1, Math.hypot(dx, dy));
-          const normalX = -dy / distance, normalY = dx / distance;
-          const points: { x: number; y: number }[] = [{ x: cx, y: cy }];
-          for (let i = 1; i < 9; i++) {
-            const progress = i / 9;
-            const jag = Math.sin(timeRef.current * 1.7 + i * 8.31 + e.x * .17 + e.y * .11) * (i % 2 === 0 ? 15 : 10);
-            points.push({ x: cx + dx * progress + normalX * jag, y: cy + dy * progress + normalY * jag });
-          }
-          points.push({ x: ex, y: ey });
-
-          const strokeBolt = (color: string, width: number) => {
-            ctx.beginPath();
-            ctx.moveTo(points[0].x, points[0].y);
-            for (const point of points.slice(1)) ctx.lineTo(point.x, point.y);
-            ctx.strokeStyle = color;
-            ctx.lineWidth = width;
-            ctx.stroke();
-          };
-          strokeBolt("#168cff99", 10);
-          strokeBolt("#57d9ff", 5);
-          strokeBolt("#e9fbff", 1.8);
-
-          for (const branchIndex of [3, 6]) {
-            const start = points[branchIndex];
-            const direction = branchIndex === 3 ? -1 : 1;
-            ctx.beginPath();
-            ctx.moveTo(start.x, start.y);
-            ctx.lineTo(start.x + dx * .07 + normalX * 24 * direction, start.y + dy * .07 + normalY * 24 * direction);
-            ctx.lineTo(start.x + dx * .12 + normalX * 36 * direction, start.y + dy * .12 + normalY * 36 * direction);
-            ctx.strokeStyle = "#8be8ff";
-            ctx.lineWidth = 2.5;
-            ctx.stroke();
-          }
+        ctx.shadowColor = "#d946ef";
+        ctx.shadowBlur = 22;
+        for (let ring = 0; ring < 4; ring++) {
+          const phase = (timeRef.current * 2.4 + ring * 75) % ULTIMATE_EXPLOSION_RADIUS;
+          const radius = ULTIMATE_EXPLOSION_RADIUS - phase;
+          ctx.globalAlpha = Math.max(.08, radius / ULTIMATE_EXPLOSION_RADIUS * .58);
+          ctx.strokeStyle = ring % 2 === 0 ? "#67e8f9" : "#f0abfc";
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+          ctx.stroke();
         }
+        ctx.globalAlpha = .9;
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "900 11px 'Inter', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("50 % SCHUTZ · 20 % REFLEX", cx, cy - 38);
         ctx.restore();
       } else if (stealthActiveRef.current > 0) {
         ctx.save();
@@ -6875,7 +7027,7 @@ export default function Game() {
         ctx.strokeRect(14, 14, warningW - 28, warningH - 28);
         ctx.restore();
       }
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, empChargeRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], activeModeRef.current, runElapsedMsRef.current, upwardFlight);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, empChargeRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], activeModeRef.current, runElapsedMsRef.current, runStatsRef.current.bosses, upwardFlight);
       const hudW = upwardFlight ? CANVAS_H : CANVAS_W;
       const hudTop = upwardFlight ? 136 : 86;
       {
@@ -7003,7 +7155,7 @@ export default function Game() {
       wakeGameLoopRef.current = () => {};
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [checkAchievements, fireBullets, grantRunReward, openNextProgressionChoice, recordPlayerDamage, registerKill, screenToWorld, spawnBossRushEnemy, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
+  }, [checkAchievements, fireBullets, grantRunReward, openNextProgressionChoice, recordPlayerDamage, registerKill, screenToWorld, spawnBossFightTitan, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
 
   useEffect(() => {
     if (!displayState.paused) wakeGameLoopRef.current();
@@ -8536,7 +8688,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
               </div>
               <div className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px]">
                 <span className="rounded bg-black/25 p-1"><b className="block text-white">{stats.damage}</b>Schaden</span>
-                <span className="rounded bg-black/25 p-1"><b className="block text-white">{weapon.guns}</b>Schüsse</span>
+                <span className="rounded bg-black/25 p-1"><b className="block text-white">{weapon.meleeRange ?? weapon.guns}</b>{weapon.meleeRange ? "Reichweite" : "Schüsse"}</span>
                 <span className="rounded bg-black/25 p-1"><b className="block text-white">{Math.round(1000 / stats.fireRate * 10) / 10}/s</b>Feuerrate</span>
               </div>
               <div className="mt-2 flex gap-2">
@@ -8597,7 +8749,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
                   </div>
                   <span className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px] text-slate-300">
                     <span className="rounded bg-black/25 p-1"><b className="block text-white">{damage}</b>Schaden</span>
-                    <span className="rounded bg-black/25 p-1"><b className="block text-white">{weapon.shots}</b>Schüsse</span>
+                    <span className="rounded bg-black/25 p-1"><b className="block text-white">{weapon.meleeRange ?? weapon.shots}</b>{weapon.meleeRange ? "Reichweite" : "Schüsse"}</span>
                     <span className="rounded bg-black/25 p-1"><b className="block text-white">{fireRate}/s</b>Feuerrate</span>
                   </span>
                   <span className="mt-2 block rounded-lg border border-violet-400/50 bg-violet-950/50 px-2 py-2 text-center text-xs font-black text-violet-200">
@@ -9201,11 +9353,15 @@ const HEAL_MAX = 520;
 const HEAL_DURATION = 120;
 const HEAL_BTN_R = 36;
 const ULTIMATE_MAX = STEALTH_MAX;
-const ULTIMATE_DURATION = 600;
+const ULTIMATE_DURATION = 300;
 const ULTIMATE_CHARGE_RATE = 0.05;
-const ULTIMATE_DOT_INTERVAL = 60;
-const ULTIMATE_DOT_DAMAGE = 8;
-const ULTIMATE_HEAL = 3;
+const ULTIMATE_PULL_STRENGTH = 0.022;
+const ULTIMATE_EXPLOSION_RADIUS = 260;
+const ULTIMATE_EXPLOSION_DAMAGE = 30;
+const ULTIMATE_KNOCKBACK_SPEED = 18;
+const ULTIMATE_KNOCKBACK_DURATION = 22;
+const ULTIMATE_DAMAGE_REDUCTION = 0.5;
+const ULTIMATE_REFLECT_PERCENT = 0.2;
 const ULTIMATE_SLOW_FACTOR = 0.45;
 const ULTIMATE_BTN_R = 38;
 const EMP_MAX = 520;
@@ -9538,12 +9694,13 @@ function drawVirtualControls(
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, empCharge: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string, string], mode: GameMode, elapsedMs: number, upward = false) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, empCharge: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string, string], mode: GameMode, elapsedMs: number, bossesDefeated: number, upward = false) {
   if (upward) {
     const viewW = CANVAS_H;
     const modeRules = getEffectiveGameModeRules(mode);
     const remaining = modeRules.durationSeconds === null ? null : Math.max(0, modeRules.durationSeconds - Math.floor(elapsedMs / 1000));
     const timerText = remaining === null ? "" : ` · ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
+    const bossFightText = mode === "boss_fight" ? ` · TITAN ${Math.min(bossesDefeated, BOSS_FIGHT_TITAN_COUNT)}/${BOSS_FIGHT_TITAN_COUNT}` : "";
     const abilityState: Record<UltiLoadoutId, { label: string; charge: number; max: number; active: number; color: string }> = {
       jet: { label: "JET", charge: ultimaCharge, max: ULTI_MAX, active: ultimaActive, color: "#ff44ff" },
       laser: { label: "LASER", charge: laserCharge, max: LASER_MAX, active: laserActive, color: "#ffaa22" },
@@ -9551,7 +9708,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
       heal_ulti: { label: "HEAL", charge: healCharge, max: HEAL_MAX, active: healActive, color: "#ff4466" },
       poison_missiles_ulti: { label: "GIFT", charge: poisonMissileCharge, max: POISON_MISSILE_MAX, active: 0, color: "#ff4040" },
       absorber_ulti: { label: `ABS ${absorberHits > 0 ? Math.pow(2, absorberHits) : 1}×`, charge: absorberCharge, max: ABSORBER_MAX, active: absorberActive, color: "#ff72dc" },
-      ultimate_ulti: { label: "OMEGA", charge: ultimateCharge, max: ULTIMATE_MAX, active: ultimateActive, color: "#62ddff" },
+      ultimate_ulti: { label: "GRAV", charge: ultimateCharge, max: ULTIMATE_MAX, active: ultimateActive, color: "#d66bff" },
       emp_ulti: { label: "EMP", charge: empCharge, max: EMP_MAX, active: 0, color: "#9ff8ff" },
     };
 
@@ -9568,7 +9725,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     ctx.textAlign = "center";
     ctx.fillStyle = "#ffcc00"; ctx.font = "bold 15px 'Inter', sans-serif"; ctx.fillText(`LEVEL ${gs.level}`, viewW / 2, 7);
     ctx.fillStyle = "#fff"; ctx.font = "bold 12px 'Inter', sans-serif"; ctx.fillText(WEAPON_TIERS[gs.weaponTier].name.toUpperCase(), viewW / 2, 27);
-    ctx.fillStyle = "#a78bfa"; ctx.font = "bold 10px 'Inter', sans-serif"; ctx.fillText(`${modeRules.icon} ${modeRules.label.toUpperCase()}${timerText}`, viewW / 2, 47);
+    ctx.fillStyle = "#a78bfa"; ctx.font = "bold 10px 'Inter', sans-serif"; ctx.fillText(`${modeRules.icon} ${modeRules.label.toUpperCase()}${timerText}${bossFightText}`, viewW / 2, 47);
 
     const hpX = viewW - 150;
     ctx.textAlign = "right";
@@ -9626,7 +9783,8 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ctx.fillStyle = "#a78bfa";
   ctx.font = "bold 10px 'Inter', sans-serif";
   const timerText = remaining === null ? "" : ` · ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
-  ctx.fillText(`${modeRules.icon} ${modeRules.label.toUpperCase()}${timerText}`, CANVAS_W / 2, 48);
+  const bossFightText = mode === "boss_fight" ? ` · TITAN ${Math.min(bossesDefeated, BOSS_FIGHT_TITAN_COUNT)}/${BOSS_FIGHT_TITAN_COUNT}` : "";
+  ctx.fillText(`${modeRules.icon} ${modeRules.label.toUpperCase()}${timerText}${bossFightText}`, CANVAS_W / 2, 48);
 
   // XP bar (progress to next level)
   const thresholds = LEVEL_THRESHOLDS;
@@ -9722,7 +9880,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     heal_ulti: { label: "HEAL", key: "H", charge: healCharge, max: HEAL_MAX, active: healActive, duration: HEAL_DURATION, activeColors: ["#ff6699","#ff0044"], chargeColors: ["#aa2233","#ff3366"], color: "#ff4466" },
     poison_missiles_ulti: { label: "GIFT", key: "T", charge: poisonMissileCharge, max: POISON_MISSILE_MAX, active: 0, duration: 1, activeColors: ["#ff3030","#8b0000"], chargeColors: ["#681010","#ff3030"], color: "#ff4040" },
     absorber_ulti: { label: `ABS ${multiplier}×`, key: "F", charge: absorberCharge, max: ABSORBER_MAX, active: absorberActive, duration: ABSORBER_DURATION, activeColors: ["#ff8bea","#ff2dbd"], chargeColors: ["#7a145f","#ff55cf"], color: "#ff72dc" },
-    ultimate_ulti: { label: "OMEGA", key: "U", charge: ultimateCharge, max: ULTIMATE_MAX, active: ultimateActive, duration: ULTIMATE_DURATION, activeColors: ["#55e8ff","#087cff"], chargeColors: ["#075080","#28c8ff"], color: "#62ddff" },
+    ultimate_ulti: { label: "GRAVITATION", key: "U", charge: ultimateCharge, max: ULTIMATE_MAX, active: ultimateActive, duration: ULTIMATE_DURATION, activeColors: ["#d946ef","#22d3ee"], chargeColors: ["#581c87","#c026d3"], color: "#d66bff" },
     emp_ulti: { label: "EMP", key: "I", charge: empCharge, max: EMP_MAX, active: 0, duration: 1, activeColors: ["#ffffff","#22d3ee"], chargeColors: ["#075985","#a5f3fc"], color: "#9ff8ff" },
   };
   ultiLoadout.forEach((id, slot) => {

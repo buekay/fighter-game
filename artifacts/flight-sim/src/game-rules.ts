@@ -72,7 +72,8 @@ export function selectEnemyVariant(
   return null;
 }
 
-export type GameMode = "classic" | "blitz" | "boss_rush" | "one_life" | "protect" | "daily";
+export type GameMode = "classic" | "blitz" | "boss_fight" | "one_life" | "protect" | "daily";
+export const BOSS_FIGHT_TITAN_COUNT = 3;
 
 export interface AttackTargetBounds {
   x: number;
@@ -106,7 +107,7 @@ export interface GameModeRules {
 export const GAME_MODES: readonly GameModeRules[] = [
   { id: "classic", label: "Klassisch", icon: "✈️", description: "Der normale endlose Einsatz mit Checkpoints.", durationSeconds: null, startingLives: null, spawnRateMultiplier: 1 },
   { id: "blitz", label: "Blitzmission", icon: "⏱️", description: "Fünf Minuten, deutlich mehr Gegner und maximaler Score-Druck.", durationSeconds: 300, startingLives: null, spawnRateMultiplier: 0.62 },
-  { id: "boss_rush", label: "Boss-Rush", icon: "👹", description: "Ein Boss nach dem anderen. Keine gewöhnlichen Gegner.", durationSeconds: null, startingLives: null, spawnRateMultiplier: 1 },
+  { id: "boss_fight", label: "Bosskampf", icon: "👹", description: "Besiege drei Titanen hintereinander. Jeder Titan ist stärker als der vorherige.", durationSeconds: null, startingLives: null, spawnRateMultiplier: 1 },
   { id: "one_life", label: "Ein Leben", icon: "💀", description: "Nur ein Leben, aber 50 % mehr Credits für deinen Mut.", durationSeconds: null, startingLives: 1, spawnRateMultiplier: 0.82 },
   { id: "protect", label: "Beschützen", icon: "📦", description: "Beschütze das Paket drei Minuten lang vor den Angreifern.", durationSeconds: 180, startingLives: 3, spawnRateMultiplier: 0.72 },
   { id: "daily", label: "Tagesmission", icon: "☀️", description: "Die heutige feste Herausforderung: schneller und gefährlicher.", durationSeconds: 240, startingLives: 2, spawnRateMultiplier: 0.72 },
@@ -118,7 +119,7 @@ export function getGameModeRules(mode: GameMode): GameModeRules {
 
 export function getModeCoinMultiplier(mode: GameMode): number {
   if (mode === "one_life") return 1.5;
-  if (mode === "boss_rush") return 1.25;
+  if (mode === "boss_fight") return 1.25;
   if (mode === "daily") return 1.35;
   if (mode === "protect") return 1.4;
   return 1;
