@@ -240,7 +240,9 @@ interface GameSettings {
   musicVolume: number;
 }
 
-type RunUpgradeId = "rapid_fire" | "damage" | "max_hp" | "drone" | "critical" | "shield" |
+// Internal modifiers are granted only by the optional risk routes. There is no
+// separate level-up/upgrade selection during a mission.
+type RouteModifierId = "rapid_fire" | "damage" | "max_hp" | "drone" | "critical" | "shield" |
   "missile_mastery" | "chain_lightning" | "cryo_rounds" | "glass_cannon" | "vampiric" | "graze_core" |
   "afterburner" | "extra_life" | "repair_nanites" | "bounty_hunter" | "boss_hunter" |
   "kinetic_accelerator" | "reactive_armor" | "salvager" | "flux_capacitor" | "shield_matrix";
@@ -666,8 +668,7 @@ const SAVE_KEY = "fighter-command-save";
 interface SaveData {
   score: number; level: number; hp: number; maxHp: number;
   weaponTier: number; speed: number; lives: number; savedAt: number;
-  runUpgrades?: Record<RunUpgradeId, number>;
-  upgradeLevel?: number;
+  routeModifiers?: Record<RouteModifierId, number>;
   aircraftLevel?: number;
   aircraftBuild?: AircraftBuild;
   sectorChoiceLevels?: number[];
@@ -675,7 +676,7 @@ interface SaveData {
   mutatorId?: MutatorDefinition["id"];
 }
 
-const EMPTY_RUN_UPGRADES: Record<RunUpgradeId, number> = {
+const EMPTY_ROUTE_MODIFIERS: Record<RouteModifierId, number> = {
   rapid_fire: 0, damage: 0, max_hp: 0, drone: 0, critical: 0, shield: 0,
   missile_mastery: 0, chain_lightning: 0, cryo_rounds: 0, glass_cannon: 0,
   vampiric: 0, graze_core: 0,
@@ -698,8 +699,7 @@ function loadStringArray(key: string): string[] {
 
 function saveGame(
   gs: GameState,
-  runUpgrades: Record<RunUpgradeId, number>,
-  upgradeLevel: number,
+  routeModifiers: Record<RouteModifierId, number>,
   sectorChoiceLevels: Iterable<number> = [],
   fireRatePenalty = 1,
   mutatorId: MutatorDefinition["id"] = "none",
@@ -710,7 +710,7 @@ function saveGame(
     const data: SaveData = {
       score: gs.score, level: gs.level, hp: gs.hp, maxHp: gs.maxHp,
       weaponTier: gs.weaponTier, speed: gs.speed, lives: gs.lives,
-      runUpgrades: { ...runUpgrades }, upgradeLevel,
+      routeModifiers: { ...routeModifiers },
       aircraftLevel: loadAircraftLevels()[aircraftLevelKey] ?? 1,
       aircraftBuild,
       sectorChoiceLevels: [...sectorChoiceLevels]
@@ -741,7 +741,7 @@ function loadSave(): SaveData | null {
     const savedAt = finiteNumber(saved.savedAt);
     if ([score, level, hp, maxHp, weaponTier, speed, lives, savedAt].some(value => value === null)) return null;
 
-    const savedRunUpgrades = isRecord(saved.runUpgrades) ? saved.runUpgrades : null;
+    const savedRouteModifiers = isRecord(saved.routeModifiers) ? saved.routeModifiers : null;
     const rawAircraftBuild = isRecord(saved.aircraftBuild) ? saved.aircraftBuild : null;
     const savedAircraftBuild = rawAircraftBuild
       ? {
@@ -762,15 +762,15 @@ function loadSave(): SaveData | null {
             : loadSkin(),
         }
       : undefined;
-    const runUpgrades = savedRunUpgrades
+    const routeModifiers = savedRouteModifiers
       ? Object.fromEntries(
-          Object.keys(EMPTY_RUN_UPGRADES).map(id => [
+          Object.keys(EMPTY_ROUTE_MODIFIERS).map(id => [
             id,
             id === "extra_life"
-              ? Math.min(1, Math.max(0, Math.floor(finiteNumber(savedRunUpgrades[id]) ?? 0)))
-              : Math.max(0, Math.floor(finiteNumber(savedRunUpgrades[id]) ?? 0)),
+              ? Math.min(1, Math.max(0, Math.floor(finiteNumber(savedRouteModifiers[id]) ?? 0)))
+              : Math.max(0, Math.floor(finiteNumber(savedRouteModifiers[id]) ?? 0)),
           ]),
-        ) as Record<RunUpgradeId, number>
+        ) as Record<RouteModifierId, number>
       : undefined;
 
     return {
@@ -782,8 +782,7 @@ function loadSave(): SaveData | null {
       speed: Math.max(0.1, speed!),
       lives: Math.max(0, Math.floor(lives!)),
       savedAt: Math.max(0, savedAt!),
-      runUpgrades,
-      upgradeLevel: Math.max(0, Math.floor(finiteNumber(saved.upgradeLevel) ?? 0)),
+      routeModifiers,
       aircraftLevel: getAircraftUpgradeStats(finiteNumber(saved.aircraftLevel) ?? 1).level,
       aircraftBuild: savedAircraftBuild,
       sectorChoiceLevels: Array.isArray(saved.sectorChoiceLevels)
@@ -3435,7 +3434,7 @@ export default function Game() {
   const [isPortraitPhone, setIsPortraitPhone] = useState(false);
   const isPortraitPhoneRef = useRef(false);
   const audioRef = useRef(new GameAudio());
-  const runUpgradesRef = useRef<Record<RunUpgradeId, number>>({ ...EMPTY_RUN_UPGRADES });
+  const routeModifiersRef = useRef<Record<RouteModifierId, number>>({ ...EMPTY_ROUTE_MODIFIERS });
   const runStatsRef = useRef<RunStats>({
     kills: 0, bosses: 0, damageTaken: 0, powerUps: 0,
     flawlessKills: 0, perfectBosses: 0, fullHealthPickups: 0,
@@ -3515,16 +3514,16 @@ export default function Game() {
       color: comboRef.current >= 10 ? "#ffcc33" : "#ffffff", life: 55, maxLife: 55,
     });
     screenShakeRef.current = Math.max(screenShakeRef.current, isBossEnemy(enemy) ? 8 : 1.5);
-    const bloodEngineActive = runUpgradesRef.current.vampiric > 0 && runUpgradesRef.current.glass_cannon > 0;
-    if (runUpgradesRef.current.vampiric > 0 && runStatsRef.current.kills % (bloodEngineActive ? 10 : 15) === 0) {
-      stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + runUpgradesRef.current.vampiric);
+    const bloodEngineActive = routeModifiersRef.current.vampiric > 0 && routeModifiersRef.current.glass_cannon > 0;
+    if (routeModifiersRef.current.vampiric > 0 && runStatsRef.current.kills % (bloodEngineActive ? 10 : 15) === 0) {
+      stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + routeModifiersRef.current.vampiric);
       floatingTextsRef.current.push({ x: playerRef.current.x, y: playerRef.current.y, text: "+HP ENERGIEERNTE", color: "#ff6688", life: 70, maxLife: 70 });
     }
-    if (runUpgradesRef.current.repair_nanites > 0 && runStatsRef.current.kills % 10 === 0) {
-      stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + runUpgradesRef.current.repair_nanites);
+    if (routeModifiersRef.current.repair_nanites > 0 && runStatsRef.current.kills % 10 === 0) {
+      stateRef.current.hp = Math.min(stateRef.current.maxHp, stateRef.current.hp + routeModifiersRef.current.repair_nanites);
       floatingTextsRef.current.push({ x: playerRef.current.x, y: playerRef.current.y, text: "+HP NANITEN", color: "#67e8f9", life: 70, maxLife: 70 });
     }
-    stateRef.current.score += Math.round(enemy.points * runUpgradesRef.current.bounty_hunter * .25);
+    stateRef.current.score += Math.round(enemy.points * routeModifiersRef.current.bounty_hunter * .25);
     if (enemy.isGolden) {
       const reward = 750 + stateRef.current.level * 100;
       addCoins(reward);
@@ -3616,7 +3615,7 @@ export default function Game() {
     switch (choice.id) {
       case "overcharge":
         gs.hp = Math.max(1, gs.hp * .75);
-        runUpgradesRef.current.damage += 2;
+        routeModifiersRef.current.damage += 2;
         break;
       case "elite_hunt":
         activeMutatorRef.current = MUTATORS.glass_skies;
@@ -3632,12 +3631,12 @@ export default function Game() {
       case "blood_bargain":
         gs.maxHp = Math.max(3, gs.maxHp - 3);
         gs.hp = Math.min(gs.hp, gs.maxHp);
-        runUpgradesRef.current.vampiric += 1;
-        runUpgradesRef.current.damage += 1;
+        routeModifiersRef.current.vampiric += 1;
+        routeModifiersRef.current.damage += 1;
         break;
       case "swarm_gate":
         activeMutatorRef.current = MUTATORS.swarm;
-        runUpgradesRef.current.bounty_hunter += 1;
+        routeModifiersRef.current.bounty_hunter += 1;
         addCoins(6_000);
         break;
       case "time_rift":
@@ -3649,38 +3648,38 @@ export default function Game() {
         break;
       case "shield_gamble":
         gs.hp = Math.max(1, gs.hp * .5);
-        runUpgradesRef.current.shield_matrix += 1;
+        routeModifiersRef.current.shield_matrix += 1;
         shieldTimerRef.current = Math.max(shieldTimerRef.current, 900);
         playerShieldHpRef.current = Math.max(playerShieldHpRef.current, 12);
         break;
       case "weapon_jam":
-        runUpgradesRef.current.damage += 3;
+        routeModifiersRef.current.damage += 3;
         fireRatePenaltyRef.current *= 1.35;
         break;
       case "bounty_beacon":
         activeMutatorRef.current = MUTATORS.glass_skies;
         gs.hp = Math.max(1, gs.hp * .8);
-        runUpgradesRef.current.bounty_hunter += 1;
+        routeModifiersRef.current.bounty_hunter += 1;
         addCoins(8_000);
         break;
       case "drone_overclock":
-        runUpgradesRef.current.drone += 2;
+        routeModifiersRef.current.drone += 2;
         gs.score = Math.max(0, Math.round(gs.score * .85));
         break;
       case "critical_protocol":
-        runUpgradesRef.current.critical += 2;
+        routeModifiersRef.current.critical += 2;
         gs.maxHp = Math.max(3, gs.maxHp - 2);
         gs.hp = Math.min(gs.hp, gs.maxHp);
         break;
       case "afterburner_trial":
-        runUpgradesRef.current.afterburner += 1;
+        routeModifiersRef.current.afterburner += 1;
         gs.speed += 1;
         activeMutatorRef.current = MUTATORS.swarm;
         break;
       case "nanite_debt":
         gs.hp = gs.maxHp;
         gs.score = Math.max(0, gs.score - 10_000);
-        runUpgradesRef.current.repair_nanites += 1;
+        routeModifiersRef.current.repair_nanites += 1;
         break;
       case "ultimate_sacrifice":
         if (gs.lives > 1) gs.lives -= 1;
@@ -3703,7 +3702,7 @@ export default function Game() {
     waveBannerRef.current = { text: `${choice.icon} ${choice.name.toUpperCase()}`, timer: 140 };
     audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
     if (activeModeRef.current === "classic") {
-      saveGame(gs, runUpgradesRef.current, upgradeLevelRef.current, sectorChoiceLevelsRef.current,
+      saveGame(gs, routeModifiersRef.current, upgradeLevelRef.current, sectorChoiceLevelsRef.current,
         fireRatePenaltyRef.current, activeMutatorRef.current.id);
       saveExistsRef.current = true;
     }
@@ -4054,13 +4053,13 @@ export default function Game() {
     const wingModule = WING_MODULES.find(module => module.id === aircraftBuildRef.current.wing) ?? WING_MODULES[0];
     const engineModule = ENGINE_MODULES.find(module => module.id === aircraftBuildRef.current.engine) ?? ENGINE_MODULES[0];
     const role = droneRoleRef.current;
-    const buildDamageMultiplier = 1 + runUpgradesRef.current.glass_cannon * .65;
+    const buildDamageMultiplier = 1 + routeModifiersRef.current.glass_cannon * .65;
     const persistentDroneUpgrades = [
       "drone_mk2", "drone_mk3", "drone_mk4", "drone_mk5",
       "drone_mk6", "drone_mk7", "drone_mk8",
     ]
       .filter(id => activeUnlocksRef.current.includes(id)).length;
-    const drone = getDroneStats(persistentDroneUpgrades + droneLevelRef.current - 1, runUpgradesRef.current.drone);
+    const drone = getDroneStats(persistentDroneUpgrades + droneLevelRef.current - 1, routeModifiersRef.current.drone);
     const droneUltiActive = ultimaActiveRef.current > 0;
     const droneUltiId = activeDroneSkinRef.current.id;
     const droneFireMultiplier = droneUltiActive
@@ -4089,7 +4088,7 @@ export default function Game() {
         vx: droneWeapon.projectileSpeed,
         vy: spread * droneWeapon.projectileSpeed,
         fromPlayer: true,
-        damage: (drone.damage + runUpgradesRef.current.damage) * droneWeapon.damageMultiplier * droneDamageMultiplier * buildDamageMultiplier * (role === "assault" ? 1.35 : 1),
+        damage: (drone.damage + routeModifiersRef.current.damage) * droneWeapon.damageMultiplier * droneDamageMultiplier * buildDamageMultiplier * (role === "assault" ? 1.35 : 1),
         color: droneWeapon.color,
         isMissile: role === "collector",
         missileTarget: collectorTarget,
@@ -4123,7 +4122,7 @@ export default function Game() {
     activeWeaponsRef.current.forEach((weapon, weaponIndex) => {
       const weaponStats = getWeaponStats(weapon, weaponLevelsRef.current[weapon.id] ?? 1);
       const tierFireBonus = Math.max(.62, 1 - gs.weaponTier * .045);
-      const fireRate = weaponStats.fireRate * tierFireBonus * Math.pow(0.8, runUpgradesRef.current.rapid_fire) *
+      const fireRate = weaponStats.fireRate * tierFireBonus * Math.pow(0.8, routeModifiersRef.current.rapid_fire) *
         aircraftUpgradeRef.current.fireRateMultiplier * aircraftUltiFireRate * wingModule.fireRate *
         engineModule.fireRate * fireRatePenaltyRef.current;
       if (now - (lastFireRef.current[weapon.id] ?? 0) < fireRate) return;
@@ -4132,7 +4131,7 @@ export default function Game() {
       const slotOffset = activeWeaponsRef.current.length > 1 ? (weaponIndex === 0 ? -4 : 4) : 0;
 
       offsets.forEach((oy, i) => {
-      let vx = BASE_BULLET_SPEED * Math.pow(1.2, runUpgradesRef.current.kinetic_accelerator);
+      let vx = BASE_BULLET_SPEED * Math.pow(1.2, routeModifiersRef.current.kinetic_accelerator);
       let vy = 0;
       if (weapon.pattern === "spread" && offsets.length > 1) {
         const spread = (i - (offsets.length - 1) / 2) * 0.15;
@@ -4142,7 +4141,7 @@ export default function Game() {
         x: px, y: py + oy + slotOffset,
         vx, vy,
         fromPlayer: true,
-        damage: (weaponStats.damage + Math.floor(gs.weaponTier / 2) + runUpgradesRef.current.damage + aircraftUpgradeRef.current.damageBonus) * buildDamageMultiplier * (1 + wingModule.damage),
+        damage: (weaponStats.damage + Math.floor(gs.weaponTier / 2) + routeModifiersRef.current.damage + aircraftUpgradeRef.current.damageBonus) * buildDamageMultiplier * (1 + wingModule.damage),
         color: weapon.color,
         weaponId: weapon.id,
       });
@@ -4169,14 +4168,14 @@ export default function Game() {
       }
 
     // Missiles
-    const missileCooldown = 1800 * Math.pow(.72, runUpgradesRef.current.missile_mastery);
+    const missileCooldown = 1800 * Math.pow(.72, routeModifiersRef.current.missile_mastery);
       if (weapon.pattern === "missile" && now - lastMissileRef.current > missileCooldown) {
       lastMissileRef.current = now;
       const target = enemiesRef.current[0] ?? null;
       bulletsRef.current.push({
         x: px, y: py,
         vx: 7, vy: 0,
-        fromPlayer: true, damage: (weaponStats.damage * 1.8 + aircraftUpgradeRef.current.damageBonus + runUpgradesRef.current.missile_mastery * 4) * buildDamageMultiplier,
+        fromPlayer: true, damage: (weaponStats.damage * 1.8 + aircraftUpgradeRef.current.damageBonus + routeModifiersRef.current.missile_mastery * 4) * buildDamageMultiplier,
         color: weapon.color, weaponId: weapon.id, isMissile: true, missileTarget: target,
       });
       }
@@ -4261,9 +4260,9 @@ export default function Game() {
     bestScoreRef.current = loadHighScore();
     runStartHighScoreRef.current = loadHighScore();
     pilotLevelRef.current = getPilotLevelFromKills();
-    runUpgradesRef.current = save?.runUpgrades
-      ? { ...EMPTY_RUN_UPGRADES, ...save.runUpgrades }
-      : { ...EMPTY_RUN_UPGRADES };
+    routeModifiersRef.current = save?.runUpgrades
+      ? { ...EMPTY_ROUTE_MODIFIERS, ...save.runUpgrades }
+      : { ...EMPTY_ROUTE_MODIFIERS };
     runStatsRef.current = {
       kills: 0, bosses: 0, damageTaken: 0, powerUps: 0,
       flawlessKills: 0, perfectBosses: 0, fullHealthPickups: 0,
@@ -4359,7 +4358,7 @@ export default function Game() {
     titanBossFiredRef.current = new Set();
     saveExistsRef.current = !!loadSave();
     if (mode === "classic") {
-      saveGame(stateRef.current, runUpgradesRef.current, upgradeLevelRef.current, sectorChoiceLevelsRef.current,
+      saveGame(stateRef.current, routeModifiersRef.current, upgradeLevelRef.current, sectorChoiceLevelsRef.current,
         fireRatePenaltyRef.current, activeMutatorRef.current.id);
       saveExistsRef.current = true;
     }
@@ -4374,7 +4373,7 @@ export default function Game() {
   const returnToHangar = useCallback(() => {
     const gs = stateRef.current;
     if (gs.score > 0 && !gs.gameOver && activeModeRef.current === "classic") {
-      saveGame(gs, runUpgradesRef.current, upgradeLevelRef.current, sectorChoiceLevelsRef.current,
+      saveGame(gs, routeModifiersRef.current, upgradeLevelRef.current, sectorChoiceLevelsRef.current,
         fireRatePenaltyRef.current, activeMutatorRef.current.id);
     }
     gs.started = false;
@@ -5180,7 +5179,7 @@ export default function Game() {
           waveBannerRef.current = { text: `${nextMutator.icon} MUTATOR · ${nextMutator.name.toUpperCase()}`, timer: 170 };
         }
         if (activeModeRef.current === "classic") {
-          saveGame(gs, runUpgradesRef.current, upgradeLevelRef.current, sectorChoiceLevelsRef.current,
+          saveGame(gs, routeModifiersRef.current, upgradeLevelRef.current, sectorChoiceLevelsRef.current,
             fireRatePenaltyRef.current, activeMutatorRef.current.id);
           saveExistsRef.current = true;
         }
@@ -5467,7 +5466,7 @@ export default function Game() {
       } else if (ultimaChargeRef.current < ULTI_MAX) {
         const cloneMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
         const cloneBonus = activeUnlocksRef.current.includes("clone_upgrade") ? 1.25 : 1;
-        const fluxBonus = 1 + runUpgradesRef.current.flux_capacitor * .25;
+        const fluxBonus = 1 + routeModifiersRef.current.flux_capacitor * .25;
         ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + 0.09 * cloneMult * cloneBonus * fluxBonus * dtScale);
       }
       // ── Laser charge & countdown ──
@@ -5475,7 +5474,7 @@ export default function Game() {
         laserActiveRef.current = Math.max(0, laserActiveRef.current - dtScale);
       } else if (laserChargeRef.current < LASER_MAX) {
         const laserMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
-        const fluxBonus = 1 + runUpgradesRef.current.flux_capacitor * .25;
+        const fluxBonus = 1 + routeModifiersRef.current.flux_capacitor * .25;
         laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + 0.10 * laserMult * fluxBonus * dtScale);
       }
       // ── Stealth charge & countdown ──
@@ -5505,7 +5504,7 @@ export default function Game() {
         ultimateChargeRef.current = Math.min(ULTIMATE_MAX, ultimateChargeRef.current + ULTIMATE_CHARGE_RATE * dtScale);
       }
       if (empChargeRef.current < EMP_MAX && activeUnlocksRef.current.includes("emp_ulti")) {
-        const fluxBonus = 1 + runUpgradesRef.current.flux_capacitor * .25;
+        const fluxBonus = 1 + routeModifiersRef.current.flux_capacitor * .25;
         empChargeRef.current = Math.min(EMP_MAX, empChargeRef.current + EMP_CHARGE_RATE * fluxBonus * dtScale);
       }
       // ── Heal charge & countdown ──
@@ -6018,7 +6017,7 @@ export default function Game() {
             );
             audioRef.current.effect("hit", settingsRef.current.soundVolume);
             if (!protection.protected) {
-              const laserDamage = LASER_DEVICE_DAMAGE * Math.pow(.85, runUpgradesRef.current.reactive_armor);
+              const laserDamage = LASER_DEVICE_DAMAGE * Math.pow(.85, routeModifiersRef.current.reactive_armor);
               recordPlayerDamage(laserDamage);
               const nextLifeState = applyPlayerDamage(gs, laserDamage);
               gs.hp = nextLifeState.hp;
@@ -6096,7 +6095,7 @@ export default function Game() {
             return true;
           }
           const collisionDamage = ((e.titanDashTimer ?? 0) > 0 ? 10 : 1) *
-            Math.pow(.85, runUpgradesRef.current.reactive_armor);
+            Math.pow(.85, routeModifiersRef.current.reactive_armor);
           recordPlayerDamage(collisionDamage);
           const nextLifeState = applyPlayerDamage(gs, collisionDamage);
           gs.hp = nextLifeState.hp;
@@ -6147,7 +6146,7 @@ export default function Game() {
             ? getNormalBossDamage(1, gs.level)
             : collidedWithBoss ? 1
             : activeUnlocksRef.current.includes("armor") ? 0.5 : 1);
-          const collDmg = rawCollisionDamage * Math.pow(.85, runUpgradesRef.current.reactive_armor);
+          const collDmg = rawCollisionDamage * Math.pow(.85, routeModifiersRef.current.reactive_armor);
           recordPlayerDamage(collDmg);
           const nextLifeState = applyPlayerDamage(gs, collDmg);
           gs.hp = nextLifeState.hp;
@@ -6174,7 +6173,7 @@ export default function Game() {
           const bw = b.isMissile ? 14 : 14;
           const bh = b.isMissile ? 8 : 4;
           if (!rectHit(b.x, b.y - bh / 2, bw, bh, e.x, e.y, e.width, e.height)) return true;
-          const critical = runUpgradesRef.current.critical > 0 && Math.random() < Math.min(.45, .15 * runUpgradesRef.current.critical);
+          const critical = routeModifiersRef.current.critical > 0 && Math.random() < Math.min(.45, .15 * routeModifiersRef.current.critical);
           const aircraftDamage = ultimaActiveRef.current > 0
             ? aircraftUltiIds.has("solaris") ? 3 : ["crimson", "voidreaper"].some(id => aircraftUltiIds.has(id)) ? 2 : 1
             : 1;
@@ -6228,7 +6227,7 @@ export default function Game() {
               }
             }
           }
-          const bossHunterMultiplier = isBossEnemy(e) ? 1 + runUpgradesRef.current.boss_hunter * .3 : 1;
+          const bossHunterMultiplier = isBossEnemy(e) ? 1 + routeModifiersRef.current.boss_hunter * .3 : 1;
           const dealtDamage = b.damage * (critical ? 3 : 1) * aircraftDamage * absorberDamage *
             (ultimateActiveRef.current > 0 ? 2 : 1) * weakpointMultiplier * bossHunterMultiplier *
             activeMutatorRef.current.playerDamageMultiplier;
@@ -6245,27 +6244,27 @@ export default function Game() {
             color: damageResult.absorbedByShield ? "#66ddff" : critical ? "#ffe45c" : weakpointMultiplier > 1 ? "#ff6688" : "#ffffff",
             life: 34, maxLife: 34,
           });
-          if (runUpgradesRef.current.cryo_rounds > 0 && Math.random() < Math.min(.5, runUpgradesRef.current.cryo_rounds * .18)) {
+          if (routeModifiersRef.current.cryo_rounds > 0 && Math.random() < Math.min(.5, routeModifiersRef.current.cryo_rounds * .18)) {
             e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, 90);
           }
-          if (runUpgradesRef.current.chain_lightning > 0 && Math.random() < Math.min(.6, runUpgradesRef.current.chain_lightning * .2)) {
+          if (routeModifiersRef.current.chain_lightning > 0 && Math.random() < Math.min(.6, routeModifiersRef.current.chain_lightning * .2)) {
             const chained = enemiesRef.current.find(other => other !== e && !other.dead && other.hp > 1 && isEnemyVisible(other) &&
               Math.hypot(other.x - e.x, other.y - e.y) < 210);
             if (chained) {
               const chainedHpBefore = chained.hp;
-              chained.hp = Math.max(1, chained.hp - 2 * runUpgradesRef.current.chain_lightning);
+              chained.hp = Math.max(1, chained.hp - 2 * routeModifiersRef.current.chain_lightning);
               runStatsRef.current.damageDealt += chainedHpBefore - chained.hp;
-              if (runUpgradesRef.current.cryo_rounds > 0) {
+              if (routeModifiersRef.current.cryo_rounds > 0) {
                 chained.ultimateSlowTimer = Math.max(chained.ultimateSlowTimer ?? 0, 120);
               }
               spawnExplosion(particlesRef.current, chained.x + chained.width / 2, chained.y + chained.height / 2, false);
-              floatingTextsRef.current.push({ x: chained.x, y: chained.y, text: runUpgradesRef.current.cryo_rounds > 0 ? "🌨 FROSTKETTE" : "⚡ KETTE", color: "#72e8ff", life: 40, maxLife: 40 });
+              floatingTextsRef.current.push({ x: chained.x, y: chained.y, text: routeModifiersRef.current.cryo_rounds > 0 ? "🌨 FROSTKETTE" : "⚡ KETTE", color: "#72e8ff", life: 40, maxLife: 40 });
             }
           }
-          if (b.isMissile && runUpgradesRef.current.missile_mastery > 0 && runUpgradesRef.current.cryo_rounds > 0) {
+          if (b.isMissile && routeModifiersRef.current.missile_mastery > 0 && routeModifiersRef.current.cryo_rounds > 0) {
             enemiesRef.current.forEach(other => {
               if (other === e || other.dead || other.hp <= 1 || !isEnemyVisible(other) || Math.hypot(other.x - e.x, other.y - e.y) > 115) return;
-              const splashDamage = 2 + runUpgradesRef.current.missile_mastery * 2;
+              const splashDamage = 2 + routeModifiersRef.current.missile_mastery * 2;
               const splashHpBefore = other.hp;
               other.hp = Math.max(1, other.hp - splashDamage);
               other.ultimateSlowTimer = Math.max(other.ultimateSlowTimer ?? 0, 150);
@@ -6301,15 +6300,15 @@ export default function Game() {
             if (isBossEnemy(e)) {
               powerUpsRef.current.push({ x: e.x + e.width / 2, y: e.y + e.height / 2, type: "health", vy: 1.2 });
               stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + 50);
-              if (runUpgradesRef.current.shield > 0) {
+              if (routeModifiersRef.current.shield > 0) {
                 shieldTimerRef.current = 600;
-                playerShieldHpRef.current = PLAYER_SHIELD_HP + runUpgradesRef.current.shield_matrix * 2;
+                playerShieldHpRef.current = PLAYER_SHIELD_HP + routeModifiersRef.current.shield_matrix * 2;
               }
             }
             healChargeRef.current = Math.min(HEAL_MAX, healChargeRef.current +
               (isBossEnemy(e) ? 60 : e.type === "bomber" ? 28 : e.type === "fighter" ? 14 : 8));
             // Power-up chance
-            if (Math.random() < Math.min(.8, 0.20 + runUpgradesRef.current.salvager * .10)) {
+            if (Math.random() < Math.min(.8, 0.20 + routeModifiersRef.current.salvager * .10)) {
               const roll2 = Math.random();
               const pType: PowerUp["type"] = roll2 < 0.12 ? "speedboost" : roll2 < 0.45 ? "health" : roll2 < 0.72 ? "shield" : "speed";
               powerUpsRef.current.push({
@@ -6370,7 +6369,7 @@ export default function Game() {
             runStatsRef.current.nearMisses += 1;
             comboTimerRef.current = Math.max(comboTimerRef.current, 100);
             gs.score += 25 * Math.max(1, Math.floor(comboRef.current / 10) + 1);
-            const charge = 4 + runUpgradesRef.current.graze_core * 8;
+            const charge = 4 + routeModifiersRef.current.graze_core * 8;
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + charge);
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + charge);
             floatingTextsRef.current.push({
@@ -6403,7 +6402,7 @@ export default function Game() {
         const rawBulletDamage = b.normalBossProjectile
           ? getNormalBossDamage(protectedBulletDamage, gs.level)
           : protectedBulletDamage;
-        const bulletDmg = rawBulletDamage * Math.pow(.85, runUpgradesRef.current.reactive_armor) *
+        const bulletDmg = rawBulletDamage * Math.pow(.85, routeModifiersRef.current.reactive_armor) *
           activeMutatorRef.current.enemyDamageMultiplier;
         if (activeUnlocksRef.current.includes("armor")) {
           audioRef.current.tone(120, .08, settingsRef.current.soundVolume * .2, "square");
@@ -6727,7 +6726,7 @@ export default function Game() {
       }
       const droneVisualLevel = droneLevelRef.current
         + ["drone_mk2", "drone_mk3", "drone_mk4", "drone_mk5", "drone_mk6", "drone_mk7", "drone_mk8"].filter(id => activeUnlocksRef.current.includes(id)).length
-        + runUpgradesRef.current.drone;
+        + routeModifiersRef.current.drone;
       drawCombinedCombatDrone(ctx, droneX, droneY, timeRef.current, droneBuildRef.current, activeDroneSkinRef.current, droneVisualLevel);
       ctx.restore();
 
