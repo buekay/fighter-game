@@ -64,8 +64,7 @@ pnpm run build
 - From level 20 onward, specialist enemies can appear: healers repair damaged allies, shield generators protect nearby ships, and kamikaze fighters rush the player.
 - From level 50 onward, enemies can also spawn as armored, swift, or frenzied elites with increased score rewards.
 - Near misses extend the current combo window, load ultimates, and award bonus score.
-- Compatible run upgrades unlock named combat synergies such as Frost Storm, Cryo Warheads, Ramming Field, and Blood Engine.
-- Every fourth level rotates an endless-sector mutator. Every sixth level offers a run upgrade, and every tenth level offers three random choices from a pool of 15 risk/reward routes.
+- Every fourth level rotates an endless-sector mutator. Every tenth level offers three random choices from a pool of 15 risk/reward routes.
 - Bosses announce phase changes and telegraph their radial special attacks.
 - Flawless formation waves award triple credits, and the end-of-run report records combat statistics and per-mode personal records.
 - At the end of a mission, the score is converted to credits at a 1:1 rate (for example, 1,000 points award 1,000 credits).

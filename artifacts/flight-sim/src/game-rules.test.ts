@@ -46,7 +46,6 @@ import {
   formatRunDuration,
   getBossPhase,
   getMutatorForLevel,
-  getUpgradeSynergies,
 } from "./game-enhancements";
 import {
   BIOMES,
@@ -318,13 +317,5 @@ assert.equal(getMutatorForLevel(1).id, "none");
 assert.equal(getMutatorForLevel(4).id, "swarm");
 assert.equal(getMutatorForLevel(8).id, "bullet_time");
 assert.equal(formatRunDuration(125_900), "2:05");
-assert.deepEqual(
-  getUpgradeSynergies({ chain_lightning: 1, cryo_rounds: 1 }).map(synergy => synergy.id),
-  ["frost_storm"],
-);
-assert.deepEqual(
-  getUpgradeSynergies({ missile_mastery: 1, cryo_rounds: 1, shield: 1, reactive_armor: 1 }).map(synergy => synergy.id),
-  ["cryo_warheads", "ramming_field"],
-);
 assert.equal(SECTOR_CHOICES.length, 15);
 assert.equal(new Set(SECTOR_CHOICES.map(choice => choice.id)).size, 15);

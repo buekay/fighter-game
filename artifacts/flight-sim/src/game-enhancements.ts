@@ -71,31 +71,6 @@ export const SECTOR_CHOICES: readonly SectorChoice[] = [
   { id: "ultimate_sacrifice", icon: "☄", name: "Ultimatives Opfer", description: "Alle ausgerüsteten Ultis werden vollständig geladen.", risk: "Verliere ein Leben; bei einem letzten Leben stattdessen 75 % HP." },
 ] as const;
 
-export interface UpgradeSynergy {
-  id: string;
-  icon: string;
-  name: string;
-  description: string;
-}
-
-export function getUpgradeSynergies(upgrades: Partial<Record<string, number>>): UpgradeSynergy[] {
-  const has = (id: string) => (upgrades[id] ?? 0) > 0;
-  return [
-    has("chain_lightning") && has("cryo_rounds")
-      ? { id: "frost_storm", icon: "🌨", name: "Froststurm", description: "Kettenblitze verlangsamen alle getroffenen Ziele." }
-      : null,
-    has("missile_mastery") && has("cryo_rounds")
-      ? { id: "cryo_warheads", icon: "🧊", name: "Kryo-Sprengköpfe", description: "Raketen erzeugen eine verlangsamende Flächenexplosion." }
-      : null,
-    has("shield") && has("reactive_armor")
-      ? { id: "ramming_field", icon: "💠", name: "Rammschild", description: "Kollisionen bei aktivem Schild zerstören kleine Gegner." }
-      : null,
-    has("vampiric") && has("glass_cannon")
-      ? { id: "blood_engine", icon: "🩸", name: "Bluttriebwerk", description: "Energieernte heilt bereits jeden zehnten Abschuss." }
-      : null,
-  ].filter((synergy): synergy is UpgradeSynergy => synergy !== null);
-}
-
 export function getBossPhase(hp: number, maxHp: number): 1 | 2 | 3 {
   const ratio = maxHp > 0 ? hp / maxHp : 0;
   return ratio <= .3 ? 3 : ratio <= .6 ? 2 : 1;

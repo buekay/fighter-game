@@ -143,6 +143,8 @@ interface Enemy {
   titanShieldTimer?: number;
   titanHealTimer?: number;
   titanDashCooldown?: number;
+  titanDashWarningTimer?: number;
+  titanLaserDamageTimer?: number;
   titanDashTimer?: number;
   titanDashHomeX?: number;
   titanDashHomeY?: number;
@@ -293,6 +295,10 @@ const BIOME_ENEMY_CHANCE = 0.28;
 const TITAN_SHIELD_COOLDOWN = 15 * 60;
 const TITAN_SHIELD_DURATION = 5 * 60;
 const TITAN_DASH_COOLDOWN = 10 * 60;
+const TITAN_DASH_WARNING_DURATION = 3 * 60;
+const TITAN_LASER_DAMAGE_INTERVAL = 60;
+const TITAN_LASER_DAMAGE = 10;
+const TITAN_LASER_BEAM_WIDTH = 72;
 const LASER_DEVICE_CHANCE = 0.10;
 const LASER_DEVICE_SHIELD_HP = 5;
 const LASER_DEVICE_DAMAGE = 5;
@@ -2766,6 +2772,28 @@ function drawLaserDeviceBeam(ctx: CanvasRenderingContext2D, e: Enemy, time: numb
   ctx.restore();
 }
 
+function drawTitanDashLaser(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
+  const beamEndX = e.x + 22;
+  const beamY = e.y + e.height / 2;
+  const pulse = .82 + Math.sin(time * .7) * .18;
+
+  ctx.save();
+  ctx.globalAlpha = .2 * pulse;
+  ctx.fillStyle = "#ff0018";
+  ctx.shadowColor = "#ff0018";
+  ctx.shadowBlur = 40;
+  ctx.fillRect(0, beamY - TITAN_LASER_BEAM_WIDTH / 2 - 12, beamEndX, TITAN_LASER_BEAM_WIDTH + 24);
+  ctx.globalAlpha = .72 * pulse;
+  ctx.shadowBlur = 24;
+  ctx.fillStyle = "#ff1834";
+  ctx.fillRect(0, beamY - TITAN_LASER_BEAM_WIDTH / 2, beamEndX, TITAN_LASER_BEAM_WIDTH);
+  ctx.globalAlpha = pulse;
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = "#fff4f4";
+  ctx.fillRect(0, beamY - 6, beamEndX, 12);
+  ctx.restore();
+}
+
 function drawCombatDrone(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, skin: DroneSkin = DRONE_SKINS[0], level = 1) {
   const visualLevel = Math.max(1, Math.floor(level));
   const tier = Math.min(4, Math.floor((visualLevel - 1) / 3));
@@ -3445,7 +3473,6 @@ export default function Game() {
   const [selectedGameMode, setSelectedGameMode] = useState<GameMode>("classic");
   const runResultRef = useRef<"game_over" | "complete">("game_over");
   const rewardGrantedRef = useRef(false);
-  const upgradeLevelRef = useRef(0);
   const [achievementToast, setAchievementToast] = useState<Achievement | null>(null);
   const [achievements, setAchievements] = useState<string[]>(() => loadAchievements());
   const [runSummary, setRunSummary] = useState<RunSummary | null>(null);
@@ -3702,7 +3729,7 @@ export default function Game() {
     waveBannerRef.current = { text: `${choice.icon} ${choice.name.toUpperCase()}`, timer: 140 };
     audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
     if (activeModeRef.current === "classic") {
-      saveGame(gs, routeModifiersRef.current, upgradeLevelRef.current, sectorChoiceLevelsRef.current,
+      saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
         fireRatePenaltyRef.current, activeMutatorRef.current.id);
       saveExistsRef.current = true;
     }
@@ -3997,6 +4024,8 @@ export default function Game() {
       titanShieldTimer: titan ? 0 : undefined,
       titanHealTimer: titan ? 60 : undefined,
       titanDashCooldown: titan ? TITAN_DASH_COOLDOWN : undefined,
+      titanDashWarningTimer: titan ? 0 : undefined,
+      titanLaserDamageTimer: titan ? TITAN_LASER_DAMAGE_INTERVAL : undefined,
       titanDashTimer: titan ? 0 : undefined,
       titanReinforcementsSpawned: titan ? false : undefined,
       bossTopPartHp: Math.max(8, Math.round(hp * .12)),
@@ -4260,8 +4289,8 @@ export default function Game() {
     bestScoreRef.current = loadHighScore();
     runStartHighScoreRef.current = loadHighScore();
     pilotLevelRef.current = getPilotLevelFromKills();
-    routeModifiersRef.current = save?.runUpgrades
-      ? { ...EMPTY_ROUTE_MODIFIERS, ...save.runUpgrades }
+    routeModifiersRef.current = save?.routeModifiers
+      ? { ...EMPTY_ROUTE_MODIFIERS, ...save.routeModifiers }
       : { ...EMPTY_ROUTE_MODIFIERS };
     runStatsRef.current = {
       kills: 0, bosses: 0, damageTaken: 0, powerUps: 0,
@@ -4269,7 +4298,6 @@ export default function Game() {
       maxCombo: 0, nearMisses: 0, missions: 0, damageDealt: 0,
     };
     bossDamageStartRef.current = 0;
-    upgradeLevelRef.current = save?.upgradeLevel ?? 0;
     setSectorChoices([]);
     setRunSummary(null);
     const baseMaxHp = Math.max(3, (unlocks.includes("max_hp") ? 15 : 10) + aircraftStats.maxHpBonus + wingModule.hp);
@@ -4358,7 +4386,7 @@ export default function Game() {
     titanBossFiredRef.current = new Set();
     saveExistsRef.current = !!loadSave();
     if (mode === "classic") {
-      saveGame(stateRef.current, routeModifiersRef.current, upgradeLevelRef.current, sectorChoiceLevelsRef.current,
+      saveGame(stateRef.current, routeModifiersRef.current, sectorChoiceLevelsRef.current,
         fireRatePenaltyRef.current, activeMutatorRef.current.id);
       saveExistsRef.current = true;
     }
@@ -4373,7 +4401,7 @@ export default function Game() {
   const returnToHangar = useCallback(() => {
     const gs = stateRef.current;
     if (gs.score > 0 && !gs.gameOver && activeModeRef.current === "classic") {
-      saveGame(gs, routeModifiersRef.current, upgradeLevelRef.current, sectorChoiceLevelsRef.current,
+      saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
         fireRatePenaltyRef.current, activeMutatorRef.current.id);
     }
     gs.started = false;
@@ -5179,7 +5207,7 @@ export default function Game() {
           waveBannerRef.current = { text: `${nextMutator.icon} MUTATOR · ${nextMutator.name.toUpperCase()}`, timer: 170 };
         }
         if (activeModeRef.current === "classic") {
-          saveGame(gs, routeModifiersRef.current, upgradeLevelRef.current, sectorChoiceLevelsRef.current,
+          saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
             fireRatePenaltyRef.current, activeMutatorRef.current.id);
           saveExistsRef.current = true;
         }
@@ -5213,6 +5241,8 @@ export default function Game() {
           titanShieldTimer: 0,
           titanHealTimer: 60,
           titanDashCooldown: TITAN_DASH_COOLDOWN,
+          titanDashWarningTimer: 0,
+          titanLaserDamageTimer: TITAN_LASER_DAMAGE_INTERVAL,
           titanDashTimer: 0,
           titanReinforcementsSpawned: false,
           bossTopPartHp: Math.max(10, Math.round(titanHp * .10)),
@@ -5576,9 +5606,50 @@ export default function Game() {
             e.titanHealTimer += 60;
           }
           e.titanDashCooldown = (e.titanDashCooldown ?? TITAN_DASH_COOLDOWN) - dtScale;
-          if ((e.titanDashTimer ?? 0) <= 0) {
-            if (e.titanDashCooldown <= 0) {
-              e.titanDashCooldown = TITAN_DASH_COOLDOWN;
+          if ((e.titanDashWarningTimer ?? 0) > 0) {
+            e.titanDashWarningTimer = Math.max(0, (e.titanDashWarningTimer ?? 0) - dtScale);
+            e.titanLaserDamageTimer = (e.titanLaserDamageTimer ?? TITAN_LASER_DAMAGE_INTERVAL) - dtScale;
+
+            const beamY = e.y + e.height / 2 - TITAN_LASER_BEAM_WIDTH / 2;
+            const playerTouchesLaser = rectHit(
+              playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H,
+              0, beamY, e.x + 22, TITAN_LASER_BEAM_WIDTH,
+            );
+            while ((e.titanLaserDamageTimer ?? 0) <= 0) {
+              e.titanLaserDamageTimer = (e.titanLaserDamageTimer ?? 0) + TITAN_LASER_DAMAGE_INTERVAL;
+              if (!playerTouchesLaser || ultimateActiveRef.current > 0) continue;
+
+              const protection = applyPlayerHitProtection({
+                shieldTimer: shieldTimerRef.current,
+                shieldHp: playerShieldHpRef.current,
+                invincibleTimer: invincibleRef.current,
+                stealthTimer: stealthActiveRef.current,
+              });
+              shieldTimerRef.current = protection.shieldTimer;
+              playerShieldHpRef.current = protection.shieldHp;
+              if (!protection.protected) {
+                recordPlayerDamage(TITAN_LASER_DAMAGE);
+                const nextLifeState = applyPlayerDamage(gs, TITAN_LASER_DAMAGE);
+                gs.hp = nextLifeState.hp;
+                gs.lives = nextLifeState.lives;
+                gs.gameOver = nextLifeState.gameOver;
+                floatingTextsRef.current.push({
+                  x: playerRef.current.x + PLAYER_W / 2,
+                  y: playerRef.current.y,
+                  text: `-${TITAN_LASER_DAMAGE} TITAN-LASER`,
+                  color: "#ff3344",
+                  life: 55,
+                  maxLife: 55,
+                });
+                spawnExplosion(particlesRef.current, playerRef.current.x + PLAYER_W / 2,
+                  playerRef.current.y + PLAYER_H / 2, false);
+                audioRef.current.effect("hit", settingsRef.current.soundVolume);
+                if (gs.gameOver) grantRunReward();
+                syncDisplay();
+              }
+            }
+
+            if (e.titanDashWarningTimer <= 0) {
               e.titanDashTimer = 180;
               e.titanDashHomeX = e.x;
               e.titanDashHomeY = e.y;
@@ -5586,6 +5657,12 @@ export default function Game() {
               e.titanDashTargetX = Math.max(-e.width - 15, playerRef.current.x - e.width - 40);
               e.titanDashTargetY = clamp(playerRef.current.y + PLAYER_H / 2 - e.height / 2, 0, CANVAS_H - e.height);
               e.titanShieldTimer = Math.max(e.titanShieldTimer ?? 0, 180);
+            }
+          } else if ((e.titanDashTimer ?? 0) <= 0) {
+            if (e.titanDashCooldown <= 0) {
+              e.titanDashCooldown = TITAN_DASH_COOLDOWN;
+              e.titanDashWarningTimer = TITAN_DASH_WARNING_DURATION;
+              e.titanLaserDamageTimer = TITAN_LASER_DAMAGE_INTERVAL;
             }
           } else {
             e.titanDashTimer = Math.max(0, (e.titanDashTimer ?? 0) - dtScale);
@@ -6030,6 +6107,17 @@ export default function Game() {
         }
 
         // Draw enemy
+        if (e.type === "titan" && (e.titanDashWarningTimer ?? 0) > 0) {
+          drawTitanDashLaser(ctx, e, timeRef.current);
+          ctx.save();
+          ctx.textAlign = "center";
+          ctx.fillStyle = "#ffffff";
+          ctx.shadowColor = "#ff001e";
+          ctx.shadowBlur = 14;
+          ctx.font = "900 13px 'Inter', sans-serif";
+          ctx.fillText(`DASH-LASER · ${Math.max(1, Math.ceil((e.titanDashWarningTimer ?? 0) / 60))}`, e.x + e.width / 2, e.y - 27);
+          ctx.restore();
+        }
         if (isBossEnemy(e) && (e.specialAttackTimer ?? 999) <= 45) {
           const warningProgress = 1 - (e.specialAttackTimer ?? 0) / 45;
           ctx.save();
@@ -8876,21 +8964,21 @@ function BriefingScreen({ settings, onDone }: { settings: GameSettings; onDone: 
     { icon: "❤", title: "Schaden & Leben", text: "Treffer reduzieren zuerst einen aktiven Schild, danach deine HP. Bei 0 HP verlierst du ein Leben und kehrst mit voller Energie zurück. Sind keine Leben mehr übrig, endet der Einsatz. Im Modus „Beschützen“ greifen Gegner vorrangig das Paket an; fällt dessen Energie auf 0, ist die Mission verloren." },
     { icon: "📦", title: "Power-ups einsammeln", text: "Zerstörte Gegner können Symbole hinterlassen. Fliege mit dem Jet darüber, bevor sie den Bildschirm verlassen: Herzen heilen HP, Schilde absorbieren Treffer und Tempo-Boosts erhöhen vorübergehend deine Fluggeschwindigkeit." },
     { icon: "⚡", title: "Spezialfähigkeiten", text: "Du kannst im Shop bis zu drei Fähigkeiten für einen Einsatz ausrüsten. Jede besitzt im HUD eine eigene Ladeanzeige. Erst wenn die Anzeige voll leuchtet, löst du die Fähigkeit mit ihrer eingeblendeten Taste beziehungsweise dem Touch-Knopf aus." },
-    { icon: "⬆", title: "Upgrades im Einsatz", text: "Beim Erreichen jedes 6. Levels pausiert das Spiel: Wähle genau eines von drei Lauf-Upgrades. Bei jedem 10. Level wählst du zusätzlich eine Route mit eigenem Risiko und Bonus. Diese Entscheidungen gelten nur für den aktuellen Einsatz." },
+    { icon: "⇄", title: "Routen im Einsatz", text: "Bei jedem 10. Level pausiert das Spiel und du wählst eine Route mit eigenem Risiko und Bonus. Diese Entscheidung gilt nur für den aktuellen Einsatz." },
     { icon: "💎", title: "Belohnung & dauerhafte Stärke", text: "Am Missionsende wird dein Score in Credits umgerechnet; bestimmte Modi erhöhen den Credit-Ertrag. Je 100 verdiente Einsatz-Credits erhältst du außerdem ein Juwel. Credits kaufen Shopartikel, Juwelen verbessern dauerhaft die Level von Flugzeug und Drohne." },
   ] : language === "tr" ? [
     { icon: "🎯", title: "Görevin", text: "Uçağını giderek zorlaşan ve otomatik kayan sektörlerde yönlendir. Düşmanlardan ve mermilerden kaç, hedefleri vur ve mümkün olduğunca çok puan topla. Puanın arttıkça pilot seviyen yükselir; bölüm sonu savaşları görevin büyük aşamalarını belirler." },
     { icon: "❤", title: "Hayatta kalma", text: "Her düşman isabeti HP'ni azaltır. HP sıfıra düştüğünde bir can kaybeder ve tam enerjiyle geri dönersin. Son canından sonra görev biter. Aktif kalkan önce hasarı emer, ancak kaçınmak hâlâ en güvenli taktiktir." },
     { icon: "📦", title: "Güçlendirmeler", text: "Yok edilen düşmanlar yararlı güçlendirmeler bırakabilir: sağlık HP'ni yeniler, kalkanlar ek koruma sağlar ve hız takviyeleri uçağını geçici olarak hızlandırır. Simgeler ekrandan çıkmadan önce uçağınla onlara dokun." },
     { icon: "⚡", title: "Silahlar ve özel yetenekler", text: "Kesintisiz ateş etmek için ateş kontrolünü basılı tut. Savaş sırasında uçağına özel 10 saniyelik yetenek ile lazer, gizlilik ve iyileştirme dolar. Gösterge dolduğunda ekrandaki tuşla yeteneği etkinleştir." },
-    { icon: "⬆", title: "İlerleme", text: "Sektörleri tamamladıktan sonra savaş durur ve mevcut görev için üç geliştirmeden birini seçersin. Bu bonuslar görev sonuna kadar geçerlidir. Kontrol noktaları seviyeni, puanını ve silah kademeni kaydeder; böylece göreve daha sonra Devam Et ile dönebilirsin." },
+    { icon: "⇄", title: "Rotalar", text: "Her 10. seviyede savaş durur ve kendine özgü risk ile ödül sunan bir rota seçersin. Kontrol noktaları seviyeni, puanını ve silah kademeni kaydeder; böylece göreve daha sonra Devam Et ile dönebilirsin." },
     { icon: "💎", title: "Krediler, mücevherler ve hangar", text: "Görev sonunda her puan bir krediye dönüşür ve her 100 görev kredisi için bir mücevher kazanırsın. Uçak ve drone seviyeleri mücevherlerle; görünümler ve diğer mağaza ürünleri kredilerle alınır." },
   ] : [
     { icon: "🎯", title: "Your mission", text: "Pilot your jet through automatically scrolling sectors that become progressively harder. Dodge enemies and projectiles, shoot down targets, and score as many points as possible. Your pilot level rises with your score, while boss fights mark the major milestones of a mission." },
     { icon: "❤", title: "Survival", text: "Every enemy hit reduces your HP. When HP reaches zero, you lose a life and return at full health. The mission ends after your final life. An active shield absorbs damage first, but dodging remains your safest tactic." },
     { icon: "📦", title: "Power-ups", text: "Destroyed enemies may leave useful pick-ups behind: health restores HP, shields provide extra protection, and speed boosts temporarily make your jet faster. Touch an icon with your jet before it leaves the screen." },
     { icon: "⚡", title: "Weapons & abilities", text: "Hold the fire control or optionally enable auto-fire in Settings. Equip up to two special abilities before launch; once a meter is full, activate it with the displayed key or touch button." },
-    { icon: "⬆", title: "Progress", text: "After clearing sectors, combat pauses and you choose one of three upgrades for the current run. These bonuses last until the mission ends. Checkpoints save your level, score, and weapon tier so you can resume an interrupted mission later with Continue." },
+    { icon: "⇄", title: "Routes", text: "Every 10 levels, combat pauses and you choose a route with its own risk and reward. Checkpoints save your level, score, and weapon tier so you can resume an interrupted mission later with Continue." },
     { icon: "💎", title: "Credits, gems & hangar", text: "At the end of a mission, every point becomes one credit, and every 100 mission credits also earn one gem. Aircraft and drone levels cost gems; skins and other shop items continue to cost credits." },
   ];
   const keyboardHelp = language === "de" ? [
