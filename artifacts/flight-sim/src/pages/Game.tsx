@@ -59,6 +59,12 @@ import {
   writeStoredJson,
   writeStoredText,
 } from "../storage";
+import {
+  SHOP_RARITY_ORDER,
+  SHOP_RARITY_SEQUENCE,
+  orderCatalog,
+  type ShopRarity,
+} from "../catalog-order";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -205,7 +211,6 @@ interface WeaponCrateDefinition {
   damage: number;
 }
 
-type ShopRarity = "rare" | "epic" | "legendary" | "ultraLegendary" | "ultimate";
 type ShopCrateReward =
   | { kind: "credits"; amount: number; label: string; icon: string }
   | { kind: "gems"; amount: number; label: string; icon: string }
@@ -563,13 +568,6 @@ function shopRarityLabelStyle(rarity: ShopRarity) {
 function shopRarityGlow(rarity: ShopRarity, size: number) {
   return rarity === "ultimate" ? ULTIMATE_GLOW : `0 0 ${size}px ${SHOP_RARITIES[rarity].glow}`;
 }
-const SHOP_RARITY_ORDER: Record<ShopRarity, number> = {
-  rare: 0,
-  epic: 1,
-  legendary: 2,
-  ultraLegendary: 3,
-  ultimate: 4,
-};
 const SHOP_RARITY_MIN_LEVEL: Record<ShopRarity, number> = {
   rare: 1,
   epic: 5,
@@ -1068,24 +1066,13 @@ const SHOP_ITEMS: readonly ShopItem[] = [
   { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 50000,  rarity: "rare" },
   { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 100000, rarity: "epic" },
 ] as const;
-const SORTED_SHOP_ITEMS = [...SHOP_ITEMS].sort(
-  (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
-);
-const SORTED_WEAPONS = [...WEAPONS].sort(
-  (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
-);
-const SORTED_DRONE_WEAPONS = [...DRONE_WEAPONS].sort(
-  (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
-);
-const SORTED_WEAPON_CRATES = [...WEAPON_CRATES].sort(
-  (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
-);
-const SORTED_JET_SKINS = [...JET_SKINS].sort(
-  (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
-);
-const SORTED_DRONE_SKINS = [...DRONE_SKINS].sort(
-  (a, b) => SHOP_RARITY_ORDER[a.rarity] - SHOP_RARITY_ORDER[b.rarity] || a.cost - b.cost || a.name.localeCompare(b.name, "de"),
-);
+const SORTED_SHOP_CRATES = orderCatalog(SHOP_CRATES);
+const SORTED_SHOP_ITEMS = orderCatalog(SHOP_ITEMS);
+const SORTED_WEAPONS = orderCatalog(WEAPONS);
+const SORTED_DRONE_WEAPONS = orderCatalog(DRONE_WEAPONS);
+const SORTED_WEAPON_CRATES = orderCatalog(WEAPON_CRATES);
+const SORTED_JET_SKINS = orderCatalog(JET_SKINS);
+const SORTED_DRONE_SKINS = orderCatalog(DRONE_SKINS);
 
 type UltiLoadoutId = "jet" | "laser" | "stealth_ulti" | "heal_ulti" | "poison_missiles_ulti" | "absorber_ulti" | "ultimate_ulti" | "emp_ulti";
 const ULTI_LOADOUT_OPTIONS: readonly { id: UltiLoadoutId; name: string; key: string; requires?: string }[] = [
@@ -8228,7 +8215,7 @@ function HangarOverlay({
         {droneCombined && <div className="text-[10px] font-black text-fuchsia-300">KOMBINIERT · {combinedDroneNames.join(" + ")}</div>}
         <div className="hangar-crate-skins flex max-w-full flex-wrap items-center justify-center gap-2 mt-1">
           <span className="text-slate-500 text-xs">Waffenmodul:</span>
-          {WEAPON_CRATES.filter(crate => crate.cost === 0 || unlockedItems.includes(`weapon_crate_${crate.id}`)).map(crate => (
+          {SORTED_WEAPON_CRATES.filter(crate => crate.cost === 0 || unlockedItems.includes(`weapon_crate_${crate.id}`)).map(crate => (
             <button
               key={crate.id}
               onClick={() => onWeaponCrateSelect(crate.id)}
@@ -8573,7 +8560,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
       </div>
 
       <div className="relative z-10 flex flex-wrap gap-2 text-[10px] font-black tracking-wider">
-        {(Object.keys(SHOP_RARITIES) as ShopRarity[]).map(key => {
+        {SHOP_RARITY_SEQUENCE.map(key => {
           const rarity = SHOP_RARITIES[key];
           const unlocked = isShopRarityUnlocked(key, playerLevel);
           return <span key={key} className="rounded px-2 py-0.5" style={{
@@ -8612,7 +8599,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
       {shopSection === "crates" && (
         <div className="relative z-10">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {SHOP_CRATES.map(crate => {
+            {SORTED_SHOP_CRATES.map(crate => {
               const rarity = SHOP_RARITIES[crate.rarity];
               const isOpening = openingCrate === crate.rarity;
               const isDaily = crate.rarity === "rare";
@@ -9116,21 +9103,18 @@ function BriefingScreen({ settings, onDone }: { settings: GameSettings; onDone: 
     { icon: "❤", title: "Schaden & Leben", text: "Treffer reduzieren zuerst einen aktiven Schild, danach deine HP. Bei 0 HP verlierst du ein Leben und kehrst mit voller Energie zurück. Sind keine Leben mehr übrig, endet der Einsatz. Im Modus „Beschützen“ greifen Gegner vorrangig das Paket an; fällt dessen Energie auf 0, ist die Mission verloren." },
     { icon: "📦", title: "Power-ups einsammeln", text: "Zerstörte Gegner können Symbole hinterlassen. Fliege mit dem Jet darüber, bevor sie den Bildschirm verlassen: Herzen heilen HP, Schilde absorbieren Treffer und Tempo-Boosts erhöhen vorübergehend deine Fluggeschwindigkeit." },
     { icon: "⚡", title: "Spezialfähigkeiten", text: "Du kannst im Shop bis zu drei Fähigkeiten für einen Einsatz ausrüsten. Jede besitzt im HUD eine eigene Ladeanzeige. Erst wenn die Anzeige voll leuchtet, löst du die Fähigkeit mit ihrer eingeblendeten Taste beziehungsweise dem Touch-Knopf aus." },
-    { icon: "⇄", title: "Routen im Einsatz", text: "Bei jedem 10. Level pausiert das Spiel und du wählst eine Route mit eigenem Risiko und Bonus. Diese Entscheidung gilt nur für den aktuellen Einsatz." },
     { icon: "💎", title: "Belohnung & dauerhafte Stärke", text: "Am Missionsende wird dein Score in Credits umgerechnet; bestimmte Modi erhöhen den Credit-Ertrag. Je 100 verdiente Einsatz-Credits erhältst du außerdem ein Juwel. Credits kaufen Shopartikel, Juwelen verbessern dauerhaft die Level von Flugzeug und Drohne." },
   ] : language === "tr" ? [
     { icon: "🎯", title: "Görevin", text: "Uçağını giderek zorlaşan ve otomatik kayan sektörlerde yönlendir. Düşmanlardan ve mermilerden kaç, hedefleri vur ve mümkün olduğunca çok puan topla. Puanın arttıkça pilot seviyen yükselir; bölüm sonu savaşları görevin büyük aşamalarını belirler." },
     { icon: "❤", title: "Hayatta kalma", text: "Her düşman isabeti HP'ni azaltır. HP sıfıra düştüğünde bir can kaybeder ve tam enerjiyle geri dönersin. Son canından sonra görev biter. Aktif kalkan önce hasarı emer, ancak kaçınmak hâlâ en güvenli taktiktir." },
     { icon: "📦", title: "Güçlendirmeler", text: "Yok edilen düşmanlar yararlı güçlendirmeler bırakabilir: sağlık HP'ni yeniler, kalkanlar ek koruma sağlar ve hız takviyeleri uçağını geçici olarak hızlandırır. Simgeler ekrandan çıkmadan önce uçağınla onlara dokun." },
     { icon: "⚡", title: "Silahlar ve özel yetenekler", text: "Kesintisiz ateş etmek için ateş kontrolünü basılı tut. Savaş sırasında uçağına özel 10 saniyelik yetenek ile lazer, gizlilik ve iyileştirme dolar. Gösterge dolduğunda ekrandaki tuşla yeteneği etkinleştir." },
-    { icon: "⇄", title: "Rotalar", text: "Her 10. seviyede savaş durur ve kendine özgü risk ile ödül sunan bir rota seçersin. Kontrol noktaları seviyeni, puanını ve silah kademeni kaydeder; böylece göreve daha sonra Devam Et ile dönebilirsin." },
     { icon: "💎", title: "Krediler, mücevherler ve hangar", text: "Görev sonunda her puan bir krediye dönüşür ve her 100 görev kredisi için bir mücevher kazanırsın. Uçak ve drone seviyeleri mücevherlerle; görünümler ve diğer mağaza ürünleri kredilerle alınır." },
   ] : [
     { icon: "🎯", title: "Your mission", text: "Pilot your jet through automatically scrolling sectors that become progressively harder. Dodge enemies and projectiles, shoot down targets, and score as many points as possible. Your pilot level rises with your score, while boss fights mark the major milestones of a mission." },
     { icon: "❤", title: "Survival", text: "Every enemy hit reduces your HP. When HP reaches zero, you lose a life and return at full health. The mission ends after your final life. An active shield absorbs damage first, but dodging remains your safest tactic." },
     { icon: "📦", title: "Power-ups", text: "Destroyed enemies may leave useful pick-ups behind: health restores HP, shields provide extra protection, and speed boosts temporarily make your jet faster. Touch an icon with your jet before it leaves the screen." },
     { icon: "⚡", title: "Weapons & abilities", text: "Hold the fire control or optionally enable auto-fire in Settings. Equip up to two special abilities before launch; once a meter is full, activate it with the displayed key or touch button." },
-    { icon: "⇄", title: "Routes", text: "Every 10 levels, combat pauses and you choose a route with its own risk and reward. Checkpoints save your level, score, and weapon tier so you can resume an interrupted mission later with Continue." },
     { icon: "💎", title: "Credits, gems & hangar", text: "At the end of a mission, every point becomes one credit, and every 100 mission credits also earn one gem. Aircraft and drone levels cost gems; skins and other shop items continue to cost credits." },
   ];
   const keyboardHelp = language === "de" ? [

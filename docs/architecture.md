@@ -11,6 +11,7 @@ React-Render auslöst.
 App.tsx
 └── pages/Game.tsx
     ├── game-rules.ts         Reine, getestete Spielregeln
+    ├── catalog-order.ts      Zentrale Sortierung aller Shop-Kataloge
     ├── game-enhancements.ts  Mutatoren, Sektoren und Rekorde
     ├── biomes.ts             Biome und Gegnervarianten
     └── storage.ts            Fehlertolerante Browser-Persistenz
@@ -19,6 +20,8 @@ App.tsx
 ## Modulgrenzen
 
 - `game-rules.ts` enthält deterministische Regeln ohne React-Abhängigkeit.
+- `catalog-order.ts` definiert die verbindliche Reihenfolge für Seltenheit,
+  Preis und Namen. Shop und Hangar verwenden ausschließlich diese Sortierung.
 - `game-enhancements.ts` enthält zusätzliche Progressionsregeln. Persistierte
   Modusrekorde verwenden die zentrale Storage-Schicht.
 - `biomes.ts` beschreibt Biome und ihre Gegner.
