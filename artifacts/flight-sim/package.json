@@ -8,7 +8,7 @@
     "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx src/catalog-order.test.ts && tsx src/game-rules.test.ts && tsx src/storage.test.ts && tsx src/rendering/visual-quality.test.ts && tsx src/titan-tactics.test.ts && tsx src/boss-encounters.test.ts && tsx src/projectile-defense.test.ts && tsx src/fire-sword-chain.test.ts"
+    "test": "tsx src/catalog-order.test.ts && tsx src/game-rules.test.ts && tsx src/storage.test.ts && tsx src/rendering/visual-quality.test.ts && tsx src/titan-tactics.test.ts && tsx src/boss-encounters.test.ts && tsx src/projectile-defense.test.ts && tsx src/fire-sword-chain.test.ts && tsx src/boss-specials.test.ts"
   },
   "devDependencies": {
     "@tailwindcss/vite": "catalog:",

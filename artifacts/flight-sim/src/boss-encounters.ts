@@ -30,3 +30,12 @@ export function getEncounterProgressionLevel(
   }
   return target;
 }
+
+export const BOSS_DIMENSIONS: Record<EncounterKind, { width: number; height: number }> = {
+  titan: { width: 270, height: 232 }, tank: { width: 310, height: 230 },
+  spider: { width: 310, height: 280 }, submarine: { width: 350, height: 185 },
+  city: { width: 164, height: 112 },
+};
+export function cityMountPosition(slot: number, canvasWidth: number, canvasHeight: number) {
+  return { x: canvasWidth - 390 + (slot % 2) * 190, y: 190 + Math.floor(slot / 2) * ((canvasHeight - 350) / 2) };
+}

@@ -1,7 +1,8 @@
+import { advanceBossSpecial, createBossSpecial, type BossSpecialState } from "../boss-specials";
 import { claimLightningTargets } from "../fire-sword-chain";
 import { interceptProjectiles, type InterceptableProjectile } from "../projectile-defense";
-import { BOSS_SEQUENCE, BOSS_NAMES, CITY_WEAPONS, getBossForLevel, getEncounterProgressionLevel, encounterHealth, encounterComplete, type EncounterKind } from "../boss-encounters";
-import { drawEncounterBoss, drawFortressCity } from "../rendering/encounter-bosses";
+import { BOSS_SEQUENCE, BOSS_NAMES, CITY_WEAPONS, BOSS_DIMENSIONS, cityMountPosition, getBossForLevel, getEncounterProgressionLevel, encounterHealth, encounterComplete, type EncounterKind } from "../boss-encounters";
+import { drawEncounterBoss, drawFortressCity, drawEncounterHealthBar, drawSpecialWarning } from "../rendering/encounter-bosses";
 import { steerTitan, type TitanTactics } from "../titan-tactics";
 import { VisualQuality } from "../rendering/visual-quality";
 import { drawFireSwordLightning, FIRE_SWORD_LIGHTNING_DURATION_MS, type FireSwordLightning } from "../rendering/fire-sword-lightning";
@@ -266,6 +267,7 @@ interface GameSettings {
   highContrast: boolean;
   touchControls: "auto" | "always" | "never";
   autoFire: boolean;
+  autoUlti: boolean;
   showJoystick: boolean;
   keyBindings: KeyBindings;
   soundVolume: number;
@@ -317,8 +319,6 @@ const BASE_BULLET_SPEED = 10;
 const ENEMY_BULLET_SPEED = 3;
 const OVERLORD_WIDTH = 162;
 const OVERLORD_HEIGHT = 122;
-const TITAN_WIDTH = 190;
-const TITAN_HEIGHT = 164;
 const BACKGROUND_TRANSITION_MS = 1100;
 const BIOME_ENEMY_CHANCE = 0.28;
 const TITAN_SHIELD_COOLDOWN = 15 * 60;
@@ -1134,6 +1134,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   highContrast: false,
   touchControls: "auto",
   autoFire: false,
+  autoUlti: false,
   showJoystick: false,
   keyBindings: DEFAULT_KEY_BINDINGS,
   soundVolume: 0.65,
@@ -1341,6 +1342,7 @@ function loadSettings(): GameSettings {
       highContrast: typeof saved.highContrast === "boolean" ? saved.highContrast : DEFAULT_SETTINGS.highContrast,
       touchControls: touchModes.includes(saved.touchControls as GameSettings["touchControls"]) ? saved.touchControls as GameSettings["touchControls"] : DEFAULT_SETTINGS.touchControls,
       autoFire: typeof saved.autoFire === "boolean" ? saved.autoFire : DEFAULT_SETTINGS.autoFire,
+      autoUlti: typeof saved.autoUlti === "boolean" ? saved.autoUlti : DEFAULT_SETTINGS.autoUlti,
       showJoystick: typeof saved.showJoystick === "boolean" ? saved.showJoystick : DEFAULT_SETTINGS.showJoystick,
       keyBindings,
       soundVolume: Math.max(0, Math.min(1, finiteNumber(saved.soundVolume) ?? DEFAULT_SETTINGS.soundVolume)),
@@ -1944,7 +1946,7 @@ function drawCombinedPlayerJet(
 }
 
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, reducedMotion = false) {
-  if (e.encounterKind && e.encounterKind !== "titan") {
+  if (e.encounterKind) {
     drawEncounterBoss(ctx, e, reducedMotion ? 0 : performance.now());
     return;
   }
@@ -3424,6 +3426,7 @@ export default function Game() {
   const activeWaveRef = useRef<ActiveWave | null>(null);
   const waveBannerRef = useRef({ text: "", timer: 0 });
   const titanWarningRef = useRef(0);
+  const bossSpecialRef = useRef<BossSpecialState | null>(null);
   const missionRef = useRef<Mission>({ type: "kills", title: "Zerstöre 30 Gegner", target: 30, reward: 5000, completed: false });
   const activeMutatorRef = useRef<MutatorDefinition>(MUTATORS.none);
   const sectorChoiceLevelsRef = useRef<Set<number>>(new Set());
@@ -3952,12 +3955,12 @@ export default function Game() {
     const power = Math.max(1, Math.min(BOSS_FIGHT_COUNT, bossNumber));
     const kind = BOSS_SEQUENCE[power - 1];
     const health = encounterHealth(kind);
-    const width = kind === "city" ? 100 : kind === "submarine" ? 230 : kind === "tank" ? 190 : TITAN_WIDTH;
-    const height = kind === "city" ? 70 : kind === "submarine" ? 95 : TITAN_HEIGHT;
+    const { width, height } = BOSS_DIMENSIONS[kind];
+    bossSpecialRef.current = createBossSpecial(kind);
     if (kind === "titan") titanWarningRef.current = 180;
     health.forEach((hp, slot) => addEnemyWithinLimit(enemiesRef.current, {
-      x: kind === "city" ? CANVAS_W - 270 + (slot % 2) * 130 : CANVAS_W + 24,
-      y: kind === "city" ? 100 + Math.floor(slot / 2) * ((CANVAS_H - 240) / 2) : CANVAS_H / 2 - height / 2,
+      x: kind === "city" ? cityMountPosition(slot, CANVAS_W, CANVAS_H).x : CANVAS_W + 24,
+      y: kind === "city" ? cityMountPosition(slot, CANVAS_W, CANVAS_H).y : CANVAS_H / 2 - height / 2,
       vx: kind === "city" ? 0 : -.55, vy: 0,
       hp, maxHp: hp, width, height,
       type: kind === "titan" ? "titan" : "boss",
@@ -4359,6 +4362,7 @@ export default function Game() {
     empChargeRef.current = EMP_MAX;
     milestoneBossFiredRef.current = new Set();
     encounterLevelsSpawnedRef.current = new Set();
+    bossSpecialRef.current = null;
     saveExistsRef.current = !!loadSave();
     if (mode === "classic") {
       saveGame(stateRef.current, routeModifiersRef.current, sectorChoiceLevelsRef.current,
@@ -5370,11 +5374,6 @@ export default function Game() {
 
       if (enemiesRef.current.some(e => e.encounterKind === "city" && !e.dead)) {
         drawFortressCity(ctx, CANVAS_W, CANVAS_H);
-        const defenders = enemiesRef.current.filter(e => e.encounterKind === "city" && !e.dead);
-        const remainingHp = defenders.reduce((total, e) => total + Math.max(0, e.hp), 0);
-        ctx.save(); ctx.fillStyle = "#f8fafc"; ctx.textAlign = "center"; ctx.font = "12px sans-serif";
-        ctx.fillText(`${Math.ceil(remainingHp)} / 9.000 HP · ${defenders.length} Wachen`, CANVAS_W - 150, CANVAS_H - 25);
-        ctx.restore();
       }
 
       // ── Spawn enemies ──
@@ -5688,6 +5687,27 @@ export default function Game() {
         audioRef.current.effect("boss", settingsRef.current.soundVolume);
       }
 
+      const specialBosses = enemiesRef.current.filter(e => e.encounterKind && !e.dead && e.hp > 0 && isEnemyVisible(e));
+      const special = bossSpecialRef.current;
+      if (special && specialBosses.length > 0) {
+        const leader = specialBosses[0];
+        const liveMounts = specialBosses.filter(e => (e.ultimateFreezeTimer ?? 0) <= 0)
+          .map(e => ({ x: e.x, y: e.y + e.height / 2 }));
+        const target = getEnemyAttackTarget(activeModeRef.current,
+          { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+          { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT });
+        const maxHp = special.kind === "city" ? 9000 : leader.maxHp;
+        const ratio = specialBosses.reduce((total, e) => total + e.hp, 0) / maxHp;
+        const shots = advanceBossSpecial(special, dtScale, liveMounts, target, ratio,
+          liveMounts.length === 0 || (leader.titanDashTimer ?? 0) > 0);
+        for (const shot of shots) bulletsRef.current.push({ ...shot, sourceEnemy: leader });
+        if (shots.length > 0) {
+          screenShakeRef.current = Math.max(screenShakeRef.current, 3);
+          audioRef.current.tone(85 + special.index * 40, .08, settingsRef.current.soundVolume * .35, "sawtooth");
+        }
+        drawSpecialWarning(ctx, special);
+      }
+
       const pendingLightningJumps: Bullet[] = [];
       enemiesRef.current = enemiesRef.current.filter(e => {
         if (e.dead) return false;
@@ -5960,9 +5980,9 @@ export default function Game() {
           // Boss movement
           if (e.encounterKind && e.encounterKind !== "titan") {
             const slot = e.citySlot ?? 0;
-            e.x = e.encounterKind === "city" ? CANVAS_W - 270 + (slot % 2) * 130 : CANVAS_W - e.width - 35;
+            e.x = e.encounterKind === "city" ? cityMountPosition(slot, CANVAS_W, CANVAS_H).x : CANVAS_W - e.width - 35;
             if (e.encounterKind === "city") {
-              e.y = 100 + Math.floor(slot / 2) * ((CANVAS_H - 240) / 2);
+              e.y = cityMountPosition(slot, CANVAS_W, CANVAS_H).y;
               e.vy = 0;
             } else if ((e.ultimateFreezeTimer ?? 0) <= 0) {
               const speed = e.encounterKind === "spider" ? 2.6 : e.encounterKind === "submarine" ? 1.6 : .8;
@@ -6159,7 +6179,8 @@ export default function Game() {
 
           // Enemy shooting
           if (e.type !== "laserdevice" && (e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;
-          if (e.type !== "laserdevice" && e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
+          if (e.type !== "laserdevice" && e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0 &&
+              (!e.encounterKind || bossSpecialRef.current?.stage === "cooldown")) {
             const bossPhase = isBossEnemy(e) ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
             const biomeFireCooldown = getBiomeEnemyDefinition(e.biomeEnemyId)?.fireCooldown;
             const baseCooldown = e.type === "overlord" || e.type === "titan" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : biomeFireCooldown ? rand(biomeFireCooldown[0], biomeFireCooldown[1]) : rand(70, 120);
@@ -7179,10 +7200,17 @@ export default function Game() {
         ctx.strokeRect(14, 14, warningW - 28, warningH - 28);
         ctx.restore();
       }
+      // Include charge gained from kills and near misses during this frame.
+      // The shared activation path enforces readiness and gameplay restrictions.
+      if (settingsRef.current.autoUlti) {
+        activeUltiLoadoutRef.current.forEach(id => activateAbility(id));
+      }
       drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, gravityChargeRef.current, gravityActiveRef.current, empChargeRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], activeModeRef.current, runElapsedMsRef.current, runStatsRef.current.bosses, upwardFlight);
       const hudW = upwardFlight ? CANVAS_H : CANVAS_W;
       const hudTop = upwardFlight ? 136 : 86;
-      {
+      const hudBosses = enemiesRef.current.filter(e => e.encounterKind && !e.dead && e.hp > 0);
+      drawEncounterHealthBar(ctx, hudBosses, hudW, hudTop + 8, bossSpecialRef.current);
+      if (hudBosses.length === 0) {
         const crate = weaponCrateRef.current;
         const remainingMs = weaponCrateActive
           ? weaponCrateActiveUntilRef.current - runElapsedMsRef.current
@@ -7202,7 +7230,7 @@ export default function Game() {
         ctx.fillText(weaponCrateActive ? `AKTIV · ${seconds}s` : `BEREIT IN ${seconds}s`, hudW - 20, hudTop + 30);
         ctx.restore();
       }
-      {
+      if (hudBosses.length === 0) {
         const mutator = activeMutatorRef.current;
         ctx.save();
         ctx.textAlign = "right";
@@ -7214,21 +7242,23 @@ export default function Game() {
       const mission = missionRef.current;
       const progress = Math.min(mission.target, missionProgress(mission, runStatsRef.current));
       ctx.save();
-      ctx.fillStyle = "rgba(4,10,24,.82)";
-      const missionY = hudTop + 8;
-      ctx.beginPath(); ctx.roundRect(12, missionY, 265, 50, 9); ctx.fill();
-      ctx.strokeStyle = mission.completed ? "#4ade80" : "#38bdf8";
-      ctx.stroke();
-      ctx.textAlign = "left";
-      ctx.fillStyle = mission.completed ? "#4ade80" : "#7dd3fc";
-      ctx.font = "bold 10px 'Inter', sans-serif";
-      ctx.fillText(mission.completed ? "MISSION ERFÜLLT" : "MISSIONSZIEL", 22, missionY + 8);
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 12px 'Inter', sans-serif";
-      ctx.fillText(`${mission.title}  ${progress}/${mission.target}`, 22, missionY + 24);
-      ctx.fillStyle = "#18263c"; ctx.fillRect(22, missionY + 41, 235, 4);
-      ctx.fillStyle = mission.completed ? "#4ade80" : "#38bdf8";
-      ctx.fillRect(22, missionY + 41, 235 * Math.min(1, progress / mission.target), 4);
+      if (hudBosses.length === 0) {
+        ctx.fillStyle = "rgba(4,10,24,.82)";
+        const missionY = hudTop + 8;
+        ctx.beginPath(); ctx.roundRect(12, missionY, 265, 50, 9); ctx.fill();
+        ctx.strokeStyle = mission.completed ? "#4ade80" : "#38bdf8";
+        ctx.stroke();
+        ctx.textAlign = "left";
+        ctx.fillStyle = mission.completed ? "#4ade80" : "#7dd3fc";
+        ctx.font = "bold 10px 'Inter', sans-serif";
+        ctx.fillText(mission.completed ? "MISSION ERFÜLLT" : "MISSIONSZIEL", 22, missionY + 8);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 12px 'Inter', sans-serif";
+        ctx.fillText(`${mission.title}  ${progress}/${mission.target}`, 22, missionY + 24);
+        ctx.fillStyle = "#18263c"; ctx.fillRect(22, missionY + 41, 235, 4);
+        ctx.fillStyle = mission.completed ? "#4ade80" : "#38bdf8";
+        ctx.fillRect(22, missionY + 41, 235 * Math.min(1, progress / mission.target), 4);
+      }
       if (comboMilestoneRef.current.timer > 0) {
         comboMilestoneRef.current.timer = Math.max(0, comboMilestoneRef.current.timer - dtScale);
         const milestoneCombo = comboMilestoneRef.current.combo;
@@ -7307,7 +7337,7 @@ export default function Game() {
       wakeGameLoopRef.current = () => {};
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [checkAchievements, fireBullets, grantRunReward, recordPlayerDamage, registerKill, screenToWorld, spawnBossEncounter, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
+  }, [activateAbility, checkAchievements, fireBullets, grantRunReward, recordPlayerDamage, registerKill, screenToWorld, spawnBossEncounter, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
 
   useEffect(() => {
     if (!displayState.paused) wakeGameLoopRef.current();
@@ -9319,7 +9349,7 @@ function BriefingScreen({ settings, onDone }: { settings: GameSettings; onDone: 
 function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings; onChange: (settings: GameSettings) => void; onBack: () => void }) {
   const [name, setName] = useState(() => loadName());
   const language = settings.language;
-  const toggle = (key: "tutorial" | "reducedMotion" | "highContrast" | "autoFire" | "showJoystick") => onChange({ ...settings, [key]: !settings[key] });
+  const toggle = (key: "tutorial" | "reducedMotion" | "highContrast" | "autoFire" | "autoUlti" | "showJoystick") => onChange({ ...settings, [key]: !settings[key] });
   const updateBinding = (action: KeyBindingAction, code: string) => {
     onChange({ ...settings, keyBindings: { ...settings.keyBindings, [action]: code } });
   };
@@ -9345,6 +9375,7 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
         />
         <SettingToggle label={translated(language, "Einführung anzeigen", "Show tutorial")} description={translated(language, "Erklärt Bewegung und Schießen beim ersten Start.", "Explains movement and shooting on the first start.")} checked={settings.tutorial} onClick={() => toggle("tutorial")} />
         <SettingToggle label="Automatisches Dauerfeuer" description="Der Jet schießt selbstständig; FIRE bleibt optional." checked={settings.autoFire} onClick={() => toggle("autoFire")} />
+        <SettingToggle label={translated(language, "Auto-Ulti", "Auto ultimate")} description={translated(language, "Aktiviert ausgerüstete Ultis sofort automatisch, sobald sie bereit sind.", "Automatically activates equipped ultimates as soon as they are ready.")} checked={settings.autoUlti} onClick={() => toggle("autoUlti")} />
         <SettingToggle
           label={translated(language, "Joystick anzeigen", "Show joystick")}
           description={translated(language, "Zeigt den Bewegungs-Joystick im Spielfeld an.", "Displays the movement joystick in the play area.")}
