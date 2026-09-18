@@ -9,6 +9,7 @@ export interface InterceptableProjectile {
   collisionWidth?: number;
   collisionHeight?: number;
   interceptionHits?: number;
+  interceptedTargets?: WeakSet<InterceptableProjectile>;
 }
 
 export const PROJECTILE_DEFENSE_HITS = 4;
@@ -45,23 +46,19 @@ export function interceptProjectiles<T extends InterceptableProjectile>(
   const targets = projectiles.filter(projectile => !projectile.fromPlayer);
   const removed = new Set<T>();
   for (const shot of projectiles) {
-    if (!shot.fromPlayer || shot.meleeRange) continue;
-    let closest: T | undefined;
-    let earliest = Infinity;
+    if (!shot.fromPlayer || !shot.meleeRange) continue;
+    shot.interceptedTargets ??= new WeakSet<InterceptableProjectile>();
     for (const target of targets) {
-      if (removed.has(target)) continue;
-      const time = contactTime(shot, target);
-      if (time !== null && time < earliest) {
-        earliest = time;
-        closest = target;
-      }
+      if (removed.has(target) || shot.interceptedTargets.has(target)) continue;
+      if (contactTime(shot, target) === null) continue;
+      // A swing persists across frames and can hit several targets, but each
+      // enemy projectile counts only once per swing.
+      shot.interceptedTargets.add(target);
+      target.interceptionHits = (target.interceptionHits ?? 0) + 1;
+      const destroyed = target.interceptionHits >= PROJECTILE_DEFENSE_HITS;
+      if (destroyed) removed.add(target);
+      onHit(target, destroyed);
     }
-    if (!closest) continue;
-    removed.add(shot);
-    closest.interceptionHits = (closest.interceptionHits ?? 0) + 1;
-    const destroyed = closest.interceptionHits >= PROJECTILE_DEFENSE_HITS;
-    if (destroyed) removed.add(closest);
-    onHit(closest, destroyed);
   }
   return projectiles.filter(projectile => !removed.has(projectile));
 }

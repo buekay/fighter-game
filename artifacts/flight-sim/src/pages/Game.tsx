@@ -1060,7 +1060,7 @@ interface ShopItem {
 }
 
 const SHOP_ITEMS: readonly ShopItem[] = [
-  { id: "projectile_defense", name: "Geschossbrecher", desc: "Dauerhaft: Vier eigene Geschosstreffer zerstören ein gegnerisches Geschoss. Jeder Treffer zählt einmal, unabhängig vom Schaden.", cost: 1_000_000, rarity: "ultimate" },
+  { id: "projectile_defense", name: "Geschossbrecher", desc: "Nur mit Nahkampfwaffen: Vier Treffer zerstören ein gegnerisches Geschoss. Jeder Schlag zählt einmal pro Geschoss, unabhängig vom Schaden. Dauerhaft aktiv.", cost: 1_000_000, rarity: "ultimate" },
   { id: "drone_mk2",     name: "Drohne MK II",      desc: "+1 Drohnenschaden und 12% schnelleres Feuer",      cost: 50000,  rarity: "rare" },
   { id: "drone_mk3",     name: "Drohne MK III",     desc: "Zwei Kanonen und nochmals 12% schnelleres Feuer", cost: 100000, rarity: "epic", requires: "drone_mk2" },
   { id: "drone_mk4",     name: "Drohne MK IV",      desc: "+1 Drohnenschaden und nochmals 12% schneller",    cost: 200000, rarity: "legendary", requires: "drone_mk3" },
