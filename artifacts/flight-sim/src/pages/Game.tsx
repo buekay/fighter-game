@@ -17,7 +17,6 @@ import {
   getDroneUpgradeCost,
   getAircraftUpgradeCost,
   getAircraftUpgradeStats,
-  getCrossedMilestoneLevels,
   getBackgroundMusicTheme,
   getEnemySpawnRate,
   getEnemyAttackTarget,
@@ -47,13 +46,11 @@ import {
 } from "../biomes";
 import {
   MUTATORS,
-  SECTOR_CHOICES,
   formatRunDuration,
   getBossPhase,
   getMutatorForLevel,
   saveModeRecord,
   type MutatorDefinition,
-  type SectorChoice,
 } from "../game-enhancements";
 import {
   readStoredJson,
@@ -198,7 +195,7 @@ const isTitanInvulnerable = (enemy: Enemy) => enemy.type === "titan" &&
 
 interface PowerUp {
   x: number; y: number;
-  type: "health" | "shield" | "speed" | "speedboost";
+  type: "health" | "shield" | "speedboost";
   vy: number;
 }
 
@@ -259,8 +256,7 @@ interface GameSettings {
   musicVolume: number;
 }
 
-// Internal modifiers are granted only by the optional risk routes. There is no
-// separate level-up/upgrade selection during a mission.
+// Legacy save fields: mission modifiers remain neutral in current runs.
 type RouteModifierId = "rapid_fire" | "damage" | "max_hp" | "drone" | "critical" | "shield" |
   "missile_mastery" | "chain_lightning" | "cryo_rounds" | "glass_cannon" | "vampiric" | "graze_core" |
   "afterburner" | "extra_life" | "repair_nanites" | "bounty_hunter" | "boss_hunter" |
@@ -350,14 +346,6 @@ const WEAPON_CRATES: readonly WeaponCrateDefinition[] = [
   { id: "omega-rockets", name: "Omega-Raketen", rarity: "ultimate", kind: "rockets", color: "#fde68a", cost: 1_250_000, fireRate: 260, damage: 22 },
 ] as const;
 
-function drawSectorChoices(): SectorChoice[] {
-  const pool = [...SECTOR_CHOICES];
-  for (let index = pool.length - 1; index > 0; index--) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [pool[index], pool[swapIndex]] = [pool[swapIndex], pool[index]];
-  }
-  return pool.slice(0, 3);
-}
 const WEAPON_CRATE_RARITY_COLOR: Record<ShopRarity, string> = {
   rare: "#a8b0ba",
   epic: "#b44cff",
@@ -1139,7 +1127,6 @@ const DEFAULT_SETTINGS: GameSettings = {
   musicVolume: 0.25,
 };
 
-const RISK_ROUTE_LEVEL_INTERVAL = 10;
 
 function formatKeyCode(code: string): string {
   if (code === "Space") return "SPACE";
@@ -3426,9 +3413,6 @@ export default function Game() {
   const missionRef = useRef<Mission>({ type: "kills", title: "Zerstöre 30 Gegner", target: 30, reward: 5000, completed: false });
   const activeMutatorRef = useRef<MutatorDefinition>(MUTATORS.none);
   const sectorChoiceLevelsRef = useRef<Set<number>>(new Set());
-  const pendingSectorLevelsRef = useRef<number[]>([]);
-  const activeSectorLevelRef = useRef<number | null>(null);
-  const [sectorChoices, setSectorChoices] = useState<SectorChoice[]>([]);
 
   // ── Touch / virtual controls ──
   const joystickRef = useRef({ active: false, id: -1, centerX: 0, centerY: 0, curX: 0, curY: 0 });
@@ -3690,121 +3674,6 @@ export default function Game() {
     addGems(Math.floor(creditReward / 100));
     syncDisplay();
   }, [syncDisplay]);
-
-  const openNextProgressionChoice = useCallback(() => {
-    if (activeSectorLevelRef.current !== null) return true;
-
-    const sectorLevel = pendingSectorLevelsRef.current.shift();
-    if (sectorLevel !== undefined) {
-      activeSectorLevelRef.current = sectorLevel;
-      setSectorChoices(drawSectorChoices());
-      stateRef.current.paused = true;
-      return true;
-    }
-
-    return false;
-  }, []);
-
-  const chooseSectorRoute = useCallback((choice: SectorChoice) => {
-    const gs = stateRef.current;
-    switch (choice.id) {
-      case "overcharge":
-        gs.hp = Math.max(1, gs.hp * .75);
-        routeModifiersRef.current.damage += 2;
-        break;
-      case "elite_hunt":
-        activeMutatorRef.current = MUTATORS.glass_skies;
-        addCoins(4_000);
-        waveTimerRef.current = 780;
-        break;
-      case "repair_route":
-        gs.hp = gs.maxHp;
-        gs.score = Math.max(0, Math.round(gs.score * .92));
-        shieldTimerRef.current = Math.max(shieldTimerRef.current, 600);
-        playerShieldHpRef.current = Math.max(playerShieldHpRef.current, 6);
-        break;
-      case "blood_bargain":
-        gs.maxHp = Math.max(3, gs.maxHp - 3);
-        gs.hp = Math.min(gs.hp, gs.maxHp);
-        routeModifiersRef.current.vampiric += 1;
-        routeModifiersRef.current.damage += 1;
-        break;
-      case "swarm_gate":
-        activeMutatorRef.current = MUTATORS.swarm;
-        routeModifiersRef.current.bounty_hunter += 1;
-        addCoins(6_000);
-        break;
-      case "time_rift":
-        activeMutatorRef.current = MUTATORS.bullet_time;
-        gs.score = Math.max(0, Math.round(gs.score * .88));
-        break;
-      case "volatile_salvage":
-        activeMutatorRef.current = MUTATORS.volatile;
-        break;
-      case "shield_gamble":
-        gs.hp = Math.max(1, gs.hp * .5);
-        routeModifiersRef.current.shield_matrix += 1;
-        shieldTimerRef.current = Math.max(shieldTimerRef.current, 900);
-        playerShieldHpRef.current = Math.max(playerShieldHpRef.current, 12);
-        break;
-      case "weapon_jam":
-        routeModifiersRef.current.damage += 3;
-        fireRatePenaltyRef.current *= 1.35;
-        break;
-      case "bounty_beacon":
-        activeMutatorRef.current = MUTATORS.glass_skies;
-        gs.hp = Math.max(1, gs.hp * .8);
-        routeModifiersRef.current.bounty_hunter += 1;
-        addCoins(8_000);
-        break;
-      case "drone_overclock":
-        routeModifiersRef.current.drone += 2;
-        gs.score = Math.max(0, Math.round(gs.score * .85));
-        break;
-      case "critical_protocol":
-        routeModifiersRef.current.critical += 2;
-        gs.maxHp = Math.max(3, gs.maxHp - 2);
-        gs.hp = Math.min(gs.hp, gs.maxHp);
-        break;
-      case "afterburner_trial":
-        routeModifiersRef.current.afterburner += 1;
-        gs.speed += 1;
-        activeMutatorRef.current = MUTATORS.swarm;
-        break;
-      case "nanite_debt":
-        gs.hp = gs.maxHp;
-        gs.score = Math.max(0, gs.score - 10_000);
-        routeModifiersRef.current.repair_nanites += 1;
-        break;
-      case "ultimate_sacrifice":
-        if (gs.lives > 1) gs.lives -= 1;
-        else gs.hp = Math.max(1, gs.hp * .25);
-        ultimaChargeRef.current = ULTI_MAX;
-        laserChargeRef.current = LASER_MAX;
-        stealthChargeRef.current = STEALTH_MAX;
-        healChargeRef.current = HEAL_MAX;
-        poisonMissileChargeRef.current = POISON_MISSILE_MAX;
-        absorberChargeRef.current = ABSORBER_MAX;
-        ultimateChargeRef.current = ULTIMATE_MAX;
-        gravityChargeRef.current = GRAVITY_MAX;
-        empChargeRef.current = EMP_MAX;
-        break;
-    }
-    const chosenLevel = activeSectorLevelRef.current;
-    if (chosenLevel !== null) sectorChoiceLevelsRef.current.add(chosenLevel);
-    activeSectorLevelRef.current = null;
-    setSectorChoices([]);
-    gs.paused = false;
-    waveBannerRef.current = { text: `${choice.icon} ${choice.name.toUpperCase()}`, timer: 140 };
-    audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
-    if (activeModeRef.current === "classic") {
-      saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
-        fireRatePenaltyRef.current, activeMutatorRef.current.id);
-      saveExistsRef.current = true;
-    }
-    openNextProgressionChoice();
-    syncDisplay();
-  }, [openNextProgressionChoice, syncDisplay]);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -4365,12 +4234,6 @@ export default function Game() {
     const aircraftStats = getAircraftUpgradeStats(loadAircraftLevels()[activeAircraftLevelKey] ?? 1);
     const wingModule = WING_MODULES.find(module => module.id === build.wing) ?? WING_MODULES[0];
     const engineModule = ENGINE_MODULES.find(module => module.id === build.engine) ?? ENGINE_MODULES[0];
-    const savedWingModule = save?.aircraftBuild
-      ? WING_MODULES.find(module => module.id === save.aircraftBuild!.wing) ?? WING_MODULES[0]
-      : wingModule;
-    const savedEngineModule = save?.aircraftBuild
-      ? ENGINE_MODULES.find(module => module.id === save.aircraftBuild!.engine) ?? ENGINE_MODULES[0]
-      : engineModule;
     aircraftBuildRef.current = build;
     hybridActiveRef.current = loadHybridActive();
     const activeDroneBuild = loadDroneBuild();
@@ -4379,7 +4242,6 @@ export default function Game() {
     droneWeaponRef.current = DRONE_WEAPONS.find(weapon => weapon.id === loadDroneWeapon()) ?? DRONE_WEAPONS[0];
     const activeDroneLevelKey = isCombinedDroneBuild(activeDroneBuild) ? droneBuildLevelKey(activeDroneBuild) : loadDroneSkin();
     droneLevelRef.current = loadDroneLevels()[activeDroneLevelKey] ?? 1;
-    const savedAircraftStats = getAircraftUpgradeStats(save?.aircraftLevel ?? 1);
     aircraftUpgradeRef.current = aircraftStats;
     activeUnlocksRef.current = unlocks;
     activeUltiLoadoutRef.current = loadUltiLoadout();
@@ -4405,35 +4267,26 @@ export default function Game() {
     bestScoreRef.current = loadHighScore();
     runStartHighScoreRef.current = loadHighScore();
     pilotLevelRef.current = getPilotLevelFromKills();
-    routeModifiersRef.current = save?.routeModifiers
-      ? { ...EMPTY_ROUTE_MODIFIERS, ...save.routeModifiers }
-      : { ...EMPTY_ROUTE_MODIFIERS };
+    // Legacy mission upgrades must not carry over when resuming a save.
+    routeModifiersRef.current = { ...EMPTY_ROUTE_MODIFIERS };
+    sectorChoiceLevelsRef.current = new Set();
     runStatsRef.current = {
       kills: 0, bosses: 0, damageTaken: 0, powerUps: 0,
       flawlessKills: 0, perfectBosses: 0, fullHealthPickups: 0,
       maxCombo: 0, nearMisses: 0, missions: 0, damageDealt: 0,
     };
     bossDamageStartRef.current = 0;
-    setSectorChoices([]);
     setRunSummary(null);
     const baseMaxHp = Math.max(3, (unlocks.includes("max_hp") ? 15 : 10) + aircraftStats.maxHpBonus + wingModule.hp);
     const baseSpeed = 3.2 + (unlocks.includes("speed_item") ? 0.5 : 0) + aircraftStats.speedBonus + engineModule.speed;
-    const savedMaxHpDelta = aircraftStats.maxHpBonus - savedAircraftStats.maxHpBonus +
-      wingModule.hp - savedWingModule.hp;
-    const resumedMaxHp = save ? Math.max(3, save.maxHp + savedMaxHpDelta) : baseMaxHp;
-    const resumedHp = save ? Math.max(0, Math.min(save.hp + savedMaxHpDelta, resumedMaxHp)) : baseMaxHp;
-    const resumedSpeed = save
-      ? Math.max(0.1, save.speed + aircraftStats.speedBonus - savedAircraftStats.speedBonus +
-          engineModule.speed - savedEngineModule.speed)
-      : baseSpeed;
     stateRef.current = {
       score:      save?.score  ?? 0,
       level:      save?.level  ?? 1,
-      hp:         resumedHp,
-      maxHp:      resumedMaxHp,
+      hp:         save ? Math.min(save.hp, baseMaxHp) : baseMaxHp,
+      maxHp:      baseMaxHp,
       shield:     0,
-      speed:      resumedSpeed,
-      weaponTier: fromSave ? (save?.weaponTier ?? 0) : (unlocks.includes("weapon_head") ? 2 : 0),
+      speed:      baseSpeed,
+      weaponTier: unlocks.includes("weapon_head") ? 2 : 0,
       lives:      save?.lives  ?? modeRules.startingLives ?? (unlocks.includes("extra_life") ? 4 : 3),
       gameOver: false, started: true, paused: false,
     };
@@ -4459,7 +4312,7 @@ export default function Game() {
     runResultRef.current = "game_over";
     rewardGrantedRef.current = false;
     lastFireRef.current = {};
-    fireRatePenaltyRef.current = save?.fireRatePenalty ?? 1;
+    fireRatePenaltyRef.current = 1;
     lastDroneFireRef.current = 0;
     lastWingmanFireRef.current = 0;
     lastMissileRef.current = 0;
@@ -4479,13 +4332,6 @@ export default function Game() {
     activeMutatorRef.current = save?.mutatorId
       ? MUTATORS[save.mutatorId]
       : getMutatorForLevel(save?.level ?? 1);
-    const legacyCompletedSectorLevels = save && save.sectorChoiceLevels === undefined
-      ? getCrossedMilestoneLevels(0, Math.max(1, stateRef.current.level - 1), RISK_ROUTE_LEVEL_INTERVAL)
-      : [];
-    sectorChoiceLevelsRef.current = new Set(save?.sectorChoiceLevels ?? legacyCompletedSectorLevels);
-    pendingSectorLevelsRef.current = getCrossedMilestoneLevels(0, stateRef.current.level, RISK_ROUTE_LEVEL_INTERVAL)
-      .filter(level => !sectorChoiceLevelsRef.current.has(level));
-    activeSectorLevelRef.current = null;
     waveBannerRef.current = {
       text: mode === "boss_fight" ? `BOSSKAMPF · ${BOSS_FIGHT_TITAN_COUNT} TITANEN` : "MISSION GESTARTET",
       timer: 120,
@@ -4512,13 +4358,12 @@ export default function Game() {
         fireRatePenaltyRef.current, activeMutatorRef.current.id);
       saveExistsRef.current = true;
     }
-    openNextProgressionChoice();
     setPauseView("menu");
     const shouldTeach = settingsRef.current.tutorial && !tutorialSeen() && !fromSave;
     tutorialStageRef.current = shouldTeach ? 0 : -1;
     setTutorialStage(shouldTeach ? 0 : -1);
     syncDisplay();
-  }, [openNextProgressionChoice, selectedGameMode, syncDisplay]);
+  }, [selectedGameMode, syncDisplay]);
 
   const returnToHangar = useCallback(() => {
     const gs = stateRef.current;
@@ -4531,9 +4376,6 @@ export default function Game() {
     gs.gameOver = false;
     keysRef.current.clear();
     setRunSummary(null);
-    setSectorChoices([]);
-    pendingSectorLevelsRef.current = [];
-    activeSectorLevelRef.current = null;
     setPauseView("menu");
     tutorialStageRef.current = -1;
     setTutorialStage(-1);
@@ -5364,10 +5206,9 @@ export default function Game() {
       const weaponCrateActive = runElapsedMsRef.current < weaponCrateActiveUntilRef.current;
       if (weaponCrateActive) fireWeaponCrate(timestamp);
 
-      // ── Level / Weapon tier ──
+      // ── Level progression (equipment stays fixed during the mission) ──
       const nextLevel = getProgressedLevel(gs.level, gs.score);
       if (nextLevel !== gs.level) {
-        const previousLevel = gs.level;
         const previousBiome = getBiomeForLevel(gs.level);
         const nextBiome = getBiomeForLevel(nextLevel);
         const backgroundChanges = nextBiome.id !== previousBiome.id;
@@ -5385,22 +5226,9 @@ export default function Game() {
           snapshot.getContext("2d")?.drawImage(canvas, 0, 0);
           backgroundTransitionRef.current = { snapshot, elapsed: 0 };
         }
-        const gainedLevels = nextLevel - previousLevel;
-        const crossedSectorLevels = activeModeRef.current === "boss_fight"
-          ? []
-          : getCrossedMilestoneLevels(previousLevel, nextLevel, RISK_ROUTE_LEVEL_INTERVAL)
-            .filter(level =>
-              !sectorChoiceLevelsRef.current.has(level) &&
-              level !== activeSectorLevelRef.current &&
-              !pendingSectorLevelsRef.current.includes(level),
-            );
-        pendingSectorLevelsRef.current.push(...crossedSectorLevels);
         gs.level = nextLevel;
-        waveBannerRef.current = { text: `LEVEL ${nextLevel} · WAFFEN VERBESSERT`, timer: 110 };
+        waveBannerRef.current = { text: `LEVEL ${nextLevel}`, timer: 110 };
         screenShakeRef.current = Math.max(screenShakeRef.current, 5);
-        const tierIndex = Math.min(nextLevel - 1, WEAPON_TIERS.length - 1);
-        gs.weaponTier = Math.max(gs.weaponTier, tierIndex);
-        gs.speed += gainedLevels * 0.25;
         const nextMutator = getMutatorForLevel(nextLevel);
         if (nextMutator.id !== activeMutatorRef.current.id) {
           activeMutatorRef.current = nextMutator;
@@ -5411,7 +5239,6 @@ export default function Game() {
             fireRatePenaltyRef.current, activeMutatorRef.current.id);
           saveExistsRef.current = true;
         }
-        if (openNextProgressionChoice()) syncDisplay();
       }
 
       // ── Titan: exclusive boss fight every tenth level, starting at level 20 ──
@@ -6692,7 +6519,7 @@ export default function Game() {
             // Power-up chance
             if (Math.random() < Math.min(.8, 0.20 + routeModifiersRef.current.salvager * .10)) {
               const roll2 = Math.random();
-              const pType: PowerUp["type"] = roll2 < 0.12 ? "speedboost" : roll2 < 0.45 ? "health" : roll2 < 0.72 ? "shield" : "speed";
+              const pType: PowerUp["type"] = roll2 < 0.12 ? "speedboost" : roll2 < 0.45 ? "health" : "shield";
               powerUpsRef.current.push({
                 x: e.x + e.width / 2, y: e.y + e.height / 2,
                 type: pType,
@@ -6810,8 +6637,8 @@ export default function Game() {
         p.y += p.vy * dtScale;
         if (p.y > CANVAS_H + 20) return false;
         // Draw
-        const colors: Record<PowerUp["type"], string> = { health: "#00ff88", shield: "#00ccff", speed: "#ffcc00", speedboost: "#ff9900" };
-        const labels: Record<PowerUp["type"], string> = { health: "+HP", shield: "SHD", speed: "SPD", speedboost: "2×SPD" };
+        const colors: Record<PowerUp["type"], string> = { health: "#00ff88", shield: "#00ccff", speedboost: "#ff9900" };
+        const labels: Record<PowerUp["type"], string> = { health: "+HP", shield: "SHD", speedboost: "2×SPD" };
         const c = colors[p.type];
         ctx.save();
         ctx.beginPath();
@@ -6846,7 +6673,6 @@ export default function Game() {
             shieldTimerRef.current = 300;
             playerShieldHpRef.current = PLAYER_SHIELD_HP;
           }
-          if (p.type === "speed") gs.speed = Math.max(gs.speed, Math.min(6, gs.speed + 0.5));
           if (p.type === "speedboost") speedBoostRef.current = 480;
           syncDisplay();
           return false;
@@ -7337,7 +7163,7 @@ export default function Game() {
       wakeGameLoopRef.current = () => {};
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [checkAchievements, fireBullets, grantRunReward, openNextProgressionChoice, recordPlayerDamage, registerKill, screenToWorld, spawnBossFightTitan, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
+  }, [checkAchievements, fireBullets, grantRunReward, recordPlayerDamage, registerKill, screenToWorld, spawnBossFightTitan, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
 
   useEffect(() => {
     if (!displayState.paused) wakeGameLoopRef.current();
@@ -7668,25 +7494,6 @@ export default function Game() {
             <div className="text-xs font-black uppercase tracking-[.25em] text-amber-300">Erfolg freigeschaltet</div>
             <div className="mt-1 text-lg font-black text-white">{achievementToast.icon} {achievementToast.name}</div>
             <div className="text-sm text-slate-300">+{achievementToast.reward.toLocaleString("de-DE")} Credits</div>
-          </div>
-        )}
-        {sectorChoices.length > 0 && (
-          <div className="progression-layer absolute inset-0 z-40 flex items-center justify-center overflow-y-auto overscroll-contain bg-slate-950/92 p-4 touch-pan-y">
-            <div className="w-full max-w-3xl text-center">
-              <div className="text-xs font-black uppercase tracking-[.3em] text-amber-300">Sektorabzweigung</div>
-              <h2 className="mt-2 text-3xl font-black text-white">WÄHLE DEIN RISIKO</h2>
-              <p className="mt-2 text-sm text-slate-300">Drei zufällige Wege aus 15 Risiken – jede Route verändert den restlichen Einsatz.</p>
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                {sectorChoices.map(choice => (
-                  <button key={choice.id} onClick={() => chooseSectorRoute(choice)} className="rounded-2xl border border-amber-400/60 bg-amber-950/40 p-5 text-left transition hover:-translate-y-1 hover:border-amber-200 hover:bg-amber-900/60">
-                    <div className="text-4xl">{choice.icon}</div>
-                    <div className="mt-3 font-black text-white">{choice.name}</div>
-                    <div className="mt-2 text-sm text-emerald-200">{choice.description}</div>
-                    <div className="mt-3 text-xs font-bold text-rose-300">{choice.risk}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         )}
         {displayState.gameOver && runSummary && (
@@ -9821,6 +9628,13 @@ function drawVirtualControls(
     ctx.strokeStyle = "#ff4466"; ctx.lineWidth = 4; ctx.stroke();
   }
 
+  ctx.globalAlpha = healReady ? 0.95 : 0.55;
+  ctx.fillStyle = healActive > 0 ? "#ff6699" : healReady ? "#ff4466" : "#884455";
+  ctx.font = `bold ${healReady ? 10 : 9}px 'Inter', sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(healActive > 0 ? `${Math.ceil(healActive / 60)}s` : "HEAL ❤", healX, healY);
+  }
+
   if (unlocks.includes("poison_missiles_ulti") && ultiLoadout.includes("poison_missiles_ulti")) {
     const ready = poisonMissileCharge >= POISON_MISSILE_MAX;
     ctx.globalAlpha = ready ? 0.9 : 0.45;
@@ -9888,13 +9702,6 @@ function drawVirtualControls(
     ctx.globalAlpha = 1; ctx.fillStyle = ready ? "#ffffff" : "#65bccc";
     ctx.font = "bold 10px 'Inter', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText("EMP", empX, empY);
-  }
-
-  ctx.globalAlpha = healReady ? 0.95 : 0.55;
-  ctx.fillStyle = healActive > 0 ? "#ff6699" : healReady ? "#ff4466" : "#884455";
-  ctx.font = `bold ${healReady ? 10 : 9}px 'Inter', sans-serif`;
-  ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(healActive > 0 ? `${Math.ceil(healActive / 60)}s` : "HEAL ❤", healX, healY);
   }
 
   ctx.restore();
