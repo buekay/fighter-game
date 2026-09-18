@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from "react";
 import {
   MAX_LEVEL,
   MAX_ACTIVE_ENEMIES,
@@ -7804,7 +7804,7 @@ function WeaponModuleThumbnail({ module, className = "h-[72px] w-full", compact 
   return <canvas ref={ref} width={120} height={72} className={`block rounded-lg ${className}`} aria-hidden="true" />;
 }
 
-function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDroneSkin, unlockedItems, coins, onBuildChange, onDroneBuildChange, onDroneRoleChange, onBuild, onBack }: {
+function WorkshopSection({ build, droneBuild, droneRole, selectedSkin, selectedDroneSkin, unlockedItems, coins, onBuildChange, onDroneBuildChange, onDroneRoleChange, onBuild }: {
   build: AircraftBuild;
   droneBuild: DroneBuild;
   droneRole: DroneRoleId;
@@ -7816,7 +7816,6 @@ function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDr
   onDroneBuildChange: (build: DroneBuild) => void;
   onDroneRoleChange: (role: DroneRoleId) => void;
   onBuild: () => void;
-  onBack: () => void;
 }) {
   const availableJets = JET_SKINS.filter(skin => skin.cost === 0 || unlockedItems.includes(skin.id) || skin.id === selectedSkin);
   const availableDrones = DRONE_SKINS.filter(skin => skin.cost === 0 || unlockedItems.includes(skin.id) || skin.id === selectedDroneSkin);
@@ -7853,11 +7852,10 @@ function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDr
         </button>})}
       </div>
     </section>;
-  return <div className="hangar-layer absolute inset-0 z-20 flex h-full flex-col overflow-y-auto bg-[#040c1c] p-4 text-white">
+  return <section className="relative z-10 text-white" aria-label="Baukasten">
     <div className="mx-auto w-full max-w-4xl">
       <div className="flex items-center gap-3">
-        <button onClick={onBack} className="min-h-11 min-w-11 text-xl text-slate-300">←</button>
-        <div><div className="text-xs font-black uppercase tracking-[.25em] text-cyan-400">Hangar-Werkstatt</div><h2 className="text-2xl font-black">FLUGZEUG-BAUKASTEN</h2></div>
+        <div><div className="text-xs font-black uppercase tracking-[.25em] text-cyan-400">Shop-Werkstatt</div><h2 className="text-2xl font-black">FLUGZEUG-BAUKASTEN</h2></div>
       </div>
       <p className="mt-2 text-sm text-slate-400">Wähle genau zwei vollständige Flugzeuge. Der Baukasten erzeugt daraus automatisch einen sichtbaren Hybrid-Jet.</p>
 
@@ -7890,7 +7888,7 @@ function WorkshopScreen({ build, droneBuild, droneRole, selectedSkin, selectedDr
       </button>
       {coins < HYBRID_BUILD_COST && <div className="mt-2 text-center text-xs font-bold text-red-300">Noch {(HYBRID_BUILD_COST - coins).toLocaleString("de-DE")} Credits benötigt</div>}
     </div>
-  </div>;
+  </section>;
 }
 
 function HangarOverlay({
@@ -8009,20 +8007,18 @@ function HangarOverlay({
     );
   }
 
-  if (view === "upgrades") {
+  if (view === "upgrades" || view === "workshop") {
     return (
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
-        <ShopScreen coins={coins} gems={gems} playerLevel={getPilotLevelFromKills()} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} weaponLevels={weaponLevels} selectedSkin={selectedSkin} hybridActive={hybridActive} aircraftBuild={aircraftBuild} ultiLoadout={ultiLoadout} selectedDroneSkin={selectedDroneSkin} droneBuild={droneBuild} selectedDroneWeapon={selectedDroneWeapon} selectedWeapons={selectedWeapons}
+        <ShopScreen initialSection={view === "workshop" ? "workshop" : "crates"}
+          workshop={<WorkshopSection build={aircraftBuild} droneBuild={droneBuild} droneRole={droneRole} selectedSkin={selectedSkin} selectedDroneSkin={selectedDroneSkin} unlockedItems={unlockedItems} coins={coins}
+            onBuildChange={onAircraftBuildChange} onDroneBuildChange={onDroneBuildChange} onDroneRoleChange={onDroneRoleChange}
+            onBuild={() => { if (onHybridBuild()) setView("main"); }} />}
+          coins={coins} gems={gems} playerLevel={getPilotLevelFromKills()} unlockedItems={unlockedItems} aircraftLevels={aircraftLevels} droneLevels={droneLevels} weaponLevels={weaponLevels} selectedSkin={selectedSkin} hybridActive={hybridActive} aircraftBuild={aircraftBuild} ultiLoadout={ultiLoadout} selectedDroneSkin={selectedDroneSkin} droneBuild={droneBuild} selectedDroneWeapon={selectedDroneWeapon} selectedWeapons={selectedWeapons}
           onBack={() => setView("main")} onBuy={onBuy} onUnlockSkin={onUnlockSkin} onSkinSelect={onSkinSelect}
           onUltiLoadoutChange={onUltiLoadoutChange} onUnlockDroneSkin={onUnlockDroneSkin} onDroneSkinSelect={onDroneSkinSelect} onDroneWeaponChange={onDroneWeaponChange} onDroneWeaponBuy={onDroneWeaponBuy} selectedWeaponCrate={selectedWeaponCrate} onWeaponCrateSelect={onWeaponCrateSelect} onWeaponCrateBuy={onWeaponCrateBuy} onAircraftUpgrade={onAircraftUpgrade} onDroneUpgrade={onDroneUpgrade} onWeaponSelect={onWeaponSelect} onWeaponBuy={onWeaponBuy} onWeaponUpgrade={onWeaponUpgrade} onCrateOpen={onCrateOpen} />
       </div>
     );
-  }
-  if (view === "workshop") {
-    return <WorkshopScreen build={aircraftBuild} droneBuild={droneBuild} droneRole={droneRole} selectedSkin={selectedSkin} selectedDroneSkin={selectedDroneSkin} unlockedItems={unlockedItems} coins={coins}
-      onBuildChange={onAircraftBuildChange} onDroneBuildChange={onDroneBuildChange} onDroneRoleChange={onDroneRoleChange}
-      onBuild={() => { if (onHybridBuild()) setView("main"); }}
-      onBack={() => setView("main")} />;
   }
   if (view === "settings") {
     return (
@@ -8426,7 +8422,9 @@ function ShopCrateVisual({ rarity, opening }: { rarity: ShopRarity; opening: boo
   );
 }
 
-function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, weaponLevels, selectedSkin, hybridActive, aircraftBuild, ultiLoadout, selectedDroneSkin, droneBuild, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onAircraftUpgrade, onDroneUpgrade, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onCrateOpen }: {
+function ShopScreen({ initialSection, workshop, coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, weaponLevels, selectedSkin, hybridActive, aircraftBuild, ultiLoadout, selectedDroneSkin, droneBuild, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onAircraftUpgrade, onDroneUpgrade, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onCrateOpen }: {
+  initialSection: "crates" | "workshop";
+  workshop: ReactNode;
   coins: number; gems: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; hybridActive: boolean; aircraftBuild: AircraftBuild; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; droneBuild: DroneBuild; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[];
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
@@ -8446,16 +8444,17 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
   onWeaponUpgrade: (id: string) => void;
   onCrateOpen: (rarity: ShopRarity, free: boolean) => ShopCrateReward | null;
 }) {
-  type ShopSection = "crates" | "weapons" | "levels" | "skins" | "ultis" | "upgrades";
+  type ShopSection = "workshop" | "crates" | "weapons" | "levels" | "skins" | "ultis" | "upgrades";
   const shopSections: readonly { id: ShopSection; icon: string; label: string; description: string }[] = [
     { id: "crates", icon: "📦", label: "Kisten", description: "Versiegelte Belohnungskisten öffnen" },
     { id: "weapons", icon: "🎯", label: "Waffen", description: "Kaufen, ausrüsten und verbessern" },
     { id: "levels", icon: "⬆", label: "Level", description: "Jet und Drohne verstärken" },
     { id: "skins", icon: "🎨", label: "Skins", description: "Aussehen auswählen" },
     { id: "ultis", icon: "⚡", label: "Ultis", description: "Loadout zusammenstellen" },
+    { id: "workshop", icon: "🛠", label: "Baukasten", description: "Flugzeuge und Drohnen kombinieren" },
     { id: "upgrades", icon: "🔧", label: "Extras", description: "Dauerhafte Verbesserungen" },
   ];
-  const [shopSection, setShopSection] = useState<ShopSection>("crates");
+  const [shopSection, setShopSection] = useState<ShopSection>(initialSection);
   const [dailyChestAvailable, setDailyChestAvailable] = useState(() => canClaimDailyChest());
   const [dailyChestOpening, setDailyChestOpening] = useState(false);
   const [dailyChestCelebrating, setDailyChestCelebrating] = useState(false);
@@ -8574,7 +8573,7 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
         })}
       </div>
 
-      <nav className="relative z-10 grid grid-cols-6 gap-1 rounded-2xl border border-slate-700/80 bg-slate-950/80 p-1.5" aria-label="Shop-Bereiche">
+      <nav className="relative z-10 grid grid-cols-3 gap-1 rounded-2xl sm:grid-cols-7 border border-slate-700/80 bg-slate-950/80 p-1.5" aria-label="Shop-Bereiche">
         {shopSections.map(section => {
           const active = shopSection === section.id;
           return (
@@ -8595,8 +8594,10 @@ function ShopScreen({ coins, gems, playerLevel, unlockedItems, aircraftLevels, d
       <div className="relative z-10 rounded-xl border border-cyan-500/20 bg-cyan-950/20 px-3 py-2 text-xs text-slate-300">
         <b className="text-cyan-300">{shopSections.find(section => section.id === shopSection)?.label}:</b>{" "}
         {shopSections.find(section => section.id === shopSection)?.description}
-        <span className="ml-2 text-slate-500">Sortiert nach Seltenheit und Preis.</span>
+        {shopSection !== "workshop" && <span className="ml-2 text-slate-500">Sortiert nach Seltenheit und Preis.</span>}
       </div>
+
+      {shopSection === "workshop" && workshop}
 
       {shopSection === "crates" && (
         <div className="relative z-10">
@@ -9100,7 +9101,7 @@ function AchievementsScreen({ unlocked, onBack }: { unlocked: string[]; onBack: 
 function BriefingScreen({ settings, onDone }: { settings: GameSettings; onDone: () => void }) {
   const language = settings.language;
   const sections = language === "de" ? [
-    { icon: "①", title: "Im Hangar vorbereiten", text: "Wähle unter dem Jet einen Spielmodus. Öffne die Werkstatt, um Flugzeug und Drohne zusammenzustellen, oder den Shop, um Skins, Waffen und bis zu drei Spezialfähigkeiten auszurüsten. Der große mittlere Knopf startet den gewählten Modus; „Weiterspielen“ lädt einen vorhandenen Checkpoint." },
+    { icon: "①", title: "Im Hangar vorbereiten", text: "Wähle unter dem Jet einen Spielmodus. Öffne im Shop den Bereich Baukasten, um Flugzeug und Drohne zusammenzustellen. Dort kannst du auch Skins, Waffen und bis zu drei Spezialfähigkeiten ausrüsten. Der große mittlere Knopf startet den gewählten Modus; „Weiterspielen“ lädt einen vorhandenen Checkpoint." },
     { icon: "②", title: "Fliegen & feuern", text: "Bewege den Jet in alle vier Richtungen. Der Bildschirm scrollt automatisch – du steuerst nur den Jet. Halte die Feuertaste gedrückt, sofern Auto-Fire ausgeschaltet ist. Weiche gegnerischen Flugzeugen, Hindernissen und ihren Geschossen aus und schieße Ziele ab, um Punkte zu erhalten." },
     { icon: "❤", title: "Schaden & Leben", text: "Treffer reduzieren zuerst einen aktiven Schild, danach deine HP. Bei 0 HP verlierst du ein Leben und kehrst mit voller Energie zurück. Sind keine Leben mehr übrig, endet der Einsatz. Im Modus „Beschützen“ greifen Gegner vorrangig das Paket an; fällt dessen Energie auf 0, ist die Mission verloren." },
     { icon: "📦", title: "Power-ups einsammeln", text: "Zerstörte Gegner können Symbole hinterlassen. Fliege mit dem Jet darüber, bevor sie den Bildschirm verlassen: Herzen heilen HP, Schilde absorbieren Treffer und Tempo-Boosts erhöhen vorübergehend deine Fluggeschwindigkeit." },
