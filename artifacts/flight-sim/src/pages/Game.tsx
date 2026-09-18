@@ -1,6 +1,6 @@
 import { claimLightningTargets } from "../fire-sword-chain";
 import { interceptProjectiles, type InterceptableProjectile } from "../projectile-defense";
-import { BOSS_SEQUENCE, BOSS_NAMES, CITY_WEAPONS, encounterHealth, encounterComplete, type EncounterKind } from "../boss-encounters";
+import { BOSS_SEQUENCE, BOSS_NAMES, CITY_WEAPONS, getBossForLevel, getEncounterProgressionLevel, encounterHealth, encounterComplete, type EncounterKind } from "../boss-encounters";
 import { drawEncounterBoss, drawFortressCity } from "../rendering/encounter-bosses";
 import { steerTitan, type TitanTactics } from "../titan-tactics";
 import { VisualQuality } from "../rendering/visual-quality";
@@ -42,7 +42,6 @@ import {
   isBossEligibleLevel,
   isLaserDeviceEligibleLevel,
   isMilestoneBossLevel,
-  isTitanBossLevel,
   shouldShowVirtualControls,
   selectEnemyVariant,
   type GameMode,
@@ -207,11 +206,6 @@ const isBossEnemy = (enemy: Enemy) => enemy.type === "boss" || enemy.type === "o
 const BOSS_HEALTH_MULTIPLIER = 1.3;
 const GOLDEN_ENEMY_CHANCE = 0.05;
 const increasedBossHealth = (hp: number) => Math.round(hp * BOSS_HEALTH_MULTIPLIER);
-const getTitanHealth = (level: number) => {
-  // A Titan has 15 times the health of an evolved milestone Overlord.
-  const overlordHp = Math.round((80 + level * 12) * 1.5);
-  return increasedBossHealth(overlordHp * 15);
-};
 const isTitanInvulnerable = (enemy: Enemy) => enemy.type === "titan" &&
   ((enemy.titanShieldTimer ?? 0) > 0 || (enemy.titanDashTimer ?? 0) > 0);
 
@@ -3456,7 +3450,7 @@ export default function Game() {
   // ── Checkpoint save tracking ──
   const saveExistsRef = useRef(!!loadSave());
   const milestoneBossFiredRef = useRef<Set<number>>(new Set());
-  const titanBossFiredRef = useRef<Set<number>>(new Set());
+  const encounterLevelsSpawnedRef = useRef<Set<number>>(new Set());
   const activeSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadSkin()) ?? JET_SKINS[0]);
   const activeUltiSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadSkin()) ?? JET_SKINS[0]);
   const activeDroneSkinRef = useRef<DroneSkin>(DRONE_SKINS.find(s => s.id === loadDroneSkin()) ?? DRONE_SKINS[0]);
@@ -3828,7 +3822,7 @@ export default function Game() {
     let biomeEnemyBand: "air" | "ground" | "surface" = "air";
     let hp = 1, w = 40, h = 20, vx = -rand(1.5, 3), pts = 10, color = "#ff4444";
     const bossInterval = Math.max(220, 1200 - level * 60);
-    const isBossLevel = level >= 3 && isBossEligibleLevel(level) && timeRef.current % bossInterval < 5;
+    const isBossLevel = level >= 3 && level < 20 && isBossEligibleLevel(level) && timeRef.current % bossInterval < 5;
     const bossHpBase = (25 + level * 6) * (level >= 8 ? 5 : level >= 5 ? 3 : 1);
 
     if (isBossLevel && enemiesRef.current.filter(isBossEnemy).length === 0) {
@@ -3954,7 +3948,7 @@ export default function Game() {
     }
   }, []);
 
-  const spawnBossFightEncounter = useCallback((bossNumber: number) => {
+  const spawnBossEncounter = useCallback((bossNumber: number, level?: number) => {
     const power = Math.max(1, Math.min(BOSS_FIGHT_COUNT, bossNumber));
     const kind = BOSS_SEQUENCE[power - 1];
     const health = encounterHealth(kind);
@@ -3982,7 +3976,7 @@ export default function Game() {
       bossBottomPartHp: kind === "titan" ? Math.round(hp * .12) : 0,
     }));
     bossDamageStartRef.current = runStatsRef.current.damageTaken;
-    waveBannerRef.current = { text: `${BOSS_NAMES[kind].toUpperCase()} · ${power}/${BOSS_FIGHT_COUNT}`, timer: 150 };
+    waveBannerRef.current = { text: `${BOSS_NAMES[kind].toUpperCase()} · ${level === undefined ? `${power}/${BOSS_FIGHT_COUNT}` : `LEVEL ${level}`}`, timer: 150 };
     audioRef.current.effect("boss", settingsRef.current.soundVolume);
   }, []);
 
@@ -4364,7 +4358,7 @@ export default function Game() {
     gravityActiveRef.current = 0;
     empChargeRef.current = EMP_MAX;
     milestoneBossFiredRef.current = new Set();
-    titanBossFiredRef.current = new Set();
+    encounterLevelsSpawnedRef.current = new Set();
     saveExistsRef.current = !!loadSave();
     if (mode === "classic") {
       saveGame(stateRef.current, routeModifiersRef.current, sectorChoiceLevelsRef.current,
@@ -5236,7 +5230,10 @@ export default function Game() {
       if (weaponCrateActive) fireWeaponCrate(timestamp);
 
       // ── Level progression (equipment stays fixed during the mission) ──
-      const nextLevel = getProgressedLevel(gs.level, gs.score);
+      const encounterActive = enemiesRef.current.some(e => e.encounterKind && !e.dead && e.hp > 0);
+      const scoreLevel = getProgressedLevel(gs.level, gs.score);
+      const nextLevel = activeModeRef.current === "boss_fight" ? scoreLevel :
+        getEncounterProgressionLevel(gs.level, scoreLevel, encounterLevelsSpawnedRef.current, encounterActive);
       if (nextLevel !== gs.level) {
         const previousBiome = getBiomeForLevel(gs.level);
         const nextBiome = getBiomeForLevel(nextLevel);
@@ -5270,43 +5267,17 @@ export default function Game() {
         }
       }
 
-      // ── Titan: exclusive boss fight every tenth level, starting at level 20 ──
-      if (activeModeRef.current !== "boss_fight" && isTitanBossLevel(gs.level) && !titanBossFiredRef.current.has(gs.level)) {
-        titanBossFiredRef.current.add(gs.level);
-        const titanHp = getTitanHealth(gs.level);
+      // Scheduled bosses own the arena until the entire encounter is defeated.
+      const scheduledBoss = getBossForLevel(gs.level);
+      if (activeModeRef.current !== "boss_fight" && scheduledBoss &&
+          !encounterActive && !encounterLevelsSpawnedRef.current.has(gs.level)) {
         enemiesRef.current = [];
         bulletsRef.current = bulletsRef.current.filter(b => b.fromPlayer);
-        titanWarningRef.current = 180;
-        addEnemyWithinLimit(enemiesRef.current, {
-          x: CANVAS_W + 25,
-          y: CANVAS_H / 2 - TITAN_HEIGHT / 2,
-          vx: -.55, vy: 0,
-          hp: titanHp, maxHp: titanHp,
-          width: TITAN_WIDTH, height: TITAN_HEIGHT,
-          type: "titan",
-          shootCooldown: 14,
-          points: 5000 + gs.level * 250,
-          color: "#ff3fd2",
-          angle: 0,
-          oscillate: 0,
-          missileTimer: 360,
-          specialAttackTimer: 150,
-          titanShieldCooldown: TITAN_SHIELD_COOLDOWN,
-          titanShieldTimer: 0,
-          titanHealTimer: 60,
-          titanDashCooldown: TITAN_DASH_COOLDOWN,
-          titanDashWarningTimer: 0,
-          titanLaserDamageTimer: TITAN_LASER_DAMAGE_INTERVAL,
-          titanDashTimer: 0,
-          titanReinforcementsSpawned: false,
-          bossTopPartHp: Math.max(10, Math.round(titanHp * .10)),
-          bossBottomPartHp: Math.max(10, Math.round(titanHp * .10)),
-        });
-        bossDamageStartRef.current = runStatsRef.current.damageTaken;
-        audioRef.current.effect("boss", settingsRef.current.soundVolume);
+        activeWaveRef.current = null;
+        spawnBossEncounter(BOSS_SEQUENCE.indexOf(scheduledBoss) + 1, gs.level);
+        encounterLevelsSpawnedRef.current.add(gs.level);
       }
-
-      const titanActive = enemiesRef.current.some(e => e.type === "titan" && !e.dead);
+      const scheduledBossActive = enemiesRef.current.some(e => e.encounterKind && !e.dead);
 
       // ── Drone support roles ──
       droneSupportTimerRef.current += dtScale;
@@ -5328,7 +5299,7 @@ export default function Game() {
       // ── Rare encounters: one surprising event roughly every 35–55 seconds ──
       if (!tutorialActive && activeModeRef.current !== "boss_fight") {
         rareEventTimerRef.current += dtScale;
-        if (rareEventTimerRef.current >= nextRareEventRef.current && !titanActive) {
+        if (rareEventTimerRef.current >= nextRareEventRef.current && !scheduledBossActive) {
           rareEventTimerRef.current = 0;
           nextRareEventRef.current = rand(2100, 3300);
           const eventRoll = Math.random();
@@ -5370,7 +5341,7 @@ export default function Game() {
       }
 
       // ── Milestone boss: spawn a mega-boss when entering key levels ──
-      if (activeModeRef.current !== "boss_fight" && !titanActive && !isTitanBossLevel(gs.level) && isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
+      if (activeModeRef.current !== "boss_fight" && !scheduledBossActive && gs.level < 20 && isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
           enemiesRef.current.length < MAX_ACTIVE_ENEMIES &&
           enemiesRef.current.filter(isBossEnemy).length === 0) {
         milestoneBossFiredRef.current.add(gs.level);
@@ -5421,7 +5392,7 @@ export default function Game() {
             grantRunReward();
             return;
           }
-          spawnBossFightEncounter(runStatsRef.current.bosses + 1);
+          spawnBossEncounter(runStatsRef.current.bosses + 1);
         }
       } else {
         const spawnRate = getEnemySpawnRate(gs.level) *
@@ -5429,12 +5400,12 @@ export default function Game() {
           activeMutatorRef.current.spawnRateMultiplier;
         enemySpawnTimerRef.current += dtScale;
         waveTimerRef.current += dtScale;
-        if (!titanActive && enemiesRef.current.length < MAX_ACTIVE_ENEMIES &&
+        if (!scheduledBossActive && enemiesRef.current.length < MAX_ACTIVE_ENEMIES &&
             waveTimerRef.current >= 780 && !activeWaveRef.current?.active) {
           waveTimerRef.current = 0;
           spawnFormationWave(gs.level);
         }
-        if (!titanActive && enemiesRef.current.length < MAX_ACTIVE_ENEMIES && enemySpawnTimerRef.current >= spawnRate) {
+        if (!scheduledBossActive && enemiesRef.current.length < MAX_ACTIVE_ENEMIES && enemySpawnTimerRef.current >= spawnRate) {
           enemySpawnTimerRef.current = 0;
           spawnEnemy(gs.level);
         }
@@ -7336,7 +7307,7 @@ export default function Game() {
       wakeGameLoopRef.current = () => {};
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [checkAchievements, fireBullets, grantRunReward, recordPlayerDamage, registerKill, screenToWorld, spawnBossFightEncounter, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
+  }, [checkAchievements, fireBullets, grantRunReward, recordPlayerDamage, registerKill, screenToWorld, spawnBossEncounter, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
 
   useEffect(() => {
     if (!displayState.paused) wakeGameLoopRef.current();

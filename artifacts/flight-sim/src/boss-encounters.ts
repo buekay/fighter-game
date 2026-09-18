@@ -12,3 +12,21 @@ export function encounterHealth(kind: EncounterKind): number[] {
 export function encounterComplete(members: readonly { killRegistered?: boolean }[]): boolean {
   return members.length > 0 && members.every(member => member.killRegistered);
 }
+
+/** First cycle: 20, 25, 30, 35, 40; subsequent cycles: every ten levels. */
+export function getBossForLevel(level: number): EncounterKind | null {
+  if (!Number.isInteger(level) || level < 20) return null;
+  if (level <= 40) return level % 5 === 0 ? BOSS_SEQUENCE[(level - 20) / 5] : null;
+  return level % 10 === 0 ? BOSS_SEQUENCE[((level - 50) / 10) % BOSS_SEQUENCE.length] : null;
+}
+
+/** Large score rewards must not skip a boss, nor advance past a living boss. */
+export function getEncounterProgressionLevel(
+  current: number, target: number, spawnedLevels: ReadonlySet<number>, encounterActive: boolean,
+): number {
+  if (encounterActive) return current;
+  for (let level = current; level <= target; level++) {
+    if (getBossForLevel(level) && !spawnedLevels.has(level)) return level;
+  }
+  return target;
+}

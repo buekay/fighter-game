@@ -148,7 +148,11 @@ assert.equal(isMilestoneBossLevel(500), true);
 assert.equal(isTitanBossLevel(10), false);
 assert.equal(isTitanBossLevel(19), false);
 assert.equal(isTitanBossLevel(20), true);
-assert.equal(isTitanBossLevel(30), true);
+assert.equal(isTitanBossLevel(30), false);
+assert.equal(isTitanBossLevel(50), true);
+assert.equal(isTitanBossLevel(100), true);
+assert.equal(isBossEligibleLevel(45), false);
+assert.equal(isMilestoneBossLevel(55), false);
 
 assert.equal(isLaserDeviceEligibleLevel(9), false);
 assert.equal(isLaserDeviceEligibleLevel(10), true);

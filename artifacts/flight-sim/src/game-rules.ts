@@ -1,3 +1,4 @@
+import { getBossForLevel } from "./boss-encounters";
 import { getBiomeForLevel } from "./biomes";
 
 export interface LifeState {
@@ -323,15 +324,15 @@ export function getPilotLevelForScore(score: number): number {
 }
 
 export function isBossEligibleLevel(level: number): boolean {
-  return level < 20 || level % 5 === 0;
+  return level < 20 || getBossForLevel(level) !== null;
 }
 
 export function isMilestoneBossLevel(level: number): boolean {
-  return EARLY_MILESTONE_BOSS_LEVELS.has(level) || (level >= 20 && level % 5 === 0);
+  return EARLY_MILESTONE_BOSS_LEVELS.has(level) || getBossForLevel(level) !== null;
 }
 
 export function isTitanBossLevel(level: number): boolean {
-  return level >= 20 && level % 10 === 0;
+  return getBossForLevel(level) === "titan";
 }
 
 export function isLaserDeviceEligibleLevel(level: number): boolean {
