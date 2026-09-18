@@ -9862,6 +9862,7 @@ function drawVirtualControls(
 }
 
 function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, gravityCharge: number, gravityActive: number, empCharge: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string, string], mode: GameMode, elapsedMs: number, bossesDefeated: number, upward = false) {
+  const hpText = `${Number(Math.max(0, gs.hp).toFixed(1))}/${gs.maxHp}`;
   if (upward) {
     const viewW = CANVAS_H;
     const modeRules = getEffectiveGameModeRules(mode);
@@ -9897,7 +9898,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
 
     const hpX = viewW - 150;
     ctx.textAlign = "right";
-    ctx.fillStyle = "#ff6666"; ctx.font = "bold 12px 'Inter', sans-serif"; ctx.fillText(`HP ${Math.ceil(gs.hp)}/${gs.maxHp}`, viewW - 14, 8);
+    ctx.fillStyle = "#ff6666"; ctx.font = "bold 12px 'Inter', sans-serif"; ctx.fillText(`HP ${hpText}`, viewW - 14, 8);
     ctx.fillStyle = "#25131a"; ctx.fillRect(hpX, 27, 136, 11);
     const hpGradient = ctx.createLinearGradient(hpX, 0, viewW - 14, 0);
     hpGradient.addColorStop(0, "#ff2222"); hpGradient.addColorStop(1, "#ff9900");
@@ -9981,6 +9982,16 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   hpGrad.addColorStop(1, "#ff8800");
   ctx.fillStyle = hpGrad;
   ctx.fillRect(CANVAS_W - hpW - 4, 6, hpW * (gs.hp / gs.maxHp), 12);
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "bold 11px 'Inter', sans-serif";
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#25131a";
+  ctx.strokeText(hpText, CANVAS_W - hpW / 2 - 4, 12);
+  ctx.fillStyle = "#fff";
+  ctx.fillText(hpText, CANVAS_W - hpW / 2 - 4, 12);
+  ctx.restore();
 
   // Lives
   ctx.textAlign = "right";
