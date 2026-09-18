@@ -1,5 +1,8 @@
+import { BOSS_SEQUENCE, BOSS_NAMES, CITY_WEAPONS, encounterHealth, encounterComplete, type EncounterKind } from "../boss-encounters";
+import { drawEncounterBoss, drawFortressCity } from "../rendering/encounter-bosses";
 import { steerTitan, type TitanTactics } from "../titan-tactics";
 import { VisualQuality } from "../rendering/visual-quality";
+import { drawFireSwordLightning, FIRE_SWORD_LIGHTNING_DURATION_MS, type FireSwordLightning } from "../rendering/fire-sword-lightning";
 import { drawDisplayBay, drawLensFinish, drawSurfaceMaterial } from "../rendering/surface-materials";
 import { getAircraftUltiIds, getDroneUltiIds, getDroneUltiBoosts } from "../combined-ultimates";
 import { applyFlightBank, drawDepthClouds, drawEnginePlume, drawFlightShadow, drawHullShade, drawSmoke, MAX_VISUAL_PARTICLES } from "../rendering/flight-depth";
@@ -7,7 +10,7 @@ import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } fro
 import {
   MAX_LEVEL,
   MAX_ACTIVE_ENEMIES,
-  BOSS_FIGHT_TITAN_COUNT,
+  BOSS_FIGHT_COUNT,
   addEnemyWithinLimit,
   isEnemyReturningToPlayfield,
   rechargeGuardianShield,
@@ -111,6 +114,7 @@ interface Bullet {
   vx: number; vy: number;
   fromPlayer: boolean;
   damage: number;
+  isFlame?: boolean;
   isMissile?: boolean;
   missileTarget?: Enemy | null;
   trackPlayer?: boolean;
@@ -134,6 +138,9 @@ interface Enemy {
   hp: number; maxHp: number;
   width: number; height: number;
   type: "scout" | "fighter" | "bomber" | "boss" | "overlord" | "titan" | "interceptor" | "gunship" | "tiefighter" | "emeraldtiefighter" | "plasmawing" | "sentinel" | "laserdevice" | "biome";
+  encounterKind?: EncounterKind;
+  citySlot?: number;
+  killRegistered?: boolean;
   biomeEnemyId?: string;
   shootCooldown: number;
   points: number;
@@ -1937,6 +1944,10 @@ function drawCombinedPlayerJet(
 }
 
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, reducedMotion = false) {
+  if (e.encounterKind && e.encounterKind !== "titan") {
+    drawEncounterBoss(ctx, e, reducedMotion ? 0 : performance.now());
+    return;
+  }
   ctx.save();
   ctx.translate(e.x + e.width / 2, e.y + e.height / 2);
   ctx.rotate(Math.PI); // facing left
@@ -2613,6 +2624,14 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
 
 function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
   ctx.save();
+  if (b.isFlame) {
+    ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx));
+    ctx.globalAlpha = Math.min(1, (b.lifetime ?? 0) / 12);
+    ctx.fillStyle = b.color ?? "#ff5500";
+    ctx.beginPath(); ctx.ellipse(0, 0, 13, 9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#fff3a3"; ctx.beginPath(); ctx.ellipse(3, 0, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore(); return;
+  }
   if (b.meleeRange) {
     const progress = 1 - Math.max(0, b.lifetime ?? 0) / 10;
     const isDroneBlade = b.weaponId?.startsWith("drone_") ?? false;
@@ -3368,6 +3387,7 @@ export default function Game() {
   const lastWingmanFireRef = useRef(0);
   const lastMissileRef = useRef(0);
   const nextFireSwordLightningRef = useRef(10_000);
+  const fireSwordLightningRef = useRef<FireSwordLightning | null>(null);
   const playerRef = useRef({ x: 60, y: CANVAS_H / 2 - PLAYER_H / 2 });
   const bulletsRef = useRef<Bullet[]>([]);
   const enemiesRef = useRef<Enemy[]>([]);
@@ -3558,6 +3578,8 @@ export default function Game() {
   }, []);
 
   const registerKill = useCallback((enemy: Enemy) => {
+    if (enemy.killRegistered) return;
+    enemy.killRegistered = true;
     const wave = activeWaveRef.current;
     if (wave?.active && enemy.waveId === wave.id) wave.defeated.add(enemy);
     runStatsRef.current.kills += 1;
@@ -3594,17 +3616,18 @@ export default function Game() {
       setCoins(loadCoins());
       waveBannerRef.current = { text: `GOLDJAGD +${reward} CREDITS`, timer: 150 };
     }
-    if (isBossEnemy(enemy)) {
+    if (isBossEnemy(enemy) && (enemy.encounterKind !== "city" ||
+        encounterComplete(enemiesRef.current.filter(member => member.encounterKind === "city")))) {
       runStatsRef.current.bosses += 1;
       if (runStatsRef.current.damageTaken === bossDamageStartRef.current) {
         runStatsRef.current.perfectBosses += 1;
       }
-      if (activeModeRef.current === "boss_fight" && enemy.type === "titan") {
-        const defeated = Math.min(runStatsRef.current.bosses, BOSS_FIGHT_TITAN_COUNT);
+      if (activeModeRef.current === "boss_fight" && enemy.encounterKind) {
+        const defeated = Math.min(runStatsRef.current.bosses, BOSS_FIGHT_COUNT);
         waveBannerRef.current = {
-          text: defeated === BOSS_FIGHT_TITAN_COUNT
-            ? "ALLE TITANEN BESIEGT"
-            : `TITAN BESIEGT · ${defeated}/${BOSS_FIGHT_TITAN_COUNT}`,
+          text: defeated === BOSS_FIGHT_COUNT
+            ? "ALLE FÜNF BOSSE BESIEGT"
+            : `BOSS BESIEGT · ${defeated}/${BOSS_FIGHT_COUNT}`,
           timer: 110,
         };
       }
@@ -3924,43 +3947,35 @@ export default function Game() {
     }
   }, []);
 
-  const spawnBossFightTitan = useCallback((bossNumber: number) => {
-    const power = Math.max(1, Math.min(BOSS_FIGHT_TITAN_COUNT, bossNumber));
-    // Stay close to the first classic Titan with round, steadily increasing HP.
-    const hp = 9_000 + (power - 1) * 1_500;
-    const width = TITAN_WIDTH;
-    const height = TITAN_HEIGHT;
-    titanWarningRef.current = 180;
-    addEnemyWithinLimit(enemiesRef.current, {
-      x: CANVAS_W + 24,
-      y: CANVAS_H / 2 - height / 2,
-      vx: -.55,
-      vy: 0,
-      hp,
-      maxHp: hp,
-      width,
-      height,
-      type: "titan",
-      shootCooldown: Math.max(10, 16 - power),
-      points: 2500 + power * 1000,
-      color: power === 1 ? "#45f6ff" : power === 2 ? "#ff4fd8" : "#ff6b35",
-      angle: 0,
-      oscillate: 0,
-      missileTimer: Math.max(240, 380 - power * 40),
-      specialAttackTimer: Math.max(100, 170 - power * 20),
+  const spawnBossFightEncounter = useCallback((bossNumber: number) => {
+    const power = Math.max(1, Math.min(BOSS_FIGHT_COUNT, bossNumber));
+    const kind = BOSS_SEQUENCE[power - 1];
+    const health = encounterHealth(kind);
+    const width = kind === "city" ? 100 : kind === "submarine" ? 230 : kind === "tank" ? 190 : TITAN_WIDTH;
+    const height = kind === "city" ? 70 : kind === "submarine" ? 95 : TITAN_HEIGHT;
+    if (kind === "titan") titanWarningRef.current = 180;
+    health.forEach((hp, slot) => addEnemyWithinLimit(enemiesRef.current, {
+      x: kind === "city" ? CANVAS_W - 270 + (slot % 2) * 130 : CANVAS_W + 24,
+      y: kind === "city" ? 100 + Math.floor(slot / 2) * ((CANVAS_H - 240) / 2) : CANVAS_H / 2 - height / 2,
+      vx: kind === "city" ? 0 : -.55, vy: 0,
+      hp, maxHp: hp, width, height,
+      type: kind === "titan" ? "titan" : "boss",
+      encounterKind: kind, citySlot: kind === "city" ? slot : undefined,
+      shootCooldown: 90 + slot * 20,
+      points: kind === "city" ? 1250 : 2500 + power * 1000,
+      color: kind === "tank" ? "#a3e635" : kind === "spider" ? "#e879f9" : "#45f6ff",
+      angle: 0, oscillate: 0,
+      specialAttackTimer: 150,
       titanShieldCooldown: TITAN_SHIELD_COOLDOWN,
-      titanShieldTimer: 0,
-      titanHealTimer: 60,
-      titanDashCooldown: Math.max(300, TITAN_DASH_COOLDOWN - power * 30),
-      titanDashWarningTimer: 0,
-      titanLaserDamageTimer: TITAN_LASER_DAMAGE_INTERVAL,
-      titanDashTimer: 0,
-      titanReinforcementsSpawned: true,
-      bossTopPartHp: Math.max(8, Math.round(hp * .12)),
-      bossBottomPartHp: Math.max(8, Math.round(hp * .12)),
-    });
+      titanShieldTimer: 0, titanHealTimer: 60,
+      titanDashCooldown: TITAN_DASH_COOLDOWN,
+      titanDashWarningTimer: 0, titanLaserDamageTimer: TITAN_LASER_DAMAGE_INTERVAL,
+      titanDashTimer: 0, titanReinforcementsSpawned: true,
+      bossTopPartHp: kind === "titan" ? Math.round(hp * .12) : 0,
+      bossBottomPartHp: kind === "titan" ? Math.round(hp * .12) : 0,
+    }));
     bossDamageStartRef.current = runStatsRef.current.damageTaken;
-    waveBannerRef.current = { text: `TITAN ${power}/${BOSS_FIGHT_TITAN_COUNT}`, timer: 150 };
+    waveBannerRef.current = { text: `${BOSS_NAMES[kind].toUpperCase()} · ${power}/${BOSS_FIGHT_COUNT}`, timer: 150 };
     audioRef.current.effect("boss", settingsRef.current.soundVolume);
   }, []);
 
@@ -4306,6 +4321,7 @@ export default function Game() {
     lastWingmanFireRef.current = 0;
     lastMissileRef.current = 0;
     nextFireSwordLightningRef.current = 10_000;
+    fireSwordLightningRef.current = null;
     shieldTimerRef.current = 0;
     invincibleRef.current = 0;
     movementStunRef.current = 0;
@@ -4322,7 +4338,7 @@ export default function Game() {
       ? MUTATORS[save.mutatorId]
       : getMutatorForLevel(save?.level ?? 1);
     waveBannerRef.current = {
-      text: mode === "boss_fight" ? `BOSSKAMPF · ${BOSS_FIGHT_TITAN_COUNT} TITANEN` : "MISSION GESTARTET",
+      text: mode === "boss_fight" ? `BOSSKAMPF · ${BOSS_FIGHT_COUNT} BOSSE` : "MISSION GESTARTET",
       timer: 120,
     };
     droneSupportTimerRef.current = 0;
@@ -5165,6 +5181,13 @@ export default function Game() {
           return Math.hypot(targetX - originX, targetY - originY) <=
             fireSword.meleeRange! + Math.max(enemy.width, enemy.height) / 2;
         });
+        fireSwordLightningRef.current = {
+          x: originX,
+          y: originY,
+          range: fireSword.meleeRange,
+          targets: targets.map(enemy => ({ x: enemy.x + enemy.width / 2, y: enemy.y + enemy.height / 2 })),
+          remainingMs: FIRE_SWORD_LIGHTNING_DURATION_MS,
+        };
         targets.forEach(enemy => {
           const targetX = enemy.x + enemy.width / 2;
           const targetY = enemy.y + enemy.height / 2;
@@ -5363,6 +5386,15 @@ export default function Game() {
         audioRef.current.effect("boss", settingsRef.current.soundVolume);
       }
 
+      if (enemiesRef.current.some(e => e.encounterKind === "city" && !e.dead)) {
+        drawFortressCity(ctx, CANVAS_W, CANVAS_H);
+        const defenders = enemiesRef.current.filter(e => e.encounterKind === "city" && !e.dead);
+        const remainingHp = defenders.reduce((total, e) => total + Math.max(0, e.hp), 0);
+        ctx.save(); ctx.fillStyle = "#f8fafc"; ctx.textAlign = "center"; ctx.font = "12px sans-serif";
+        ctx.fillText(`${Math.ceil(remainingHp)} / 9.000 HP · ${defenders.length} Wachen`, CANVAS_W - 150, CANVAS_H - 25);
+        ctx.restore();
+      }
+
       // ── Spawn enemies ──
       if (tutorialActive) {
         enemySpawnTimerRef.current = 0;
@@ -5372,13 +5404,13 @@ export default function Game() {
         if (enemiesRef.current.length < MAX_ACTIVE_ENEMIES &&
             !enemiesRef.current.some(enemy => isBossEnemy(enemy) && !enemy.dead) && bossFightSpawnTimerRef.current >= 90) {
           bossFightSpawnTimerRef.current = 0;
-          if (runStatsRef.current.bosses >= BOSS_FIGHT_TITAN_COUNT) {
+          if (runStatsRef.current.bosses >= BOSS_FIGHT_COUNT) {
             runResultRef.current = "complete";
             gs.gameOver = true;
             grantRunReward();
             return;
           }
-          spawnBossFightTitan(runStatsRef.current.bosses + 1);
+          spawnBossFightEncounter(runStatsRef.current.bosses + 1);
         }
       } else {
         const spawnRate = getEnemySpawnRate(gs.level) *
@@ -5771,7 +5803,7 @@ export default function Game() {
           }
         }
         // From level 10 onward, a boss that survives for 20 seconds evolves.
-        if (e.type === "boss" && gs.level >= 10) {
+        if (e.type === "boss" && !e.encounterKind && gs.level >= 10) {
           e.bossAge = (e.bossAge ?? 0) + dtScale;
           if (e.bossAge >= 1200) {
             const centerX = e.x + e.width / 2;
@@ -5927,7 +5959,19 @@ export default function Game() {
         }
 
         // Boss movement
-        if (isBossEnemy(e)) {
+        if (e.encounterKind && e.encounterKind !== "titan") {
+          const slot = e.citySlot ?? 0;
+          e.x = e.encounterKind === "city" ? CANVAS_W - 270 + (slot % 2) * 130 : CANVAS_W - e.width - 35;
+          if (e.encounterKind === "city") {
+            e.y = 100 + Math.floor(slot / 2) * ((CANVAS_H - 240) / 2);
+            e.vy = 0;
+          } else if ((e.ultimateFreezeTimer ?? 0) <= 0) {
+            const speed = e.encounterKind === "spider" ? 2.6 : e.encounterKind === "submarine" ? 1.6 : .8;
+            e.vy = Math.sin(timeRef.current * .018) * speed;
+          }
+          e.vx = 0;
+        }
+        if (isBossEnemy(e) && (!e.encounterKind || e.encounterKind === "titan")) {
           if (e.type !== "titan") e.vx = Math.sin(timeRef.current * 0.02) * -1.2;
           if (e.x > CANVAS_W - e.width - 10) e.x = CANVAS_W - e.width - 10;
           if (e.x < CANVAS_W * 0.5) e.x = CANVAS_W * 0.5;
@@ -6122,7 +6166,24 @@ export default function Game() {
           const baseCooldown = e.type === "overlord" || e.type === "titan" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : biomeFireCooldown ? rand(biomeFireCooldown[0], biomeFireCooldown[1]) : rand(70, 120);
           e.shootCooldown = baseCooldown * (e.bossCannonsDisabled ? 1.8 : 1) *
             (e.eliteModifier === "frenzied" ? .55 : 1);
-          if (e.type === "tiefighter" || e.type === "emeraldtiefighter" || e.type === "plasmawing") {
+          if (e.encounterKind && e.encounterKind !== "titan") {
+            const weapon = e.encounterKind === "city" ? CITY_WEAPONS[e.citySlot ?? 0] : e.encounterKind === "submarine" ? "rocket" : e.encounterKind === "spider" ? "web" : "cannon";
+            const flame = weapon === "flame";
+            const count = flame ? 5 : weapon === "web" ? 9 : weapon === "rocket" ? 2 : 3;
+            e.shootCooldown = (flame ? 7 : weapon === "rocket" ? 120 : weapon === "web" ? 65 : 85) / (1 + (bossPhase - 1) * .2);
+            const aim = Math.atan2(playerRef.current.y + PLAYER_H / 2 - (e.y + e.height / 2), playerRef.current.x + PLAYER_W / 2 - e.x);
+            for (let shot = 0; shot < count; shot++) {
+              const angle = aim + (shot - (count - 1) / 2) * (flame ? .10 : weapon === "web" ? .18 : .13);
+              const speed = flame ? 7 : weapon === "cannon" ? 6 : 3.8;
+              bulletsRef.current.push({ x: e.x, y: e.y + e.height / 2,
+                vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                fromPlayer: false, damage: flame ? 1 : weapon === "cannon" ? 4 : 3,
+                color: flame ? (shot % 2 ? "#ff5500" : "#ffcc33") : e.color,
+                lifetime: flame ? 48 : 260, isFlame: flame, isMissile: weapon === "rocket", trackPlayer: weapon === "rocket",
+                collisionWidth: flame ? 18 : 10, collisionHeight: flame ? 18 : 10, sourceEnemy: e,
+              });
+            }
+          } else if (e.type === "tiefighter" || e.type === "emeraldtiefighter" || e.type === "plasmawing") {
             // Aimed enemies attack the package in protect mode and the player otherwise.
             const { x: px, y: py } = getEnemyAttackTarget(
               activeModeRef.current,
@@ -6333,7 +6394,7 @@ export default function Game() {
           rectHit(playerRef.current.x + PLAYER_W - 2 + ABSORBER_SHIELD_FORWARD_OFFSET, playerRef.current.y - ABSORBER_SHIELD_PADDING,
             ABSORBER_SHIELD_WIDTH, PLAYER_H + ABSORBER_SHIELD_PADDING * 2,
             e.x, e.y, e.width, e.height);
-        if (absorberShieldHit && e.type !== "titan") {
+        if (absorberShieldHit && e.type !== "titan" && !e.encounterKind) {
           absorberHitsRef.current = Math.min(3, absorberHitsRef.current + 1);
           spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
           audioRef.current.effect("hit", settingsRef.current.soundVolume);
@@ -6556,7 +6617,7 @@ export default function Game() {
       // ── Bullet-player collision ──
       bulletsRef.current = bulletsRef.current.filter(b => {
         if (b.fromPlayer) return true;
-        const bw = 8, bh = 8;
+        const bw = b.collisionWidth ?? 8, bh = b.collisionHeight ?? 8;
         if (activeModeRef.current === "protect" &&
             rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh,
               protectPackageRef.current.x, protectPackageRef.current.y,
@@ -7015,6 +7076,14 @@ export default function Game() {
       drawCombinedCombatDrone(ctx, droneX, droneY, timeRef.current, droneBuildRef.current, activeDroneSkinRef.current, droneVisualLevel);
       ctx.restore();
 
+      // Draw above combatants so nearby enemies cannot cover the discharge.
+      const swordLightning = fireSwordLightningRef.current;
+      if (swordLightning) {
+        drawFireSwordLightning(ctx, swordLightning, reducedMotion);
+        swordLightning.remainingMs -= dt;
+        if (swordLightning.remainingMs <= 0) fireSwordLightningRef.current = null;
+      }
+
       // Keep the remaining duration of every active ultimate visible above the pilot.
       drawActiveUltiCountdowns(ctx, playerRef.current.x, playerRef.current.y, [
         { key: "Q", remaining: ultimaActiveRef.current, color: "#ff44ff" },
@@ -7201,7 +7270,7 @@ export default function Game() {
       wakeGameLoopRef.current = () => {};
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [checkAchievements, fireBullets, grantRunReward, recordPlayerDamage, registerKill, screenToWorld, spawnBossFightTitan, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
+  }, [checkAchievements, fireBullets, grantRunReward, recordPlayerDamage, registerKill, screenToWorld, spawnBossFightEncounter, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
 
   useEffect(() => {
     if (!displayState.paused) wakeGameLoopRef.current();
@@ -9730,7 +9799,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     const modeRules = getEffectiveGameModeRules(mode);
     const remaining = modeRules.durationSeconds === null ? null : Math.max(0, modeRules.durationSeconds - Math.floor(elapsedMs / 1000));
     const timerText = remaining === null ? "" : ` · ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
-    const bossFightText = mode === "boss_fight" ? ` · TITAN ${Math.min(bossesDefeated, BOSS_FIGHT_TITAN_COUNT)}/${BOSS_FIGHT_TITAN_COUNT}` : "";
+    const bossFightText = mode === "boss_fight" ? ` · BOSSE ${Math.min(bossesDefeated, BOSS_FIGHT_COUNT)}/${BOSS_FIGHT_COUNT}` : "";
     const abilityState: Record<UltiLoadoutId, { label: string; charge: number; max: number; active: number; color: string }> = {
       jet: { label: "JET", charge: ultimaCharge, max: ULTI_MAX, active: ultimaActive, color: "#ff44ff" },
       laser: { label: "LASER", charge: laserCharge, max: LASER_MAX, active: laserActive, color: "#ffaa22" },
@@ -9814,7 +9883,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ctx.fillStyle = "#a78bfa";
   ctx.font = "bold 10px 'Inter', sans-serif";
   const timerText = remaining === null ? "" : ` · ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
-  const bossFightText = mode === "boss_fight" ? ` · TITAN ${Math.min(bossesDefeated, BOSS_FIGHT_TITAN_COUNT)}/${BOSS_FIGHT_TITAN_COUNT}` : "";
+  const bossFightText = mode === "boss_fight" ? ` · BOSSE ${Math.min(bossesDefeated, BOSS_FIGHT_COUNT)}/${BOSS_FIGHT_COUNT}` : "";
   ctx.fillText(`${modeRules.icon} ${modeRules.label.toUpperCase()}${timerText}${bossFightText}`, CANVAS_W / 2, 48);
 
   // XP bar (progress to next level)

@@ -59,6 +59,7 @@ pnpm run build
 ## Gameplay Rules
 
 - Missions progress through 500 levels. The daytime city backdrop changes to a space scene from level 50 onward.
+- Boss Fight mode has five encounters in order: Titan, tank, spider robot, submarine, and fortress city. Each encounter starts with 9,000 HP; the city splits this pool across six destructible flame, rocket, and cannon defenders. Destroy all defenders to complete the final encounter.
 - Boss encounters are available from level 3. Milestone bosses appear at levels 3, 5, 8, 10, 12, 15, 18, and every fifth level from level 20 onward.
 - TIE fighters perform an evasive vertical dodge roughly every 1.5 seconds.
 - From level 20 onward, specialist enemies can appear: healers repair damaged allies, shield generators protect nearby ships, and kamikaze fighters rush the player.

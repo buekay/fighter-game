@@ -5,7 +5,7 @@ import {
   isEnemyReturningToPlayfield,
   rechargeGuardianShield,
   getWaveClearReward,
-  BOSS_FIGHT_TITAN_COUNT,
+  BOSS_FIGHT_COUNT,
   MAX_ACTIVE_ENEMIES,
   applyEnemyDamage,
   applyPlayerHitProtection,
@@ -282,7 +282,7 @@ assert.equal(selectEnemyVariant(50, "fighter", .5, .05, .9), "frenzied");
 assert.equal(selectEnemyVariant(20, "fighter", .5, .5, .5), null);
 
 assert.deepEqual(GAME_MODES.map(mode => mode.id), ["classic", "blitz", "boss_fight", "one_life", "protect", "daily"]);
-assert.equal(BOSS_FIGHT_TITAN_COUNT, 3);
+assert.equal(BOSS_FIGHT_COUNT, 5);
 assert.equal(getGameModeRules("boss_fight").label, "Bosskampf");
 assert.equal(getGameModeRules("blitz").durationSeconds, 300);
 assert.equal(getGameModeRules("one_life").startingLives, 1);
