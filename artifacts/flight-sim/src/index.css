@@ -713,7 +713,7 @@ input:focus-visible {
   .hangar-main {
     display: grid;
     grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.6fr);
-    grid-template-rows: repeat(6, auto);
+    grid-template-rows: repeat(5, auto);
     column-gap: 16px;
     align-items: center;
     overflow-y: auto;
@@ -721,7 +721,6 @@ input:focus-visible {
 
   .hangar-topbar,
   .hangar-pilot,
-  .hangar-workshop,
   .hangar-modes,
   .hangar-actions,
   .hangar-footer {
@@ -730,14 +729,13 @@ input:focus-visible {
 
   .hangar-topbar { grid-row: 1; }
   .hangar-pilot { grid-row: 2; }
-  .hangar-workshop { grid-row: 3; }
-  .hangar-modes { grid-row: 4; }
-  .hangar-actions { grid-row: 5; }
-  .hangar-footer { grid-row: 6; }
+  .hangar-modes { grid-row: 3; }
+  .hangar-actions { grid-row: 4; }
+  .hangar-footer { grid-row: 5; }
 
   .hangar-preview {
     grid-column: 1;
-    grid-row: 1 / span 6;
+    grid-row: 1 / span 5;
     gap: 3px;
     width: auto;
     max-width: 100%;

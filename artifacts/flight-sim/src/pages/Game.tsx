@@ -1,3 +1,4 @@
+import { applyFlightBank, drawDepthClouds, drawEnginePlume, drawFlightShadow, drawHullShade, drawSmoke, MAX_VISUAL_PARTICLES } from "../rendering/flight-depth";
 import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from "react";
 import {
   MAX_LEVEL,
@@ -1487,9 +1488,10 @@ function rectHit(ax: number, ay: number, aw: number, ah: number,
 
 // ─── Drawing helpers ─────────────────────────────────────────────────────────
 
-function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier: number, shieldActive: boolean, skin?: JetSkin, shieldColor?: string, aircraftLevel = 1) {
+function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier: number, shieldActive: boolean, skin?: JetSkin, shieldColor?: string, aircraftLevel = 1, bank = 0) {
   ctx.save();
   ctx.translate(x + PLAYER_W / 2, y + PLAYER_H / 2);
+  applyFlightBank(ctx, bank);
 
   // ── TIE Fighter special skin ──
   if (skin?.id === "tiefighter") {
@@ -1656,16 +1658,8 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
   hullMetal.addColorStop(.78, "#080d16");
   hullMetal.addColorStop(1, skin?.stroke ?? "#28456f");
 
-  // A soft underside shadow gives the small silhouette a sense of mass.
-  ctx.save();
-  ctx.translate(-3, 3.5);
-  ctx.filter = "blur(3px)";
-  ctx.globalAlpha = .42;
-  ctx.fillStyle = "#000000";
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 31, Math.max(11, profile.wingTip * .82), 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  // Reuse the soft shade instead of filtering the aircraft every frame.
+  drawHullShade(ctx, profile.wingTip * 2);
 
   // Wings behind the fuselage; alternating tips make even similarly coloured
   // craft readable by silhouette alone.
@@ -1848,12 +1842,14 @@ function drawCombinedPlayerJet(
   fallbackSkin: JetSkin,
   shieldColor?: string,
   aircraftLevel = 1,
+  bank = 0,
 ) {
   const bodySkin = JET_SKINS.find(skin => skin.id === build.bodySkin) ?? fallbackSkin;
   const wingSkin = JET_SKINS.find(skin => skin.id === build.wingSkin) ?? fallbackSkin;
   const engineSkin = JET_SKINS.find(skin => skin.id === build.engineSkin) ?? fallbackSkin;
   ctx.save();
   ctx.translate(x + PLAYER_W / 2, y + PLAYER_H / 2);
+  applyFlightBank(ctx, bank);
   const pulse = .75 + Math.sin(performance.now() * .008) * .25;
   const aura = ctx.createRadialGradient(0, 0, 3, 0, 0, 42);
   aura.addColorStop(0, bodySkin.glow + "55");
@@ -2763,16 +2759,11 @@ function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
   ctx.globalAlpha = alpha;
   const isSmoke = p.color === "#302b2a" || p.color === "#7b645a";
   if (isSmoke) {
-    const smoke = ctx.createRadialGradient(p.x - radius * .2, p.y - radius * .25, 0, p.x, p.y, radius * 1.8);
-    smoke.addColorStop(0, p.color + "b8");
-    smoke.addColorStop(.5, p.color + "72");
-    smoke.addColorStop(1, "rgba(20,18,18,0)");
-    ctx.fillStyle = smoke;
-    ctx.beginPath(); ctx.arc(p.x, p.y, radius * 1.8, 0, Math.PI * 2); ctx.fill();
+    drawSmoke(ctx, p.x, p.y, p.radius, 1 - alpha);
   } else {
     ctx.globalCompositeOperation = "lighter";
     ctx.shadowColor = p.color;
-    ctx.shadowBlur = 8 + radius * 2;
+    ctx.shadowBlur = 0;
     ctx.strokeStyle = p.color;
     ctx.lineWidth = Math.max(.8, radius * .72);
     ctx.lineCap = "round";
@@ -2926,7 +2917,7 @@ function drawCombinedCombatDrone(ctx: CanvasRenderingContext2D, x: number, y: nu
 }
 
 function spawnExplosion(particles: Particle[], x: number, y: number, big: boolean) {
-  const count = big ? 56 : 23;
+  const count = Math.min(big ? 40 : 18, Math.max(0, MAX_VISUAL_PARTICLES - particles.length));
   const colors = ["#ffb22e", "#ff4a16", "#ffd36a", "#fff7df", "#d82b0b"];
   for (let i = 0; i < count; i++) {
     const angle = rand(0, Math.PI * 2);
@@ -2942,7 +2933,7 @@ function spawnExplosion(particles: Particle[], x: number, y: number, big: boolea
   }
   // Slow, expanding soot makes impacts feel volumetric instead of reading as
   // a flat collection of coloured dots.
-  const smokeCount = big ? 15 : 6;
+  const smokeCount = Math.min(big ? 9 : 4, Math.max(0, MAX_VISUAL_PARTICLES - particles.length));
   for (let i = 0; i < smokeCount; i++) {
     const angle = rand(0, Math.PI * 2);
     const speed = rand(.15, big ? 1.7 : .85);
@@ -2955,28 +2946,6 @@ function spawnExplosion(particles: Particle[], x: number, y: number, big: boolea
       radius: rand(big ? 5 : 3, big ? 13 : 7),
     });
   }
-}
-
-function drawAtmosphericClouds(ctx: CanvasRenderingContext2D, time: number, dense = false) {
-  const drift = time * (dense ? .08 : .045) * BACKGROUND_SPEED_MULTIPLIER;
-  ctx.save();
-  ctx.globalAlpha = dense ? .19 : .12;
-  ctx.filter = "blur(10px)";
-  for (let index = 0; index < (dense ? 10 : 7); index++) {
-    const x = ((index * 173 - drift) % 1180 + 1180) % 1180 - 140;
-    const y = 72 + (index * 83) % 230;
-    const width = 120 + (index * 31) % 105;
-    const cloud = ctx.createRadialGradient(x, y, 8, x, y, width * .52);
-    cloud.addColorStop(0, "rgba(255,255,255,.9)");
-    cloud.addColorStop(.55, "rgba(228,239,246,.45)");
-    cloud.addColorStop(1, "rgba(190,211,226,0)");
-    ctx.fillStyle = cloud;
-    ctx.beginPath();
-    ctx.ellipse(x, y, width, 30 + (index % 3) * 9, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.filter = "none";
-  ctx.restore();
 }
 
 function drawAtmosphericFinish(ctx: CanvasRenderingContext2D) {
@@ -3064,7 +3033,15 @@ function drawBiomeBackground(
       const y = row * 190 + 12;
       const width = 86 + building.width % 48;
       const height = 82 + building.height % 24;
-      ctx.fillStyle = "#07101966"; ctx.fillRect(x + 10, y + 10, width, height);
+      const elevation = 10 + building.height % 22;
+      ctx.fillStyle = "#07101955"; ctx.fillRect(x + elevation, y + elevation, width + 8, height + 8);
+      // Visible side walls and a directional cast shadow anchor roofs above streets.
+      ctx.fillStyle = night ? "#101b28" : "#314550";
+      ctx.beginPath(); ctx.moveTo(x + width, y); ctx.lineTo(x + width + elevation, y + elevation);
+      ctx.lineTo(x + width + elevation, y + height + elevation); ctx.lineTo(x + width, y + height); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = night ? "#192938" : "#435963";
+      ctx.beginPath(); ctx.moveTo(x, y + height); ctx.lineTo(x + elevation, y + height + elevation);
+      ctx.lineTo(x + width + elevation, y + height + elevation); ctx.lineTo(x + width, y + height); ctx.closePath(); ctx.fill();
       const roof = ctx.createLinearGradient(x, y, x + width, y + height);
       roof.addColorStop(0, night ? (index % 2 ? "#40515f" : "#344551") : (index % 2 ? "#8798a3" : "#738791"));
       roof.addColorStop(1, night ? "#17242e" : "#526570");
@@ -3260,6 +3237,7 @@ function drawBiomeBackground(
     ctx.fillStyle = "rgba(255,224,166,.055)";
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   }
+  if (biome.id !== "space") drawDepthClouds(ctx, motionTime, biome.id === "storm");
   drawAtmosphericFinish(ctx);
 }
 
@@ -4839,6 +4817,7 @@ export default function Game() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
 
+    let visualBank = 0;
     let lastTime = 0;
     let loopRunning = false;
 
@@ -4853,6 +4832,7 @@ export default function Game() {
       const dtScale = dt / FRAME_MS;
       lastTime = timestamp;
 
+      const previousPlayerY = playerRef.current.y;
       const gs = stateRef.current;
       timeRef.current += dtScale;
 
@@ -6246,6 +6226,7 @@ export default function Game() {
           ctx.fillText("ANGRIFF LÄDT", e.x + e.width / 2, e.y - 14);
           ctx.restore();
         }
+        if (getBiomeForLevel(gs.level).id !== "space") drawFlightShadow(ctx, e.x, e.y, e.width, e.height);
         drawEnemy(ctx, e);
         if (e.isGolden) {
           ctx.save();
@@ -6680,6 +6661,20 @@ export default function Game() {
         return true;
       });
 
+      const reducedMotion = settingsRef.current.reducedMotion;
+      const targetBank = reducedMotion ? 0 : clamp((playerRef.current.y - previousPlayerY) / Math.max(.1, dtScale) / 5, -1, 1);
+      visualBank = reducedMotion ? 0 : visualBank + (targetBank - visualBank) * (1 - Math.exp(-dt / 110));
+      if (getBiomeForLevel(gs.level).id !== "space" && stealthActiveRef.current <= 0) {
+        drawFlightShadow(ctx, playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H);
+      }
+      if (stealthActiveRef.current <= 0) {
+        drawEnginePlume(ctx, playerRef.current.x + 2, playerRef.current.y + PLAYER_H / 2,
+          timeRef.current, visualBank, activeSkinRef.current.glow, reducedMotion);
+      }
+
+      // Bound cosmetic work even during overlapping boss explosions and abilities.
+      const particleBudget = reducedMotion ? 80 : MAX_VISUAL_PARTICLES;
+      if (particlesRef.current.length > particleBudget) particlesRef.current.splice(0, particlesRef.current.length - particleBudget);
       // ── Particles ──
       particlesRef.current = particlesRef.current.filter(p => {
         p.x += p.vx * dtScale; p.y += p.vy * dtScale;
@@ -6839,8 +6834,8 @@ export default function Game() {
         const cy = playerRef.current.y + PLAYER_H / 2;
         ctx.save();
         ctx.translate(cx, cy); ctx.scale(1.16, 1.16); ctx.translate(-cx, -cy);
-        if (hybridActiveRef.current) drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, aircraftBuildRef.current, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level);
-        else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level);
+        if (hybridActiveRef.current) drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, aircraftBuildRef.current, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level, visualBank);
+        else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level, visualBank);
         ctx.restore();
         ctx.save();
         ctx.shadowColor = "#d946ef";
@@ -6866,8 +6861,8 @@ export default function Game() {
         const cy = playerRef.current.y + PLAYER_H / 2;
         ctx.save();
         ctx.translate(cx, cy); ctx.scale(1.16, 1.16); ctx.translate(-cx, -cy);
-        if (hybridActiveRef.current) drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, aircraftBuildRef.current, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level);
-        else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level);
+        if (hybridActiveRef.current) drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, aircraftBuildRef.current, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level, visualBank);
+        else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, true, activeSkinRef.current, "#35bfff", aircraftUpgradeRef.current.level, visualBank);
         ctx.restore();
         ctx.save();
         ctx.lineCap = "round";
@@ -6926,8 +6921,8 @@ export default function Game() {
         ctx.save();
         ctx.globalAlpha = 0.15 + 0.1 * Math.sin(timeRef.current * 0.25);
         ctx.shadowColor = "#00ffee"; ctx.shadowBlur = 20;
-        if (hybridActiveRef.current) drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, aircraftBuildRef.current, activeSkinRef.current, undefined, aircraftUpgradeRef.current.level);
-        else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, activeSkinRef.current, undefined, aircraftUpgradeRef.current.level);
+        if (hybridActiveRef.current) drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, aircraftBuildRef.current, activeSkinRef.current, undefined, aircraftUpgradeRef.current.level, visualBank);
+        else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, activeSkinRef.current, undefined, aircraftUpgradeRef.current.level, visualBank);
         ctx.restore();
       } else {
         {
@@ -6941,8 +6936,8 @@ export default function Game() {
           if (invincibleRef.current > 0) {
             ctx.globalAlpha = 0.48 + 0.22 * Math.sin(timeRef.current * 0.32);
           }
-          if (hybridActiveRef.current) drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, aircraftBuildRef.current, activeSkinRef.current, _sc, aircraftUpgradeRef.current.level);
-          else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current, _sc, aircraftUpgradeRef.current.level);
+          if (hybridActiveRef.current) drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, aircraftBuildRef.current, activeSkinRef.current, _sc, aircraftUpgradeRef.current.level, visualBank);
+          else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, shieldTimerRef.current > 0, activeSkinRef.current, _sc, aircraftUpgradeRef.current.level, visualBank);
           ctx.restore();
         }
         if (ultimaActiveRef.current > 0) {
@@ -6989,7 +6984,7 @@ export default function Game() {
       ]);
 
       // ── Engine exhaust ──
-      if (Math.random() < 1 - Math.pow(0.6, dtScale)) {
+      if (!reducedMotion && particlesRef.current.length < MAX_VISUAL_PARTICLES && Math.random() < 1 - Math.pow(0.6, dtScale)) {
         const tier = WEAPON_TIERS[gs.weaponTier];
         const glowColors = ["#00cfff", "#00cfff", "#00ff88", "#ff9900", "#ff4444", "#ff00ff"];
         particlesRef.current.push({
@@ -7926,7 +7921,7 @@ function HangarOverlay({
   achievements: string[];
 }) {
   const language = settings.language;
-  const [view, setView] = useState<"main" | "briefing" | "upgrades" | "workshop" | "settings" | "leaderboard" | "achievements">("main");
+  const [view, setView] = useState<"main" | "briefing" | "upgrades" | "settings" | "leaderboard" | "achievements">("main");
   const [hoverSkin, setHoverSkin] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState(() => loadName());
   const [showAdmin, setShowAdmin] = useState(false);
@@ -8007,10 +8002,10 @@ function HangarOverlay({
     );
   }
 
-  if (view === "upgrades" || view === "workshop") {
+  if (view === "upgrades") {
     return (
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
-        <ShopScreen initialSection={view === "workshop" ? "workshop" : "crates"}
+        <ShopScreen
           workshop={<WorkshopSection build={aircraftBuild} droneBuild={droneBuild} droneRole={droneRole} selectedSkin={selectedSkin} selectedDroneSkin={selectedDroneSkin} unlockedItems={unlockedItems} coins={coins}
             onBuildChange={onAircraftBuildChange} onDroneBuildChange={onDroneBuildChange} onDroneRoleChange={onDroneRoleChange}
             onBuild={() => { if (onHybridBuild()) setView("main"); }} />}
@@ -8094,17 +8089,6 @@ function HangarOverlay({
           style={{ background: "rgba(255,255,255,0.06)", border: "1px solid #334466", color: "#00cfff" }}
         />
       </div>
-
-      <button
-        type="button"
-        onPointerDown={event => event.stopPropagation()}
-        onTouchStart={event => event.stopPropagation()}
-        onClick={event => { event.preventDefault(); event.stopPropagation(); setView("workshop"); }}
-        className="hangar-workshop relative z-30 min-h-11 w-full max-w-md shrink-0 touch-manipulation rounded-xl px-4 py-2 text-sm font-black tracking-wide transition active:scale-95"
-        style={{ background: "linear-gradient(90deg, rgba(8,145,178,.45), rgba(109,40,217,.45))", border: "2px solid #67e8f9", color: "#cffafe", pointerEvents: "auto" }}
-      >
-        🔧 BAUKASTEN ÖFFNEN
-      </button>
 
       {/* ── Jet preview ── */}
       <div className="hangar-preview flex flex-col items-center gap-2">
@@ -8422,8 +8406,7 @@ function ShopCrateVisual({ rarity, opening }: { rarity: ShopRarity; opening: boo
   );
 }
 
-function ShopScreen({ initialSection, workshop, coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, weaponLevels, selectedSkin, hybridActive, aircraftBuild, ultiLoadout, selectedDroneSkin, droneBuild, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onAircraftUpgrade, onDroneUpgrade, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onCrateOpen }: {
-  initialSection: "crates" | "workshop";
+function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraftLevels, droneLevels, weaponLevels, selectedSkin, hybridActive, aircraftBuild, ultiLoadout, selectedDroneSkin, droneBuild, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, onBack, onBuy, onUnlockSkin, onSkinSelect, onUltiLoadoutChange, onUnlockDroneSkin, onDroneSkinSelect, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onAircraftUpgrade, onDroneUpgrade, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onCrateOpen }: {
   workshop: ReactNode;
   coins: number; gems: number; playerLevel: number; unlockedItems: string[]; selectedSkin: string; hybridActive: boolean; aircraftBuild: AircraftBuild; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; droneBuild: DroneBuild; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[];
   aircraftLevels: Record<string, number>;
@@ -8454,7 +8437,7 @@ function ShopScreen({ initialSection, workshop, coins, gems, playerLevel, unlock
     { id: "workshop", icon: "🛠", label: "Baukasten", description: "Flugzeuge und Drohnen kombinieren" },
     { id: "upgrades", icon: "🔧", label: "Extras", description: "Dauerhafte Verbesserungen" },
   ];
-  const [shopSection, setShopSection] = useState<ShopSection>(initialSection);
+  const [shopSection, setShopSection] = useState<ShopSection>("crates");
   const [dailyChestAvailable, setDailyChestAvailable] = useState(() => canClaimDailyChest());
   const [dailyChestOpening, setDailyChestOpening] = useState(false);
   const [dailyChestCelebrating, setDailyChestCelebrating] = useState(false);

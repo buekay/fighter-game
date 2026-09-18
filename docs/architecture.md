@@ -41,6 +41,12 @@ App.tsx
   `vendor`-Chunk. Das verkleinert den eigentlichen Spiel-Chunk und vermeidet die
   bisherige 500-kB-Warnung.
 
+- `rendering/flight-depth.ts` hält drei kleine, wiederverwendbare Canvas-Sprites
+  für Wolken, Rauch und Schatten. Die Flugneigung wird zeitbasiert geglättet und
+  verändert keine Trefferboxen. Partikel werden vor ihrer Aktualisierung und
+  Darstellung auf 220 begrenzt, bei reduzierter Bewegung auf 80. Zusätzliche
+  Flugneigung, Wolkenbewegung und Triebwerkspuls entfallen in diesem Modus.
+
 ## Persistenzregeln
 
 1. Neue Storage-Zugriffe verwenden `readStoredText`, `readStoredJson`,
