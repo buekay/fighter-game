@@ -1,3 +1,4 @@
+import { interceptProjectiles, type InterceptableProjectile } from "../projectile-defense";
 import { BOSS_SEQUENCE, BOSS_NAMES, CITY_WEAPONS, encounterHealth, encounterComplete, type EncounterKind } from "../boss-encounters";
 import { drawEncounterBoss, drawFortressCity } from "../rendering/encounter-bosses";
 import { steerTitan, type TitanTactics } from "../titan-tactics";
@@ -109,7 +110,7 @@ interface BackgroundTransition {
   elapsed: number;
 }
 
-interface Bullet {
+interface Bullet extends InterceptableProjectile {
   x: number; y: number;
   vx: number; vy: number;
   fromPlayer: boolean;
@@ -1055,6 +1056,7 @@ interface ShopItem {
 }
 
 const SHOP_ITEMS: readonly ShopItem[] = [
+  { id: "projectile_defense", name: "Geschossbrecher", desc: "Dauerhaft: Vier eigene Geschosstreffer zerstören ein gegnerisches Geschoss. Jeder Treffer zählt einmal, unabhängig vom Schaden.", cost: 1_000_000, rarity: "ultimate" },
   { id: "drone_mk2",     name: "Drohne MK II",      desc: "+1 Drohnenschaden und 12% schnelleres Feuer",      cost: 50000,  rarity: "rare" },
   { id: "drone_mk3",     name: "Drohne MK III",     desc: "Zwei Kanonen und nochmals 12% schnelleres Feuer", cost: 100000, rarity: "epic", requires: "drone_mk2" },
   { id: "drone_mk4",     name: "Drohne MK IV",      desc: "+1 Drohnenschaden und nochmals 12% schneller",    cost: 200000, rarity: "legendary", requires: "drone_mk3" },
@@ -5536,11 +5538,25 @@ export default function Game() {
         const projectileSpeed = !b.fromPlayer && ultimaActiveRef.current > 0 && aircraftUltiIds.has("arctic")
           ? 0
           : !b.fromPlayer ? activeMutatorRef.current.enemySpeedMultiplier : 1;
+        b.previousX = b.x;
+        b.previousY = b.y;
         b.x += b.vx * dtScale * projectileSpeed;
         b.y += b.vy * dtScale * projectileSpeed;
         drawBullet(ctx, b);
         return b.x > -20 && b.x < CANVAS_W + 20 && b.y > -20 && b.y < CANVAS_H + 20;
       });
+
+      bulletsRef.current = interceptProjectiles(
+        bulletsRef.current, activeUnlocksRef.current.includes("projectile_defense"),
+        (target, destroyed) => {
+          spawnExplosion(particlesRef.current, target.x, target.y, false);
+          floatingTextsRef.current.push({
+            x: target.x, y: target.y - 12,
+            text: destroyed ? "ABGEFANGEN" : `${target.interceptionHits}/4`,
+            color: "#e7edf7", life: 30, maxLife: 30,
+          });
+        },
+      );
 
       // ── Update enemies ──
       protectPackageHitCooldownRef.current = Math.max(0, protectPackageHitCooldownRef.current - dtScale);
