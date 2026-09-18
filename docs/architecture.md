@@ -92,3 +92,17 @@ Farbmarkierungen und Warnungen bleiben lesbar.
 kosmetische Details (Wolken, Regen, Partikel und normales Gegnerleuchten).
 Nach sechs Sekunden stabiler Erholung kehrt die volle Detailstufe zurück.
 Trefferboxen, Gegnerzahlen, Projektile und Spielregeln bleiben davon unabhängig.
+
+### Titan-Taktik und Menümaterialien
+
+`src/titan-tactics.ts` kapselt die Zielwahl für Titanen: Flankieren, Druckaufbau,
+Rückzug und begrenztes Ausweichen. Ziele werden nur am Ende eines Manövers neu
+bestimmt; eine Projektilprüfung erfolgt ohne temporäre Arrays oder Sortierung.
+Eine Ausweichpause verhindert dauerhaftes perfektes Ausweichen. Geschwindigkeit,
+Vorhalt und Zielpositionen sind begrenzt; der Canvas-Loop glättet die Bewegung.
+Dash-Bahnen werden zu Beginn der Warnung festgelegt und bis zum Angriff gehalten.
+Die Tests simulieren unter anderem mehrere Minuten bei 30, 60 und 120 Hz.
+
+Hangar, Shop und Einstellungen teilen die statische `.facility-screen`-Gestaltung.
+`drawDisplayBay` zeichnet die Stellflächen nur beim Aktualisieren einer Vorschau;
+die Menüs benötigen dafür keine zusätzliche Animationsschleife.

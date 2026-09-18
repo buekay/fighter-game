@@ -1,5 +1,6 @@
+import { steerTitan, type TitanTactics } from "../titan-tactics";
 import { VisualQuality } from "../rendering/visual-quality";
-import { drawLensFinish, drawSurfaceMaterial } from "../rendering/surface-materials";
+import { drawDisplayBay, drawLensFinish, drawSurfaceMaterial } from "../rendering/surface-materials";
 import { getAircraftUltiIds, getDroneUltiIds, getDroneUltiBoosts } from "../combined-ultimates";
 import { applyFlightBank, drawDepthClouds, drawEnginePlume, drawFlightShadow, drawHullShade, drawSmoke, MAX_VISUAL_PARTICLES } from "../rendering/flight-depth";
 import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from "react";
@@ -155,6 +156,7 @@ interface Enemy {
   ultimateDotTimer?: number;
   poisonTimer?: number;
   poisonTickTimer?: number;
+  titanTactics?: TitanTactics;
   titanShieldCooldown?: number;
   titanShieldTimer?: number;
   titanHealTimer?: number;
@@ -194,6 +196,11 @@ const isBossEnemy = (enemy: Enemy) => enemy.type === "boss" || enemy.type === "o
 const BOSS_HEALTH_MULTIPLIER = 1.3;
 const GOLDEN_ENEMY_CHANCE = 0.05;
 const increasedBossHealth = (hp: number) => Math.round(hp * BOSS_HEALTH_MULTIPLIER);
+const getTitanHealth = (level: number) => {
+  // A Titan has 15 times the health of an evolved milestone Overlord.
+  const overlordHp = Math.round((80 + level * 12) * 1.5);
+  return increasedBossHealth(overlordHp * 15);
+};
 const isTitanInvulnerable = (enemy: Enemy) => enemy.type === "titan" &&
   ((enemy.titanShieldTimer ?? 0) > 0 || (enemy.titanDashTimer ?? 0) > 0);
 
@@ -1801,6 +1808,7 @@ function JetShopImage({ skin, aircraftLevel }: { skin: JetSkin; aircraftLevel: n
     canvas.height = height * pixelRatio;
     ctx.scale(pixelRatio, pixelRatio);
     ctx.clearRect(0, 0, width, height);
+    drawDisplayBay(ctx, width, height);
 
     ctx.save();
     ctx.translate(width / 2, height / 2);
@@ -2270,7 +2278,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       titanSpectrum.addColorStop(.42, titanTertiary);
       titanSpectrum.addColorStop(.72, phaseColor);
       titanSpectrum.addColorStop(1, "#fbbf24");
-      ctx.shadowColor = phaseColor; ctx.shadowBlur = 24 + titanPulse * 22;
+      ctx.shadowColor = phaseColor; ctx.shadowBlur = economical ? 0 : 5;
 
       // Crown-like dreadnought silhouette, wider and more imposing than the Overlord.
       ctx.beginPath();
@@ -2279,12 +2287,12 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       ctx.lineTo(-76, 28); ctx.lineTo(-35, 42); ctx.lineTo(-42, 76); ctx.lineTo(7, 58);
       ctx.lineTo(22, 31); ctx.lineTo(46, 15); ctx.closePath();
       const titanHull = ctx.createLinearGradient(-75, -65, 75, 55);
-      titanHull.addColorStop(0, phase === 1 ? "#24105c" : "#06475b");
-      titanHull.addColorStop(.3, phase === 3 ? "#7c2d12" : "#5b195f");
-      titanHull.addColorStop(.57, phase === 3 ? "#6b5100" : "#162e58");
-      titanHull.addColorStop(.78, "#32104b");
+      titanHull.addColorStop(0, "#151c26");
+      titanHull.addColorStop(.3, "#3d4b59");
+      titanHull.addColorStop(.57, "#71838c");
+      titanHull.addColorStop(.78, "#293844");
       titanHull.addColorStop(1, "#03040d");
-      ctx.fillStyle = titanHull; ctx.fill(); ctx.strokeStyle = titanSpectrum; ctx.lineWidth = 4; ctx.stroke();
+      ctx.fillStyle = titanHull; ctx.fill(); ctx.strokeStyle = "#9baeb8"; ctx.lineWidth = 1.5; ctx.stroke();
 
       // Layered mirrored plates, crown blades and energy veins change with phase.
       [-1, 1].forEach(side => {
@@ -2293,8 +2301,8 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
         ctx.moveTo(37, side * 16); ctx.lineTo(9, side * 34); ctx.lineTo(-4, side * 57);
         ctx.lineTo(-38, side * 68); ctx.lineTo(-27, side * 39); ctx.lineTo(1, side * 25); ctx.closePath();
         const armor = ctx.createLinearGradient(-38, side * 66, 37, side * 16);
-        armor.addColorStop(0, side < 0 ? titanSecondary + "99" : titanTertiary + "99");
-        armor.addColorStop(.5, "#111426"); armor.addColorStop(1, phaseColor + "66");
+        armor.addColorStop(0, side < 0 ? "#34414f" : "#71838c");
+        armor.addColorStop(.5, "#18232f"); armor.addColorStop(1, "#546574");
         ctx.fillStyle = armor; ctx.fill(); ctx.strokeStyle = "#ffffff99"; ctx.lineWidth = 1.4; ctx.stroke();
         ctx.beginPath(); ctx.moveTo(-31, side * 61); ctx.lineTo(-1, side * 43); ctx.lineTo(31, side * 18);
         ctx.strokeStyle = plateAccent; ctx.lineWidth = phase >= 2 ? 2.4 : 1.5; ctx.stroke();
@@ -2509,6 +2517,23 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       }
       break;
     }
+  }
+
+  if (["scout", "fighter", "interceptor", "plasmawing", "bomber", "boss", "gunship", "sentinel", "titan", "overlord"].includes(e.type)) {
+    ctx.save(); ctx.shadowBlur = 0;
+    const large = isBossEnemy(e);
+    const span = large ? 22 : 9;
+    ctx.strokeStyle = "#d5e0e877"; ctx.lineWidth = .7;
+    for (const side of [-1, 1]) {
+      ctx.beginPath(); ctx.moveTo(-span, side * span); ctx.lineTo(span * .5, side * span * .5); ctx.stroke();
+      ctx.fillStyle = "#080f18";
+      for (let vent = 0; vent < 3; vent++) ctx.fillRect(-span + vent * 3, side * span - 2, 1.5, 4);
+    }
+    const canopy = ctx.createLinearGradient(0, -5, 0, 5);
+    canopy.addColorStop(0, "#0c202e"); canopy.addColorStop(.65, "#436476"); canopy.addColorStop(1, "#d5e5e6");
+    ctx.fillStyle = canopy;
+    ctx.beginPath(); ctx.ellipse(large ? 17 : 6, 0, large ? 10 : 6, large ? 5 : 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
 
   if (isBossEnemy(e)) {
@@ -3901,7 +3926,8 @@ export default function Game() {
 
   const spawnBossFightTitan = useCallback((bossNumber: number) => {
     const power = Math.max(1, Math.min(BOSS_FIGHT_TITAN_COUNT, bossNumber));
-    const hp = increasedBossHealth(120 + power * 45) * 3;
+    // Stay close to the first classic Titan with round, steadily increasing HP.
+    const hp = 9_000 + (power - 1) * 1_500;
     const width = TITAN_WIDTH;
     const height = TITAN_HEIGHT;
     titanWarningRef.current = 180;
@@ -5213,9 +5239,7 @@ export default function Game() {
       // ── Titan: exclusive boss fight every tenth level, starting at level 20 ──
       if (activeModeRef.current !== "boss_fight" && isTitanBossLevel(gs.level) && !titanBossFiredRef.current.has(gs.level)) {
         titanBossFiredRef.current.add(gs.level);
-        // An evolved milestone Overlord has 1.5x its initial HP. The Titan has exactly 15x that value.
-        const overlordHp = Math.round((80 + gs.level * 12) * 1.5);
-        const titanHp = increasedBossHealth(overlordHp * 15);
+        const titanHp = getTitanHealth(gs.level);
         enemiesRef.current = [];
         bulletsRef.current = bulletsRef.current.filter(b => b.fromPlayer);
         titanWarningRef.current = 180;
@@ -5712,12 +5736,14 @@ export default function Game() {
               e.titanDashHomeY = e.y;
               e.titanDashStageX = clamp(playerRef.current.x + 245, CANVAS_W * .45, CANVAS_W - e.width - 12);
               e.titanDashTargetX = Math.max(-e.width - 15, playerRef.current.x - e.width - 40);
-              e.titanDashTargetY = clamp(playerRef.current.y + PLAYER_H / 2 - e.height / 2, 0, CANVAS_H - e.height);
+              e.titanDashTargetY ??= clamp(playerRef.current.y + PLAYER_H / 2 - e.height / 2, 0, CANVAS_H - e.height);
               e.titanShieldTimer = Math.max(e.titanShieldTimer ?? 0, 180);
             }
           } else if ((e.titanDashTimer ?? 0) <= 0) {
             if (e.titanDashCooldown <= 0) {
               e.titanDashCooldown = TITAN_DASH_COOLDOWN;
+              e.titanDashTargetY = clamp(playerRef.current.y + PLAYER_H / 2 - e.height / 2, 28, CANVAS_H - e.height - 28);
+              e.vx = 0; e.vy = 0;
               e.titanDashWarningTimer = TITAN_DASH_WARNING_DURATION;
               e.titanLaserDamageTimer = TITAN_LASER_DAMAGE_INTERVAL;
             }
@@ -5902,7 +5928,7 @@ export default function Game() {
 
         // Boss movement
         if (isBossEnemy(e)) {
-          e.vx = Math.sin(timeRef.current * 0.02) * -1.2;
+          if (e.type !== "titan") e.vx = Math.sin(timeRef.current * 0.02) * -1.2;
           if (e.x > CANVAS_W - e.width - 10) e.x = CANVAS_W - e.width - 10;
           if (e.x < CANVAS_W * 0.5) e.x = CANVAS_W * 0.5;
 
@@ -5931,7 +5957,24 @@ export default function Game() {
           // Titan and Overlord track the target, estimate its vertical movement and
           // evade player projectiles that are on course to intersect their hull.
           const isAdvancedBoss = e.type === "overlord" || e.type === "titan";
-          if (isAdvancedBoss && (e.titanDashTimer ?? 0) <= 0) {
+          if (e.type === "titan" && (e.titanDashTimer ?? 0) <= 0) {
+            if ((e.titanDashWarningTimer ?? 0) > 0) {
+              e.vx = 0; e.vy = 0;
+            } else {
+              const target = getEnemyAttackTarget(activeModeRef.current,
+                { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT });
+              const measured = (target.y - (e.bossTrackedTargetY ?? target.y)) / Math.max(dtScale, .25);
+              e.bossTargetVelocityY = (e.bossTargetVelocityY ?? 0) * .85 + measured * .15;
+              e.bossTrackedTargetY = target.y;
+              const steering = steerTitan(e, target, e.bossTargetVelocityY, e.hp / e.maxHp,
+                bulletsRef.current, dtScale, CANVAS_W, CANVAS_H, e.titanTactics);
+              e.titanTactics = steering.state;
+              const response = 1 - Math.exp(-dtScale * .12);
+              e.vx += (steering.vx - e.vx) * response;
+              e.vy += (steering.vy - e.vy) * response;
+            }
+          } else if (e.type === "overlord" && (e.titanDashTimer ?? 0) <= 0) {
             const attackTarget = getEnemyAttackTarget(
               activeModeRef.current,
               { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
@@ -5943,7 +5986,7 @@ export default function Game() {
             e.bossTrackedTargetY = attackTarget.y;
 
             const centerY = e.y + e.height / 2;
-            const phaseSpeed = getBossPhase(e.hp, e.maxHp) === 3 ? 4.2 : e.type === "titan" ? 3.3 : 3.7;
+            const phaseSpeed = getBossPhase(e.hp, e.maxHp) === 3 ? 4.2 : 3.7;
             let desiredVy = clamp((attackTarget.y - centerY) * .045, -phaseSpeed, phaseSpeed);
             const incomingThreat = bulletsRef.current
               .filter(bullet => bullet.fromPlayer && bullet.vx > .5 && bullet.x < e.x + e.width / 2)
@@ -5988,7 +6031,7 @@ export default function Game() {
             : e.type === "overlord"
             ? (phase === 3 ? "#ffffff" : phase === 2 ? "#6fe9ff" : "#ff4fc8")
             : (phase === 3 ? "#ff3300" : phase === 2 ? "#ff00aa" : e.color);
-          if (phase >= 2) e.vy += Math.sin(timeRef.current * .055) * (phase === 3 ? 1.7 : .9);
+          if (phase >= 2 && e.type !== "titan") e.vy += Math.sin(timeRef.current * .055) * (phase === 3 ? 1.7 : .9);
 
           // Homing missile every 8 s (level 10+)
           if (gs.level >= 10) {
@@ -6188,6 +6231,13 @@ export default function Game() {
 
         // Draw enemy
         if (e.type === "titan" && (e.titanDashWarningTimer ?? 0) > 0) {
+          ctx.save();
+          const laneY = (e.titanDashTargetY ?? e.y) + e.height / 2;
+          ctx.fillStyle = "rgba(255,155,70,.09)";
+          ctx.fillRect(0, laneY - e.height / 2, CANVAS_W, e.height);
+          ctx.strokeStyle = "#ffc27d"; ctx.lineWidth = 1; ctx.setLineDash([10, 10]);
+          ctx.beginPath(); ctx.moveTo(0, laneY); ctx.lineTo(CANVAS_W, laneY); ctx.stroke();
+          ctx.restore();
           drawTitanDashLaser(ctx, e, timeRef.current);
           ctx.save();
           ctx.textAlign = "center";
@@ -7450,7 +7500,7 @@ export default function Game() {
   return (
     <div
       ref={shellRef}
-      className={`game-shell flex flex-col items-center justify-center w-full bg-[#08080e] select-none ${settings.highContrast ? "high-contrast" : ""}`}
+      className={`game-shell flex flex-col items-center justify-center w-full bg-[#08080e] select-none ${settings.highContrast ? "high-contrast" : ""} ${settings.reducedMotion ? "reduced-motion" : ""}`}
       style={{ touchAction: "none" }}
     >
       <div className={`game-frame ${settings.flightDirection === "up" ? "flight-up" : ""} relative rounded overflow-hidden shadow-[0_0_40px_#00cfff22]`}
@@ -7974,12 +8024,7 @@ function HangarOverlay({
     const ctx = c.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, 240, 140);
-    const bg = ctx.createLinearGradient(0, 0, 0, 140);
-    bg.addColorStop(0, "#0a1628"); bg.addColorStop(1, "#050a10");
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, 240, 140);
-    const gg = ctx.createRadialGradient(120, 70, 4, 120, 70, 65);
-    gg.addColorStop(0, skin.glow + "44"); gg.addColorStop(1, "transparent");
-    ctx.fillStyle = gg; ctx.fillRect(0, 0, 240, 140);
+    drawDisplayBay(ctx, 240, 140);
     if (hybridActive) drawCombinedPlayerJet(ctx, 90, 56, 5, false, aircraftBuild, skin, undefined, aircraftLevels[activeAircraftLevelKey] ?? 1);
     else drawPlayerJet(ctx, 90, 56, 5, false, skin, undefined, aircraftLevels[skin.id] ?? 1);
     drawCombinedCombatDrone(ctx, 105, 38, 0, droneBuild, selectedDrone, combinedDroneLevel);
@@ -8031,8 +8076,8 @@ function HangarOverlay({
   }
 
   return (
-    <div className="hangar-layer hangar-main absolute inset-0 flex flex-col items-center justify-between px-6 py-4 overflow-y-auto"
-      style={{ background: "rgba(4,12,28,0.90)" }}>
+    <div className="facility-screen hangar-layer hangar-main absolute inset-0 flex flex-col items-center justify-between px-6 py-4 overflow-y-auto"
+      >
       {pilotMilestone !== null && (
         <div className="pilot-level-celebration pointer-events-none fixed inset-0 z-[80] grid place-items-center overflow-hidden" role="status" aria-live="polite">
           <span className="pilot-level-spark pilot-level-spark-1">✦</span>
@@ -8367,20 +8412,6 @@ function HangarOverlay({
 
 // ─── Shop Screen ──────────────────────────────────────────────────────────────
 
-function ShopStarfield() {
-  const stars = useMemo(() => Array.from({ length: 90 }, (_: unknown, i: number) => ({
-    cx: ((i * 37 + 13) % 100), cy: ((i * 53 + 7) % 100),
-    r: 0.5 + (i % 3) * 0.5, op: 0.3 + (i % 5) * 0.14,
-  })), []);
-  return (
-    <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(170deg,#000012 0%,#02020e 55%,#050518 100%)" }}>
-      <svg width="100%" height="100%" style={{ position: "absolute", inset: 0 }}>
-        {stars.map((s, i) => <circle key={i} cx={`${s.cx}%`} cy={`${s.cy}%`} r={s.r} fill="#fff" opacity={s.op} />)}
-      </svg>
-    </div>
-  );
-}
-
 function ShopCrateVisual({ rarity, opening }: { rarity: ShopRarity; opening: boolean }) {
   const theme = SHOP_RARITIES[rarity];
   return (
@@ -8500,8 +8531,8 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
   const mkUpgrades = ["drone_mk2", "drone_mk3", "drone_mk4", "drone_mk5", "drone_mk6", "drone_mk7", "drone_mk8"].filter(id => unlockedItems.includes(id)).length;
   const droneStats = getDroneStats(mkUpgrades + droneLevel - 1);
   return (
-    <div className="relative flex flex-col h-full p-4 gap-3 overflow-y-auto select-none text-white">
-      <ShopStarfield />
+    <div className="facility-screen shop-screen relative flex flex-col h-full p-4 gap-3 overflow-y-auto select-none text-white">
+
       {pendingPurchase && (
         <div className="purchase-confirmation fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4" role="dialog" aria-modal="true" aria-labelledby="purchase-title">
           <div className="w-full max-w-sm rounded-3xl border border-amber-300/70 bg-[#090d1d]/95 p-6 text-center shadow-[0_0_45px_#fbbf2444]">
@@ -9187,7 +9218,7 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
     onChange({ ...settings, keyBindings: { ...settings.keyBindings, [action]: code } });
   };
   return (
-    <div className="flex flex-col h-full p-4 gap-4 overflow-y-auto text-white select-none">
+    <div className="facility-screen settings-screen flex flex-col h-full p-4 gap-4 overflow-y-auto text-white select-none">
       <div className="flex items-center gap-3">
         <button onClick={onBack} aria-label={translated(language, "Zurück", "Back")} className="min-h-11 min-w-11 text-slate-300 hover:text-white text-xl font-bold px-2">←</button>
         <h2 className="font-bold text-xl tracking-wide">{translated(language, "EINSTELLUNGEN", "SETTINGS")}</h2>

@@ -44,3 +44,21 @@ export function drawLensFinish(ctx: CanvasRenderingContext2D, width: number, hei
   }
   ctx.drawImage(finish, 0, 0);
 }
+
+/** Static showroom floor: painted markings, overhead light and a contact shadow. */
+export function drawDisplayBay(ctx: CanvasRenderingContext2D, width: number, height: number) {
+  const light = ctx.createLinearGradient(0, 0, width, height);
+  light.addColorStop(0, "#34434e"); light.addColorStop(.45, "#182630"); light.addColorStop(1, "#0b1219");
+  ctx.fillStyle = light; ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = "#a3b4bc22"; ctx.lineWidth = 1;
+  for (let i = -2; i < 5; i++) {
+    ctx.beginPath(); ctx.moveTo(width * .5 + i * width * .14, 0);
+    ctx.lineTo(width * .5 + i * width * .4, height); ctx.stroke();
+  }
+  ctx.strokeStyle = "#ddc28a66";
+  ctx.strokeRect(width * .18, height * .24, width * .64, height * .55);
+  ctx.fillStyle = "#e9f4f055"; ctx.fillRect(width * .12, 5, width * .27, 2);
+  ctx.fillRect(width * .61, 5, width * .27, 2);
+  ctx.fillStyle = "#03080b88";
+  ctx.beginPath(); ctx.ellipse(width * .52, height * .63, width * .23, height * .13, 0, 0, Math.PI * 2); ctx.fill();
+}

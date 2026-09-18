@@ -782,3 +782,36 @@ input:focus-visible {
     font-size: 12px;
   }
 }
+
+/* Static hangar materials are shared by all menu surfaces; no render loop or blur. */
+.facility-screen {
+  background:
+    radial-gradient(ellipse at 48% -20%, #61717b55, transparent 65%),
+    repeating-linear-gradient(90deg, transparent 0 119px, #9badb30b 120px 121px),
+    linear-gradient(165deg, #25313b, #101923 55%, #0b121a);
+  color: #e5ecf0;
+}
+.facility-screen button, .facility-screen select, .facility-screen input {
+  box-shadow: inset 0 1px 0 #edf5ff13, 0 2px 4px #0004;
+}
+.facility-screen button { transition: background-color 140ms, border-color 140ms, transform 140ms; }
+.facility-screen button:active { transform: translateY(1px); }
+.facility-screen button:disabled { transform: none; }
+.hangar-preview-canvas {
+  border: 1px solid #74859066;
+  box-shadow: 0 12px 25px #0005, inset 0 1px 0 #dce8ec22;
+}
+.facility-screen .hangar-topbar {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #aebfc225;
+}
+.settings-screen .settings-grid > *, .settings-screen > label {
+  border-color: #76899666;
+  background: linear-gradient(155deg, #34424e99, #17222cee);
+  box-shadow: inset 0 1px 0 #e6f3ff12, 0 4px 9px #0003;
+}
+.shop-screen canvas { border: 1px solid #74859044; box-shadow: inset 0 1px 0 #fff1; }
+@media (prefers-reduced-motion: reduce) {
+  .facility-screen button { transition: none; }
+}
+.reduced-motion .facility-screen button { transition: none; }
