@@ -34,7 +34,7 @@ export function applyFlightBank(ctx: CanvasRenderingContext2D, bank: number) {
 }
 
 export function drawEnginePlume(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, bank: number, color: string, reducedMotion: boolean) {
-  const pulse = reducedMotion ? 0 : Math.sin(time * .65) * 3 + Math.sin(time * .27) * 2;
+  const pulse = reducedMotion ? 0 : Math.sin(time * .32) * 1.8 + Math.sin(time * .17);
   ctx.save();
   ctx.translate(x, y);
   applyFlightBank(ctx, bank);
@@ -45,13 +45,19 @@ export function drawEnginePlume(ctx: CanvasRenderingContext2D, x: number, y: num
   ctx.globalAlpha = .9;
   ctx.fillStyle = "#c9f5ff";
   ctx.beginPath(); ctx.moveTo(2, -3); ctx.lineTo(-23 - pulse * .7, 0); ctx.lineTo(2, 3); ctx.fill();
+  // Exhaust compression diamonds stay inside the plume, with no extra particles.
+  ctx.globalAlpha = .48;
+  for (let i = 0; i < 3; i++) {
+    const px = -5 - i * 6;
+    ctx.beginPath(); ctx.moveTo(px + 2, 0); ctx.lineTo(px, -1.4); ctx.lineTo(px - 3, 0); ctx.lineTo(px, 1.4); ctx.fill();
+  }
   ctx.restore();
 }
 
-export function drawDepthClouds(ctx: CanvasRenderingContext2D, time: number, dense = false) {
+export function drawDepthClouds(ctx: CanvasRenderingContext2D, time: number, dense = false, economical = false) {
   ctx.save();
   // Two altitudes move at different speeds. Low opacity preserves enemy visibility.
-  for (let i = 0; i < (dense ? 8 : 5); i++) {
+  for (let i = 0; i < (economical ? 3 : dense ? 8 : 5); i++) {
     const near = i % 2 === 0;
     const span = 1320;
     const x = ((i * 281 - time * (near ? 1.25 : .48)) % span + span) % span - 260;

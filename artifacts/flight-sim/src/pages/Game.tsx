@@ -1,3 +1,5 @@
+import { VisualQuality } from "../rendering/visual-quality";
+import { drawLensFinish, drawSurfaceMaterial } from "../rendering/surface-materials";
 import { getAircraftUltiIds, getDroneUltiIds, getDroneUltiBoosts } from "../combined-ultimates";
 import { applyFlightBank, drawDepthClouds, drawEnginePlume, drawFlightShadow, drawHullShade, drawSmoke, MAX_VISUAL_PARTICLES } from "../rendering/flight-depth";
 import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from "react";
@@ -1669,6 +1671,13 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
     ctx.closePath();
     ctx.fillStyle = hullMetal; ctx.fill();
     ctx.strokeStyle = skin?.stroke ?? "#2a4a8a"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = s < 0 ? `rgba(220,235,245,${.10 + bank * .04})` : "rgba(0,6,15,.18)";
+    ctx.beginPath(); ctx.moveTo(2, s * profile.waist);
+    ctx.lineTo(profile.wingX, s * (profile.wingTip - 2));
+    ctx.lineTo(profile.tail + 7, s * 7); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "rgba(8,17,26,.5)"; ctx.lineWidth = .7;
+    ctx.beginPath(); ctx.moveTo(profile.sweep + 4, s * (profile.wingTip - 6));
+    ctx.lineTo(-12, s * 8); ctx.stroke();
   }
 
   // Body
@@ -1919,14 +1928,14 @@ function drawCombinedPlayerJet(
   ctx.restore();
 }
 
-function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
+function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, reducedMotion = false) {
   ctx.save();
   ctx.translate(e.x + e.width / 2, e.y + e.height / 2);
   ctx.rotate(Math.PI); // facing left
   const visualScale = e.type === "titan" ? 1.28 : e.type === "overlord" ? 1.25 : e.type === "boss" ? 1.14 : e.type === "gunship" || e.type === "sentinel" ? 1.14 : 1.22;
   ctx.scale(visualScale, visualScale);
 
-  const now = performance.now();
+  const now = reducedMotion ? 0 : performance.now();
   const pulse = 0.72 + Math.sin(now * 0.009 + e.x * 0.03) * 0.18;
   const roleColor = e.archetype === "healer" ? "#55ff9a" : e.archetype === "shield" ? "#58d8ff" :
     e.archetype === "kamikaze" ? "#ff3b45" : null;
@@ -1960,15 +1969,15 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
   const hullGradient = (dark: string, mid: string, highlight = e.color) => {
     const gradient = ctx.createLinearGradient(-e.width / 2, -e.height / 2, e.width / 2, e.height / 2);
     gradient.addColorStop(0, dark);
-    gradient.addColorStop(0.52, mid);
-    gradient.addColorStop(0.78, dark);
-    gradient.addColorStop(1, highlight + "55");
+    gradient.addColorStop(.38, mid);
+    gradient.addColorStop(.65, highlight + "88");
+    gradient.addColorStop(1, mid);
     return gradient;
   };
   const drawEngine = (x: number, y: number, size: number, color = e.color) => {
     ctx.save();
     ctx.shadowColor = color;
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 0;
     const flame = ctx.createLinearGradient(x - size * 2.4, y, x + size * 0.2, y);
     flame.addColorStop(0, "transparent");
     flame.addColorStop(0.55, color + "55");
@@ -2001,7 +2010,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy) {
   }
 
   ctx.shadowColor = e.isGolden ? "#ffe45c" : e.color;
-  ctx.shadowBlur = e.isGolden ? 22 + pulse * 10 : 9;
+  ctx.shadowBlur = e.isGolden ? (economical ? 4 : 8 + pulse * 3) : 0;
 
   switch (e.type) {
     case "biome": {
@@ -2737,11 +2746,16 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
     }
   } else {
     const bc = b.color ?? "#ff4444";
-    ctx.beginPath();
-    ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
+    ctx.translate(b.x, b.y);
+    ctx.rotate(Math.atan2(b.vy, b.vx));
+    ctx.strokeStyle = bc; ctx.lineWidth = 3; ctx.lineCap = "round";
+    ctx.globalAlpha = .45;
+    ctx.beginPath(); ctx.moveTo(-13, 0); ctx.lineTo(0, 0); ctx.stroke();
+    ctx.globalAlpha = 1;
     ctx.fillStyle = bc;
-    ctx.shadowColor = bc; ctx.shadowBlur = 6;
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, 0, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#fff0cb";
+    ctx.fillRect(0, -1, 3, 2);
   }
 
   ctx.restore();
@@ -2848,10 +2862,12 @@ function drawCombatDrone(ctx: CanvasRenderingContext2D, x: number, y: number, ti
     ctx.strokeStyle = skin.stroke; ctx.lineWidth = 2 + tier * 0.25; ctx.stroke();
   }
 
-  ctx.shadowColor = skin.stroke; ctx.shadowBlur = 16 + tier * 3;
+  ctx.shadowColor = skin.stroke; ctx.shadowBlur = 3;
   ctx.beginPath();
   ctx.moveTo(16 + tier, 0); ctx.lineTo(2, -8 - tier); ctx.lineTo(-13 - tier, -5 - tier * .4); ctx.lineTo(-18 - tier, 0); ctx.lineTo(-13 - tier, 5 + tier * .4); ctx.lineTo(2, 8 + tier); ctx.closePath();
-  ctx.fillStyle = skin.body; ctx.fill(); ctx.strokeStyle = skin.stroke; ctx.lineWidth = 2; ctx.stroke();
+  const armor = ctx.createLinearGradient(0, -10, 0, 10);
+  armor.addColorStop(0, "#b8c8d4"); armor.addColorStop(.25, skin.body); armor.addColorStop(1, "#080e19");
+  ctx.fillStyle = armor; ctx.fill(); ctx.strokeStyle = skin.stroke; ctx.lineWidth = 1; ctx.stroke();
 
   // Armour seams make intermediate upgrades visible even before the silhouette changes.
   if (visualLevel >= 2) {
@@ -2945,23 +2961,7 @@ function spawnExplosion(particles: Particle[], x: number, y: number, big: boolea
 }
 
 function drawAtmosphericFinish(ctx: CanvasRenderingContext2D) {
-  ctx.save();
-  // Aerial-camera vignette keeps the top-down texture readable behind combat.
-  const vignette = ctx.createRadialGradient(CANVAS_W * .48, CANVAS_H * .44, 180, CANVAS_W * .48, CANVAS_H * .44, 590);
-  vignette.addColorStop(.45, "rgba(0,0,0,0)");
-  vignette.addColorStop(1, "rgba(0,5,12,.34)");
-  ctx.fillStyle = vignette;
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-  // Very light scanless film grain prevents broad gradients from looking synthetic.
-  ctx.globalAlpha = .035;
-  ctx.fillStyle = "#ffffff";
-  for (let i = 0; i < 95; i++) {
-    const x = (i * 197 + 31) % CANVAS_W;
-    const y = (i * 109 + 47) % CANVAS_H;
-    ctx.fillRect(x, y, 1, 1);
-  }
-  ctx.restore();
+  drawLensFinish(ctx, CANVAS_W, CANVAS_H);
 }
 
 function drawBiomeBackground(
@@ -2973,17 +2973,18 @@ function drawBiomeBackground(
   stars: Star[],
   cityFar: Building[],
   cityNear: Building[],
+  economical = false,
 ) {
   const motionTime = reducedMotion ? 0 : time * BACKGROUND_SPEED_MULTIPLIER;
   const groundColors: Record<BiomeDefinition["id"], readonly [string, string]> = {
     city: ["#687985", "#3b4b56"],
-    desert: ["#d9a14b", "#a9662b"],
-    ocean: ["#0aa7c1", "#024f82"],
-    plains: ["#65994b", "#2e6838"],
+    desert: ["#c7aa74", "#94704a"],
+    ocean: ["#347d8b", "#163e59"],
+    plains: ["#788553", "#3e5939"],
     arctic: ["#d8f6ff", "#82bfd4"],
     canyon: ["#b75d3e", "#713323"],
     volcano: ["#2b1a1c", "#100c10"],
-    jungle: ["#286b3b", "#0d3b2b"],
+    jungle: ["#3e6547", "#193c30"],
     storm: ["#405366", "#172b3b"],
     space: ["#050817", "#000006"],
   };
@@ -3175,16 +3176,8 @@ function drawBiomeBackground(
     for (let row = 0; row < 10; row++) {
       drawRollingLayer(30 + row * 65, 14, row % 2 ? "#8bb6c166" : "#263b4d", 1.8 + row * .08, row);
     }
-    ctx.save(); ctx.filter = "blur(12px)";
-    for (let index = 0; index < 11; index++) {
-      const x = movingX(index, 120, .9);
-      const y = 55 + index % 5 * 120;
-      ctx.fillStyle = index % 2 ? "#0b142077" : "#71809255";
-      ctx.beginPath(); ctx.ellipse(x, y, 85, 52, .2, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.filter = "none"; ctx.restore();
     ctx.strokeStyle = "#bdefff88"; ctx.lineWidth = 2;
-    for (let index = 0; index < 70; index++) {
+    for (let index = 0; index < (economical ? 28 : 50); index++) {
       const x = movingX(index, 34, 4.8);
       const y = (index * 83 + motionTime * 5.5) % 560;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 15, y + 34); ctx.stroke();
@@ -3198,11 +3191,11 @@ function drawBiomeBackground(
   } else {
     ctx.fillStyle = night ? "#000006" : "#080b24"; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     for (const star of stars) {
-      if (!reducedMotion) star.x -= star.speed * 2.8 * BACKGROUND_SPEED_MULTIPLIER;
-      if (star.x < -12) { star.x = CANVAS_W + 12; star.y = rand(0, CANVAS_H); }
+      const span = CANVAS_W + 24;
+      const starX = ((star.x - motionTime * star.speed * 2.8 + 12) % span + span) % span - 12;
       ctx.globalAlpha = (night ? .35 : .2) + star.brightness * (night ? .65 : .48);
       ctx.fillStyle = star.size > 1.6 ? "#c9dcff" : "#ffffff";
-      ctx.fillRect(star.x, star.y, reducedMotion ? star.size : 2 + star.speed * 4, Math.max(1, star.size));
+      ctx.fillRect(starX, star.y, reducedMotion ? star.size : 2 + star.speed * 4, Math.max(1, star.size));
     }
     ctx.globalAlpha = 1;
     for (let index = 0; index < 5; index++) {
@@ -3216,6 +3209,7 @@ function drawBiomeBackground(
     }
   }
 
+  drawSurfaceMaterial(ctx, biome.id, motionTime, CANVAS_W, CANVAS_H);
   if (night) {
     ctx.fillStyle = biome.id === "space" ? "rgba(0,2,14,.16)" : "rgba(2,8,30,.56)";
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
@@ -3233,7 +3227,7 @@ function drawBiomeBackground(
     ctx.fillStyle = "rgba(255,224,166,.055)";
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   }
-  if (biome.id !== "space") drawDepthClouds(ctx, motionTime, biome.id === "storm");
+  if (biome.id !== "space") drawDepthClouds(ctx, motionTime, biome.id === "storm", economical);
   drawAtmosphericFinish(ctx);
 }
 
@@ -4808,6 +4802,7 @@ export default function Game() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
 
+    const visualQuality = new VisualQuality();
     let visualBank = 0;
     let lastTime = 0;
     let loopRunning = false;
@@ -4819,6 +4814,7 @@ export default function Game() {
       }
       rafRef.current = requestAnimationFrame(loop);
       loopRunning = true;
+      visualQuality.update(lastTime === 0 ? 0 : timestamp - lastTime);
       const dt = lastTime === 0 ? FRAME_MS : Math.min(timestamp - lastTime, 50);
       const dtScale = dt / FRAME_MS;
       lastTime = timestamp;
@@ -4845,6 +4841,7 @@ export default function Game() {
         starsRef.current,
         cityFarRef.current,
         cityNearRef.current,
+        visualQuality.economical,
       );
 
       const backgroundTransition = backgroundTransitionRef.current;
@@ -6218,7 +6215,7 @@ export default function Game() {
           ctx.restore();
         }
         if (getBiomeForLevel(gs.level).id !== "space") drawFlightShadow(ctx, e.x, e.y, e.width, e.height);
-        drawEnemy(ctx, e);
+        drawEnemy(ctx, e, visualQuality.economical, settingsRef.current.reducedMotion);
         if (e.isGolden) {
           ctx.save();
           ctx.textAlign = "center";
@@ -6664,11 +6661,16 @@ export default function Game() {
       }
 
       // Bound cosmetic work even during overlapping boss explosions and abilities.
-      const particleBudget = reducedMotion ? 80 : MAX_VISUAL_PARTICLES;
+      const particleBudget = reducedMotion ? 80 : visualQuality.economical ? 110 : MAX_VISUAL_PARTICLES;
       if (particlesRef.current.length > particleBudget) particlesRef.current.splice(0, particlesRef.current.length - particleBudget);
       // ── Particles ──
       particlesRef.current = particlesRef.current.filter(p => {
         p.x += p.vx * dtScale; p.y += p.vy * dtScale;
+        const smoke = p.color === "#302b2a" || p.color === "#7b645a";
+        // Debris loses speed; warm smoke drifts and rises instead of radiating forever.
+        const drag = Math.exp(-(smoke ? .014 : .025) * dtScale);
+        p.vx *= drag; p.vy *= drag;
+        if (smoke) p.vy -= .012 * dtScale;
         p.life -= dtScale;
         drawParticle(ctx, p);
         return p.life > 0;

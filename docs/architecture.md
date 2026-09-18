@@ -80,3 +80,15 @@ pnpm test
 pnpm run typecheck
 pnpm run build
 ```
+
+### Materialdarstellung und automatische Detailstufe
+
+`rendering/surface-materials.ts` erzeugt dezente Materialtexturen einmal pro
+Biom und Canvas-Kontext. Die Vignette wird ebenfalls wiederverwendet. Wetter
+benötigt keine Canvas-Unschärfefilter mehr. Flugzeugkanten leuchten schwächer;
+Farbmarkierungen und Warnungen bleiben lesbar.
+
+`rendering/visual-quality.ts` reduziert bei anhaltend langsamen Frames nur
+kosmetische Details (Wolken, Regen, Partikel und normales Gegnerleuchten).
+Nach sechs Sekunden stabiler Erholung kehrt die volle Detailstufe zurück.
+Trefferboxen, Gegnerzahlen, Projektile und Spielregeln bleiben davon unabhängig.
