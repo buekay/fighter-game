@@ -1,3 +1,4 @@
+import { getAircraftUltiIds, getDroneUltiIds, getDroneUltiBoosts } from "../combined-ultimates";
 import { applyFlightBank, drawDepthClouds, drawEnginePlume, drawFlightShadow, drawHullShade, drawSmoke, MAX_VISUAL_PARTICLES } from "../rendering/flight-depth";
 import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from "react";
 import {
@@ -894,11 +895,6 @@ interface AircraftBuild {
   engineSkin: string;
 }
 
-function getAircraftUltiIds(hybridActive: boolean, build: AircraftBuild, fallbackSkin: JetSkin): Set<string> {
-  return new Set(hybridActive
-    ? [build.bodySkin, build.wingSkin, build.engineSkin]
-    : [fallbackSkin.id]);
-}
 interface DroneBuild {
   bodySkin: string;
   coreSkin: string;
@@ -4007,13 +4003,8 @@ export default function Game() {
       .filter(id => activeUnlocksRef.current.includes(id)).length;
     const drone = getDroneStats(persistentDroneUpgrades + droneLevelRef.current - 1, routeModifiersRef.current.drone);
     const droneUltiActive = ultimaActiveRef.current > 0;
-    const droneUltiId = activeDroneSkinRef.current.id;
-    const droneFireMultiplier = droneUltiActive
-      ? droneUltiId === "drone_omega" ? 0.25 : droneUltiId === "drone_solar" ? 0.33 : 0.5
-      : 1;
-    const droneDamageMultiplier = droneUltiActive
-      ? droneUltiId === "drone_omega" ? 4 : droneUltiId === "drone_solar" || droneUltiId === "drone_nova" ? 3 : 2
-      : 1;
+    const droneUltiIds = getDroneUltiIds(droneBuildRef.current);
+    const { fireRate: droneFireMultiplier, damage: droneDamageMultiplier } = getDroneUltiBoosts(droneUltiIds, droneUltiActive);
     const droneWeapon = droneWeaponRef.current;
     const droneFireRate = 280 * drone.fireRateMultiplier * droneFireMultiplier * droneWeapon.fireRate * (role === "assault" ? .72 : 1);
 
@@ -4436,17 +4427,17 @@ export default function Game() {
     }
 
     // Every drone contributes its own ultimate to the aircraft ultimate.
-    const droneId = activeDroneSkinRef.current.id;
-    if (droneId === "drone_violet") {
+    const droneUltiIds = getDroneUltiIds(droneBuildRef.current);
+    if (droneUltiIds.has("drone_violet")) {
       shieldTimerRef.current = Math.max(shieldTimerRef.current, ULTI_DURATION);
       playerShieldHpRef.current += 4;
     }
-    if (droneId === "drone_phantom") invincibleRef.current = Math.max(invincibleRef.current, ULTI_DURATION);
-    if (droneId === "drone_omega") {
+    if (droneUltiIds.has("drone_phantom")) invincibleRef.current = Math.max(invincibleRef.current, ULTI_DURATION);
+    if (droneUltiIds.has("drone_omega")) {
       shieldTimerRef.current = Math.max(shieldTimerRef.current, ULTI_DURATION);
       playerShieldHpRef.current = Math.max(playerShieldHpRef.current, 12);
     }
-    if (droneId === "drone_void") {
+    if (droneUltiIds.has("drone_void")) {
       enemiesRef.current.forEach(enemy => {
         if (enemy.dead || enemy.hp <= 0 || !isEnemyVisible(enemy) || isTitanInvulnerable(enemy)) return;
         const ruptureDamage = isBossEnemy(enemy) ? Math.min(20, enemy.maxHp * .15) : enemy.hp * .35;
@@ -5057,6 +5048,7 @@ export default function Game() {
 
       // ── Input & Player Movement ──
       const aircraftUltiIds = getAircraftUltiIds(hybridActiveRef.current, aircraftBuildRef.current, activeUltiSkinRef.current);
+      const droneUltiIds = getDroneUltiIds(droneBuildRef.current);
       const applyGravityDefense = (rawDamage: number, source?: Enemy) => {
         if (gravityActiveRef.current <= 0) return rawDamage;
         if (source && !source.dead && source.hp > 0 && !isTitanInvulnerable(source)) {
@@ -5776,7 +5768,6 @@ export default function Game() {
         }
         if (ultimaActiveRef.current > 0 && !isTitanInvulnerable(e)) {
           const hpBeforeUltimate = e.hp;
-          const droneId = activeDroneSkinRef.current.id;
           const blackHoleActive = aircraftUltiIds.has("galaxy") || aircraftUltiIds.has("n1");
           if (blackHoleActive) {
             const targetX = CANVAS_W * .58;
@@ -5791,15 +5782,15 @@ export default function Game() {
           if (aircraftUltiIds.has("neon")) e.hp -= .14 * dtScale;
           if (aircraftUltiIds.has("lava")) e.hp -= .18 * dtScale;
           if (aircraftUltiIds.has("shadow") && ultimaActiveRef.current < 3) e.hp -= 14;
-          if (droneId === "drone_ember") e.hp -= .08 * dtScale;
-          if (droneId === "drone_ion") e.hp -= .10 * dtScale;
-          if (droneId === "drone_frost") e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
-          if (droneId === "drone_omega") e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
-          if (droneId === "drone_venom") {
+          if (droneUltiIds.has("drone_ember")) e.hp -= .08 * dtScale;
+          if (droneUltiIds.has("drone_ion")) e.hp -= .10 * dtScale;
+          if (droneUltiIds.has("drone_frost")) e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
+          if (droneUltiIds.has("drone_omega")) e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
+          if (droneUltiIds.has("drone_venom")) {
             e.poisonTimer = Math.max(e.poisonTimer ?? 0, ultimaActiveRef.current);
             e.poisonTickTimer = Math.min(e.poisonTickTimer ?? POISON_TICK_INTERVAL, POISON_TICK_INTERVAL);
           }
-          if (droneId === "drone_nova") e.hp -= .14 * dtScale;
+          if (droneUltiIds.has("drone_nova")) e.hp -= .14 * dtScale;
           runStatsRef.current.damageDealt += Math.min(
             Math.max(0, hpBeforeUltimate),
             Math.max(0, hpBeforeUltimate - e.hp),
@@ -7933,6 +7924,10 @@ function HangarOverlay({
   const skin = JET_SKINS.find(s => s.id === activeSkinId) ?? JET_SKINS[0];
   const selectedDrone = DRONE_SKINS.find(item => item.id === selectedDroneSkin) ?? DRONE_SKINS[0];
   const droneCombined = isCombinedDroneBuild(droneBuild);
+  const aircraftUltis = [...getAircraftUltiIds(hybridActive, aircraftBuild, skin)]
+    .map(id => JET_SKINS.find(item => item.id === id)).filter((item): item is JetSkin => !!item);
+  const droneUltis = [...getDroneUltiIds(droneBuild)]
+    .map(id => DRONE_SKINS.find(item => item.id === id)).filter((item): item is DroneSkin => !!item);
   const activeAircraftLevelKey = hybridActive ? aircraftBuildLevelKey(aircraftBuild) : selectedSkin;
   const activeDroneLevelKey = droneCombined ? droneBuildLevelKey(droneBuild) : selectedDroneSkin;
   const combinedDroneLevel = droneLevels[activeDroneLevelKey] ?? 1;
@@ -8099,7 +8094,8 @@ function HangarOverlay({
         </div>
         <div className="font-bold text-white text-sm tracking-wide">{hybridActive ? `Hybrid · ${JET_SKINS.find(item => item.id === aircraftBuild.bodySkin)?.name} + ${JET_SKINS.find(item => item.id === aircraftBuild.wingSkin)?.name}` : skin.name}</div>
         <div className="max-w-sm rounded-xl border px-3 py-2 text-center" style={{ borderColor: `${skin.glow}55`, background: `${skin.glow}12` }}>
-          <div className="text-xs font-black uppercase tracking-wider" style={{ color: skin.glow }}>{skin.ultiName}</div>
+          <div className="text-xs font-black uppercase tracking-wider" style={{ color: skin.glow }}>{aircraftUltis.map(item => item.ultiName).join(" + ")}</div>
+          {hybridActive && <div className="mt-1 text-[10px] text-slate-300">Alle enthaltenen Ulti-Effekte werden gemeinsam aktiviert.</div>}
         </div>
         <div className="rounded-full border border-cyan-400/40 bg-cyan-950/50 px-3 py-0.5 text-[11px] font-black tracking-wider text-cyan-300">
           JET-LEVEL {aircraftLevels[activeAircraftLevelKey] ?? 1}
@@ -8195,6 +8191,9 @@ function HangarOverlay({
           <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2 py-0.5 text-[10px] font-black text-violet-300">LV {droneCombined ? combinedDroneLevel : (droneLevels[selectedDroneSkin] ?? 1)}</span>
         </div>
         {droneCombined && <div className="text-[10px] font-black text-fuchsia-300">KOMBINIERT · {combinedDroneNames.join(" + ")}</div>}
+        <div className="max-w-sm text-center text-[10px] text-violet-300" title={droneUltis.map(item => item.ultiDesc).join(" ")}>
+          {droneUltis.map(item => item.ultiName).join(" + ")}
+        </div>
         <div className="hangar-crate-skins flex max-w-full flex-wrap items-center justify-center gap-2 mt-1">
           <span className="text-slate-500 text-xs">Waffenmodul:</span>
           {SORTED_WEAPON_CRATES.filter(crate => crate.cost === 0 || unlockedItems.includes(`weapon_crate_${crate.id}`)).map(crate => (
@@ -8488,6 +8487,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
   const aircraftUpgradeCost = aircraftCreditCost === null ? null : Math.ceil(aircraftCreditCost / 100);
   const selectedDrone = DRONE_SKINS.find(s => s.id === selectedDroneSkin) ?? DRONE_SKINS[0];
   const droneCombined = isCombinedDroneBuild(droneBuild);
+
   const droneLevelKey = droneCombined ? droneBuildLevelKey(droneBuild) : selectedDroneSkin;
   const droneName = droneCombined
     ? `Kombiniert ${DRONE_SKINS.find(s => s.id === droneBuild.bodySkin)?.name ?? selectedDrone.name} + ${DRONE_SKINS.find(s => s.id === droneBuild.weaponSkin)?.name ?? selectedDrone.name}`

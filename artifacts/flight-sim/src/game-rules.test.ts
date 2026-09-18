@@ -1,3 +1,4 @@
+import { getAircraftUltiIds, getDroneUltiIds, getDroneUltiBoosts } from "./combined-ultimates";
 import assert from "node:assert/strict";
 import {
   addEnemyWithinLimit,
@@ -353,3 +354,13 @@ assert.equal(getMutatorForLevel(8).id, "bullet_time");
 assert.equal(formatRunDuration(125_900), "2:05");
 assert.equal(SECTOR_CHOICES.length, 15);
 assert.equal(new Set(SECTOR_CHOICES.map(choice => choice.id)).size, 15);
+
+// Combined ultimates include every component, without duplicating repeated skins.
+assert.deepEqual([...getAircraftUltiIds(true, { bodySkin: "fire", wingSkin: "arctic", engineSkin: "fire" }, { id: "steel" })], ["fire", "arctic"]);
+assert.deepEqual([...getAircraftUltiIds(false, { bodySkin: "fire", wingSkin: "arctic", engineSkin: "fire" }, { id: "steel" })], ["steel"]);
+const combinedDroneUltis = getDroneUltiIds({ bodySkin: "drone_frost", coreSkin: "drone_void", weaponSkin: "drone_omega" });
+assert.deepEqual([...combinedDroneUltis], ["drone_frost", "drone_void", "drone_omega"]);
+assert.deepEqual(getDroneUltiBoosts(combinedDroneUltis, true), { fireRate: 0.25, damage: 4 });
+assert.deepEqual(getDroneUltiBoosts(combinedDroneUltis, false), { fireRate: 1, damage: 1 });
+assert.deepEqual([...getDroneUltiIds({ bodySkin: "drone_solar", coreSkin: "drone_solar", weaponSkin: "drone_solar" })], ["drone_solar"]);
+assert.deepEqual(getDroneUltiBoosts(new Set(["drone_solar", "drone_nova"]), true), { fireRate: 0.33, damage: 3 });
