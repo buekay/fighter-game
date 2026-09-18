@@ -51,7 +51,7 @@ for (let slot = 0; slot < 6; slot++) {
   assert.ok(p.x >= 450 && p.x + size.width <= 900);
   assert.ok(p.y >= 90 && p.y + size.height <= 600);
 }
-assert.ok(BOSS_DIMENSIONS.titan.width > 190);
+assert.deepEqual(BOSS_DIMENSIONS.titan, { width: 190, height: 164 });
 assert.ok(BOSS_DIMENSIONS.tank.width > 190);
 assert.ok(BOSS_DIMENSIONS.spider.height > 164);
 assert.ok(BOSS_DIMENSIONS.submarine.width > 230);

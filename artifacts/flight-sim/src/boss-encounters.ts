@@ -32,7 +32,7 @@ export function getEncounterProgressionLevel(
 }
 
 export const BOSS_DIMENSIONS: Record<EncounterKind, { width: number; height: number }> = {
-  titan: { width: 270, height: 232 }, tank: { width: 310, height: 230 },
+  titan: { width: 190, height: 164 }, tank: { width: 310, height: 230 },
   spider: { width: 310, height: 280 }, submarine: { width: 350, height: 185 },
   city: { width: 164, height: 112 },
 };

@@ -1946,7 +1946,7 @@ function drawCombinedPlayerJet(
 }
 
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, reducedMotion = false) {
-  if (e.encounterKind) {
+  if (e.encounterKind && e.encounterKind !== "titan") {
     drawEncounterBoss(ctx, e, reducedMotion ? 0 : performance.now());
     return;
   }
@@ -3956,7 +3956,7 @@ export default function Game() {
     const kind = BOSS_SEQUENCE[power - 1];
     const health = encounterHealth(kind);
     const { width, height } = BOSS_DIMENSIONS[kind];
-    bossSpecialRef.current = createBossSpecial(kind);
+    bossSpecialRef.current = kind === "titan" ? null : createBossSpecial(kind);
     if (kind === "titan") titanWarningRef.current = 180;
     health.forEach((hp, slot) => addEnemyWithinLimit(enemiesRef.current, {
       x: kind === "city" ? cityMountPosition(slot, CANVAS_W, CANVAS_H).x : CANVAS_W + 24,
@@ -6180,7 +6180,7 @@ export default function Game() {
           // Enemy shooting
           if (e.type !== "laserdevice" && (e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;
           if (e.type !== "laserdevice" && e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0 &&
-              (!e.encounterKind || bossSpecialRef.current?.stage === "cooldown")) {
+              (!e.encounterKind || e.encounterKind === "titan" || bossSpecialRef.current?.stage === "cooldown")) {
             const bossPhase = isBossEnemy(e) ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
             const biomeFireCooldown = getBiomeEnemyDefinition(e.biomeEnemyId)?.fireCooldown;
             const baseCooldown = e.type === "overlord" || e.type === "titan" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : biomeFireCooldown ? rand(biomeFireCooldown[0], biomeFireCooldown[1]) : rand(70, 120);
@@ -7208,7 +7208,7 @@ export default function Game() {
       drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, gravityChargeRef.current, gravityActiveRef.current, empChargeRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], activeModeRef.current, runElapsedMsRef.current, runStatsRef.current.bosses, upwardFlight);
       const hudW = upwardFlight ? CANVAS_H : CANVAS_W;
       const hudTop = upwardFlight ? 136 : 86;
-      const hudBosses = enemiesRef.current.filter(e => e.encounterKind && !e.dead && e.hp > 0);
+      const hudBosses = enemiesRef.current.filter(e => e.encounterKind && e.encounterKind !== "titan" && !e.dead && e.hp > 0);
       drawEncounterHealthBar(ctx, hudBosses, hudW, hudTop + 8, bossSpecialRef.current);
       if (hudBosses.length === 0) {
         const crate = weaponCrateRef.current;
