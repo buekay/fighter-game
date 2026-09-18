@@ -626,6 +626,7 @@ interface WeaponDefinition {
   color: string;
   meleeRange?: number;
   lightningIntervalMs?: number;
+  lightningRange?: number;
   lightningDamageMultiplier?: number;
 }
 
@@ -651,7 +652,7 @@ const WEAPONS: readonly WeaponDefinition[] = [
   { id: "omega_prism", name: "Omega-Prisma", icon: "✺", description: "Ultimate Energiestreuer mit sieben Strahlen.", rarity: "ultimate", cost: 9_000, currency: "gems", pattern: "spread", guns: 7, damage: 8, fireRate: 175, color: "#f9a8d4" },
   { id: "celestial_storm", name: "Himmelssturm", icon: "✹", description: "Neun Energielanzen füllen den gesamten Feuerkorridor.", rarity: "ultimate", cost: 1_000_000, currency: "credits", pattern: "spread", guns: 9, damage: 9, fireRate: 165, color: "#f0abfc" },
   { id: "solar_glaive", name: "Solar-Gleve", icon: "◒", description: "Eine gewaltige Lichtklinge mit der größten Nahkampfreichweite.", rarity: "ultimate", cost: 11_000, currency: "gems", pattern: "melee", guns: 1, damage: 55, fireRate: 860, color: "#fde047", meleeRange: 150 },
-  { id: "fire_sword", name: "Feuerschwert", icon: "🔥", description: "Extrem starke Ultimate-Klinge. Entlädt alle 10 Sekunden gelbe Blitze auf alle Gegner in Reichweite.", rarity: "ultimate", cost: 15_000, currency: "gems", pattern: "melee", guns: 1, damage: 80, fireRate: 780, color: "#ffd21f", meleeRange: 160, lightningIntervalMs: 10_000, lightningDamageMultiplier: .75 },
+  { id: "fire_sword", name: "Feuerschwert", icon: "🔥", description: "Extrem starke Ultimate-Klinge. Entlädt alle 10 Sekunden gelbe Blitze auf alle Gegner im großen Umkreis von 650 Pixeln.", rarity: "ultimate", cost: 15_000, currency: "gems", pattern: "melee", guns: 1, damage: 80, fireRate: 780, color: "#ffd21f", meleeRange: 160, lightningRange: 650, lightningIntervalMs: 10_000, lightningDamageMultiplier: .75 },
   { id: "apocalypse_swarm", name: "Apokalypse-Schwarm", icon: "♨", description: "Ultimate Lenkraketen suchen selbstständig neue Ziele.", rarity: "ultimate", cost: 1_250_000, currency: "credits", pattern: "missile", guns: 5, damage: 13, fireRate: 205, color: "#fde047" },
 ] as const;
 const WEAPON_KEY = "fighter-command-weapons";
@@ -5167,7 +5168,7 @@ export default function Game() {
       if (firing) fireBullets(timestamp);
 
       const fireSword = activeWeaponsRef.current.find(weapon => weapon.id === "fire_sword");
-      if (fireSword?.meleeRange && fireSword.lightningIntervalMs &&
+      if (fireSword?.lightningRange && fireSword.lightningIntervalMs &&
           runElapsedMsRef.current >= nextFireSwordLightningRef.current) {
         while (nextFireSwordLightningRef.current <= runElapsedMsRef.current) {
           nextFireSwordLightningRef.current += fireSword.lightningIntervalMs;
@@ -5181,12 +5182,12 @@ export default function Game() {
           const targetX = enemy.x + enemy.width / 2;
           const targetY = enemy.y + enemy.height / 2;
           return Math.hypot(targetX - originX, targetY - originY) <=
-            fireSword.meleeRange! + Math.max(enemy.width, enemy.height) / 2;
+            fireSword.lightningRange! + Math.max(enemy.width, enemy.height) / 2;
         });
         fireSwordLightningRef.current = {
           x: originX,
           y: originY,
-          range: fireSword.meleeRange,
+          range: fireSword.lightningRange,
           targets: targets.map(enemy => ({ x: enemy.x + enemy.width / 2, y: enemy.y + enemy.height / 2 })),
           remainingMs: FIRE_SWORD_LIGHTNING_DURATION_MS,
         };
@@ -5205,7 +5206,8 @@ export default function Game() {
             weaponId: "fire_sword_lightning",
             isMissile: true,
             missileTarget: enemy,
-            lifetime: 18,
+            // Allow enough travel time to reach distant, moving targets.
+            lifetime: 90,
           });
         });
         waveBannerRef.current = { text: "⚡ FEUERSCHWERT · BLITZENTLADUNG", timer: 90 };
@@ -6472,7 +6474,7 @@ export default function Game() {
         let hit = false;
         bulletsRef.current = bulletsRef.current.filter(b => {
           if (!b.fromPlayer || hit) return true;
-          if (b.isPoisonMissile && b.missileTarget !== e) return true;
+          if ((b.isPoisonMissile || b.weaponId === "fire_sword_lightning") && b.missileTarget !== e) return true;
           if (b.hitTargets?.has(e)) return true;
           const bw = b.collisionWidth ?? 14;
           const bh = b.collisionHeight ?? (b.isMissile ? 8 : 4);
