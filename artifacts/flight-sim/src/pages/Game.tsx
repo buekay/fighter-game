@@ -1,3 +1,4 @@
+import { claimLightningTargets } from "../fire-sword-chain";
 import { interceptProjectiles, type InterceptableProjectile } from "../projectile-defense";
 import { BOSS_SEQUENCE, BOSS_NAMES, CITY_WEAPONS, encounterHealth, encounterComplete, type EncounterKind } from "../boss-encounters";
 import { drawEncounterBoss, drawFortressCity } from "../rendering/encounter-bosses";
@@ -131,6 +132,7 @@ interface Bullet extends InterceptableProjectile {
   collisionHeight?: number;
   meleeRange?: number;
   hitTargets?: Set<Enemy>;
+  lightningTargets?: Set<Enemy>;
 }
 
 interface Enemy {
@@ -160,6 +162,7 @@ interface Enemy {
   tieDodgeDir?: number;
   shieldHp?: number;
   ultimateFreezeTimer?: number;
+  lightningFrozenUntilMs?: number;
   ultimateSlowTimer?: number;
   ultimateDotTimer?: number;
   poisonTimer?: number;
@@ -652,7 +655,7 @@ const WEAPONS: readonly WeaponDefinition[] = [
   { id: "omega_prism", name: "Omega-Prisma", icon: "✺", description: "Ultimate Energiestreuer mit sieben Strahlen.", rarity: "ultimate", cost: 9_000, currency: "gems", pattern: "spread", guns: 7, damage: 8, fireRate: 175, color: "#f9a8d4" },
   { id: "celestial_storm", name: "Himmelssturm", icon: "✹", description: "Neun Energielanzen füllen den gesamten Feuerkorridor.", rarity: "ultimate", cost: 1_000_000, currency: "credits", pattern: "spread", guns: 9, damage: 9, fireRate: 165, color: "#f0abfc" },
   { id: "solar_glaive", name: "Solar-Gleve", icon: "◒", description: "Eine gewaltige Lichtklinge mit der größten Nahkampfreichweite.", rarity: "ultimate", cost: 11_000, currency: "gems", pattern: "melee", guns: 1, damage: 55, fireRate: 860, color: "#fde047", meleeRange: 150 },
-  { id: "fire_sword", name: "Feuerschwert", icon: "🔥", description: "Extrem starke Ultimate-Klinge. Entlädt alle 10 Sekunden gelbe Blitze auf alle Gegner im großen Umkreis von 300 Pixeln.", rarity: "ultimate", cost: 15_000, currency: "gems", pattern: "melee", guns: 1, damage: 80, fireRate: 780, color: "#ffd21f", meleeRange: 160, lightningRange: 300, lightningIntervalMs: 10_000, lightningDamageMultiplier: .75 },
+  { id: "fire_sword", name: "Feuerschwert", icon: "🔥", description: "Extrem starke Ultimate-Klinge. Entlädt alle 10 Sekunden gelbe Blitze auf alle Gegner im Umkreis von 300 Pixeln. Treffer frieren Gegner 1 Sekunde ein und springen auf Gegner innerhalb von 100 Pixeln über.", rarity: "ultimate", cost: 1_000_000, currency: "credits", pattern: "melee", guns: 1, damage: 80, fireRate: 780, color: "#ffd21f", meleeRange: 160, lightningRange: 300, lightningIntervalMs: 10_000, lightningDamageMultiplier: .75 },
   { id: "apocalypse_swarm", name: "Apokalypse-Schwarm", icon: "♨", description: "Ultimate Lenkraketen suchen selbstständig neue Ziele.", rarity: "ultimate", cost: 1_250_000, currency: "credits", pattern: "missile", guns: 5, damage: 13, fireRate: 205, color: "#fde047" },
 ] as const;
 const WEAPON_KEY = "fighter-command-weapons";
@@ -3390,6 +3393,7 @@ export default function Game() {
   const lastWingmanFireRef = useRef(0);
   const lastMissileRef = useRef(0);
   const nextFireSwordLightningRef = useRef(10_000);
+  const lightningJumpsRef = useRef<FireSwordLightning[]>([]);
   const fireSwordLightningRef = useRef<FireSwordLightning | null>(null);
   const playerRef = useRef({ x: 60, y: CANVAS_H / 2 - PLAYER_H / 2 });
   const bulletsRef = useRef<Bullet[]>([]);
@@ -4325,6 +4329,7 @@ export default function Game() {
     lastMissileRef.current = 0;
     nextFireSwordLightningRef.current = 10_000;
     fireSwordLightningRef.current = null;
+    lightningJumpsRef.current = [];
     shieldTimerRef.current = 0;
     invincibleRef.current = 0;
     movementStunRef.current = 0;
@@ -5191,6 +5196,7 @@ export default function Game() {
           targets: targets.map(enemy => ({ x: enemy.x + enemy.width / 2, y: enemy.y + enemy.height / 2 })),
           remainingMs: FIRE_SWORD_LIGHTNING_DURATION_MS,
         };
+        const lightningTargets = new Set(targets);
         targets.forEach(enemy => {
           const targetX = enemy.x + enemy.width / 2;
           const targetY = enemy.y + enemy.height / 2;
@@ -5204,6 +5210,7 @@ export default function Game() {
             damage: lightningDamage,
             color: "#ffe13b",
             weaponId: "fire_sword_lightning",
+            lightningTargets,
             isMissile: true,
             missileTarget: enemy,
             // Allow enough travel time to reach distant, moving targets.
@@ -5710,6 +5717,7 @@ export default function Game() {
         audioRef.current.effect("boss", settingsRef.current.soundVolume);
       }
 
+      const pendingLightningJumps: Bullet[] = [];
       enemiesRef.current = enemiesRef.current.filter(e => {
         if (e.dead) return false;
 
@@ -5723,32 +5731,560 @@ export default function Game() {
           return e.x + e.width > 0 && e.y + e.height > 0 && e.y < CANVAS_H;
         }
 
-        if (e.type === "titan") {
-          e.titanShieldTimer = Math.max(0, (e.titanShieldTimer ?? 0) - dtScale);
-          e.titanShieldCooldown = (e.titanShieldCooldown ?? TITAN_SHIELD_COOLDOWN) - dtScale;
-          if (e.titanShieldCooldown <= 0) {
-            e.titanShieldTimer = TITAN_SHIELD_DURATION;
-            e.titanShieldCooldown = TITAN_SHIELD_COOLDOWN;
-          }
-          e.titanHealTimer = (e.titanHealTimer ?? 60) - dtScale;
-          while (e.titanHealTimer <= 0) {
-            e.hp = Math.min(e.maxHp, e.hp + 1);
-            e.titanHealTimer += 60;
-          }
-          e.titanDashCooldown = (e.titanDashCooldown ?? TITAN_DASH_COOLDOWN) - dtScale;
-          if ((e.titanDashWarningTimer ?? 0) > 0) {
-            e.titanDashWarningTimer = Math.max(0, (e.titanDashWarningTimer ?? 0) - dtScale);
-            e.titanLaserDamageTimer = (e.titanLaserDamageTimer ?? TITAN_LASER_DAMAGE_INTERVAL) - dtScale;
+        const lightningFrozen = (e.lightningFrozenUntilMs ?? 0) > runElapsedMsRef.current;
+        if (!lightningFrozen) {
+          if (e.type === "titan") {
+            e.titanShieldTimer = Math.max(0, (e.titanShieldTimer ?? 0) - dtScale);
+            e.titanShieldCooldown = (e.titanShieldCooldown ?? TITAN_SHIELD_COOLDOWN) - dtScale;
+            if (e.titanShieldCooldown <= 0) {
+              e.titanShieldTimer = TITAN_SHIELD_DURATION;
+              e.titanShieldCooldown = TITAN_SHIELD_COOLDOWN;
+            }
+            e.titanHealTimer = (e.titanHealTimer ?? 60) - dtScale;
+            while (e.titanHealTimer <= 0) {
+              e.hp = Math.min(e.maxHp, e.hp + 1);
+              e.titanHealTimer += 60;
+            }
+            e.titanDashCooldown = (e.titanDashCooldown ?? TITAN_DASH_COOLDOWN) - dtScale;
+            if ((e.titanDashWarningTimer ?? 0) > 0) {
+              e.titanDashWarningTimer = Math.max(0, (e.titanDashWarningTimer ?? 0) - dtScale);
+              e.titanLaserDamageTimer = (e.titanLaserDamageTimer ?? TITAN_LASER_DAMAGE_INTERVAL) - dtScale;
 
-            const beamY = e.y + e.height / 2 - TITAN_LASER_BEAM_WIDTH / 2;
-            const playerTouchesLaser = rectHit(
-              playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H,
-              0, beamY, e.x + 22, TITAN_LASER_BEAM_WIDTH,
+              const beamY = e.y + e.height / 2 - TITAN_LASER_BEAM_WIDTH / 2;
+              const playerTouchesLaser = rectHit(
+                playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H,
+                0, beamY, e.x + 22, TITAN_LASER_BEAM_WIDTH,
+              );
+              while ((e.titanLaserDamageTimer ?? 0) <= 0) {
+                e.titanLaserDamageTimer = (e.titanLaserDamageTimer ?? 0) + TITAN_LASER_DAMAGE_INTERVAL;
+                if (!playerTouchesLaser || ultimateActiveRef.current > 0) continue;
+
+                const protection = applyPlayerHitProtection({
+                  shieldTimer: shieldTimerRef.current,
+                  shieldHp: playerShieldHpRef.current,
+                  invincibleTimer: invincibleRef.current,
+                  stealthTimer: stealthActiveRef.current,
+                });
+                shieldTimerRef.current = protection.shieldTimer;
+                playerShieldHpRef.current = protection.shieldHp;
+                if (!protection.protected) {
+                  const titanLaserDamage = applyGravityDefense(TITAN_LASER_DAMAGE, e);
+                  recordPlayerDamage(titanLaserDamage);
+                  const nextLifeState = applyPlayerDamage(gs, titanLaserDamage);
+                  gs.hp = nextLifeState.hp;
+                  gs.lives = nextLifeState.lives;
+                  gs.gameOver = nextLifeState.gameOver;
+                  floatingTextsRef.current.push({
+                    x: playerRef.current.x + PLAYER_W / 2,
+                    y: playerRef.current.y,
+                    text: `-${titanLaserDamage} TITAN-LASER`,
+                    color: "#ff3344",
+                    life: 55,
+                    maxLife: 55,
+                  });
+                  spawnExplosion(particlesRef.current, playerRef.current.x + PLAYER_W / 2,
+                    playerRef.current.y + PLAYER_H / 2, false);
+                  audioRef.current.effect("hit", settingsRef.current.soundVolume);
+                  if (gs.gameOver) grantRunReward();
+                  syncDisplay();
+                }
+              }
+
+              if (e.titanDashWarningTimer <= 0) {
+                e.titanDashTimer = 180;
+                e.titanDashHomeX = e.x;
+                e.titanDashHomeY = e.y;
+                e.titanDashStageX = clamp(playerRef.current.x + 245, CANVAS_W * .45, CANVAS_W - e.width - 12);
+                e.titanDashTargetX = Math.max(-e.width - 15, playerRef.current.x - e.width - 40);
+                e.titanDashTargetY ??= clamp(playerRef.current.y + PLAYER_H / 2 - e.height / 2, 0, CANVAS_H - e.height);
+                e.titanShieldTimer = Math.max(e.titanShieldTimer ?? 0, 180);
+              }
+            } else if ((e.titanDashTimer ?? 0) <= 0) {
+              if (e.titanDashCooldown <= 0) {
+                e.titanDashCooldown = TITAN_DASH_COOLDOWN;
+                e.titanDashTargetY = clamp(playerRef.current.y + PLAYER_H / 2 - e.height / 2, 28, CANVAS_H - e.height - 28);
+                e.vx = 0; e.vy = 0;
+                e.titanDashWarningTimer = TITAN_DASH_WARNING_DURATION;
+                e.titanLaserDamageTimer = TITAN_LASER_DAMAGE_INTERVAL;
+              }
+            } else {
+              e.titanDashTimer = Math.max(0, (e.titanDashTimer ?? 0) - dtScale);
+            }
+          }
+          if ((e.poisonTimer ?? 0) > 0 && !isTitanInvulnerable(e)) {
+            e.poisonTickTimer = (e.poisonTickTimer ?? POISON_TICK_INTERVAL) - dtScale;
+            while (e.poisonTickTimer <= 0) {
+              const hpBeforePoison = e.hp;
+              e.hp -= POISON_TICK_DAMAGE;
+              runStatsRef.current.damageDealt += Math.min(POISON_TICK_DAMAGE, Math.max(0, hpBeforePoison));
+              e.poisonTickTimer += POISON_TICK_INTERVAL;
+            }
+            e.poisonTimer = Math.max(0, (e.poisonTimer ?? 0) - dtScale);
+            if (e.hp <= 0) {
+              spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
+              gs.score += e.points;
+              registerKill(e);
+              e.dead = true;
+              audioRef.current.effect("explosion", settingsRef.current.soundVolume);
+              syncDisplay();
+              return false;
+            }
+          }
+          // From level 10 onward, a boss that survives for 20 seconds evolves.
+          if (e.type === "boss" && !e.encounterKind && gs.level >= 10) {
+            e.bossAge = (e.bossAge ?? 0) + dtScale;
+            if (e.bossAge >= 1200) {
+              const centerX = e.x + e.width / 2;
+              const centerY = e.y + e.height / 2;
+              const bonusHp = Math.round(e.maxHp * .5);
+              e.type = "overlord";
+              e.width = OVERLORD_WIDTH; e.height = OVERLORD_HEIGHT;
+              e.x = centerX - e.width / 2; e.y = centerY - e.height / 2;
+              e.maxHp += bonusHp; e.hp += bonusHp;
+              e.points *= 2;
+              e.color = "#ff4fc8";
+              e.shootCooldown = 20;
+              e.specialAttackTimer = 150;
+              spawnExplosion(particlesRef.current, centerX, centerY, true);
+              audioRef.current.effect("boss", settingsRef.current.soundVolume);
+            }
+          }
+          if (ultimaActiveRef.current > 0 && !isTitanInvulnerable(e)) {
+            const hpBeforeUltimate = e.hp;
+            const blackHoleActive = aircraftUltiIds.has("galaxy") || aircraftUltiIds.has("n1");
+            if (blackHoleActive) {
+              const targetX = CANVAS_W * .58;
+              const targetY = CANVAS_H * .5;
+              e.x += (targetX - (e.x + e.width / 2)) * .012 * dtScale;
+              e.y += (targetY - (e.y + e.height / 2)) * .012 * dtScale;
+              e.hp -= .10 * dtScale;
+            }
+            if (aircraftUltiIds.has("voidreaper")) e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimaActiveRef.current);
+            if (aircraftUltiIds.has("arctic")) e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
+            if (aircraftUltiIds.has("fire")) e.hp -= .11 * dtScale;
+            if (aircraftUltiIds.has("neon")) e.hp -= .14 * dtScale;
+            if (aircraftUltiIds.has("lava")) e.hp -= .18 * dtScale;
+            if (aircraftUltiIds.has("shadow") && ultimaActiveRef.current < 3) e.hp -= 14;
+            if (droneUltiIds.has("drone_ember")) e.hp -= .08 * dtScale;
+            if (droneUltiIds.has("drone_ion")) e.hp -= .10 * dtScale;
+            if (droneUltiIds.has("drone_frost")) e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
+            if (droneUltiIds.has("drone_omega")) e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
+            if (droneUltiIds.has("drone_venom")) {
+              e.poisonTimer = Math.max(e.poisonTimer ?? 0, ultimaActiveRef.current);
+              e.poisonTickTimer = Math.min(e.poisonTickTimer ?? POISON_TICK_INTERVAL, POISON_TICK_INTERVAL);
+            }
+            if (droneUltiIds.has("drone_nova")) e.hp -= .14 * dtScale;
+            runStatsRef.current.damageDealt += Math.min(
+              Math.max(0, hpBeforeUltimate),
+              Math.max(0, hpBeforeUltimate - e.hp),
             );
-            while ((e.titanLaserDamageTimer ?? 0) <= 0) {
-              e.titanLaserDamageTimer = (e.titanLaserDamageTimer ?? 0) + TITAN_LASER_DAMAGE_INTERVAL;
-              if (!playerTouchesLaser || ultimateActiveRef.current > 0) continue;
+            if (e.hp <= 0) {
+              spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
+              gs.score += e.points * (aircraftUltiIds.has("gold") ? 2 : 1);
+              registerKill(e);
+              e.dead = true;
+              audioRef.current.effect("explosion", settingsRef.current.soundVolume);
+              syncDisplay();
+              return false;
+            }
+          }
+          if (gravityActiveRef.current > 0 && !isBossEnemy(e)) {
+            const targetX = playerRef.current.x + PLAYER_W / 2;
+            const targetY = playerRef.current.y + PLAYER_H / 2;
+            e.x += (targetX - (e.x + e.width / 2)) * GRAVITY_PULL_STRENGTH * dtScale;
+            e.y += (targetY - (e.y + e.height / 2)) * GRAVITY_PULL_STRENGTH * dtScale;
+          }
+          if (ultimateActiveRef.current > 0 && !isTitanInvulnerable(e)) {
+            e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimateActiveRef.current);
+            e.ultimateDotTimer = (e.ultimateDotTimer ?? ULTIMATE_DOT_INTERVAL) - dtScale;
+            if (e.ultimateDotTimer <= 0) {
+              const hpBeforeUltimateDot = e.hp;
+              e.hp -= ULTIMATE_DOT_DAMAGE;
+              runStatsRef.current.damageDealt += Math.min(ULTIMATE_DOT_DAMAGE, Math.max(0, hpBeforeUltimateDot));
+              e.ultimateDotTimer += ULTIMATE_DOT_INTERVAL;
+              spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
+              if (e.hp <= 0) {
+                gs.score += e.points * (ultimaActiveRef.current > 0 && aircraftUltiIds.has("gold") ? 2 : 1);
+                registerKill(e);
+                e.dead = true;
+                audioRef.current.effect("explosion", settingsRef.current.soundVolume);
+                syncDisplay();
+                return false;
+              }
+            }
+          }
+          e.ultimateFreezeTimer = Math.max(0, (e.ultimateFreezeTimer ?? 0) - dtScale);
+          e.ultimateSlowTimer = Math.max(0, (e.ultimateSlowTimer ?? 0) - dtScale);
+          const statusSpeed = ((e.ultimateFreezeTimer ?? 0) > 0 ? 0 : (e.ultimateSlowTimer ?? 0) > 0 ? ULTIMATE_SLOW_FACTOR : 1) *
+            (e.bossEngineDisabled ? .62 : 1);
+          if (e.isGolden) {
+            e.goldenTimer = Math.max(0, (e.goldenTimer ?? 600) - dtScale);
+            if (e.goldenTimer <= 0) e.vx = -8;
+          }
+          if ((e.archetype === "healer" || e.archetype === "shield") && (e.ultimateFreezeTimer ?? 0) <= 0) {
+            e.supportCooldown = (e.supportCooldown ?? 120) - dtScale;
+            if (e.supportCooldown <= 0) {
+              const nearbyAllies = enemiesRef.current.filter(ally =>
+                ally !== e && !ally.dead && ally.hp > 0 && isEnemyVisible(ally) && !isBossEnemy(ally) &&
+                Math.hypot(ally.x - e.x, ally.y - e.y) <= 210,
+              );
+              if (e.archetype === "healer") {
+                const target = nearbyAllies
+                  .filter(ally => ally.hp < ally.maxHp)
+                  .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+                if (target) {
+                  const restored = Math.max(1, Math.ceil(target.maxHp * .18));
+                  target.hp = Math.min(target.maxHp, target.hp + restored);
+                  floatingTextsRef.current.push({
+                    x: target.x + target.width / 2, y: target.y,
+                    text: `+${restored}`, color: "#55ff9a", life: 48, maxLife: 48,
+                  });
+                  spawnExplosion(particlesRef.current, target.x + target.width / 2, target.y + target.height / 2, false);
+                }
+                e.supportCooldown = 150;
+              } else {
+                const targets = nearbyAllies
+                  .filter(ally => (ally.shieldHp ?? 0) < 2)
+                  .sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y))
+                  .slice(0, 3);
+                targets.forEach(target => {
+                  target.shieldHp = Math.max(target.shieldHp ?? 0, 2);
+                  floatingTextsRef.current.push({
+                    x: target.x + target.width / 2, y: target.y,
+                    text: "SCHILD", color: "#58d8ff", life: 48, maxLife: 48,
+                  });
+                });
+                e.supportCooldown = 180;
+              }
+            }
+          }
+          if (e.archetype === "kamikaze" && !e.trackPlayerRam &&
+              e.x < CANVAS_W * .78 && Math.abs((e.y + e.height / 2) - (playerRef.current.y + PLAYER_H / 2)) < 170) {
+            e.trackPlayerRam = true;
+            waveBannerRef.current = { text: "⚠ KAMIKAZE IM ANFLUG", timer: 55 };
+            audioRef.current.tone(190, .12, settingsRef.current.soundVolume * .4, "sawtooth");
+          }
+          if (e.trackPlayerRam) {
+            const dx = playerRef.current.x + PLAYER_W / 2 - (e.x + e.width / 2);
+            const dy = playerRef.current.y + PLAYER_H / 2 - (e.y + e.height / 2);
+            const distance = Math.max(1, Math.hypot(dx, dy));
+            e.vx = dx / distance * 13;
+            e.vy = dy / distance * 13;
+          }
+          const mutatorEnemySpeed = activeMutatorRef.current.enemySpeedMultiplier;
+          e.x += e.vx * dtScale * statusSpeed * mutatorEnemySpeed;
+          e.y += e.vy * dtScale * statusSpeed * mutatorEnemySpeed;
+          if (e.oscillate) e.y += Math.sin(timeRef.current * 0.04) * Math.abs(e.oscillate) * 0.8 * dtScale * statusSpeed;
+          e.y = clamp(e.y, 0, CANVAS_H - e.height);
+          if (e.type === "laserdevice") {
+            const centerX = CANVAS_W / 2 - e.width / 2;
+            if (e.x <= centerX) {
+              e.x = centerX;
+              e.y = CANVAS_H / 2 - e.height / 2;
+              e.vx = 0;
+              e.vy = 0;
+            }
+          }
 
+          // Boss movement
+          if (e.encounterKind && e.encounterKind !== "titan") {
+            const slot = e.citySlot ?? 0;
+            e.x = e.encounterKind === "city" ? CANVAS_W - 270 + (slot % 2) * 130 : CANVAS_W - e.width - 35;
+            if (e.encounterKind === "city") {
+              e.y = 100 + Math.floor(slot / 2) * ((CANVAS_H - 240) / 2);
+              e.vy = 0;
+            } else if ((e.ultimateFreezeTimer ?? 0) <= 0) {
+              const speed = e.encounterKind === "spider" ? 2.6 : e.encounterKind === "submarine" ? 1.6 : .8;
+              e.vy = Math.sin(timeRef.current * .018) * speed;
+            }
+            e.vx = 0;
+          }
+          if (isBossEnemy(e) && (!e.encounterKind || e.encounterKind === "titan")) {
+            if (e.type !== "titan") e.vx = Math.sin(timeRef.current * 0.02) * -1.2;
+            if (e.x > CANVAS_W - e.width - 10) e.x = CANVAS_W - e.width - 10;
+            if (e.x < CANVAS_W * 0.5) e.x = CANVAS_W * 0.5;
+
+            if (e.type === "titan" && (e.titanDashTimer ?? 0) > 0) {
+              const remaining = e.titanDashTimer ?? 0;
+              const homeX = e.titanDashHomeX ?? e.x;
+              const homeY = e.titanDashHomeY ?? e.y;
+              const stageX = e.titanDashStageX ?? homeX;
+              const strikeX = e.titanDashTargetX ?? playerRef.current.x - e.width;
+              const targetY = e.titanDashTargetY ?? e.y;
+              if (remaining > 120) {
+                const progress = (180 - remaining) / 60;
+                e.x = homeX + (stageX - homeX) * progress;
+                e.y = homeY + (targetY - homeY) * progress;
+              } else if (remaining > 75) {
+                const progress = (120 - remaining) / 45;
+                e.x = stageX + (strikeX - stageX) * progress;
+                e.y = targetY;
+              } else {
+                const progress = (75 - remaining) / 75;
+                e.x = strikeX + (homeX - strikeX) * progress;
+                e.y = targetY + (homeY - targetY) * progress;
+              }
+            }
+
+            // Titan and Overlord track the target, estimate its vertical movement and
+            // evade player projectiles that are on course to intersect their hull.
+            const isAdvancedBoss = e.type === "overlord" || e.type === "titan";
+            if (e.type === "titan" && (e.titanDashTimer ?? 0) <= 0) {
+              if ((e.titanDashWarningTimer ?? 0) > 0) {
+                e.vx = 0; e.vy = 0;
+              } else {
+                const target = getEnemyAttackTarget(activeModeRef.current,
+                  { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                  { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT });
+                const measured = (target.y - (e.bossTrackedTargetY ?? target.y)) / Math.max(dtScale, .25);
+                e.bossTargetVelocityY = (e.bossTargetVelocityY ?? 0) * .85 + measured * .15;
+                e.bossTrackedTargetY = target.y;
+                const steering = steerTitan(e, target, e.bossTargetVelocityY, e.hp / e.maxHp,
+                  bulletsRef.current, dtScale, CANVAS_W, CANVAS_H, e.titanTactics);
+                e.titanTactics = steering.state;
+                const response = 1 - Math.exp(-dtScale * .12);
+                e.vx += (steering.vx - e.vx) * response;
+                e.vy += (steering.vy - e.vy) * response;
+              }
+            } else if (e.type === "overlord" && (e.titanDashTimer ?? 0) <= 0) {
+              const attackTarget = getEnemyAttackTarget(
+                activeModeRef.current,
+                { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
+              );
+              const previousTargetY = e.bossTrackedTargetY ?? attackTarget.y;
+              const measuredVelocity = (attackTarget.y - previousTargetY) / Math.max(dtScale, .25);
+              e.bossTargetVelocityY = (e.bossTargetVelocityY ?? 0) * .78 + measuredVelocity * .22;
+              e.bossTrackedTargetY = attackTarget.y;
+
+              const centerY = e.y + e.height / 2;
+              const phaseSpeed = getBossPhase(e.hp, e.maxHp) === 3 ? 4.2 : 3.7;
+              let desiredVy = clamp((attackTarget.y - centerY) * .045, -phaseSpeed, phaseSpeed);
+              const incomingThreat = bulletsRef.current
+                .filter(bullet => bullet.fromPlayer && bullet.vx > .5 && bullet.x < e.x + e.width / 2)
+                .map(bullet => {
+                  const framesToBoss = (e.x - bullet.x) / bullet.vx;
+                  return { bullet, framesToBoss, predictedY: bullet.y + bullet.vy * framesToBoss };
+                })
+                .filter(threat => threat.framesToBoss > 0 && threat.framesToBoss < 42 &&
+                  Math.abs(threat.predictedY - centerY) < e.height / 2 + 22)
+                .sort((a, b) => a.framesToBoss - b.framesToBoss)[0];
+              if (incomingThreat) {
+                desiredVy = incomingThreat.predictedY >= centerY ? -phaseSpeed : phaseSpeed;
+                if (centerY < e.height * .62) desiredVy = phaseSpeed;
+                if (centerY > CANVAS_H - e.height * .62) desiredVy = -phaseSpeed;
+              }
+              e.vy += (desiredVy - e.vy) * Math.min(1, .2 * dtScale);
+            // Other bosses retain their less sophisticated periodic dodge.
+            } else if (gs.level >= 10 && !isAdvancedBoss) {
+              e.bossVyTimer = (e.bossVyTimer ?? 0) + dtScale;
+              if (e.bossVyTimer >= 240) {
+                e.bossVyTimer = 0;
+                e.bossVyDir = Math.random() > 0.5 ? 1 : -1;
+              }
+              const dodgeDecay = Math.max(0, 1 - e.bossVyTimer / 90);
+              e.vy = (e.bossVyDir ?? 0) * 2.2 * dodgeDecay;
+            }
+            // Three phases: movement and attacks intensify below 60% and 30% HP.
+            const phase = getBossPhase(e.hp, e.maxHp);
+            if ((e.bossPhase ?? 1) !== phase) {
+              e.bossPhase = phase;
+              e.phaseTelegraphTimer = 105;
+              waveBannerRef.current = {
+                text: phase === 3 ? "⚠ BOSS-PHASE 3 · VERZWEIFLUNGSANGRIFF" : "⚠ BOSS-PHASE 2 · MUSTERWECHSEL",
+                timer: 120,
+              };
+              screenShakeRef.current = Math.max(screenShakeRef.current, 8);
+              audioRef.current.effect("boss", settingsRef.current.soundVolume);
+            }
+            e.phaseTelegraphTimer = Math.max(0, (e.phaseTelegraphTimer ?? 0) - dtScale);
+            e.color = e.type === "titan"
+              ? (phase === 3 ? "#fff36a" : phase === 2 ? "#45f6ff" : "#ff3fd2")
+              : e.type === "overlord"
+              ? (phase === 3 ? "#ffffff" : phase === 2 ? "#6fe9ff" : "#ff4fc8")
+              : (phase === 3 ? "#ff3300" : phase === 2 ? "#ff00aa" : e.color);
+            if (phase >= 2 && e.type !== "titan") e.vy += Math.sin(timeRef.current * .055) * (phase === 3 ? 1.7 : .9);
+
+            // Homing missile every 8 s (level 10+)
+            if (gs.level >= 10) {
+              e.missileTimer = (e.missileTimer ?? 480) - dtScale;
+              if (e.missileTimer <= 0) {
+                e.missileTimer = 480;
+                bulletsRef.current.push({
+                  x: e.x, y: e.y + e.height / 2,
+                  vx: -4, vy: 0,
+                  fromPlayer: false,
+                  damage: 2,
+                  isMissile: true,
+                  trackPlayer: true,
+                  lifetime: 720,
+                  sourceEnemy: e,
+                });
+              }
+            }
+
+            // Overlord special: a telegraphed radial plasma burst every 3 seconds.
+            if ((e.type === "overlord" || e.type === "titan") && (e.ultimateFreezeTimer ?? 0) <= 0) {
+              e.specialAttackTimer = (e.specialAttackTimer ?? 180) - dtScale;
+              if (e.specialAttackTimer <= 0) {
+                e.specialAttackTimer = 180;
+                const { x: px, y: py } = getEnemyAttackTarget(
+                  activeModeRef.current,
+                  { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                  { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
+                );
+                const originX = e.x + 12;
+                const originY = e.y + e.height / 2;
+                const aim = Math.atan2(py - originY, px - originX);
+                for (let s = -3; s <= 3; s++) {
+                  const angle = aim + s * .19;
+                  bulletsRef.current.push({
+                    x: originX, y: originY,
+                    vx: Math.cos(angle) * 5.2, vy: Math.sin(angle) * 5.2,
+                    fromPlayer: false, damage: 3,
+                    color: s === 0 ? "#ffffff" : e.type === "titan" ? e.color : "#ff4fc8",
+                    lifetime: 300,
+                    sourceEnemy: e,
+                  });
+                }
+                spawnExplosion(particlesRef.current, originX, originY, false);
+              }
+            }
+          }
+
+          // Fighter dodge (level 8+, every 5s = 300 frames)
+          if (e.type === "fighter" && gs.level >= 8) {
+            e.fighterDodgeTimer = (e.fighterDodgeTimer ?? 0) + dtScale;
+            if (e.fighterDodgeTimer >= 300) {
+              e.fighterDodgeTimer = 0;
+              e.fighterDodgeDir = Math.random() > 0.5 ? 1 : -1;
+            }
+            const fDecay = Math.max(0, 1 - (e.fighterDodgeTimer % 300) / 90);
+            e.vy = (e.fighterDodgeDir ?? 0) * 2.5 * fDecay;
+          }
+          // TIE Fighter dodge (every 1.5s = 90 frames)
+          if (e.type === "tiefighter" || e.type === "emeraldtiefighter") {
+            e.tieDodgeTimer = (e.tieDodgeTimer ?? 0) + dtScale;
+            if (e.tieDodgeTimer >= 90) {
+              e.tieDodgeTimer = 0;
+              e.tieDodgeDir = Math.random() > 0.5 ? 1 : -1;
+            }
+            const tDecay = Math.max(0, 1 - (e.tieDodgeTimer % 90) / 45);
+            e.vy = (e.tieDodgeDir ?? 0) * 3.5 * tDecay;
+          }
+
+          if ((e.ultimateKnockbackTimer ?? 0) > 0) {
+            e.x += (e.ultimateKnockbackVx ?? 0) * dtScale;
+            e.y += (e.ultimateKnockbackVy ?? 0) * dtScale;
+            const decay = Math.pow(0.88, dtScale);
+            e.ultimateKnockbackVx = (e.ultimateKnockbackVx ?? 0) * decay;
+            e.ultimateKnockbackVy = (e.ultimateKnockbackVy ?? 0) * decay;
+            e.ultimateKnockbackTimer = Math.max(0, (e.ultimateKnockbackTimer ?? 0) - dtScale);
+            e.y = clamp(e.y, 0, CANVAS_H - e.height);
+          }
+
+          // Off screen left
+          if (e.x + e.width < -20 && !isEnemyReturningToPlayfield(e)) return false;
+
+          // Enemy shooting
+          if (e.type !== "laserdevice" && (e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;
+          if (e.type !== "laserdevice" && e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
+            const bossPhase = isBossEnemy(e) ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
+            const biomeFireCooldown = getBiomeEnemyDefinition(e.biomeEnemyId)?.fireCooldown;
+            const baseCooldown = e.type === "overlord" || e.type === "titan" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : biomeFireCooldown ? rand(biomeFireCooldown[0], biomeFireCooldown[1]) : rand(70, 120);
+            e.shootCooldown = baseCooldown * (e.bossCannonsDisabled ? 1.8 : 1) *
+              (e.eliteModifier === "frenzied" ? .55 : 1);
+            if (e.encounterKind && e.encounterKind !== "titan") {
+              const weapon = e.encounterKind === "city" ? CITY_WEAPONS[e.citySlot ?? 0] : e.encounterKind === "submarine" ? "rocket" : e.encounterKind === "spider" ? "web" : "cannon";
+              const flame = weapon === "flame";
+              const count = flame ? 5 : weapon === "web" ? 9 : weapon === "rocket" ? 2 : 3;
+              e.shootCooldown = (flame ? 7 : weapon === "rocket" ? 120 : weapon === "web" ? 65 : 85) / (1 + (bossPhase - 1) * .2);
+              const aim = Math.atan2(playerRef.current.y + PLAYER_H / 2 - (e.y + e.height / 2), playerRef.current.x + PLAYER_W / 2 - e.x);
+              for (let shot = 0; shot < count; shot++) {
+                const angle = aim + (shot - (count - 1) / 2) * (flame ? .10 : weapon === "web" ? .18 : .13);
+                const speed = flame ? 7 : weapon === "cannon" ? 6 : 3.8;
+                bulletsRef.current.push({ x: e.x, y: e.y + e.height / 2,
+                  vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                  fromPlayer: false, damage: flame ? 1 : weapon === "cannon" ? 4 : 3,
+                  color: flame ? (shot % 2 ? "#ff5500" : "#ffcc33") : e.color,
+                  lifetime: flame ? 48 : 260, isFlame: flame, isMissile: weapon === "rocket", trackPlayer: weapon === "rocket",
+                  collisionWidth: flame ? 18 : 10, collisionHeight: flame ? 18 : 10, sourceEnemy: e,
+                });
+              }
+            } else if (e.type === "tiefighter" || e.type === "emeraldtiefighter" || e.type === "plasmawing") {
+              // Aimed enemies attack the package in protect mode and the player otherwise.
+              const { x: px, y: py } = getEnemyAttackTarget(
+                activeModeRef.current,
+                { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
+              );
+              const dx = px - e.x; const dy = py - (e.y + e.height / 2);
+              const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+              const spd2 = ENEMY_BULLET_SPEED * (e.type === "plasmawing" ? 1.8 : 1.4);
+              bulletsRef.current.push({
+                x: e.x, y: e.y + e.height / 2,
+                vx: dx / d * spd2, vy: dy / d * spd2,
+                fromPlayer: false, damage: e.type === "plasmawing" ? 1 : 2,
+                color: e.type === "plasmawing" ? "#cc55ff" : e.type === "emeraldtiefighter" ? "#ff8fda" : undefined,
+                stunFrames: e.type === "emeraldtiefighter" ? 120 : undefined,
+                sourceEnemy: e,
+              });
+            } else {
+              const originX = e.x;
+              const originY = e.y + e.height / 2;
+              const tacticalTarget = (e.type === "overlord" || e.type === "titan" || activeModeRef.current === "protect")
+                ? getEnemyAttackTarget(
+                    activeModeRef.current,
+                    { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                    { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
+                  )
+                : null;
+              const predictedTargetY = tacticalTarget && (e.type === "overlord" || e.type === "titan")
+                ? clamp(tacticalTarget.y + (e.bossTargetVelocityY ?? 0) * 16, 0, CANVAS_H)
+                : tacticalTarget?.y;
+              const aim = tacticalTarget
+                ? Math.atan2((predictedTargetY ?? tacticalTarget.y) - originY, tacticalTarget.x - originX)
+                : Math.PI;
+              const shotCount = isBossEnemy(e)
+                ? Math.max(1, (bossPhase === 3 ? 7 : bossPhase === 2 ? 5 : 3) - (e.bossCannonsDisabled ? 2 : 0))
+                : e.type === "bomber" ? 2 : 1;
+              for (let s = 0; s < shotCount; s++) {
+                const spread = (s - (shotCount - 1) / 2) * 0.25;
+                const projectileSpeed = ENEMY_BULLET_SPEED + (isBossEnemy(e) ? 1 : 0);
+                const vx = tacticalTarget
+                  ? Math.cos(aim + spread) * projectileSpeed
+                  : -projectileSpeed;
+                const vy = tacticalTarget
+                  ? Math.sin(aim + spread) * projectileSpeed
+                  : spread * ENEMY_BULLET_SPEED;
+                bulletsRef.current.push({
+                  x: originX, y: originY,
+                  vx,
+                  vy,
+                  fromPlayer: false,
+                  damage: isBossEnemy(e) ? 3 : 2,
+                  normalBossProjectile: e.type === "boss",
+                  color: e.type === "titan" ? e.color : e.type === "overlord" ? "#6fe9ff" : e.type === "boss" && bossPhase === 3 ? "#ff3300" : undefined,
+                  sourceEnemy: e,
+                });
+              }
+            }
+          }
+
+          // The laser device stays active from the moment it enters the battlefield.
+          if (e.type === "laserdevice") {
+            drawLaserDeviceBeam(ctx, e, timeRef.current);
+            const beamX = e.x + e.width / 2 - LASER_DEVICE_BEAM_WIDTH / 2;
+            const playerTouchesUpperBeam = rectHit(
+              playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H,
+              beamX, 0, LASER_DEVICE_BEAM_WIDTH, e.y,
+            );
+            const playerTouchesLowerBeam = rectHit(
+              playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H,
+              beamX, e.y + e.height, LASER_DEVICE_BEAM_WIDTH, CANVAS_H - e.y - e.height,
+            );
+            if ((playerTouchesUpperBeam || playerTouchesLowerBeam) &&
+                invincibleRef.current <= 0 && stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0) {
               const protection = applyPlayerHitProtection({
                 shieldTimer: shieldTimerRef.current,
                 shieldHp: playerShieldHpRef.current,
@@ -5757,556 +6293,32 @@ export default function Game() {
               });
               shieldTimerRef.current = protection.shieldTimer;
               playerShieldHpRef.current = protection.shieldHp;
+              invincibleRef.current = protection.protected ? 90 : 140;
+              spawnExplosion(
+                particlesRef.current,
+                playerRef.current.x + PLAYER_W / 2,
+                playerRef.current.y + PLAYER_H / 2,
+                !protection.protected,
+              );
+              audioRef.current.effect("hit", settingsRef.current.soundVolume);
               if (!protection.protected) {
-                const titanLaserDamage = applyGravityDefense(TITAN_LASER_DAMAGE, e);
-                recordPlayerDamage(titanLaserDamage);
-                const nextLifeState = applyPlayerDamage(gs, titanLaserDamage);
+                const laserDamage = applyGravityDefense(
+                  LASER_DEVICE_DAMAGE * Math.pow(.85, routeModifiersRef.current.reactive_armor),
+                  e,
+                );
+                recordPlayerDamage(laserDamage);
+                const nextLifeState = applyPlayerDamage(gs, laserDamage);
                 gs.hp = nextLifeState.hp;
                 gs.lives = nextLifeState.lives;
                 gs.gameOver = nextLifeState.gameOver;
-                floatingTextsRef.current.push({
-                  x: playerRef.current.x + PLAYER_W / 2,
-                  y: playerRef.current.y,
-                  text: `-${titanLaserDamage} TITAN-LASER`,
-                  color: "#ff3344",
-                  life: 55,
-                  maxLife: 55,
-                });
-                spawnExplosion(particlesRef.current, playerRef.current.x + PLAYER_W / 2,
-                  playerRef.current.y + PLAYER_H / 2, false);
-                audioRef.current.effect("hit", settingsRef.current.soundVolume);
                 if (gs.gameOver) grantRunReward();
-                syncDisplay();
               }
-            }
-
-            if (e.titanDashWarningTimer <= 0) {
-              e.titanDashTimer = 180;
-              e.titanDashHomeX = e.x;
-              e.titanDashHomeY = e.y;
-              e.titanDashStageX = clamp(playerRef.current.x + 245, CANVAS_W * .45, CANVAS_W - e.width - 12);
-              e.titanDashTargetX = Math.max(-e.width - 15, playerRef.current.x - e.width - 40);
-              e.titanDashTargetY ??= clamp(playerRef.current.y + PLAYER_H / 2 - e.height / 2, 0, CANVAS_H - e.height);
-              e.titanShieldTimer = Math.max(e.titanShieldTimer ?? 0, 180);
-            }
-          } else if ((e.titanDashTimer ?? 0) <= 0) {
-            if (e.titanDashCooldown <= 0) {
-              e.titanDashCooldown = TITAN_DASH_COOLDOWN;
-              e.titanDashTargetY = clamp(playerRef.current.y + PLAYER_H / 2 - e.height / 2, 28, CANVAS_H - e.height - 28);
-              e.vx = 0; e.vy = 0;
-              e.titanDashWarningTimer = TITAN_DASH_WARNING_DURATION;
-              e.titanLaserDamageTimer = TITAN_LASER_DAMAGE_INTERVAL;
-            }
-          } else {
-            e.titanDashTimer = Math.max(0, (e.titanDashTimer ?? 0) - dtScale);
-          }
-        }
-        if ((e.poisonTimer ?? 0) > 0 && !isTitanInvulnerable(e)) {
-          e.poisonTickTimer = (e.poisonTickTimer ?? POISON_TICK_INTERVAL) - dtScale;
-          while (e.poisonTickTimer <= 0) {
-            const hpBeforePoison = e.hp;
-            e.hp -= POISON_TICK_DAMAGE;
-            runStatsRef.current.damageDealt += Math.min(POISON_TICK_DAMAGE, Math.max(0, hpBeforePoison));
-            e.poisonTickTimer += POISON_TICK_INTERVAL;
-          }
-          e.poisonTimer = Math.max(0, (e.poisonTimer ?? 0) - dtScale);
-          if (e.hp <= 0) {
-            spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
-            gs.score += e.points;
-            registerKill(e);
-            e.dead = true;
-            audioRef.current.effect("explosion", settingsRef.current.soundVolume);
-            syncDisplay();
-            return false;
-          }
-        }
-        // From level 10 onward, a boss that survives for 20 seconds evolves.
-        if (e.type === "boss" && !e.encounterKind && gs.level >= 10) {
-          e.bossAge = (e.bossAge ?? 0) + dtScale;
-          if (e.bossAge >= 1200) {
-            const centerX = e.x + e.width / 2;
-            const centerY = e.y + e.height / 2;
-            const bonusHp = Math.round(e.maxHp * .5);
-            e.type = "overlord";
-            e.width = OVERLORD_WIDTH; e.height = OVERLORD_HEIGHT;
-            e.x = centerX - e.width / 2; e.y = centerY - e.height / 2;
-            e.maxHp += bonusHp; e.hp += bonusHp;
-            e.points *= 2;
-            e.color = "#ff4fc8";
-            e.shootCooldown = 20;
-            e.specialAttackTimer = 150;
-            spawnExplosion(particlesRef.current, centerX, centerY, true);
-            audioRef.current.effect("boss", settingsRef.current.soundVolume);
-          }
-        }
-        if (ultimaActiveRef.current > 0 && !isTitanInvulnerable(e)) {
-          const hpBeforeUltimate = e.hp;
-          const blackHoleActive = aircraftUltiIds.has("galaxy") || aircraftUltiIds.has("n1");
-          if (blackHoleActive) {
-            const targetX = CANVAS_W * .58;
-            const targetY = CANVAS_H * .5;
-            e.x += (targetX - (e.x + e.width / 2)) * .012 * dtScale;
-            e.y += (targetY - (e.y + e.height / 2)) * .012 * dtScale;
-            e.hp -= .10 * dtScale;
-          }
-          if (aircraftUltiIds.has("voidreaper")) e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimaActiveRef.current);
-          if (aircraftUltiIds.has("arctic")) e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
-          if (aircraftUltiIds.has("fire")) e.hp -= .11 * dtScale;
-          if (aircraftUltiIds.has("neon")) e.hp -= .14 * dtScale;
-          if (aircraftUltiIds.has("lava")) e.hp -= .18 * dtScale;
-          if (aircraftUltiIds.has("shadow") && ultimaActiveRef.current < 3) e.hp -= 14;
-          if (droneUltiIds.has("drone_ember")) e.hp -= .08 * dtScale;
-          if (droneUltiIds.has("drone_ion")) e.hp -= .10 * dtScale;
-          if (droneUltiIds.has("drone_frost")) e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
-          if (droneUltiIds.has("drone_omega")) e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
-          if (droneUltiIds.has("drone_venom")) {
-            e.poisonTimer = Math.max(e.poisonTimer ?? 0, ultimaActiveRef.current);
-            e.poisonTickTimer = Math.min(e.poisonTickTimer ?? POISON_TICK_INTERVAL, POISON_TICK_INTERVAL);
-          }
-          if (droneUltiIds.has("drone_nova")) e.hp -= .14 * dtScale;
-          runStatsRef.current.damageDealt += Math.min(
-            Math.max(0, hpBeforeUltimate),
-            Math.max(0, hpBeforeUltimate - e.hp),
-          );
-          if (e.hp <= 0) {
-            spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
-            gs.score += e.points * (aircraftUltiIds.has("gold") ? 2 : 1);
-            registerKill(e);
-            e.dead = true;
-            audioRef.current.effect("explosion", settingsRef.current.soundVolume);
-            syncDisplay();
-            return false;
-          }
-        }
-        if (gravityActiveRef.current > 0 && !isBossEnemy(e)) {
-          const targetX = playerRef.current.x + PLAYER_W / 2;
-          const targetY = playerRef.current.y + PLAYER_H / 2;
-          e.x += (targetX - (e.x + e.width / 2)) * GRAVITY_PULL_STRENGTH * dtScale;
-          e.y += (targetY - (e.y + e.height / 2)) * GRAVITY_PULL_STRENGTH * dtScale;
-        }
-        if (ultimateActiveRef.current > 0 && !isTitanInvulnerable(e)) {
-          e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimateActiveRef.current);
-          e.ultimateDotTimer = (e.ultimateDotTimer ?? ULTIMATE_DOT_INTERVAL) - dtScale;
-          if (e.ultimateDotTimer <= 0) {
-            const hpBeforeUltimateDot = e.hp;
-            e.hp -= ULTIMATE_DOT_DAMAGE;
-            runStatsRef.current.damageDealt += Math.min(ULTIMATE_DOT_DAMAGE, Math.max(0, hpBeforeUltimateDot));
-            e.ultimateDotTimer += ULTIMATE_DOT_INTERVAL;
-            spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
-            if (e.hp <= 0) {
-              gs.score += e.points * (ultimaActiveRef.current > 0 && aircraftUltiIds.has("gold") ? 2 : 1);
-              registerKill(e);
-              e.dead = true;
-              audioRef.current.effect("explosion", settingsRef.current.soundVolume);
               syncDisplay();
-              return false;
             }
           }
-        }
-        e.ultimateFreezeTimer = Math.max(0, (e.ultimateFreezeTimer ?? 0) - dtScale);
-        e.ultimateSlowTimer = Math.max(0, (e.ultimateSlowTimer ?? 0) - dtScale);
-        const statusSpeed = ((e.ultimateFreezeTimer ?? 0) > 0 ? 0 : (e.ultimateSlowTimer ?? 0) > 0 ? ULTIMATE_SLOW_FACTOR : 1) *
-          (e.bossEngineDisabled ? .62 : 1);
-        if (e.isGolden) {
-          e.goldenTimer = Math.max(0, (e.goldenTimer ?? 600) - dtScale);
-          if (e.goldenTimer <= 0) e.vx = -8;
-        }
-        if ((e.archetype === "healer" || e.archetype === "shield") && (e.ultimateFreezeTimer ?? 0) <= 0) {
-          e.supportCooldown = (e.supportCooldown ?? 120) - dtScale;
-          if (e.supportCooldown <= 0) {
-            const nearbyAllies = enemiesRef.current.filter(ally =>
-              ally !== e && !ally.dead && ally.hp > 0 && isEnemyVisible(ally) && !isBossEnemy(ally) &&
-              Math.hypot(ally.x - e.x, ally.y - e.y) <= 210,
-            );
-            if (e.archetype === "healer") {
-              const target = nearbyAllies
-                .filter(ally => ally.hp < ally.maxHp)
-                .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
-              if (target) {
-                const restored = Math.max(1, Math.ceil(target.maxHp * .18));
-                target.hp = Math.min(target.maxHp, target.hp + restored);
-                floatingTextsRef.current.push({
-                  x: target.x + target.width / 2, y: target.y,
-                  text: `+${restored}`, color: "#55ff9a", life: 48, maxLife: 48,
-                });
-                spawnExplosion(particlesRef.current, target.x + target.width / 2, target.y + target.height / 2, false);
-              }
-              e.supportCooldown = 150;
-            } else {
-              const targets = nearbyAllies
-                .filter(ally => (ally.shieldHp ?? 0) < 2)
-                .sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y))
-                .slice(0, 3);
-              targets.forEach(target => {
-                target.shieldHp = Math.max(target.shieldHp ?? 0, 2);
-                floatingTextsRef.current.push({
-                  x: target.x + target.width / 2, y: target.y,
-                  text: "SCHILD", color: "#58d8ff", life: 48, maxLife: 48,
-                });
-              });
-              e.supportCooldown = 180;
-            }
-          }
-        }
-        if (e.archetype === "kamikaze" && !e.trackPlayerRam &&
-            e.x < CANVAS_W * .78 && Math.abs((e.y + e.height / 2) - (playerRef.current.y + PLAYER_H / 2)) < 170) {
-          e.trackPlayerRam = true;
-          waveBannerRef.current = { text: "⚠ KAMIKAZE IM ANFLUG", timer: 55 };
-          audioRef.current.tone(190, .12, settingsRef.current.soundVolume * .4, "sawtooth");
-        }
-        if (e.trackPlayerRam) {
-          const dx = playerRef.current.x + PLAYER_W / 2 - (e.x + e.width / 2);
-          const dy = playerRef.current.y + PLAYER_H / 2 - (e.y + e.height / 2);
-          const distance = Math.max(1, Math.hypot(dx, dy));
-          e.vx = dx / distance * 13;
-          e.vy = dy / distance * 13;
-        }
-        const mutatorEnemySpeed = activeMutatorRef.current.enemySpeedMultiplier;
-        e.x += e.vx * dtScale * statusSpeed * mutatorEnemySpeed;
-        e.y += e.vy * dtScale * statusSpeed * mutatorEnemySpeed;
-        if (e.oscillate) e.y += Math.sin(timeRef.current * 0.04) * Math.abs(e.oscillate) * 0.8 * dtScale * statusSpeed;
-        e.y = clamp(e.y, 0, CANVAS_H - e.height);
-        if (e.type === "laserdevice") {
-          const centerX = CANVAS_W / 2 - e.width / 2;
-          if (e.x <= centerX) {
-            e.x = centerX;
-            e.y = CANVAS_H / 2 - e.height / 2;
-            e.vx = 0;
-            e.vy = 0;
-          }
-        }
+          if (e.dead) return false;
 
-        // Boss movement
-        if (e.encounterKind && e.encounterKind !== "titan") {
-          const slot = e.citySlot ?? 0;
-          e.x = e.encounterKind === "city" ? CANVAS_W - 270 + (slot % 2) * 130 : CANVAS_W - e.width - 35;
-          if (e.encounterKind === "city") {
-            e.y = 100 + Math.floor(slot / 2) * ((CANVAS_H - 240) / 2);
-            e.vy = 0;
-          } else if ((e.ultimateFreezeTimer ?? 0) <= 0) {
-            const speed = e.encounterKind === "spider" ? 2.6 : e.encounterKind === "submarine" ? 1.6 : .8;
-            e.vy = Math.sin(timeRef.current * .018) * speed;
-          }
-          e.vx = 0;
         }
-        if (isBossEnemy(e) && (!e.encounterKind || e.encounterKind === "titan")) {
-          if (e.type !== "titan") e.vx = Math.sin(timeRef.current * 0.02) * -1.2;
-          if (e.x > CANVAS_W - e.width - 10) e.x = CANVAS_W - e.width - 10;
-          if (e.x < CANVAS_W * 0.5) e.x = CANVAS_W * 0.5;
-
-          if (e.type === "titan" && (e.titanDashTimer ?? 0) > 0) {
-            const remaining = e.titanDashTimer ?? 0;
-            const homeX = e.titanDashHomeX ?? e.x;
-            const homeY = e.titanDashHomeY ?? e.y;
-            const stageX = e.titanDashStageX ?? homeX;
-            const strikeX = e.titanDashTargetX ?? playerRef.current.x - e.width;
-            const targetY = e.titanDashTargetY ?? e.y;
-            if (remaining > 120) {
-              const progress = (180 - remaining) / 60;
-              e.x = homeX + (stageX - homeX) * progress;
-              e.y = homeY + (targetY - homeY) * progress;
-            } else if (remaining > 75) {
-              const progress = (120 - remaining) / 45;
-              e.x = stageX + (strikeX - stageX) * progress;
-              e.y = targetY;
-            } else {
-              const progress = (75 - remaining) / 75;
-              e.x = strikeX + (homeX - strikeX) * progress;
-              e.y = targetY + (homeY - targetY) * progress;
-            }
-          }
-
-          // Titan and Overlord track the target, estimate its vertical movement and
-          // evade player projectiles that are on course to intersect their hull.
-          const isAdvancedBoss = e.type === "overlord" || e.type === "titan";
-          if (e.type === "titan" && (e.titanDashTimer ?? 0) <= 0) {
-            if ((e.titanDashWarningTimer ?? 0) > 0) {
-              e.vx = 0; e.vy = 0;
-            } else {
-              const target = getEnemyAttackTarget(activeModeRef.current,
-                { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
-                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT });
-              const measured = (target.y - (e.bossTrackedTargetY ?? target.y)) / Math.max(dtScale, .25);
-              e.bossTargetVelocityY = (e.bossTargetVelocityY ?? 0) * .85 + measured * .15;
-              e.bossTrackedTargetY = target.y;
-              const steering = steerTitan(e, target, e.bossTargetVelocityY, e.hp / e.maxHp,
-                bulletsRef.current, dtScale, CANVAS_W, CANVAS_H, e.titanTactics);
-              e.titanTactics = steering.state;
-              const response = 1 - Math.exp(-dtScale * .12);
-              e.vx += (steering.vx - e.vx) * response;
-              e.vy += (steering.vy - e.vy) * response;
-            }
-          } else if (e.type === "overlord" && (e.titanDashTimer ?? 0) <= 0) {
-            const attackTarget = getEnemyAttackTarget(
-              activeModeRef.current,
-              { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
-              { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
-            );
-            const previousTargetY = e.bossTrackedTargetY ?? attackTarget.y;
-            const measuredVelocity = (attackTarget.y - previousTargetY) / Math.max(dtScale, .25);
-            e.bossTargetVelocityY = (e.bossTargetVelocityY ?? 0) * .78 + measuredVelocity * .22;
-            e.bossTrackedTargetY = attackTarget.y;
-
-            const centerY = e.y + e.height / 2;
-            const phaseSpeed = getBossPhase(e.hp, e.maxHp) === 3 ? 4.2 : 3.7;
-            let desiredVy = clamp((attackTarget.y - centerY) * .045, -phaseSpeed, phaseSpeed);
-            const incomingThreat = bulletsRef.current
-              .filter(bullet => bullet.fromPlayer && bullet.vx > .5 && bullet.x < e.x + e.width / 2)
-              .map(bullet => {
-                const framesToBoss = (e.x - bullet.x) / bullet.vx;
-                return { bullet, framesToBoss, predictedY: bullet.y + bullet.vy * framesToBoss };
-              })
-              .filter(threat => threat.framesToBoss > 0 && threat.framesToBoss < 42 &&
-                Math.abs(threat.predictedY - centerY) < e.height / 2 + 22)
-              .sort((a, b) => a.framesToBoss - b.framesToBoss)[0];
-            if (incomingThreat) {
-              desiredVy = incomingThreat.predictedY >= centerY ? -phaseSpeed : phaseSpeed;
-              if (centerY < e.height * .62) desiredVy = phaseSpeed;
-              if (centerY > CANVAS_H - e.height * .62) desiredVy = -phaseSpeed;
-            }
-            e.vy += (desiredVy - e.vy) * Math.min(1, .2 * dtScale);
-          // Other bosses retain their less sophisticated periodic dodge.
-          } else if (gs.level >= 10 && !isAdvancedBoss) {
-            e.bossVyTimer = (e.bossVyTimer ?? 0) + dtScale;
-            if (e.bossVyTimer >= 240) {
-              e.bossVyTimer = 0;
-              e.bossVyDir = Math.random() > 0.5 ? 1 : -1;
-            }
-            const dodgeDecay = Math.max(0, 1 - e.bossVyTimer / 90);
-            e.vy = (e.bossVyDir ?? 0) * 2.2 * dodgeDecay;
-          }
-          // Three phases: movement and attacks intensify below 60% and 30% HP.
-          const phase = getBossPhase(e.hp, e.maxHp);
-          if ((e.bossPhase ?? 1) !== phase) {
-            e.bossPhase = phase;
-            e.phaseTelegraphTimer = 105;
-            waveBannerRef.current = {
-              text: phase === 3 ? "⚠ BOSS-PHASE 3 · VERZWEIFLUNGSANGRIFF" : "⚠ BOSS-PHASE 2 · MUSTERWECHSEL",
-              timer: 120,
-            };
-            screenShakeRef.current = Math.max(screenShakeRef.current, 8);
-            audioRef.current.effect("boss", settingsRef.current.soundVolume);
-          }
-          e.phaseTelegraphTimer = Math.max(0, (e.phaseTelegraphTimer ?? 0) - dtScale);
-          e.color = e.type === "titan"
-            ? (phase === 3 ? "#fff36a" : phase === 2 ? "#45f6ff" : "#ff3fd2")
-            : e.type === "overlord"
-            ? (phase === 3 ? "#ffffff" : phase === 2 ? "#6fe9ff" : "#ff4fc8")
-            : (phase === 3 ? "#ff3300" : phase === 2 ? "#ff00aa" : e.color);
-          if (phase >= 2 && e.type !== "titan") e.vy += Math.sin(timeRef.current * .055) * (phase === 3 ? 1.7 : .9);
-
-          // Homing missile every 8 s (level 10+)
-          if (gs.level >= 10) {
-            e.missileTimer = (e.missileTimer ?? 480) - dtScale;
-            if (e.missileTimer <= 0) {
-              e.missileTimer = 480;
-              bulletsRef.current.push({
-                x: e.x, y: e.y + e.height / 2,
-                vx: -4, vy: 0,
-                fromPlayer: false,
-                damage: 2,
-                isMissile: true,
-                trackPlayer: true,
-                lifetime: 720,
-                sourceEnemy: e,
-              });
-            }
-          }
-
-          // Overlord special: a telegraphed radial plasma burst every 3 seconds.
-          if ((e.type === "overlord" || e.type === "titan") && (e.ultimateFreezeTimer ?? 0) <= 0) {
-            e.specialAttackTimer = (e.specialAttackTimer ?? 180) - dtScale;
-            if (e.specialAttackTimer <= 0) {
-              e.specialAttackTimer = 180;
-              const { x: px, y: py } = getEnemyAttackTarget(
-                activeModeRef.current,
-                { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
-                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
-              );
-              const originX = e.x + 12;
-              const originY = e.y + e.height / 2;
-              const aim = Math.atan2(py - originY, px - originX);
-              for (let s = -3; s <= 3; s++) {
-                const angle = aim + s * .19;
-                bulletsRef.current.push({
-                  x: originX, y: originY,
-                  vx: Math.cos(angle) * 5.2, vy: Math.sin(angle) * 5.2,
-                  fromPlayer: false, damage: 3,
-                  color: s === 0 ? "#ffffff" : e.type === "titan" ? e.color : "#ff4fc8",
-                  lifetime: 300,
-                  sourceEnemy: e,
-                });
-              }
-              spawnExplosion(particlesRef.current, originX, originY, false);
-            }
-          }
-        }
-
-        // Fighter dodge (level 8+, every 5s = 300 frames)
-        if (e.type === "fighter" && gs.level >= 8) {
-          e.fighterDodgeTimer = (e.fighterDodgeTimer ?? 0) + dtScale;
-          if (e.fighterDodgeTimer >= 300) {
-            e.fighterDodgeTimer = 0;
-            e.fighterDodgeDir = Math.random() > 0.5 ? 1 : -1;
-          }
-          const fDecay = Math.max(0, 1 - (e.fighterDodgeTimer % 300) / 90);
-          e.vy = (e.fighterDodgeDir ?? 0) * 2.5 * fDecay;
-        }
-        // TIE Fighter dodge (every 1.5s = 90 frames)
-        if (e.type === "tiefighter" || e.type === "emeraldtiefighter") {
-          e.tieDodgeTimer = (e.tieDodgeTimer ?? 0) + dtScale;
-          if (e.tieDodgeTimer >= 90) {
-            e.tieDodgeTimer = 0;
-            e.tieDodgeDir = Math.random() > 0.5 ? 1 : -1;
-          }
-          const tDecay = Math.max(0, 1 - (e.tieDodgeTimer % 90) / 45);
-          e.vy = (e.tieDodgeDir ?? 0) * 3.5 * tDecay;
-        }
-
-        if ((e.ultimateKnockbackTimer ?? 0) > 0) {
-          e.x += (e.ultimateKnockbackVx ?? 0) * dtScale;
-          e.y += (e.ultimateKnockbackVy ?? 0) * dtScale;
-          const decay = Math.pow(0.88, dtScale);
-          e.ultimateKnockbackVx = (e.ultimateKnockbackVx ?? 0) * decay;
-          e.ultimateKnockbackVy = (e.ultimateKnockbackVy ?? 0) * decay;
-          e.ultimateKnockbackTimer = Math.max(0, (e.ultimateKnockbackTimer ?? 0) - dtScale);
-          e.y = clamp(e.y, 0, CANVAS_H - e.height);
-        }
-
-        // Off screen left
-        if (e.x + e.width < -20 && !isEnemyReturningToPlayfield(e)) return false;
-
-        // Enemy shooting
-        if (e.type !== "laserdevice" && (e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;
-        if (e.type !== "laserdevice" && e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
-          const bossPhase = isBossEnemy(e) ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
-          const biomeFireCooldown = getBiomeEnemyDefinition(e.biomeEnemyId)?.fireCooldown;
-          const baseCooldown = e.type === "overlord" || e.type === "titan" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : biomeFireCooldown ? rand(biomeFireCooldown[0], biomeFireCooldown[1]) : rand(70, 120);
-          e.shootCooldown = baseCooldown * (e.bossCannonsDisabled ? 1.8 : 1) *
-            (e.eliteModifier === "frenzied" ? .55 : 1);
-          if (e.encounterKind && e.encounterKind !== "titan") {
-            const weapon = e.encounterKind === "city" ? CITY_WEAPONS[e.citySlot ?? 0] : e.encounterKind === "submarine" ? "rocket" : e.encounterKind === "spider" ? "web" : "cannon";
-            const flame = weapon === "flame";
-            const count = flame ? 5 : weapon === "web" ? 9 : weapon === "rocket" ? 2 : 3;
-            e.shootCooldown = (flame ? 7 : weapon === "rocket" ? 120 : weapon === "web" ? 65 : 85) / (1 + (bossPhase - 1) * .2);
-            const aim = Math.atan2(playerRef.current.y + PLAYER_H / 2 - (e.y + e.height / 2), playerRef.current.x + PLAYER_W / 2 - e.x);
-            for (let shot = 0; shot < count; shot++) {
-              const angle = aim + (shot - (count - 1) / 2) * (flame ? .10 : weapon === "web" ? .18 : .13);
-              const speed = flame ? 7 : weapon === "cannon" ? 6 : 3.8;
-              bulletsRef.current.push({ x: e.x, y: e.y + e.height / 2,
-                vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-                fromPlayer: false, damage: flame ? 1 : weapon === "cannon" ? 4 : 3,
-                color: flame ? (shot % 2 ? "#ff5500" : "#ffcc33") : e.color,
-                lifetime: flame ? 48 : 260, isFlame: flame, isMissile: weapon === "rocket", trackPlayer: weapon === "rocket",
-                collisionWidth: flame ? 18 : 10, collisionHeight: flame ? 18 : 10, sourceEnemy: e,
-              });
-            }
-          } else if (e.type === "tiefighter" || e.type === "emeraldtiefighter" || e.type === "plasmawing") {
-            // Aimed enemies attack the package in protect mode and the player otherwise.
-            const { x: px, y: py } = getEnemyAttackTarget(
-              activeModeRef.current,
-              { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
-              { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
-            );
-            const dx = px - e.x; const dy = py - (e.y + e.height / 2);
-            const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-            const spd2 = ENEMY_BULLET_SPEED * (e.type === "plasmawing" ? 1.8 : 1.4);
-            bulletsRef.current.push({
-              x: e.x, y: e.y + e.height / 2,
-              vx: dx / d * spd2, vy: dy / d * spd2,
-              fromPlayer: false, damage: e.type === "plasmawing" ? 1 : 2,
-              color: e.type === "plasmawing" ? "#cc55ff" : e.type === "emeraldtiefighter" ? "#ff8fda" : undefined,
-              stunFrames: e.type === "emeraldtiefighter" ? 120 : undefined,
-              sourceEnemy: e,
-            });
-          } else {
-            const originX = e.x;
-            const originY = e.y + e.height / 2;
-            const tacticalTarget = (e.type === "overlord" || e.type === "titan" || activeModeRef.current === "protect")
-              ? getEnemyAttackTarget(
-                  activeModeRef.current,
-                  { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
-                  { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
-                )
-              : null;
-            const predictedTargetY = tacticalTarget && (e.type === "overlord" || e.type === "titan")
-              ? clamp(tacticalTarget.y + (e.bossTargetVelocityY ?? 0) * 16, 0, CANVAS_H)
-              : tacticalTarget?.y;
-            const aim = tacticalTarget
-              ? Math.atan2((predictedTargetY ?? tacticalTarget.y) - originY, tacticalTarget.x - originX)
-              : Math.PI;
-            const shotCount = isBossEnemy(e)
-              ? Math.max(1, (bossPhase === 3 ? 7 : bossPhase === 2 ? 5 : 3) - (e.bossCannonsDisabled ? 2 : 0))
-              : e.type === "bomber" ? 2 : 1;
-            for (let s = 0; s < shotCount; s++) {
-              const spread = (s - (shotCount - 1) / 2) * 0.25;
-              const projectileSpeed = ENEMY_BULLET_SPEED + (isBossEnemy(e) ? 1 : 0);
-              const vx = tacticalTarget
-                ? Math.cos(aim + spread) * projectileSpeed
-                : -projectileSpeed;
-              const vy = tacticalTarget
-                ? Math.sin(aim + spread) * projectileSpeed
-                : spread * ENEMY_BULLET_SPEED;
-              bulletsRef.current.push({
-                x: originX, y: originY,
-                vx,
-                vy,
-                fromPlayer: false,
-                damage: isBossEnemy(e) ? 3 : 2,
-                normalBossProjectile: e.type === "boss",
-                color: e.type === "titan" ? e.color : e.type === "overlord" ? "#6fe9ff" : e.type === "boss" && bossPhase === 3 ? "#ff3300" : undefined,
-                sourceEnemy: e,
-              });
-            }
-          }
-        }
-
-        // The laser device stays active from the moment it enters the battlefield.
-        if (e.type === "laserdevice") {
-          drawLaserDeviceBeam(ctx, e, timeRef.current);
-          const beamX = e.x + e.width / 2 - LASER_DEVICE_BEAM_WIDTH / 2;
-          const playerTouchesUpperBeam = rectHit(
-            playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H,
-            beamX, 0, LASER_DEVICE_BEAM_WIDTH, e.y,
-          );
-          const playerTouchesLowerBeam = rectHit(
-            playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H,
-            beamX, e.y + e.height, LASER_DEVICE_BEAM_WIDTH, CANVAS_H - e.y - e.height,
-          );
-          if ((playerTouchesUpperBeam || playerTouchesLowerBeam) &&
-              invincibleRef.current <= 0 && stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0) {
-            const protection = applyPlayerHitProtection({
-              shieldTimer: shieldTimerRef.current,
-              shieldHp: playerShieldHpRef.current,
-              invincibleTimer: invincibleRef.current,
-              stealthTimer: stealthActiveRef.current,
-            });
-            shieldTimerRef.current = protection.shieldTimer;
-            playerShieldHpRef.current = protection.shieldHp;
-            invincibleRef.current = protection.protected ? 90 : 140;
-            spawnExplosion(
-              particlesRef.current,
-              playerRef.current.x + PLAYER_W / 2,
-              playerRef.current.y + PLAYER_H / 2,
-              !protection.protected,
-            );
-            audioRef.current.effect("hit", settingsRef.current.soundVolume);
-            if (!protection.protected) {
-              const laserDamage = applyGravityDefense(
-                LASER_DEVICE_DAMAGE * Math.pow(.85, routeModifiersRef.current.reactive_armor),
-                e,
-              );
-              recordPlayerDamage(laserDamage);
-              const nextLifeState = applyPlayerDamage(gs, laserDamage);
-              gs.hp = nextLifeState.hp;
-              gs.lives = nextLifeState.lives;
-              gs.gameOver = nextLifeState.gameOver;
-              if (gs.gameOver) grantRunReward();
-            }
-            syncDisplay();
-          }
-        }
-        if (e.dead) return false;
 
         // Draw enemy
         if (e.type === "titan" && (e.titanDashWarningTimer ?? 0) > 0) {
@@ -6344,7 +6356,15 @@ export default function Game() {
           ctx.restore();
         }
         if (getBiomeForLevel(gs.level).id !== "space") drawFlightShadow(ctx, e.x, e.y, e.width, e.height);
+        ctx.save();
+        if (lightningFrozen && (settingsRef.current.reducedMotion ||
+            Math.floor(((e.lightningFrozenUntilMs ?? 0) - runElapsedMsRef.current) / 125) % 2 === 0)) {
+          ctx.filter = "brightness(1.8) sepia(1) saturate(8)";
+          ctx.shadowColor = "#ffe13b";
+          ctx.shadowBlur = 20;
+        }
         drawEnemy(ctx, e, visualQuality.economical, settingsRef.current.reducedMotion);
+        ctx.restore();
         if (e.isGolden) {
           ctx.save();
           ctx.textAlign = "center";
@@ -6550,6 +6570,27 @@ export default function Game() {
             color: damageResult.absorbedByShield ? "#66ddff" : critical ? "#ffe45c" : weakpointMultiplier > 1 ? "#ff6688" : "#ffffff",
             life: 34, maxLife: 34,
           });
+          if (b.weaponId === "fire_sword_lightning") {
+            e.lightningFrozenUntilMs = runElapsedMsRef.current + 1000;
+            const visited = b.lightningTargets ?? new Set<Enemy>([e]);
+            const nearby = claimLightningTargets(e, enemiesRef.current.filter(isEnemyVisible), visited);
+            for (const target of nearby) {
+              const targetX = target.x + target.width / 2;
+              const targetY = target.y + target.height / 2;
+              // Queue outside filter() so new chain hits are not discarded.
+              pendingLightningJumps.push({
+                x: targetX, y: targetY, vx: 0, vy: 0,
+                fromPlayer: true, damage: b.damage, color: "#ffe13b",
+                weaponId: "fire_sword_lightning", isMissile: true, missileTarget: target,
+                lightningTargets: visited, lifetime: 90,
+              });
+              lightningJumpsRef.current.push({
+                x: e.x + e.width / 2, y: e.y + e.height / 2, range: 0,
+                targets: [{ x: targetX, y: targetY }],
+                remainingMs: FIRE_SWORD_LIGHTNING_DURATION_MS,
+              });
+            }
+          }
           if (routeModifiersRef.current.cryo_rounds > 0 && Math.random() < Math.min(.5, routeModifiersRef.current.cryo_rounds * .18)) {
             e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, 90);
           }
@@ -6631,6 +6672,8 @@ export default function Game() {
         });
         return !e.dead;
       });
+
+      bulletsRef.current.push(...pendingLightningJumps);
 
       // ── Bullet-player collision ──
       bulletsRef.current = bulletsRef.current.filter(b => {
@@ -7095,6 +7138,11 @@ export default function Game() {
       ctx.restore();
 
       // Draw above combatants so nearby enemies cannot cover the discharge.
+      lightningJumpsRef.current = lightningJumpsRef.current.filter(effect => {
+        drawFireSwordLightning(ctx, effect, reducedMotion);
+        effect.remainingMs -= dt;
+        return effect.remainingMs > 0;
+      });
       const swordLightning = fireSwordLightningRef.current;
       if (swordLightning) {
         drawFireSwordLightning(ctx, swordLightning, reducedMotion);
