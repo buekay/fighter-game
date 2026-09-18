@@ -3933,7 +3933,7 @@ export default function Game() {
 
   const spawnBossFightTitan = useCallback((bossNumber: number) => {
     const power = Math.max(1, Math.min(BOSS_FIGHT_TITAN_COUNT, bossNumber));
-    const hp = increasedBossHealth(120 + power * 45);
+    const hp = increasedBossHealth(120 + power * 45) * 3;
     const width = TITAN_WIDTH;
     const height = TITAN_HEIGHT;
     titanWarningRef.current = 180;
