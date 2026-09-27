@@ -1,9 +1,22 @@
 import assert from "node:assert/strict";
 import { BOSS_SEQUENCE, BOSS_DIMENSIONS, cityMountPosition } from "./boss-encounters";
 import { createBossSpecial, advanceBossSpecial, SPECIAL_NAMES, SPECIAL_WARNING_FRAMES } from "./boss-specials";
+import { BOSS_SHOT_COLORS, createBossGunfire } from "./boss-gunfire";
 
 const mounts = [{ x: 550, y: 200 }, { x: 730, y: 420 }];
 const target = { x: 150, y: 300 };
+assert.equal(new Set(Object.values(BOSS_SHOT_COLORS)).size, BOSS_SEQUENCE.length);
+for (const kind of ["tank", "spider", "submarine", "city"] as const) {
+  const shots = createBossGunfire(kind, mounts[0], target, 0);
+  assert.equal(shots.length, { tank: 1, spider: 3, submarine: 2, city: 1 }[kind]);
+  for (const shot of shots) {
+    assert.equal(shot.color, BOSS_SHOT_COLORS[kind]);
+    assert.ok(shot.vx < 0, "Basic guns must aim toward the target");
+    assert.ok([shot.x, shot.y, shot.vx, shot.vy].every(Number.isFinite));
+  }
+}
+assert.notDeepEqual(createBossGunfire("city", mounts[0], target, 0),
+  createBossGunfire("city", mounts[0], target, 1), "City guns sweep between volleys");
 for (const kind of BOSS_SEQUENCE) {
   assert.equal(new Set(SPECIAL_NAMES[kind]).size, 3);
   const state = createBossSpecial(kind);

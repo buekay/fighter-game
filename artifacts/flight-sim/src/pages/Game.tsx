@@ -1,4 +1,5 @@
 import { advanceBossSpecial, createBossSpecial, type BossSpecialState } from "../boss-specials";
+import { BOSS_SHOT_COLORS, BOSS_GUN_INTERVAL, createBossGunfire } from "../boss-gunfire";
 import { claimLightningTargets } from "../fire-sword-chain";
 import { interceptProjectiles, type InterceptableProjectile } from "../projectile-defense";
 import { BOSS_SEQUENCE, BOSS_NAMES, CITY_WEAPONS, BOSS_DIMENSIONS, cityMountPosition, getBossForLevel, getEncounterProgressionLevel, encounterHealth, encounterComplete, type EncounterKind } from "../boss-encounters";
@@ -146,6 +147,8 @@ interface Enemy {
   killRegistered?: boolean;
   biomeEnemyId?: string;
   shootCooldown: number;
+  bossGunCooldown?: number;
+  bossGunVolley?: number;
   points: number;
   color: string;
   angle: number;
@@ -6231,10 +6234,24 @@ export default function Game() {
           // Off screen left
           if (e.x + e.width < -20 && !isEnemyReturningToPlayfield(e)) return false;
 
+          // Basic boss guns keep firing alongside rockets, webs, flames and specials.
+          if (e.encounterKind && e.encounterKind !== "titan" && (e.ultimateFreezeTimer ?? 0) <= 0) {
+            e.bossGunCooldown = (e.bossGunCooldown ?? 0) - dtScale;
+            if (e.bossGunCooldown <= 0) {
+              const target = getEnemyAttackTarget(activeModeRef.current,
+                { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT });
+              const shots = createBossGunfire(e.encounterKind,
+                { x: e.x, y: e.y + e.height / 2 }, target, e.bossGunVolley ?? 0);
+              bulletsRef.current.push(...shots.map(shot => ({ ...shot, sourceEnemy: e })));
+              e.bossGunVolley = (e.bossGunVolley ?? 0) + 1;
+              e.bossGunCooldown += BOSS_GUN_INTERVAL[e.encounterKind];
+            }
+          }
+
           // Enemy shooting
           if (e.type !== "laserdevice" && (e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;
-          if (e.type !== "laserdevice" && e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0 &&
-              (!e.encounterKind || e.encounterKind === "titan" || bossSpecialRef.current?.stage === "cooldown")) {
+          if (e.type !== "laserdevice" && e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
             const bossPhase = isBossEnemy(e) ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
             const biomeFireCooldown = getBiomeEnemyDefinition(e.biomeEnemyId)?.fireCooldown;
             const baseCooldown = e.type === "overlord" || e.type === "titan" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : biomeFireCooldown ? rand(biomeFireCooldown[0], biomeFireCooldown[1]) : rand(70, 120);
@@ -6310,7 +6327,7 @@ export default function Game() {
                   fromPlayer: false,
                   damage: isBossEnemy(e) ? 3 : 2,
                   normalBossProjectile: e.type === "boss",
-                  color: e.type === "titan" ? e.color : e.type === "overlord" ? "#6fe9ff" : e.type === "boss" && bossPhase === 3 ? "#ff3300" : undefined,
+                  color: e.type === "titan" ? BOSS_SHOT_COLORS.titan : e.type === "overlord" ? "#6fe9ff" : e.type === "boss" ? "#ff3300" : undefined,
                   sourceEnemy: e,
                 });
               }
