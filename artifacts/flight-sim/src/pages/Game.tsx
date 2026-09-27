@@ -7128,12 +7128,16 @@ export default function Game() {
         clone.melee = Math.max(0, clone.melee - dtScale);
         clone.fire -= dtScale;
         const cx = clone.x + PLAYER_W / 2, cy = clone.y + PLAYER_H / 2;
-        ctx.save(); ctx.shadowColor = "#00aaff"; ctx.shadowBlur = 18;
+        ctx.save(); ctx.shadowColor = "#00aaff"; ctx.shadowBlur = 24; ctx.lineCap = "round";
         for (const e of targets) {
           const ex = e.x + e.width / 2, ey = e.y + e.height / 2;
-          ctx.strokeStyle = "#168bff"; ctx.lineWidth = 7;
-          ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ex, ey); ctx.stroke();
-          ctx.strokeStyle = "#b9f3ff"; ctx.lineWidth = 2; ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ex, ey);
+          ctx.strokeStyle = "#0757c488"; ctx.lineWidth = 26; ctx.stroke();
+          ctx.strokeStyle = "#168bff"; ctx.lineWidth = 16; ctx.stroke();
+          ctx.strokeStyle = "#7de7ff"; ctx.lineWidth = 9; ctx.stroke();
+          ctx.strokeStyle = "#effcff"; ctx.lineWidth = 4; ctx.stroke();
+          ctx.fillStyle = "#b9f3ff";
+          ctx.beginPath(); ctx.arc(ex, ey, 10, 0, Math.PI * 2); ctx.fill();
           damageCloneTarget(e, skyLaserDamage(dtScale));
         }
         const meleeTarget = clone.target;
@@ -7143,8 +7147,18 @@ export default function Game() {
           clone.target = targets[(index + 1) % targets.length];
           clone.travel = 60;
         }
-        ctx.strokeStyle = "#7dd3fc"; ctx.lineWidth = 5;
-        ctx.beginPath(); ctx.arc(cx, cy, 65, timeRef.current * .15, timeRef.current * .15 + Math.PI); ctx.stroke();
+        const bladeAngle = settingsRef.current.reducedMotion ? 0 : timeRef.current * .15;
+        ctx.beginPath(); ctx.arc(cx, cy, 65, bladeAngle, bladeAngle + Math.PI * 1.25);
+        ctx.strokeStyle = "#0757c488"; ctx.lineWidth = 28; ctx.stroke();
+        ctx.strokeStyle = "#168bff"; ctx.lineWidth = 18; ctx.stroke();
+        ctx.strokeStyle = "#7dd3fc"; ctx.lineWidth = 11; ctx.stroke();
+        ctx.strokeStyle = "#f0fcff"; ctx.lineWidth = 4; ctx.stroke();
+        if (clone.melee > 45) {
+          ctx.globalAlpha = (clone.melee - 45) / 15;
+          ctx.strokeStyle = "#b9f3ff"; ctx.lineWidth = 7;
+          ctx.beginPath(); ctx.arc(cx, cy, 65 + (60 - clone.melee) * 1.5, 0, Math.PI * 2); ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
         if (clone.fire <= 0) {
           clone.fire += 180;
           const strongest = strongestSkyTarget(targets);
@@ -7161,8 +7175,16 @@ export default function Game() {
           const distance = Math.hypot(dx, dy), step = 14 * dtScale;
           if (distance <= step + 12) { damageCloneTarget(ball.target, 300); return false; }
           ball.x += dx / distance * step; ball.y += dy / distance * step;
-          ctx.fillStyle = "#168bff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 13, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = "#e0f7ff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 6, 0, Math.PI * 2); ctx.fill();
+          // A broad flame tail and bright core keep the homing fireball distinct from the beams.
+          const tailX = ball.x - dx / distance * 65, tailY = ball.y - dy / distance * 65;
+          const flame = ctx.createLinearGradient(tailX, tailY, ball.x, ball.y);
+          flame.addColorStop(0, "#168bff00"); flame.addColorStop(.55, "#168bffbb"); flame.addColorStop(1, "#7de7ff");
+          ctx.strokeStyle = flame; ctx.lineWidth = 30;
+          ctx.beginPath(); ctx.moveTo(tailX, tailY); ctx.lineTo(ball.x, ball.y); ctx.stroke();
+          ctx.fillStyle = "#0757c477"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 30, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#168bff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 23, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#7de7ff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 16, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#f0fcff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 9, 0, Math.PI * 2); ctx.fill();
           return true;
         });
         drawPlayerJet(ctx, clone.x, clone.y, gs.weaponTier, false, JET_SKINS.find(skin => skin.id === "ultimate")!, undefined, aircraftUpgradeRef.current.level);
