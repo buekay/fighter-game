@@ -42,7 +42,6 @@ import {
   getModeCoinMultiplier,
   getNormalBossDamage,
   getPilotLevelForScore,
-  getLevelThreshold,
   HEAL_ULTI_RESTORE,
   isBossEligibleLevel,
   isLaserDeviceEligibleLevel,
@@ -1307,6 +1306,23 @@ interface HangarSlot {
 }
 const HANGAR_SLOTS_KEY = "fighter-command-hangar-slots";
 const ACTIVE_HANGAR_KEY = "fighter-command-active-hangar";
+const HANGAR_OWNERSHIP_KEY = "fighter-command-hangar-ownership";
+const HANGAR_UNLOCK_KEY = "fighter-command-hangar-unlocked";
+const HANGAR_PRICES = [0, 50_000, 100_000, 200_000] as const;
+function loadUnlockedHangars(): number {
+  return Math.max(1, Math.min(4, Math.floor(Number(readStoredText(HANGAR_UNLOCK_KEY)) || 1)));
+}
+function isHangarEquipment(id: string): boolean {
+  return JET_SKINS.some(item => item.id === id) || DRONE_SKINS.some(item => item.id === id)
+    || id.startsWith("weapon_") || id.startsWith("drone_weapon_") || id.startsWith("weapon_crate_");
+}
+function loadHangarOwnership(): string[][] {
+  const saved = readStoredJson(HANGAR_OWNERSHIP_KEY, null);
+  if (Array.isArray(saved)) return Array.from({ length: 4 }, (_, index) =>
+    Array.isArray(saved[index]) ? saved[index].filter((id): id is string => typeof id === "string" && isHangarEquipment(id)) : []);
+  const legacy = loadStringArray(UNLOCKS_KEY).filter(isHangarEquipment);
+  return [legacy, [], [], []];
+}
 function currentHangarSlot(level = 1): HangarSlot {
   return { skin: loadSkin(), droneSkin: loadDroneSkin(), aircraftBuild: loadAircraftBuild(),
     hybridActive: loadHybridActive(), droneBuild: loadDroneBuild(), droneRole: loadDroneRole(),
@@ -1319,7 +1335,10 @@ function loadHangarSlots(): HangarSlot[] {
   const fallback = currentHangarSlot();
   return Array.from({ length: 4 }, (_, index) => {
     const slot = Array.isArray(saved) && isRecord(saved[index]) ? saved[index] : null;
-    if (!slot) return index === 0 ? fallback : { ...fallback, weapons: [...fallback.weapons],
+    if (!slot) return index === 0 ? fallback : { ...fallback, skin: JET_SKINS[0].id,
+      droneSkin: DRONE_SKINS[0].id, aircraftBuild: { wing: "balanced", engine: "ion", bodySkin: JET_SKINS[0].id, wingSkin: JET_SKINS[0].id, engineSkin: JET_SKINS[0].id },
+      hybridActive: false, droneBuild: { bodySkin: DRONE_SKINS[0].id, coreSkin: DRONE_SKINS[0].id, weaponSkin: DRONE_SKINS[0].id },
+      droneWeapon: DRONE_WEAPONS[0].id, weaponCrate: WEAPON_CRATES[0].id, weapons: [WEAPONS[0].id],
       aircraftLevels: {}, droneLevels: {}, weaponLevels: {}, level: 1 };
     return {
       ...fallback, ...slot,
@@ -1331,7 +1350,7 @@ function loadHangarSlots(): HangarSlot[] {
   });
 }
 function loadActiveHangar(): number {
-  return Math.max(0, Math.min(3, Math.floor(Number(readStoredText(ACTIVE_HANGAR_KEY)) || 0)));
+  return Math.max(0, Math.min(loadUnlockedHangars() - 1, Math.floor(Number(readStoredText(ACTIVE_HANGAR_KEY)) || 0)));
 }
 function loadWeaponCrate(): string {
   try {
@@ -1340,8 +1359,20 @@ function loadWeaponCrate(): string {
     return crate && (crate.cost === 0 || loadUnlocks().includes(`weapon_crate_${crate.id}`)) ? crate.id : WEAPON_CRATES[0].id;
   } catch { return WEAPON_CRATES[0].id; }
 }
-function addUnlock(id: string)    { const u = loadUnlocks(); if (!u.includes(id)) writeStoredJson(UNLOCKS_KEY, [...u, id]); }
-function loadUnlocks(): string[]  { return loadStringArray(UNLOCKS_KEY); }
+function addUnlock(id: string) {
+  if (isHangarEquipment(id)) {
+    const owned = loadHangarOwnership();
+    const index = loadActiveHangar();
+    if (!owned[index].includes(id)) owned[index].push(id);
+    writeStoredJson(HANGAR_OWNERSHIP_KEY, owned);
+  } else {
+    const owned = loadStringArray(UNLOCKS_KEY);
+    if (!owned.includes(id)) writeStoredJson(UNLOCKS_KEY, [...owned, id]);
+  }
+}
+function loadUnlocks(): string[] {
+  return [...loadStringArray(UNLOCKS_KEY).filter(id => !isHangarEquipment(id)), ...loadHangarOwnership()[loadActiveHangar()]];
+}
 function loadAircraftLevels(): Record<string, number> {
   try {
     const saved = readStoredJson(AIRCRAFT_LEVELS_KEY, {});
@@ -1358,7 +1389,7 @@ function loadDroneLevels(): Record<string, number> {
   } catch { return {}; }
 }
 function saveDroneLevels(levels: Record<string, number>) { writeStoredJson(DRONE_LEVELS_KEY, levels); }
-function unlockAll()              { const all = [...JET_SKINS.map(s => s.id), ...DRONE_SKINS.map(s => s.id), ...WEAPONS.filter(weapon => weapon.cost > 0).map(weapon => `weapon_${weapon.id}`), ...DRONE_WEAPONS.filter(weapon => weapon.cost > 0).map(weapon => `drone_weapon_${weapon.id}`), ...WEAPON_CRATES.filter(crate => crate.cost > 0).map(crate => `weapon_crate_${crate.id}`), ...SHOP_ITEMS.map(i => i.id)]; writeStoredJson(UNLOCKS_KEY, all); }
+function unlockAll()              { const all = [...JET_SKINS.map(s => s.id), ...DRONE_SKINS.map(s => s.id), ...WEAPONS.filter(weapon => weapon.cost > 0).map(weapon => `weapon_${weapon.id}`), ...DRONE_WEAPONS.filter(weapon => weapon.cost > 0).map(weapon => `drone_weapon_${weapon.id}`), ...WEAPON_CRATES.filter(crate => crate.cost > 0).map(crate => `weapon_crate_${crate.id}`), ...SHOP_ITEMS.map(i => i.id)]; writeStoredJson(UNLOCKS_KEY, all.filter(id => !isHangarEquipment(id))); const owned = loadHangarOwnership(); owned[loadActiveHangar()] = all.filter(isHangarEquipment); writeStoredJson(HANGAR_OWNERSHIP_KEY, owned); }
 function saveName(n: string)      { writeStoredText(NAME_KEY, n); }
 function loadName(): string       { return readStoredText(NAME_KEY) ?? "Pilot"; }
 function loadPilotKills(): number { return Math.max(0, Number(readStoredText(PILOT_KILLS_KEY)) || 0); }
@@ -3569,6 +3600,7 @@ export default function Game() {
   const [selectedWeapons, setSelectedWeapons] = useState<string[]>(() => loadWeapons());
   const [hangarSlots, setHangarSlots] = useState<HangarSlot[]>(() => loadHangarSlots());
   const [activeHangar, setActiveHangar] = useState(() => loadActiveHangar());
+  const [unlockedHangars, setUnlockedHangars] = useState(() => loadUnlockedHangars());
   const [weaponLevels, setWeaponLevels] = useState<Record<string, number>>(() => loadWeaponLevels());
   const [aircraftLevels, setAircraftLevels] = useState<Record<string, number>>(() => loadAircraftLevels());
   const [droneLevels, setDroneLevels] = useState<Record<string, number>>(() => loadDroneLevels());
@@ -7563,27 +7595,29 @@ export default function Game() {
     aircraftLevels, droneLevels, weaponLevels]);
 
   const selectHangar = (index: number) => {
-    if (index === activeHangar || index < 0 || index > 3) return;
+    if (index === activeHangar || index < 0 || index >= loadUnlockedHangars()) return;
     const slot = hangarSlots[index];
-    const skin = JET_SKINS.find(item => item.id === slot.skin) ?? JET_SKINS[0];
-    const drone = DRONE_SKINS.find(item => item.id === slot.droneSkin) ?? DRONE_SKINS[0];
+    writeStoredText(ACTIVE_HANGAR_KEY, String(index));
+    const owned = loadUnlocks();
+    const skin = JET_SKINS.find(item => item.id === slot.skin && (item.cost === 0 || owned.includes(item.id))) ?? JET_SKINS[0];
+    const drone = DRONE_SKINS.find(item => item.id === slot.droneSkin && (item.cost === 0 || owned.includes(item.id))) ?? DRONE_SKINS[0];
     const weapons = slot.weapons.filter(id => {
       const weapon = WEAPONS.find(item => item.id === id);
-      return weapon && (weapon.cost === 0 || loadUnlocks().includes(`weapon_${id}`));
+      return weapon && (weapon.cost === 0 || owned.includes(`weapon_${id}`));
     });
     const safeWeapons = weapons.length ? weapons : [WEAPONS[0].id];
     setActiveHangar(index);
-    writeStoredText(ACTIVE_HANGAR_KEY, String(index));
+    setUnlockedItems(owned);
     setSelectedSkin(skin.id); saveSkin(skin.id); activeSkinRef.current = skin; activeUltiSkinRef.current = skin;
     setSelectedDroneSkin(drone.id); saveDroneSkin(drone.id); activeDroneSkinRef.current = drone;
     setAircraftBuild(slot.aircraftBuild); saveAircraftBuild(slot.aircraftBuild); aircraftBuildRef.current = slot.aircraftBuild;
     setHybridActive(slot.hybridActive); saveHybridActive(slot.hybridActive); hybridActiveRef.current = slot.hybridActive;
     setDroneBuild(slot.droneBuild); saveDroneBuild(slot.droneBuild); droneBuildRef.current = slot.droneBuild;
     setDroneRole(slot.droneRole); saveDroneRole(slot.droneRole); droneRoleRef.current = slot.droneRole;
-    setSelectedDroneWeapon(slot.droneWeapon); saveDroneWeapon(slot.droneWeapon);
-    droneWeaponRef.current = DRONE_WEAPONS.find(item => item.id === slot.droneWeapon) ?? DRONE_WEAPONS[0];
-    setSelectedWeaponCrate(slot.weaponCrate); saveWeaponCrate(slot.weaponCrate);
-    weaponCrateRef.current = WEAPON_CRATES.find(item => item.id === slot.weaponCrate) ?? WEAPON_CRATES[0];
+    const droneWeapon = DRONE_WEAPONS.find(item => item.id === slot.droneWeapon && (item.cost === 0 || owned.includes(`drone_weapon_${item.id}`))) ?? DRONE_WEAPONS[0];
+    setSelectedDroneWeapon(droneWeapon.id); saveDroneWeapon(droneWeapon.id); droneWeaponRef.current = droneWeapon;
+    const crate = WEAPON_CRATES.find(item => item.id === slot.weaponCrate && (item.cost === 0 || owned.includes(`weapon_crate_${item.id}`))) ?? WEAPON_CRATES[0];
+    setSelectedWeaponCrate(crate.id); saveWeaponCrate(crate.id); weaponCrateRef.current = crate;
     setSelectedWeapons(safeWeapons); saveWeapons(safeWeapons);
     activeWeaponsRef.current = safeWeapons.map(id => WEAPONS.find(item => item.id === id) ?? WEAPONS[0]);
     setUltiLoadout(slot.ultis); saveUltiLoadout(slot.ultis); activeUltiLoadoutRef.current = slot.ultis;
@@ -7595,6 +7629,15 @@ export default function Game() {
     setWeaponLevels(moduleLevels); saveWeaponLevels(moduleLevels); weaponLevelsRef.current = moduleLevels;
     aircraftUpgradeRef.current = getAircraftUpgradeStats(jetLevels[slot.hybridActive ? aircraftBuildLevelKey(slot.aircraftBuild) : skin.id] ?? 1);
     droneLevelRef.current = droneUpgradeLevels[isCombinedDroneBuild(slot.droneBuild) ? droneBuildLevelKey(slot.droneBuild) : drone.id] ?? 1;
+  };
+
+  const buyHangar = (index: number) => {
+    if (index !== unlockedHangars || loadCoins() < HANGAR_PRICES[index]) return;
+    spendCoins(HANGAR_PRICES[index]);
+    writeStoredText(HANGAR_UNLOCK_KEY, String(index + 1));
+    setUnlockedHangars(index + 1);
+    setCoins(loadCoins());
+    selectHangar(index);
   };
 
   const handleUltiLoadoutChange = (ids: UltiLoadoutId[]) => {
@@ -7984,6 +8027,8 @@ export default function Game() {
             hangarSlots={hangarSlots}
             activeHangar={activeHangar}
             onHangarSelect={selectHangar}
+            unlockedHangars={unlockedHangars}
+            onHangarBuy={buyHangar}
             selectedSkin={selectedSkin}
             ultiLoadout={ultiLoadout}
             selectedDroneSkin={selectedDroneSkin}
@@ -8324,12 +8369,13 @@ function WorkshopSection({ build, droneBuild, droneRole, selectedSkin, selectedD
 }
 
 function HangarOverlay({
-  hangarSlots, activeHangar, onHangarSelect,
+  hangarSlots, activeHangar, onHangarSelect, unlockedHangars, onHangarBuy,
   selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, hybridActive, droneBuild, savedAircraftBuilds, savedDroneBuilds, droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
   onStart, onNewGame, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onHybridSelect, onSavedAircraftBuildSelect, onSavedDroneBuildSelect, onHybridBuild, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onCrateOpen, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
   hangarSlots: HangarSlot[]; activeHangar: number; onHangarSelect: (index: number) => void;
+  unlockedHangars: number; onHangarBuy: (index: number) => void;
   selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; aircraftBuild: AircraftBuild; hybridActive: boolean; droneBuild: DroneBuild; savedAircraftBuilds: AircraftBuild[]; savedDroneBuilds: DroneBuild[]; droneRole: DroneRoleId; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[]; coins: number; gems: number; highScore: number;
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
@@ -8516,6 +8562,12 @@ function HangarOverlay({
 
       <div className="hangar-bays w-full grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label={translated(language, "Vier Hangars", "Four hangars")}>
         {hangarSlots.map((slot, index) => {
+          if (index >= unlockedHangars) return <button key={index} type="button"
+            onClick={() => onHangarBuy(index)} disabled={index !== unlockedHangars || coins < HANGAR_PRICES[index]}
+            className="rounded-xl border border-amber-600/60 bg-slate-900/70 px-3 py-2 text-left text-xs text-amber-200 disabled:opacity-50">
+            <div className="font-black text-sm">⌂ HANGAR {index + 1} · 🔒</div>
+            <div className="mt-1">{index === unlockedHangars ? `KAUFEN · 💰 ${HANGAR_PRICES[index].toLocaleString("de-DE")}` : "Vorherigen Hangar freischalten"}</div>
+          </button>;
           const jet = JET_SKINS.find(item => item.id === slot.skin) ?? JET_SKINS[0];
           const drone = DRONE_SKINS.find(item => item.id === slot.droneSkin) ?? DRONE_SKINS[0];
           return <button key={index} type="button" onClick={() => onHangarSelect(index)}
