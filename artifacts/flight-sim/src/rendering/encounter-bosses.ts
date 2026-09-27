@@ -1,5 +1,6 @@
 import { BOSS_NAMES, CITY_WEAPONS, ENCOUNTER_HEALTH, type EncounterKind } from "../boss-encounters";
 import { SPECIAL_NAMES, SPECIAL_WARNING_FRAMES, type BossSpecialState } from "../boss-specials";
+import { isSubmerged } from "../submarine-dive";
 
 export interface BossBody {
   x: number; y: number; width: number; height: number;
@@ -7,6 +8,7 @@ export interface BossBody {
   encounterKind?: EncounterKind; citySlot?: number;
   titanShieldTimer?: number; poisonTimer?: number; ultimateFreezeTimer?: number;
   bossCannonsDisabled?: boolean; bossEngineDisabled?: boolean;
+  submarineDiveMs?: number;
 }
 export const BOSS_ACCENTS: Record<EncounterKind, string> = {
   titan: "#e879f9", tank: "#fbbf24", spider: "#c084fc", submarine: "#67e8f9", city: "#fb923c",
@@ -93,6 +95,22 @@ export function drawEncounterBoss(ctx: CanvasRenderingContext2D, e: BossBody, ti
   const accent = BOSS_ACCENTS[kind];
   ctx.save(); ctx.translate(e.x + e.width / 2, e.y + e.height / 2);
   ctx.scale(e.width / 300, e.height / 220);
+  if (isSubmerged(e)) {
+    // Only a submerged silhouette and surface ripples remain: no collision body.
+    ctx.fillStyle = "#05243199";
+    ctx.beginPath(); ctx.ellipse(0, 12, 120, 30, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#67e8f9"; ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      const ripple = (time * .0004 + i / 3) % 1;
+      ctx.globalAlpha = (1 - ripple) * .4;
+      ctx.beginPath(); ctx.ellipse(0, 0, 80 + ripple * 65, 22 + ripple * 28, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.globalAlpha = 1; ctx.fillStyle = "#a5f3fc";
+    ctx.textAlign = "center"; ctx.font = "bold 13px monospace";
+    ctx.fillText(`ABGETAUCHT · ${Math.ceil((e.submarineDiveMs ?? 0) / 1000)}s`, 0, -60);
+    ctx.restore();
+    return;
+  }
   // Contact shadow maintains depth without per-frame blur filters.
   ctx.fillStyle = "#00071388"; ctx.beginPath(); ctx.ellipse(8, 15, 133, 88, 0, 0, Math.PI * 2); ctx.fill();
   if (kind === "tank") {
@@ -238,7 +256,7 @@ export function drawEncounterHealthBar(ctx: CanvasRenderingContext2D, enemies: r
     ctx.textAlign = "right";
     ctx.font = "bold 10px monospace";
     ctx.fillStyle = accent;
-    ctx.fillText(phase === 3 ? "KRITISCH" : phase === 2 ? "BESCHÄDIGT" : "GEPANZERT", x + width, top + 17);
+    ctx.fillText(isSubmerged(first) ? "ABGETAUCHT" : phase === 3 ? "KRITISCH" : phase === 2 ? "BESCHÄDIGT" : "GEPANZERT", x + width, top + 17);
     for (let i = 0; i < segments; i++) {
       const segmentX = x + i * (segmentWidth + gap);
       const fill = Math.max(0, Math.min(1, ratio * segments - i));
@@ -254,7 +272,8 @@ export function drawEncounterHealthBar(ctx: CanvasRenderingContext2D, enemies: r
     ctx.textAlign = "left";
     ctx.font = "10px monospace";
     ctx.fillStyle = warning ? "#fbbf24" : "#91a4b7";
-    ctx.fillText(warning ? `⚠ ${SPECIAL_NAMES[kind][state.index].toUpperCase()} · ${state.stage === "warning" ? "ANGRIFF LÄDT" : "ANGRIFF AKTIV"}` : "PANZERUNG", x, top + 57);
+    ctx.fillText(isSubmerged(first) ? `UNVERWUNDBAR · KEIN ANGRIFF · ${Math.ceil((first.submarineDiveMs ?? 0) / 1000)}s`
+      : warning ? `⚠ ${SPECIAL_NAMES[kind][state.index].toUpperCase()} · ${state.stage === "warning" ? "ANGRIFF LÄDT" : "ANGRIFF AKTIV"}` : "PANZERUNG", x, top + 57);
     if (kind === "city") {
       ctx.textAlign = "right";
       ctx.fillStyle = accent;

@@ -1,5 +1,8 @@
+import { advanceSubmarineDive, isSubmerged, setEnemyHealth } from "../submarine-dive";
+import { moveSkyClone, skyLaserDamage, skyReflectedDamage, strongestSkyTarget } from "../sky-ultimate";
 import { advanceBossSpecial, createBossSpecial, type BossSpecialState } from "../boss-specials";
 import { BOSS_SHOT_COLORS, BOSS_GUN_INTERVAL, createBossGunfire } from "../boss-gunfire";
+import { drawBossBackground, getBossArena } from "../rendering/boss-backgrounds";
 import { claimLightningTargets } from "../fire-sword-chain";
 import { interceptProjectiles, type InterceptableProjectile } from "../projectile-defense";
 import { BOSS_SEQUENCE, BOSS_NAMES, CITY_WEAPONS, BOSS_DIMENSIONS, cityMountPosition, getBossForLevel, getEncounterProgressionLevel, encounterHealth, encounterComplete, type EncounterKind } from "../boss-encounters";
@@ -146,6 +149,8 @@ interface Enemy {
   citySlot?: number;
   killRegistered?: boolean;
   biomeEnemyId?: string;
+  submarineDiveUsed?: boolean;
+  submarineDiveMs?: number;
   shootCooldown: number;
   bossGunCooldown?: number;
   bossGunVolley?: number;
@@ -210,8 +215,8 @@ const isBossEnemy = (enemy: Enemy) => enemy.type === "boss" || enemy.type === "o
 const BOSS_HEALTH_MULTIPLIER = 1.3;
 const GOLDEN_ENEMY_CHANCE = 0.05;
 const increasedBossHealth = (hp: number) => Math.round(hp * BOSS_HEALTH_MULTIPLIER);
-const isTitanInvulnerable = (enemy: Enemy) => enemy.type === "titan" &&
-  ((enemy.titanShieldTimer ?? 0) > 0 || (enemy.titanDashTimer ?? 0) > 0);
+const isEnemyInvulnerable = (enemy: Enemy) => isSubmerged(enemy) || (enemy.type === "titan" &&
+  ((enemy.titanShieldTimer ?? 0) > 0 || (enemy.titanDashTimer ?? 0) > 0));
 
 interface PowerUp {
   x: number; y: number;
@@ -866,6 +871,7 @@ const JET_SKINS = [
   { id: "tiefighter", name: "TIE Fighter", body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 200000, rarity: "legendary", ultiName: "Imperialer Schwarm", ultiDesc: "Vier TIE-Jäger umkreisen dich und feuern gemeinsam." },
   { id: "n1", name: "Naboo-Sternjäger", body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 400000, rarity: "ultraLegendary", ultiName: "Naboo-Blitz", ultiDesc: "Unverwundbar: Naboo-Blitz, Schwarzes Loch und gezielte X-Wing-Feuerbälle zugleich." },
   { id: "solaris", name: "Solaris Prime", body: "#4a1900", stroke: "#ff8a00", glow: "#fff06a", cost: 1000000, rarity: "ultimate", ultiName: "Phönix-Protokoll", ultiDesc: "Repariert den Jet vollständig, aktiviert einen Schild und verstärkt Kanonen und Feuerrate massiv." },
+  { id: "ultimate", name: "Ultimate", body: "#87ceeb", stroke: "#38bdf8", glow: "#bae6fd", cost: 1000000, rarity: "ultimate", ultiName: "Himmels-Doppelgänger", ultiDesc: "10 Sek. unsterblich, dreifacher Schaden und 50 % Schadensreflexion. Du behältst deine ausgerüsteten Waffen. Nur dein eigenständig umherfliegender, unsterblicher Doppelgänger hat die Spezialwaffen: Er durchfliegt Geschosse, lasert alle sichtbaren Gegner mit 300 Schaden/Sek., schlägt jede Sekunde für 300 Schaden zu und feuert alle 3 Sek. einen zielsuchenden Feuerball (300 Schaden) auf den stärksten sichtbaren Gegner." },
   { id: "voidreaper", name: "Void Reaper", body: "#10052d", stroke: "#6d28d9", glow: "#e879f9", cost: 1000000, rarity: "ultimate", ultiName: "Nullzone", ultiDesc: "Löscht gegnerische Projektile, verlangsamt alle Gegner und verdoppelt deinen Waffenschaden." },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
@@ -1710,6 +1716,7 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
     arctic:     { nose: 26, tail: -32, waist: 10, wingX: -16, wingTip: 27, sweep: -12, cockpitX: 3, cockpitW: 12, pattern: 8 },
     lava:       { nose: 29, tail: -27, waist: 12, wingX: -9,  wingTip: 24, sweep: -27, cockpitX: 8, cockpitW: 10, pattern: 9 },
     solaris:    { nose: 35, tail: -30, waist: 9,  wingX: -3,  wingTip: 34, sweep: -22, cockpitX: 12, cockpitW: 10, pattern: 10 },
+    ultimate:   { nose: 36, tail: -30, waist: 10, wingX: -6, wingTip: 33, sweep: -20, cockpitX: 12, cockpitW: 10, pattern: 12 },
     voidreaper: { nose: 32, tail: -34, waist: 6,  wingX: -12, wingTip: 35, sweep: -14, cockpitX: 10, cockpitW: 8, pattern: 11 },
   }[skin?.id ?? "steel"] ?? { nose: 28, tail: -28, waist: 10, wingX: -10, wingTip: 22, sweep: -22, cockpitX: 8, cockpitW: 10, pattern: 0 };
   const bodyHalfWidth = profile.waist + 3;
@@ -3524,6 +3531,8 @@ export default function Game() {
   const absorberChargeRef = useRef(0);
   const absorberActiveRef = useRef(0);
   const absorberHitsRef = useRef(0);
+  const skyCloneRef = useRef<{ x: number; y: number; target?: Enemy; travel: number; elapsed: number; melee: number; fire: number;
+    fireballs: { x: number; y: number; target: Enemy }[] } | null>(null);
   const ultimateChargeRef = useRef(0);
   const ultimateActiveRef = useRef(0);
   const gravityChargeRef = useRef(0);
@@ -3692,7 +3701,7 @@ export default function Game() {
         if (other === enemy || other.dead || other.hp <= 0 || !isEnemyVisible(other) || Math.hypot(other.x - enemy.x, other.y - enemy.y) > 125) return;
         const blastDamage = Math.max(2, enemy.maxHp * .18);
         const hpBeforeBlast = other.hp;
-        other.hp = Math.max(1, other.hp - blastDamage);
+        setEnemyHealth(other, Math.max(1, other.hp - blastDamage));
         runStatsRef.current.damageDealt += hpBeforeBlast - other.hp;
         floatingTextsRef.current.push({ x: other.x, y: other.y, text: "✹ KERNEXPLOSION", color: "#ff9f43", life: 40, maxLife: 40 });
       });
@@ -4510,6 +4519,7 @@ export default function Game() {
 
   const activateCombinedJetAndDroneUlti = useCallback(() => {
     if (ultimaChargeRef.current < ULTI_MAX || ultimaActiveRef.current > 0 || !activeUltiLoadoutRef.current.includes("jet")) return false;
+    skyCloneRef.current = null;
     ultimaActiveRef.current = ULTI_DURATION;
     ultimaChargeRef.current = 0;
     const aircraftUltiIds = getAircraftUltiIds(hybridActiveRef.current, aircraftBuildRef.current, activeUltiSkinRef.current);
@@ -4538,10 +4548,10 @@ export default function Game() {
     }
     if (droneUltiIds.has("drone_void")) {
       enemiesRef.current.forEach(enemy => {
-        if (enemy.dead || enemy.hp <= 0 || !isEnemyVisible(enemy) || isTitanInvulnerable(enemy)) return;
+        if (enemy.dead || enemy.hp <= 0 || !isEnemyVisible(enemy) || isEnemyInvulnerable(enemy)) return;
         const ruptureDamage = isBossEnemy(enemy) ? Math.min(20, enemy.maxHp * .15) : enemy.hp * .35;
         const hpBeforeRupture = enemy.hp;
-        enemy.hp = Math.max(1, enemy.hp - ruptureDamage);
+        setEnemyHealth(enemy, Math.max(1, enemy.hp - ruptureDamage));
         runStatsRef.current.damageDealt += hpBeforeRupture - enemy.hp;
         spawnExplosion(particlesRef.current, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, false);
       });
@@ -4592,11 +4602,11 @@ export default function Game() {
       const removedProjectiles = bulletsRef.current.reduce((count, bullet) => count + (bullet.fromPlayer ? 0 : 1), 0);
       bulletsRef.current = bulletsRef.current.filter(bullet => bullet.fromPlayer);
       enemiesRef.current.forEach(enemy => {
-        if (enemy.dead || enemy.hp <= 0 || !isEnemyVisible(enemy) || isTitanInvulnerable(enemy)) return;
+        if (enemy.dead || enemy.hp <= 0 || !isEnemyVisible(enemy) || isEnemyInvulnerable(enemy)) return;
         const damage = isBossEnemy(enemy) ? Math.min(EMP_BOSS_DAMAGE, enemy.maxHp * .05) : EMP_DAMAGE;
         const hpBefore = enemy.hp;
         const result = applyEnemyDamage(enemy, damage);
-        enemy.hp = Math.max(1, result.hp);
+        setEnemyHealth(enemy, Math.max(1, result.hp));
         enemy.shieldHp = result.shieldHp;
         runStatsRef.current.damageDealt += Math.max(0, hpBefore - enemy.hp);
         if (!isBossEnemy(enemy)) enemy.ultimateFreezeTimer = Math.max(enemy.ultimateFreezeTimer ?? 0, EMP_FREEZE_DURATION);
@@ -4937,7 +4947,12 @@ export default function Game() {
       // view: player fire travels up and incoming enemies travel down.
       if (upwardFlight) ctx.setTransform(0, -1, 1, 0, 0, CANVAS_W);
 
-      drawBiomeBackground(
+      const bossArena = gs.started ? getBossArena(enemiesRef.current) : null;
+      if (bossArena) {
+        backgroundTransitionRef.current = null;
+        drawBossBackground(ctx, bossArena, CANVAS_W, CANVAS_H, timeRef.current,
+          settingsRef.current.reducedMotion, visualQuality.economical);
+      } else drawBiomeBackground(
         ctx,
         getBiomeForLevel(gs.level),
         timeRef.current,
@@ -5039,6 +5054,7 @@ export default function Game() {
         invincibleRef.current = Math.max(invincibleRef.current, 10);
       } else {
         runElapsedMsRef.current += dt;
+        enemiesRef.current.forEach(enemy => advanceSubmarineDive(enemy, dt));
       }
       const modeRules = getEffectiveGameModeRules(activeModeRef.current);
       if (modeRules.durationSeconds !== null && runElapsedMsRef.current >= modeRules.durationSeconds * 1000) {
@@ -5151,13 +5167,14 @@ export default function Game() {
       // ── Input & Player Movement ──
       const aircraftUltiIds = getAircraftUltiIds(hybridActiveRef.current, aircraftBuildRef.current, activeUltiSkinRef.current);
       const droneUltiIds = getDroneUltiIds(droneBuildRef.current);
+      const skyUltimateActive = ultimaActiveRef.current > 0 && aircraftUltiIds.has("ultimate");
       const applyGravityDefense = (rawDamage: number, source?: Enemy) => {
-        if (gravityActiveRef.current <= 0) return rawDamage;
-        if (source && !source.dead && source.hp > 0 && !isTitanInvulnerable(source)) {
-          const reflectedDamage = rawDamage * ULTIMATE_REFLECT_PERCENT;
+        if (!skyUltimateActive && gravityActiveRef.current <= 0) return rawDamage;
+        if (source && !source.dead && source.hp > 0 && !isEnemyInvulnerable(source)) {
+          const reflectedDamage = skyUltimateActive ? skyReflectedDamage(rawDamage) : rawDamage * ULTIMATE_REFLECT_PERCENT;
           const hpBefore = source.hp;
           const result = applyEnemyDamage(source, reflectedDamage);
-          source.hp = result.hp;
+          setEnemyHealth(source, result.hp);
           source.shieldHp = result.shieldHp;
           runStatsRef.current.damageDealt += Math.max(0, hpBefore - source.hp);
           floatingTextsRef.current.push({
@@ -5168,14 +5185,14 @@ export default function Game() {
             life: 42,
             maxLife: 42,
           });
-          if (result.destroyed) {
+          if (source.hp <= 0) {
             source.dead = true;
             gs.score += source.points;
             registerKill(source);
             spawnExplosion(particlesRef.current, source.x + source.width / 2, source.y + source.height / 2, isBossEnemy(source));
           }
         }
-        return rawDamage * ULTIMATE_DAMAGE_REDUCTION;
+        return skyUltimateActive ? 0 : rawDamage * ULTIMATE_DAMAGE_REDUCTION;
       };
       const n1UltiSpeed = aircraftUltiIds.has("n1") && ultimaActiveRef.current > 0 ? 2 : 1;
       const speedMult = (activeSkinRef.current?.id === "n1" ? 1.15 : 1) * n1UltiSpeed * (speedBoostRef.current > 0 ? 2 : 1);
@@ -5663,10 +5680,10 @@ export default function Game() {
             if (distance > GRAVITY_EXPLOSION_RADIUS) return;
 
             const hpBefore = enemy.hp;
-            const result = isTitanInvulnerable(enemy)
+            const result = isEnemyInvulnerable(enemy)
               ? { hp: enemy.hp, shieldHp: enemy.shieldHp ?? 0, absorbedByShield: true, destroyed: false }
               : applyEnemyDamage(enemy, GRAVITY_EXPLOSION_DAMAGE);
-            enemy.hp = result.hp;
+            setEnemyHealth(enemy, result.hp);
             enemy.shieldHp = result.shieldHp;
             runStatsRef.current.damageDealt += Math.max(0, hpBefore - enemy.hp);
 
@@ -5682,7 +5699,7 @@ export default function Game() {
               life: 52,
               maxLife: 52,
             });
-            if (result.destroyed) {
+            if (enemy.hp <= 0) {
               enemy.dead = true;
               gs.score += enemy.points;
               registerKill(enemy);
@@ -5748,7 +5765,7 @@ export default function Game() {
       const special = bossSpecialRef.current;
       if (special && specialBosses.length > 0) {
         const leader = specialBosses[0];
-        const liveMounts = specialBosses.filter(e => (e.ultimateFreezeTimer ?? 0) <= 0)
+        const liveMounts = specialBosses.filter(e => !isSubmerged(e) && (e.ultimateFreezeTimer ?? 0) <= 0)
           .map(e => ({ x: e.x, y: e.y + e.height / 2 }));
         const target = getEnemyAttackTarget(activeModeRef.current,
           { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
@@ -5762,7 +5779,7 @@ export default function Game() {
           screenShakeRef.current = Math.max(screenShakeRef.current, 3);
           audioRef.current.tone(85 + special.index * 40, .08, settingsRef.current.soundVolume * .35, "sawtooth");
         }
-        drawSpecialWarning(ctx, special);
+        if (!isSubmerged(leader)) drawSpecialWarning(ctx, special);
       }
 
       const pendingLightningJumps: Bullet[] = [];
@@ -5805,7 +5822,9 @@ export default function Game() {
               );
               while ((e.titanLaserDamageTimer ?? 0) <= 0) {
                 e.titanLaserDamageTimer = (e.titanLaserDamageTimer ?? 0) + TITAN_LASER_DAMAGE_INTERVAL;
-                if (!playerTouchesLaser || ultimateActiveRef.current > 0) continue;
+                if (!playerTouchesLaser) continue;
+                if (skyUltimateActive) { applyGravityDefense(TITAN_LASER_DAMAGE, e); continue; }
+                if (ultimateActiveRef.current > 0) continue;
 
                 const protection = applyPlayerHitProtection({
                   shieldTimer: shieldTimerRef.current,
@@ -5859,12 +5878,12 @@ export default function Game() {
               e.titanDashTimer = Math.max(0, (e.titanDashTimer ?? 0) - dtScale);
             }
           }
-          if ((e.poisonTimer ?? 0) > 0 && !isTitanInvulnerable(e)) {
+          if ((e.poisonTimer ?? 0) > 0 && !isEnemyInvulnerable(e)) {
             e.poisonTickTimer = (e.poisonTickTimer ?? POISON_TICK_INTERVAL) - dtScale;
             while (e.poisonTickTimer <= 0) {
               const hpBeforePoison = e.hp;
-              e.hp -= POISON_TICK_DAMAGE;
-              runStatsRef.current.damageDealt += Math.min(POISON_TICK_DAMAGE, Math.max(0, hpBeforePoison));
+              setEnemyHealth(e, e.hp - (POISON_TICK_DAMAGE));
+              runStatsRef.current.damageDealt += Math.max(0, hpBeforePoison - Math.max(0, e.hp));
               e.poisonTickTimer += POISON_TICK_INTERVAL;
             }
             e.poisonTimer = Math.max(0, (e.poisonTimer ?? 0) - dtScale);
@@ -5897,7 +5916,7 @@ export default function Game() {
               audioRef.current.effect("boss", settingsRef.current.soundVolume);
             }
           }
-          if (ultimaActiveRef.current > 0 && !isTitanInvulnerable(e)) {
+          if (ultimaActiveRef.current > 0 && !isEnemyInvulnerable(e)) {
             const hpBeforeUltimate = e.hp;
             const blackHoleActive = aircraftUltiIds.has("galaxy") || aircraftUltiIds.has("n1");
             if (blackHoleActive) {
@@ -5905,23 +5924,23 @@ export default function Game() {
               const targetY = CANVAS_H * .5;
               e.x += (targetX - (e.x + e.width / 2)) * .012 * dtScale;
               e.y += (targetY - (e.y + e.height / 2)) * .012 * dtScale;
-              e.hp -= .10 * dtScale;
+              setEnemyHealth(e, e.hp - (.10 * dtScale));
             }
             if (aircraftUltiIds.has("voidreaper")) e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimaActiveRef.current);
             if (aircraftUltiIds.has("arctic")) e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
-            if (aircraftUltiIds.has("fire")) e.hp -= .11 * dtScale;
-            if (aircraftUltiIds.has("neon")) e.hp -= .14 * dtScale;
-            if (aircraftUltiIds.has("lava")) e.hp -= .18 * dtScale;
-            if (aircraftUltiIds.has("shadow") && ultimaActiveRef.current < 3) e.hp -= 14;
-            if (droneUltiIds.has("drone_ember")) e.hp -= .08 * dtScale;
-            if (droneUltiIds.has("drone_ion")) e.hp -= .10 * dtScale;
+            if (aircraftUltiIds.has("fire")) setEnemyHealth(e, e.hp - (.11 * dtScale));
+            if (aircraftUltiIds.has("neon")) setEnemyHealth(e, e.hp - (.14 * dtScale));
+            if (aircraftUltiIds.has("lava")) setEnemyHealth(e, e.hp - (.18 * dtScale));
+            if (aircraftUltiIds.has("shadow") && ultimaActiveRef.current < 3) setEnemyHealth(e, e.hp - (14));
+            if (droneUltiIds.has("drone_ember")) setEnemyHealth(e, e.hp - (.08 * dtScale));
+            if (droneUltiIds.has("drone_ion")) setEnemyHealth(e, e.hp - (.10 * dtScale));
             if (droneUltiIds.has("drone_frost")) e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
             if (droneUltiIds.has("drone_omega")) e.ultimateFreezeTimer = Math.max(e.ultimateFreezeTimer ?? 0, ultimaActiveRef.current);
             if (droneUltiIds.has("drone_venom")) {
               e.poisonTimer = Math.max(e.poisonTimer ?? 0, ultimaActiveRef.current);
               e.poisonTickTimer = Math.min(e.poisonTickTimer ?? POISON_TICK_INTERVAL, POISON_TICK_INTERVAL);
             }
-            if (droneUltiIds.has("drone_nova")) e.hp -= .14 * dtScale;
+            if (droneUltiIds.has("drone_nova")) setEnemyHealth(e, e.hp - (.14 * dtScale));
             runStatsRef.current.damageDealt += Math.min(
               Math.max(0, hpBeforeUltimate),
               Math.max(0, hpBeforeUltimate - e.hp),
@@ -5942,12 +5961,12 @@ export default function Game() {
             e.x += (targetX - (e.x + e.width / 2)) * GRAVITY_PULL_STRENGTH * dtScale;
             e.y += (targetY - (e.y + e.height / 2)) * GRAVITY_PULL_STRENGTH * dtScale;
           }
-          if (ultimateActiveRef.current > 0 && !isTitanInvulnerable(e)) {
+          if (ultimateActiveRef.current > 0 && !isEnemyInvulnerable(e)) {
             e.ultimateSlowTimer = Math.max(e.ultimateSlowTimer ?? 0, ultimateActiveRef.current);
             e.ultimateDotTimer = (e.ultimateDotTimer ?? ULTIMATE_DOT_INTERVAL) - dtScale;
             if (e.ultimateDotTimer <= 0) {
               const hpBeforeUltimateDot = e.hp;
-              e.hp -= ULTIMATE_DOT_DAMAGE;
+              setEnemyHealth(e, e.hp - (ULTIMATE_DOT_DAMAGE));
               runStatsRef.current.damageDealt += Math.min(ULTIMATE_DOT_DAMAGE, Math.max(0, hpBeforeUltimateDot));
               e.ultimateDotTimer += ULTIMATE_DOT_INTERVAL;
               spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
@@ -6235,7 +6254,7 @@ export default function Game() {
           if (e.x + e.width < -20 && !isEnemyReturningToPlayfield(e)) return false;
 
           // Basic boss guns keep firing alongside rockets, webs, flames and specials.
-          if (e.encounterKind && e.encounterKind !== "titan" && (e.ultimateFreezeTimer ?? 0) <= 0) {
+          if (e.encounterKind && e.encounterKind !== "titan" && !isSubmerged(e) && (e.ultimateFreezeTimer ?? 0) <= 0) {
             e.bossGunCooldown = (e.bossGunCooldown ?? 0) - dtScale;
             if (e.bossGunCooldown <= 0) {
               const target = getEnemyAttackTarget(activeModeRef.current,
@@ -6250,8 +6269,8 @@ export default function Game() {
           }
 
           // Enemy shooting
-          if (e.type !== "laserdevice" && (e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;
-          if (e.type !== "laserdevice" && e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
+          if (!isSubmerged(e) && e.type !== "laserdevice" && (e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;
+          if (!isSubmerged(e) && e.type !== "laserdevice" && e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
             const bossPhase = isBossEnemy(e) ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
             const biomeFireCooldown = getBiomeEnemyDefinition(e.biomeEnemyId)?.fireCooldown;
             const baseCooldown = e.type === "overlord" || e.type === "titan" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : biomeFireCooldown ? rand(biomeFireCooldown[0], biomeFireCooldown[1]) : rand(70, 120);
@@ -6346,7 +6365,11 @@ export default function Game() {
               playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H,
               beamX, e.y + e.height, LASER_DEVICE_BEAM_WIDTH, CANVAS_H - e.y - e.height,
             );
-            if ((playerTouchesUpperBeam || playerTouchesLowerBeam) &&
+            if (skyUltimateActive && (playerTouchesUpperBeam || playerTouchesLowerBeam) && invincibleRef.current <= 0) {
+              applyGravityDefense(LASER_DEVICE_DAMAGE * Math.pow(.85, routeModifiersRef.current.reactive_armor), e);
+              invincibleRef.current = 140;
+            }
+            if (!skyUltimateActive && (playerTouchesUpperBeam || playerTouchesLowerBeam) &&
                 invincibleRef.current <= 0 && stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0) {
               const protection = applyPlayerHitProtection({
                 shieldTimer: shieldTimerRef.current,
@@ -6418,7 +6441,7 @@ export default function Game() {
           ctx.fillText("ANGRIFF LÄDT", e.x + e.width / 2, e.y - 14);
           ctx.restore();
         }
-        if (getBiomeForLevel(gs.level).id !== "space") drawFlightShadow(ctx, e.x, e.y, e.width, e.height);
+        if (!isSubmerged(e) && getBiomeForLevel(gs.level).id !== "space") drawFlightShadow(ctx, e.x, e.y, e.width, e.height);
         ctx.save();
         if (lightningFrozen && (settingsRef.current.reducedMotion ||
             Math.floor(((e.lightningFrozenUntilMs ?? 0) - runElapsedMsRef.current) / 125) % 2 === 0)) {
@@ -6438,6 +6461,8 @@ export default function Game() {
           ctx.fillText(`GOLD · ${Math.max(0, Math.ceil((e.goldenTimer ?? 0) / 60))}s`, e.x + e.width / 2, e.y - 9);
           ctx.restore();
         }
+        if (isSubmerged(e)) return true;
+
         // In Beschützen mode, enemies that reach the package damage the objective.
         if (activeModeRef.current === "protect" && protectPackageHitCooldownRef.current <= 0 &&
             rectHit(protectPackageRef.current.x, protectPackageRef.current.y, PROTECT_PACKAGE_WIDTH, PROTECT_PACKAGE_HEIGHT,
@@ -6459,6 +6484,16 @@ export default function Game() {
 
         // Enemy-player collision
         const playerTouchesEnemy = rectHit(playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H, e.x, e.y, e.width, e.height);
+        if (skyUltimateActive && playerTouchesEnemy) {
+          if (invincibleRef.current <= 0) {
+            const raw = e.type === "titan" ? ((e.titanDashTimer ?? 0) > 0 ? 10 : 1)
+              : e.ramDamage ?? (e.type === "boss" ? getNormalBossDamage(1, gs.level)
+                : isBossEnemy(e) ? 1 : activeUnlocksRef.current.includes("armor") ? .5 : 1);
+            applyGravityDefense(raw * Math.pow(.85, routeModifiersRef.current.reactive_armor), e);
+            invincibleRef.current = 90;
+          }
+          return !e.dead;
+        }
         if (e.type === "titan" && playerTouchesEnemy && invincibleRef.current <= 0 &&
             stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0) {
           const protection = applyPlayerHitProtection({
@@ -6507,7 +6542,8 @@ export default function Game() {
         if ((invincibleRef.current <= 0 || e.trackPlayerRam) && stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0 &&
           e.type !== "titan" && playerTouchesEnemy) {
           const collidedWithBoss = isBossEnemy(e);
-          if (collidedWithBoss) e.hp = Math.max(0, e.hp - 1);
+          if (collidedWithBoss) setEnemyHealth(e, Math.max(0, e.hp - 1));
+          if (isSubmerged(e)) return true;
           const protection = applyPlayerHitProtection({
             shieldTimer: shieldTimerRef.current,
             shieldHp: playerShieldHpRef.current,
@@ -6556,7 +6592,7 @@ export default function Game() {
         // Bullet-enemy collision
         let hit = false;
         bulletsRef.current = bulletsRef.current.filter(b => {
-          if (!b.fromPlayer || hit) return true;
+          if (!b.fromPlayer || hit || isSubmerged(e)) return true;
           if ((b.isPoisonMissile || b.weaponId === "fire_sword_lightning") && b.missileTarget !== e) return true;
           if (b.hitTargets?.has(e)) return true;
           const bw = b.collisionWidth ?? 14;
@@ -6564,7 +6600,7 @@ export default function Game() {
           if (!rectHit(b.x, b.y - bh / 2, bw, bh, e.x, e.y, e.width, e.height)) return true;
           const critical = routeModifiersRef.current.critical > 0 && Math.random() < Math.min(.45, .15 * routeModifiersRef.current.critical);
           const aircraftDamage = ultimaActiveRef.current > 0
-            ? aircraftUltiIds.has("solaris") ? 3 : ["crimson", "voidreaper"].some(id => aircraftUltiIds.has(id)) ? 2 : 1
+            ? (aircraftUltiIds.has("solaris") || skyUltimateActive) ? 3 : ["crimson", "voidreaper"].some(id => aircraftUltiIds.has(id)) ? 2 : 1
             : 1;
           const absorberDamage = absorberActiveRef.current > 0 && absorberHitsRef.current > 0
             ? Math.pow(2, absorberHitsRef.current) : 1;
@@ -6621,12 +6657,12 @@ export default function Game() {
             (ultimateActiveRef.current > 0 ? 2 : 1) * weakpointMultiplier * bossHunterMultiplier *
             activeMutatorRef.current.playerDamageMultiplier;
           const enemyHpBeforeDamage = e.hp;
-          const damageResult = isTitanInvulnerable(e)
+          const damageResult = isEnemyInvulnerable(e)
             ? { hp: e.hp, shieldHp: e.shieldHp ?? 0, absorbedByShield: true, destroyed: false }
             : applyEnemyDamage(e, dealtDamage);
-          e.hp = damageResult.hp;
+          setEnemyHealth(e, damageResult.hp);
           e.shieldHp = damageResult.shieldHp;
-          if (!damageResult.absorbedByShield) runStatsRef.current.damageDealt += Math.min(dealtDamage, enemyHpBeforeDamage);
+          if (!damageResult.absorbedByShield) runStatsRef.current.damageDealt += Math.max(0, enemyHpBeforeDamage - e.hp);
           floatingTextsRef.current.push({
             x: b.x, y: b.y,
             text: damageResult.absorbedByShield ? "BLOCK" : `${critical ? "KRIT " : ""}${Math.round(dealtDamage)}`,
@@ -6662,7 +6698,7 @@ export default function Game() {
               Math.hypot(other.x - e.x, other.y - e.y) < 210);
             if (chained) {
               const chainedHpBefore = chained.hp;
-              chained.hp = Math.max(1, chained.hp - 2 * routeModifiersRef.current.chain_lightning);
+              setEnemyHealth(chained, Math.max(1, chained.hp - 2 * routeModifiersRef.current.chain_lightning));
               runStatsRef.current.damageDealt += chainedHpBefore - chained.hp;
               if (routeModifiersRef.current.cryo_rounds > 0) {
                 chained.ultimateSlowTimer = Math.max(chained.ultimateSlowTimer ?? 0, 120);
@@ -6676,17 +6712,17 @@ export default function Game() {
               if (other === e || other.dead || other.hp <= 1 || !isEnemyVisible(other) || Math.hypot(other.x - e.x, other.y - e.y) > 115) return;
               const splashDamage = 2 + routeModifiersRef.current.missile_mastery * 2;
               const splashHpBefore = other.hp;
-              other.hp = Math.max(1, other.hp - splashDamage);
+              setEnemyHealth(other, Math.max(1, other.hp - splashDamage));
               other.ultimateSlowTimer = Math.max(other.ultimateSlowTimer ?? 0, 150);
               runStatsRef.current.damageDealt += splashHpBefore - other.hp;
               floatingTextsRef.current.push({ x: other.x, y: other.y, text: "🧊 KRYO-EXPLOSION", color: "#a5f3fc", life: 42, maxLife: 42 });
             });
           }
-          if (b.isPoisonMissile && !isTitanInvulnerable(e)) {
+          if (b.isPoisonMissile && !isEnemyInvulnerable(e)) {
             e.poisonTimer = POISON_DURATION;
             e.poisonTickTimer = POISON_TICK_INTERVAL;
           }
-          if (ultimateActiveRef.current > 0 && !isTitanInvulnerable(e)) e.ultimateFreezeTimer = ultimateActiveRef.current;
+          if (ultimateActiveRef.current > 0 && !isEnemyInvulnerable(e)) e.ultimateFreezeTimer = ultimateActiveRef.current;
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           if (critical) {
             audioRef.current.tone(920, .07, settingsRef.current.soundVolume * .28, "square");
@@ -6697,7 +6733,7 @@ export default function Game() {
           }
           hit = true;
           b.hitTargets?.add(e);
-          if (damageResult.destroyed) {
+          if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
             gs.score += e.points * (ultimaActiveRef.current > 0 && aircraftUltiIds.has("gold") ? 2 : 1);
             registerKill(e);
@@ -6741,6 +6777,7 @@ export default function Game() {
       // ── Bullet-player collision ──
       bulletsRef.current = bulletsRef.current.filter(b => {
         if (b.fromPlayer) return true;
+        if (b.sourceEnemy && isSubmerged(b.sourceEnemy)) return false;
         const bw = b.collisionWidth ?? 8, bh = b.collisionHeight ?? 8;
         if (activeModeRef.current === "protect" &&
             rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh,
@@ -6793,6 +6830,12 @@ export default function Game() {
             checkAchievements();
           }
           return true;
+        }
+        if (skyUltimateActive) {
+          const base = activeUnlocksRef.current.includes("armor") ? .5 : b.damage;
+          applyGravityDefense((b.normalBossProjectile ? getNormalBossDamage(base, gs.level) : base)
+            * Math.pow(.85, routeModifiersRef.current.reactive_armor) * activeMutatorRef.current.enemyDamageMultiplier, b.sourceEnemy);
+          return false;
         }
         if (ultimateActiveRef.current > 0) {
           spawnExplosion(particlesRef.current, b.x, b.y, false);
@@ -6957,10 +7000,10 @@ export default function Game() {
           if (beamHits === 0) continue;
           const absorberDamage = absorberActiveRef.current > 0 && absorberHitsRef.current > 0
             ? Math.pow(2, absorberHitsRef.current) : 1;
-          if (!isTitanInvulnerable(e)) {
+          if (!isEnemyInvulnerable(e)) {
             const hpBeforeLaser = e.hp;
             const laserUpgradeDamage = activeUnlocksRef.current.includes("laser_upgrade") ? 2 : 1;
-            e.hp -= 0.38 * beamHits * absorberDamage * laserUpgradeDamage * dtScale;
+            setEnemyHealth(e, e.hp - (0.38 * beamHits * absorberDamage * laserUpgradeDamage * (skyUltimateActive ? 3 : 1) * dtScale));
             runStatsRef.current.damageDealt += Math.min(
               Math.max(0, hpBeforeLaser),
               Math.max(0, hpBeforeLaser - e.hp),
@@ -6979,6 +7022,79 @@ export default function Game() {
           }
         }
       }
+
+      // The clone is an effect, never a collision body: all hostile shots pass through it.
+      if (skyUltimateActive && ultimaActiveRef.current > 0) {
+        const clone = skyCloneRef.current ??= { x: clamp(playerRef.current.x + 140, 0, CANVAS_W - PLAYER_W), y: clamp(playerRef.current.y - 90, 0, CANVAS_H - PLAYER_H), travel: 0, elapsed: 0, melee: 0, fire: 180, fireballs: [] };
+        const targets = enemiesRef.current.filter(e => !e.dead && e.hp > 0 && isEnemyVisible(e));
+        const damageCloneTarget = (e: Enemy, damage: number) => {
+          if (e.dead || isEnemyInvulnerable(e)) return;
+          const before = e.hp;
+          const result = applyEnemyDamage(e, damage);
+          setEnemyHealth(e, result.hp); e.shieldHp = result.shieldHp;
+          runStatsRef.current.damageDealt += Math.max(0, before - e.hp);
+          if (e.hp <= 0) {
+            e.dead = true; gs.score += e.points; registerKill(e);
+            spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
+          }
+        };
+        clone.elapsed += dtScale;
+        clone.travel -= dtScale;
+        if (!clone.target || !targets.includes(clone.target) || clone.travel <= 0) {
+          const index = clone.target ? targets.indexOf(clone.target) : -1;
+          clone.target = targets.length ? targets[(index + 1) % targets.length] : undefined;
+          clone.travel = 60;
+        }
+        const destination = clone.target ? {
+          x: clone.target.x + clone.target.width / 2 - PLAYER_W / 2,
+          y: clone.target.y + clone.target.height / 2 - PLAYER_H / 2,
+        } : undefined;
+        const nextPosition = moveSkyClone(clone, destination, clone.elapsed, dtScale,
+          { width: CANVAS_W - PLAYER_W, height: CANVAS_H - PLAYER_H });
+        clone.x = nextPosition.x; clone.y = nextPosition.y;
+        clone.melee = Math.max(0, clone.melee - dtScale);
+        clone.fire -= dtScale;
+        const cx = clone.x + PLAYER_W / 2, cy = clone.y + PLAYER_H / 2;
+        ctx.save(); ctx.shadowColor = "#00aaff"; ctx.shadowBlur = 18;
+        for (const e of targets) {
+          const ex = e.x + e.width / 2, ey = e.y + e.height / 2;
+          ctx.strokeStyle = "#168bff"; ctx.lineWidth = 7;
+          ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ex, ey); ctx.stroke();
+          ctx.strokeStyle = "#b9f3ff"; ctx.lineWidth = 2; ctx.stroke();
+          damageCloneTarget(e, skyLaserDamage(dtScale));
+        }
+        const meleeTarget = clone.target;
+        if (meleeTarget && clone.melee <= 0 && Math.hypot(meleeTarget.x + meleeTarget.width / 2 - cx, meleeTarget.y + meleeTarget.height / 2 - cy) < 85) {
+          damageCloneTarget(meleeTarget, 300); clone.melee = 60;
+          const index = targets.indexOf(meleeTarget);
+          clone.target = targets[(index + 1) % targets.length];
+          clone.travel = 60;
+        }
+        ctx.strokeStyle = "#7dd3fc"; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.arc(cx, cy, 65, timeRef.current * .15, timeRef.current * .15 + Math.PI); ctx.stroke();
+        if (clone.fire <= 0) {
+          clone.fire += 180;
+          const strongest = strongestSkyTarget(targets);
+          if (strongest) clone.fireballs.push({ x: cx, y: cy, target: strongest });
+        }
+        clone.fireballs = clone.fireballs.filter(ball => {
+          if (ball.target.dead || !targets.includes(ball.target)) {
+            const replacement = strongestSkyTarget(targets);
+            if (!replacement) return false;
+            ball.target = replacement;
+          }
+          const dx = ball.target.x + ball.target.width / 2 - ball.x;
+          const dy = ball.target.y + ball.target.height / 2 - ball.y;
+          const distance = Math.hypot(dx, dy), step = 14 * dtScale;
+          if (distance <= step + 12) { damageCloneTarget(ball.target, 300); return false; }
+          ball.x += dx / distance * step; ball.y += dy / distance * step;
+          ctx.fillStyle = "#168bff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 13, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#e0f7ff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 6, 0, Math.PI * 2); ctx.fill();
+          return true;
+        });
+        drawPlayerJet(ctx, clone.x, clone.y, gs.weaponTier, false, JET_SKINS.find(skin => skin.id === "ultimate")!, undefined, aircraftUpgradeRef.current.level);
+        ctx.restore();
+      } else skyCloneRef.current = null;
 
       // ── Aircraft-ultimate visuals ──
       if (ultimaActiveRef.current > 0 && (aircraftUltiIds.has("galaxy") || aircraftUltiIds.has("n1"))) {

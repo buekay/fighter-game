@@ -1,3 +1,4 @@
+import { advanceSubmarineDive, isSubmerged, setEnemyHealth } from "./submarine-dive";
 import assert from "node:assert/strict";
 import { BOSS_SEQUENCE, BOSS_DIMENSIONS, cityMountPosition } from "./boss-encounters";
 import { createBossSpecial, advanceBossSpecial, SPECIAL_NAMES, SPECIAL_WARNING_FRAMES } from "./boss-specials";
@@ -69,3 +70,36 @@ assert.ok(BOSS_DIMENSIONS.tank.width > 190);
 assert.ok(BOSS_DIMENSIONS.spider.height > 164);
 assert.ok(BOSS_DIMENSIONS.submarine.width > 230);
 console.log("Boss special attack tests passed");
+
+// Diving catches the half-health boundary even for lethal burst damage.
+const submarine = { encounterKind: "submarine", hp: 9000, maxHp: 9000 };
+setEnemyHealth(submarine, 4501);
+assert.equal(isSubmerged(submarine), false);
+setEnemyHealth(submarine, -1000);
+assert.equal(submarine.hp, 4500);
+assert.equal(isSubmerged(submarine), true);
+const submergedSpecial = createBossSpecial("submarine");
+submergedSpecial.stage = "warning"; submergedSpecial.remaining = 1;
+const lockedSpecial = structuredClone(submergedSpecial);
+for (let tick = 0; tick < 100; tick++) {
+  setEnemyHealth(submarine, submarine.hp - 10000);
+  assert.equal(submarine.hp, 4500, "All damage is blocked underwater");
+  assert.deepEqual(advanceBossSpecial(submergedSpecial, 1, [], target, .5), []);
+}
+assert.deepEqual(submergedSpecial, lockedSpecial, "Submerged weapons must pause, not queue attacks");
+advanceSubmarineDive(submarine, 9999);
+assert.equal(isSubmerged(submarine), true);
+advanceSubmarineDive(submarine, 1);
+assert.equal(isSubmerged(submarine), false);
+setEnemyHealth(submarine, 4000);
+assert.equal(submarine.hp, 4000);
+assert.equal(isSubmerged(submarine), false, "The dive happens only once");
+setEnemyHealth(submarine, 0);
+assert.equal(submarine.hp, 0);
+for (const encounterKind of ["titan", "tank", "spider", "city"]) {
+  const other = { encounterKind, hp: 9000, maxHp: 9000 };
+  setEnemyHealth(other, 0);
+  assert.equal(other.hp, 0);
+  assert.equal(isSubmerged(other), false);
+}
+console.log("Submarine dive tests passed");

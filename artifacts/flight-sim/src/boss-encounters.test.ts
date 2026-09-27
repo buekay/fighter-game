@@ -1,3 +1,4 @@
+import { getBossArena } from "./rendering/boss-backgrounds";
 import assert from "node:assert/strict";
 import { getBossForLevel, getEncounterProgressionLevel, BOSS_SEQUENCE, CITY_WEAPONS, ENCOUNTER_HEALTH, encounterHealth, encounterComplete } from "./boss-encounters";
 import { BOSS_FIGHT_COUNT } from "./game-rules";
@@ -33,5 +34,19 @@ assert.equal(getEncounterProgressionLevel(20, 36, new Set([20]), false), 25);
 assert.equal(getEncounterProgressionLevel(40, 105, new Set([40]), false), 50);
 assert.equal(getEncounterProgressionLevel(50, 50, new Set([50]), false), 50);
 assert.equal(getEncounterProgressionLevel(90, 105, new Set([90]), false), 100);
+
+
+assert.equal(getBossArena([]), null);
+for (const kind of ["titan", "tank", "spider", "submarine", "city"] as const) {
+  assert.equal(getBossArena([{ type: "boss", encounterKind: kind, hp: 100 }]), kind);
+  assert.equal(getBossArena([{ type: "boss", encounterKind: kind, hp: 0 }]), null);
+  assert.equal(getBossArena([{ type: "boss", encounterKind: kind, hp: 100, dead: true }]), null);
+}
+assert.equal(getBossArena([
+  { type: "boss", encounterKind: "city", hp: 0, dead: true },
+  { type: "boss", encounterKind: "city", hp: 20 },
+]), "city");
+assert.equal(getBossArena([{ type: "overlord", hp: 50 }]), "overlord");
+assert.equal(getBossArena([{ type: "fighter", hp: 50 }]), null);
 
 console.log("Boss encounter tests passed");
