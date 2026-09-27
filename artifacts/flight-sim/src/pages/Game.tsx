@@ -1,3 +1,5 @@
+import { LevelMap } from "../components/LevelMap";
+import { loadCompletedLevels, isLevelUnlocked, completeCampaignLevel, getCampaignTarget, canCompleteCampaignLevel, getCampaignLandscape } from "../campaign";
 import { advanceSubmarineDive, isSubmerged, setEnemyHealth } from "../submarine-dive";
 import { moveSkyClone, skyLaserDamage, skyReflectedDamage, strongestSkyTarget } from "../sky-ultimate";
 import { advanceBossSpecial, createBossSpecial, type BossSpecialState } from "../boss-specials";
@@ -5,7 +7,7 @@ import { BOSS_SHOT_COLORS, BOSS_GUN_INTERVAL, createBossGunfire } from "../boss-
 import { drawBossBackground, getBossArena } from "../rendering/boss-backgrounds";
 import { claimLightningTargets } from "../fire-sword-chain";
 import { interceptProjectiles, type InterceptableProjectile } from "../projectile-defense";
-import { BOSS_SEQUENCE, BOSS_NAMES, CITY_WEAPONS, BOSS_DIMENSIONS, cityMountPosition, getBossForLevel, getEncounterProgressionLevel, encounterHealth, encounterComplete, type EncounterKind } from "../boss-encounters";
+import { BOSS_SEQUENCE, BOSS_NAMES, CITY_WEAPONS, BOSS_DIMENSIONS, cityMountPosition, getBossForLevel, encounterHealth, encounterComplete, type EncounterKind } from "../boss-encounters";
 import { drawEncounterBoss, drawFortressCity, drawEncounterHealthBar, drawSpecialWarning } from "../rendering/encounter-bosses";
 import { steerTitan, type TitanTactics } from "../titan-tactics";
 import { VisualQuality } from "../rendering/visual-quality";
@@ -38,7 +40,6 @@ import {
   getDailyChallengeRules,
   getGameModeRules,
   getModeCoinMultiplier,
-  getProgressedLevel,
   getNormalBossDamage,
   getPilotLevelForScore,
   getLevelThreshold,
@@ -146,6 +147,7 @@ interface Enemy {
   encounterKind?: EncounterKind;
   citySlot?: number;
   killRegistered?: boolean;
+  campaignBoss?: boolean;
   biomeEnemyId?: string;
   submarineDiveUsed?: boolean;
   submarineDiveMs?: number;
@@ -599,7 +601,6 @@ function isShopRarityUnlocked(rarity: ShopRarity, playerLevel: number): boolean 
   return playerLevel >= SHOP_RARITY_MIN_LEVEL[rarity];
 }
 
-const LEVEL_THRESHOLDS = Array.from({ length: MAX_LEVEL }, (_, i) => getLevelThreshold(i + 1));
 const WEAPON_TIERS = [
   { name: "Single Cannon",    guns: 1, spread: false, missile: false, fireRate: 280, bulletDmg: 1 },
   { name: "Twin Cannons",     guns: 2, spread: false, missile: false, fireRate: 250, bulletDmg: 1 },
@@ -868,8 +869,8 @@ const JET_SKINS = [
   { id: "tiefighter", name: "TIE Fighter", body: "#101015", stroke: "#303040", glow: "#33ddff", cost: 200000, rarity: "legendary", ultiName: "Imperialer Schwarm", ultiDesc: "Vier TIE-Jäger umkreisen dich und feuern gemeinsam." },
   { id: "n1", name: "Naboo-Sternjäger", body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 400000, rarity: "ultraLegendary", ultiName: "Naboo-Blitz", ultiDesc: "Unverwundbar: Naboo-Blitz, Schwarzes Loch und gezielte X-Wing-Feuerbälle zugleich." },
   { id: "solaris", name: "Solaris Prime", body: "#4a1900", stroke: "#ff8a00", glow: "#fff06a", cost: 1000000, rarity: "ultimate", ultiName: "Phönix-Protokoll", ultiDesc: "Repariert den Jet vollständig, aktiviert einen Schild und verstärkt Kanonen und Feuerrate massiv." },
-  { id: "ultimate", name: "Ultimate", body: "#87ceeb", stroke: "#38bdf8", glow: "#bae6fd", cost: 1000000, rarity: "ultimate", ultiName: "Himmels-Doppelgänger", ultiDesc: "10 Sek. unsterblich, dreifacher Schaden und 50 % Schadensreflexion. Du behältst deine ausgerüsteten Waffen. Nur dein eigenständig umherfliegender, unsterblicher Doppelgänger hat die Spezialwaffen: Er durchfliegt Geschosse, lasert alle sichtbaren Gegner mit 300 Schaden/Sek., schlägt jede Sekunde für 300 Schaden zu und feuert alle 3 Sek. einen zielsuchenden Feuerball (300 Schaden) auf den stärksten sichtbaren Gegner." },
   { id: "voidreaper", name: "Void Reaper", body: "#10052d", stroke: "#6d28d9", glow: "#e879f9", cost: 1000000, rarity: "ultimate", ultiName: "Nullzone", ultiDesc: "Löscht gegnerische Projektile, verlangsamt alle Gegner und verdoppelt deinen Waffenschaden." },
+  { id: "ultimate", name: "Caelus", body: "#87ceeb", stroke: "#38bdf8", glow: "#bae6fd", cost: 1000000, rarity: "ultimate", ultiName: "Himmels-Doppelgänger", ultiDesc: "10 Sek. unsterblich, dreifacher Schaden und 50 % Schadensreflexion. Du behältst deine ausgerüsteten Waffen. Nur dein eigenständig umherfliegender, unsterblicher Doppelgänger hat die Spezialwaffen: Er durchfliegt Geschosse, lasert alle sichtbaren Gegner mit 300 Schaden/Sek., schlägt jede Sekunde für 300 Schaden zu und feuert alle 3 Sek. einen zielsuchenden Feuerball (300 Schaden) auf den stärksten sichtbaren Gegner." },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
@@ -1090,7 +1091,11 @@ const SORTED_SHOP_ITEMS = orderCatalog(SHOP_ITEMS);
 const SORTED_WEAPONS = orderCatalog(WEAPONS);
 const SORTED_DRONE_WEAPONS = orderCatalog(DRONE_WEAPONS);
 const SORTED_WEAPON_CRATES = orderCatalog(WEAPON_CRATES);
-const SORTED_JET_SKINS = orderCatalog(JET_SKINS);
+// Caelus always closes the aircraft catalogue. Keep its saved ID stable.
+const SORTED_JET_SKINS = [
+  ...orderCatalog(JET_SKINS.filter(skin => skin.id !== "ultimate")),
+  ...JET_SKINS.filter(skin => skin.id === "ultimate"),
+];
 const SORTED_DRONE_SKINS = orderCatalog(DRONE_SKINS);
 
 type UltiLoadoutId = "jet" | "laser" | "stealth_ulti" | "heal_ulti" | "poison_missiles_ulti" | "absorber_ulti" | "ultimate_ulti" | "gravity_ulti" | "emp_ulti";
@@ -3425,6 +3430,11 @@ class GameAudio {
 // ─── Main Game Component ──────────────────────────────────────────────────────
 
 export default function Game() {
+  const [mapOpen, setMapOpen] = useState(false);
+  const [completedLevels, setCompletedLevels] = useState(loadCompletedLevels);
+  const [completedAnimation, setCompletedAnimation] = useState<number | null>(null);
+  const campaignLevelRef = useRef(1);
+  const campaignBossDefeatedRef = useRef(false);
   const shellRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef<GameState>({
@@ -3679,6 +3689,9 @@ export default function Game() {
     if (isBossEnemy(enemy) && (enemy.encounterKind !== "city" ||
         encounterComplete(enemiesRef.current.filter(member => member.encounterKind === "city")))) {
       runStatsRef.current.bosses += 1;
+      if (enemy.campaignBoss || enemy.encounterKind === getBossForLevel(stateRef.current.level)) {
+        campaignBossDefeatedRef.current = true;
+      }
       if (runStatsRef.current.damageTaken === bossDamageStartRef.current) {
         runStatsRef.current.perfectBosses += 1;
       }
@@ -3895,7 +3908,7 @@ export default function Game() {
         !enemiesRef.current.some(enemy => enemy.type === "laserdevice" && !enemy.dead)) {
       type = "laserdevice"; hp = (8 + level * 2) * 3; w = 52; h = 58; vx = -rand(1.1, 1.5); pts = 100; color = "#777c82";
     } else if (Math.random() < BIOME_ENEMY_CHANCE) {
-      const biome = getBiomeForLevel(level);
+      const biome = getCampaignLandscape(level).biome;
       const definition = biome.enemies[Math.floor(Math.random() * biome.enemies.length)];
       type = "biome";
       biomeEnemyId = definition.id;
@@ -4284,9 +4297,15 @@ export default function Game() {
     }
   }, []);
 
-  const startGame = useCallback((fromSave = false) => {
+  const startGame = useCallback((fromSave = false, requestedLevel = campaignLevelRef.current) => {
+    if (!isLevelUnlocked(requestedLevel, loadCompletedLevels())) return;
+    campaignLevelRef.current = requestedLevel;
+    campaignBossDefeatedRef.current = false;
+    setMapOpen(false);
+    setCompletedAnimation(null);
     audioRef.current.unlock();
-    const save = fromSave ? loadSave() : null;
+    const savedRun = fromSave ? loadSave() : null;
+    const save = savedRun?.level === requestedLevel ? savedRun : null;
     const mode = "classic";
     const modeRules = getEffectiveGameModeRules(mode);
     activeModeRef.current = mode;
@@ -4343,7 +4362,7 @@ export default function Game() {
     const baseSpeed = 3.2 + (unlocks.includes("speed_item") ? 0.5 : 0) + aircraftStats.speedBonus + engineModule.speed;
     stateRef.current = {
       score:      save?.score  ?? 0,
-      level:      save?.level  ?? 1,
+      level:      requestedLevel,
       hp:         save ? Math.min(save.hp, baseMaxHp) : baseMaxHp,
       maxHp:      baseMaxHp,
       shield:     0,
@@ -4364,7 +4383,7 @@ export default function Game() {
     lastWeaponCrateFireRef.current = 0;
     enemySpawnTimerRef.current = 0;
     timeRef.current = 0;
-    backgroundNightRef.current = selectBiomeTimeOfDay(Math.random()) === "night";
+    backgroundNightRef.current = getCampaignLandscape(requestedLevel).night;
     runElapsedMsRef.current = 0;
     protectPackageHpRef.current = PROTECT_PACKAGE_MAX_HP;
     protectPackageHitCooldownRef.current = 0;
@@ -4395,9 +4414,9 @@ export default function Game() {
     activeWaveRef.current = null;
     activeMutatorRef.current = save?.mutatorId
       ? MUTATORS[save.mutatorId]
-      : getMutatorForLevel(save?.level ?? 1);
+      : getMutatorForLevel(requestedLevel);
     waveBannerRef.current = {
-      text: "MISSION GESTARTET",
+      text: `LEVEL ${requestedLevel} · MISSION GESTARTET`,
       timer: 120,
     };
     droneSupportTimerRef.current = 0;
@@ -4431,6 +4450,8 @@ export default function Game() {
   }, [syncDisplay]);
 
   const returnToHangar = useCallback(() => {
+    setMapOpen(false);
+    setCompletedAnimation(null);
     const gs = stateRef.current;
     if (gs.started) setHangarSlots(previous => {
       const next = [...previous];
@@ -4454,6 +4475,12 @@ export default function Game() {
     setCoins(loadCoins());
     syncDisplay();
   }, [activeHangar, syncDisplay]);
+
+  useEffect(() => {
+    if (completedAnimation === null) return;
+    const timer = window.setTimeout(returnToHangar, settings.reducedMotion ? 1800 : 3600);
+    return () => window.clearTimeout(timer);
+  }, [completedAnimation, returnToHangar, settings.reducedMotion]);
 
   const cashOutRunToHangar = useCallback(() => {
     const gs = stateRef.current;
@@ -4648,6 +4675,7 @@ export default function Game() {
       // game (for example, typing "n" in the pilot-name input used to start a
       // new mission and clear the current checkpoint).
       if (isMenuControl) return;
+      if (!stateRef.current.started && e.code === "Escape") { setMapOpen(false); return; }
       keysRef.current.add(e.key);
       keysRef.current.add(e.code);
       const bindings = settingsRef.current.keyBindings;
@@ -4668,10 +4696,10 @@ export default function Game() {
       }
       if (!e.repeat && e.code === bindings.fire && !stateRef.current.started) {
         e.preventDefault();
-        startGame(saveExistsRef.current);
+        setMapOpen(true);
       }
       if ((e.key === "n" || e.key === "N") && !stateRef.current.started) {
-        clearSave(); saveExistsRef.current = false; startGame(false);
+        setMapOpen(true);
       }
       if (e.code === bindings.pause || e.code === "Escape") {
         e.preventDefault();
@@ -4947,8 +4975,8 @@ export default function Game() {
           settingsRef.current.reducedMotion, visualQuality.economical);
       } else drawBiomeBackground(
         ctx,
-        getBiomeForLevel(gs.level),
-        timeRef.current,
+        getCampaignLandscape(gs.level).biome,
+        timeRef.current + getCampaignLandscape(gs.level).seed,
         settingsRef.current.reducedMotion,
         backgroundNightRef.current,
         starsRef.current,
@@ -4956,6 +4984,14 @@ export default function Game() {
         cityNearRef.current,
         visualQuality.economical,
       );
+
+      if (gs.started) {
+        ctx.save();
+        ctx.globalCompositeOperation = "soft-light";
+        ctx.fillStyle = `hsla(${(gs.level * 137.508) % 360}, 38%, 52%, .18)`;
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        ctx.restore();
+      }
 
       const backgroundTransition = backgroundTransitionRef.current;
       if (backgroundTransition) {
@@ -5300,42 +5336,17 @@ export default function Game() {
       const weaponCrateActive = runElapsedMsRef.current < weaponCrateActiveUntilRef.current;
       if (weaponCrateActive) fireWeaponCrate(timestamp);
 
-      // ── Level progression (equipment stays fixed during the mission) ──
+      // Map missions stay on their selected level until the full objective is met.
       const encounterActive = enemiesRef.current.some(e => e.encounterKind && !e.dead && e.hp > 0);
-      const scoreLevel = getProgressedLevel(gs.level, gs.score);
-      const nextLevel = activeModeRef.current === "boss_fight" ? scoreLevel :
-        getEncounterProgressionLevel(gs.level, scoreLevel, encounterLevelsSpawnedRef.current, encounterActive);
-      if (nextLevel !== gs.level) {
-        const previousBiome = getBiomeForLevel(gs.level);
-        const nextBiome = getBiomeForLevel(nextLevel);
-        const backgroundChanges = nextBiome.id !== previousBiome.id;
-        if (backgroundChanges) {
-          backgroundNightRef.current = selectBiomeTimeOfDay(Math.random()) === "night";
-          const activeBiomeEnemies = new Set(nextBiome.enemies.map(enemy => enemy.id));
-          enemiesRef.current = enemiesRef.current.filter(enemy =>
-            enemy.type !== "biome" || activeBiomeEnemies.has(enemy.biomeEnemyId ?? ""),
-          );
-        }
-        if (backgroundChanges && !settingsRef.current.reducedMotion && !upwardFlight) {
-          const snapshot = document.createElement("canvas");
-          snapshot.width = CANVAS_W;
-          snapshot.height = CANVAS_H;
-          snapshot.getContext("2d")?.drawImage(canvas, 0, 0);
-          backgroundTransitionRef.current = { snapshot, elapsed: 0 };
-        }
-        gs.level = nextLevel;
-        waveBannerRef.current = { text: `LEVEL ${nextLevel}`, timer: 110 };
-        screenShakeRef.current = Math.max(screenShakeRef.current, 5);
-        const nextMutator = getMutatorForLevel(nextLevel);
-        if (nextMutator.id !== activeMutatorRef.current.id) {
-          activeMutatorRef.current = nextMutator;
-          waveBannerRef.current = { text: `${nextMutator.icon} MUTATOR · ${nextMutator.name.toUpperCase()}`, timer: 170 };
-        }
-        if (activeModeRef.current === "classic") {
-          saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
-            fireRatePenaltyRef.current, activeMutatorRef.current.id);
-          saveExistsRef.current = true;
-        }
+      if (!tutorialActive && canCompleteCampaignLevel(gs.level, gs.score, campaignBossDefeatedRef.current)) {
+        runResultRef.current = "complete";
+        gs.gameOver = true;
+        setCompletedLevels(completeCampaignLevel(gs.level));
+        setCompletedAnimation(gs.level);
+        grantRunReward();
+        audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
+        syncDisplay();
+        return;
       }
 
       // Scheduled bosses own the arena until the entire encounter is defeated.
@@ -5426,6 +5437,7 @@ export default function Game() {
           hp: mbHp, maxHp: mbHp,
           width: 115, height: 88,
           type: "boss",
+          campaignBoss: true,
           shootCooldown: 12,
           points: 100,
           color: "#ff2200",
@@ -7867,9 +7879,9 @@ export default function Game() {
     <div
       ref={shellRef}
       className={`game-shell flex flex-col items-center justify-center w-full bg-[#08080e] select-none ${settings.highContrast ? "high-contrast" : ""} ${settings.reducedMotion ? "reduced-motion" : ""}`}
-      style={{ touchAction: "none" }}
+      style={{ touchAction: mapOpen ? "pan-y" : "none" }}
     >
-      <div className={`game-frame ${settings.flightDirection === "up" ? "flight-up" : ""} relative rounded overflow-hidden shadow-[0_0_40px_#00cfff22]`}
+      <div className={`game-frame ${mapOpen ? "campaign-frame" : ""} ${settings.flightDirection === "up" ? "flight-up" : ""} relative rounded overflow-hidden shadow-[0_0_40px_#00cfff22]`}
         style={{ border: "1px solid rgba(0,207,255,0.15)" }}>
         <canvas
           ref={canvasRef}
@@ -7893,6 +7905,17 @@ export default function Game() {
             </div>
           </div>
         )}
+        {mapOpen && !displayState.started && <LevelMap completed={completedLevels} onBack={() => setMapOpen(false)} onSelect={level => startGame(false, level)} />}
+        {completedAnimation !== null && (
+          <div className="campaign-victory" role="status" aria-live="polite">
+            <div className="campaign-victory-ring">✓</div>
+            <span>MISSION ABGESCHLOSSEN</span>
+            <h2>LEVEL {completedAnimation} GESCHAFFT!</h2>
+            <p>{completedAnimation < MAX_LEVEL ? `Level ${completedAnimation + 1} ist jetzt freigeschaltet.` : "Du hast die gesamte Flugroute abgeschlossen!"}</p>
+            <small>Rückflug zum Hangar …</small>
+            <button onClick={returnToHangar}>Zum Hangar →</button>
+          </div>
+        )}
         {achievementToast && (
           <div className="absolute left-1/2 top-4 z-50 w-[min(90%,390px)] -translate-x-1/2 rounded-xl border border-amber-300 bg-slate-950/95 p-3 text-center shadow-[0_0_30px_#ffcc0066]">
             <div className="text-xs font-black uppercase tracking-[.25em] text-amber-300">Erfolg freigeschaltet</div>
@@ -7900,7 +7923,7 @@ export default function Game() {
             <div className="text-sm text-slate-300">+{achievementToast.reward.toLocaleString("de-DE")} Credits</div>
           </div>
         )}
-        {displayState.gameOver && runSummary && (
+        {displayState.gameOver && runSummary && completedAnimation === null && (
           <div className="run-summary-layer absolute inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-slate-950/94 p-4 touch-pan-y">
             <div className="w-full max-w-2xl rounded-3xl border border-cyan-400/50 bg-[#071126] p-6 text-white shadow-[0_0_50px_#22d3ee33]">
               <div className="text-center">
@@ -7956,7 +7979,7 @@ export default function Game() {
             </button>
           </div>
         )}
-        {!displayState.started && (
+        {!displayState.started && !mapOpen && (
           <HangarOverlay
             hangarSlots={hangarSlots}
             activeHangar={activeHangar}
@@ -7980,10 +8003,10 @@ export default function Game() {
             aircraftLevels={aircraftLevels}
             droneLevels={droneLevels}
             weaponLevels={weaponLevels}
-            hasSave={saveExistsRef.current}
-            saveData={saveExistsRef.current ? loadSave() : null}
-            onStart={() => startGame(saveExistsRef.current)}
-            onNewGame={() => startGame(false)}
+            hasSave={false}
+            saveData={null}
+            onStart={() => setMapOpen(true)}
+            onNewGame={() => setMapOpen(true)}
             onSkinSelect={handleSkinSelect}
             onUltiLoadoutChange={handleUltiLoadoutChange}
             onDroneSkinSelect={handleDroneSkinSelect}
@@ -8690,7 +8713,7 @@ function HangarOverlay({
             <button onClick={onStart}
               className="w-full py-3 rounded-xl font-bold text-lg tracking-widest transition-all active:scale-95"
               style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #00cfff", color: "#00cfff", textShadow: "0 0 10px #00cfff88" }}>
-              {translated(language, "▶ SPIELEN", "▶ PLAY")}
+              {translated(language, "▶ START", "▶ START")}
             </button>
           )}
         </div>
@@ -9472,7 +9495,7 @@ function AchievementsScreen({ unlocked, onBack }: { unlocked: string[]; onBack: 
 function BriefingScreen({ settings, onDone }: { settings: GameSettings; onDone: () => void }) {
   const language = settings.language;
   const sections = language === "de" ? [
-    { icon: "①", title: "Im Hangar vorbereiten", text: "Öffne im Shop den Bereich Baukasten, um Flugzeug und Drohne zusammenzustellen. Dort kannst du auch Skins, Waffen und bis zu drei Spezialfähigkeiten ausrüsten. Der große mittlere Knopf startet das Spiel; „Weiterspielen“ lädt einen vorhandenen Checkpoint." },
+    { icon: "①", title: "Im Hangar vorbereiten", text: "Öffne im Shop den Bereich Baukasten, um Flugzeug und Drohne zusammenzustellen. Dort kannst du auch Skins, Waffen und bis zu drei Spezialfähigkeiten ausrüsten. „Start“ öffnet die Levelkarte. Level 1 ist offen; jeder Sieg schaltet das nächste Level frei. Wische auf der Karte nach unten, um weitere Level zu sehen. Totenköpfe markieren Bosslevel. Nach dem Sieg fliegst du automatisch zurück zum Hangar." },
     { icon: "②", title: "Fliegen & feuern", text: "Bewege den Jet in alle vier Richtungen. Der Bildschirm scrollt automatisch – du steuerst nur den Jet. Halte die Feuertaste gedrückt, sofern Auto-Fire ausgeschaltet ist. Weiche gegnerischen Flugzeugen, Hindernissen und ihren Geschossen aus und schieße Ziele ab, um Punkte zu erhalten." },
     { icon: "❤", title: "Schaden & Leben", text: "Treffer reduzieren zuerst einen aktiven Schild, danach deine HP. Bei 0 HP verlierst du ein Leben und kehrst mit voller Energie zurück. Sind keine Leben mehr übrig, endet der Einsatz." },
     { icon: "📦", title: "Power-ups einsammeln", text: "Zerstörte Gegner können Symbole hinterlassen. Fliege mit dem Jet darüber, bevor sie den Bildschirm verlassen: Herzen heilen HP, Schilde absorbieren Treffer und Tempo-Boosts erhöhen vorübergehend deine Fluggeschwindigkeit." },
@@ -10110,6 +10133,8 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     ctx.fillStyle = "#ffcc00"; ctx.font = "bold 15px 'Inter', sans-serif"; ctx.fillText(`LEVEL ${gs.level}`, viewW / 2, 7);
     ctx.fillStyle = "#fff"; ctx.font = "bold 12px 'Inter', sans-serif"; ctx.fillText(WEAPON_TIERS[gs.weaponTier].name.toUpperCase(), viewW / 2, 27);
 
+    ctx.fillStyle = "#a7e8cf"; ctx.font = "bold 10px Inter, sans-serif";
+    ctx.fillText(`ZIEL ${Math.min(gs.score, getCampaignTarget(gs.level)).toLocaleString("de-DE")} / ${getCampaignTarget(gs.level).toLocaleString("de-DE")}`, viewW / 2, 49);
     const hpX = viewW - 150;
     ctx.textAlign = "right";
     ctx.fillStyle = "#ff6666"; ctx.font = "bold 12px 'Inter', sans-serif"; ctx.fillText(`HP ${hpText}`, viewW - 14, 8);
@@ -10161,11 +10186,8 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ctx.fillStyle = "#ffffff";
   ctx.font = "bold 13px 'Inter', sans-serif";
   ctx.fillText(WEAPON_TIERS[gs.weaponTier].name.toUpperCase(), CANVAS_W / 2, 22);
-  // XP bar (progress to next level)
-  const thresholds = LEVEL_THRESHOLDS;
-  const lo = thresholds[gs.level - 1] ?? 0;
-  const hi = thresholds[gs.level] ?? lo + 999;
-  const pct = gs.level >= MAX_LEVEL ? 1 : Math.min(1, (gs.score - lo) / (hi - lo));
+  // Mission progress uses the tenfold objective for this selected level.
+  const pct = Math.max(0, Math.min(1, gs.score / getCampaignTarget(gs.level)));
   const barX = CANVAS_W / 2 - 80, barY = 36, barW = 160, barH = 5;
   ctx.fillStyle = "#222";
   ctx.fillRect(barX, barY, barW, barH);
@@ -10174,6 +10196,9 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   xpGrad.addColorStop(1, "#7700ff");
   ctx.fillStyle = xpGrad;
   ctx.fillRect(barX, barY, barW * pct, barH);
+
+  ctx.fillStyle = "#a7e8cf"; ctx.font = "bold 10px Inter, sans-serif";
+  ctx.fillText(`ZIEL ${Math.min(gs.score, getCampaignTarget(gs.level)).toLocaleString("de-DE")} / ${getCampaignTarget(gs.level).toLocaleString("de-DE")}`, CANVAS_W / 2, 48);
 
   // HP bar
   const hpW = 130;
