@@ -35,7 +35,6 @@ import {
   getBackgroundMusicTheme,
   getEnemySpawnRate,
   getEnemyAttackTarget,
-  GAME_MODES,
   getDailyChallengeRules,
   getGameModeRules,
   getModeCoinMultiplier,
@@ -63,7 +62,6 @@ import {
   formatRunDuration,
   getBossPhase,
   getMutatorForLevel,
-  saveModeRecord,
   type MutatorDefinition,
 } from "../game-enhancements";
 import {
@@ -313,7 +311,6 @@ interface RunSummary {
   stats: RunStats;
   mutator: MutatorDefinition;
   newRecord: boolean;
-  modeRecord: number;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -3588,7 +3585,6 @@ export default function Game() {
   });
   const bossDamageStartRef = useRef(0);
   const activeModeRef = useRef<GameMode>("classic");
-  const [selectedGameMode, setSelectedGameMode] = useState<GameMode>("classic");
   const runResultRef = useRef<"game_over" | "complete">("game_over");
   const rewardGrantedRef = useRef(false);
   const [achievementToast, setAchievementToast] = useState<Achievement | null>(null);
@@ -3728,7 +3724,6 @@ export default function Game() {
       clearSave();
       saveExistsRef.current = false;
     }
-    const modeRecord = saveModeRecord(activeModeRef.current, gs.score);
     setRunSummary({
       score: gs.score,
       level: gs.level,
@@ -3736,8 +3731,7 @@ export default function Game() {
       durationMs: runElapsedMsRef.current,
       stats: { ...runStatsRef.current },
       mutator: activeMutatorRef.current,
-      newRecord: gs.score > runStartHighScoreRef.current || modeRecord.isNew,
-      modeRecord: modeRecord.record,
+      newRecord: gs.score > runStartHighScoreRef.current,
     });
     saveHighScore(gs.score);
     addLeaderboardEntry(playerNameRef.current, gs.score, {
@@ -4290,10 +4284,10 @@ export default function Game() {
     }
   }, []);
 
-  const startGame = useCallback((fromSave = false, requestedMode: GameMode = selectedGameMode) => {
+  const startGame = useCallback((fromSave = false) => {
     audioRef.current.unlock();
     const save = fromSave ? loadSave() : null;
-    const mode = fromSave ? "classic" : requestedMode;
+    const mode = "classic";
     const modeRules = getEffectiveGameModeRules(mode);
     activeModeRef.current = mode;
     const unlocks = loadUnlocks();
@@ -4403,7 +4397,7 @@ export default function Game() {
       ? MUTATORS[save.mutatorId]
       : getMutatorForLevel(save?.level ?? 1);
     waveBannerRef.current = {
-      text: mode === "boss_fight" ? `BOSSKAMPF · ${BOSS_FIGHT_COUNT} BOSSE` : "MISSION GESTARTET",
+      text: "MISSION GESTARTET",
       timer: 120,
     };
     droneSupportTimerRef.current = 0;
@@ -4434,7 +4428,7 @@ export default function Game() {
     tutorialStageRef.current = shouldTeach ? 0 : -1;
     setTutorialStage(shouldTeach ? 0 : -1);
     syncDisplay();
-  }, [selectedGameMode, syncDisplay]);
+  }, [syncDisplay]);
 
   const returnToHangar = useCallback(() => {
     const gs = stateRef.current;
@@ -4674,8 +4668,7 @@ export default function Game() {
       }
       if (!e.repeat && e.code === bindings.fire && !stateRef.current.started) {
         e.preventDefault();
-        const shouldContinueClassicSave = saveExistsRef.current && selectedGameMode === "classic";
-        startGame(shouldContinueClassicSave, selectedGameMode);
+        startGame(saveExistsRef.current);
       }
       if ((e.key === "n" || e.key === "N") && !stateRef.current.started) {
         clearSave(); saveExistsRef.current = false; startGame(false);
@@ -7392,7 +7385,7 @@ export default function Game() {
       if (settingsRef.current.autoUlti) {
         activeUltiLoadoutRef.current.forEach(id => activateAbility(id));
       }
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, gravityChargeRef.current, gravityActiveRef.current, empChargeRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], activeModeRef.current, runElapsedMsRef.current, runStatsRef.current.bosses, upwardFlight);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, gravityChargeRef.current, gravityActiveRef.current, empChargeRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], upwardFlight);
       const hudW = upwardFlight ? CANVAS_H : CANVAS_W;
       const hudTop = upwardFlight ? 136 : 86;
       const hudBosses = enemiesRef.current.filter(e => e.encounterKind && e.encounterKind !== "titan" && !e.dead && e.hp > 0);
@@ -7914,7 +7907,6 @@ export default function Game() {
                 <div className="text-xs font-black uppercase tracking-[.3em] text-cyan-300">Einsatzbilanz</div>
                 <h2 className="mt-2 text-3xl font-black">{runSummary.newRecord ? "🏆 NEUER REKORD" : runResultRef.current === "complete" ? "MISSION GESCHAFFT" : "EINSATZ BEENDET"}</h2>
                 <div className="mt-2 text-2xl font-black text-amber-300">{runSummary.score.toLocaleString("de-DE")} Punkte</div>
-                <div className="mt-1 text-xs font-bold text-slate-400">Modusrekord: {runSummary.modeRecord.toLocaleString("de-DE")}</div>
               </div>
               <div className="mt-5 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
                 {[
@@ -7981,7 +7973,6 @@ export default function Game() {
             selectedDroneWeapon={selectedDroneWeapon}
             selectedWeaponCrate={selectedWeaponCrate}
             selectedWeapons={selectedWeapons}
-            selectedGameMode={selectedGameMode}
             coins={coins}
             gems={gems}
             highScore={highScore}
@@ -7993,7 +7984,6 @@ export default function Game() {
             saveData={saveExistsRef.current ? loadSave() : null}
             onStart={() => startGame(saveExistsRef.current)}
             onNewGame={() => startGame(false)}
-            onGameModeChange={setSelectedGameMode}
             onSkinSelect={handleSkinSelect}
             onUltiLoadoutChange={handleUltiLoadoutChange}
             onDroneSkinSelect={handleDroneSkinSelect}
@@ -8043,7 +8033,7 @@ export default function Game() {
                 <h2 className="mt-2 text-3xl font-black text-white">{translated(language, "PAUSE", "PAUSED")}</h2>
                 <div className="mt-5 flex flex-col gap-2">
                   <button autoFocus onClick={() => { stateRef.current.paused = false; setPauseView("menu"); syncDisplay(); }} className="pause-primary rounded-xl py-3 font-black tracking-widest">{translated(language, "▶ WEITERSPIELEN", "▶ RESUME")}</button>
-                  <button onClick={() => startGame(false, activeModeRef.current)} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "↻ NEU STARTEN", "↻ RESTART")}</button>
+                  <button onClick={() => startGame(false)} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "↻ NEU STARTEN", "↻ RESTART")}</button>
                   <button onClick={() => setPauseView("settings")} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⚙ EINSTELLUNGEN", "⚙ SETTINGS")}</button>
                   <button onClick={returnToHangar} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⌂ ZUM HANGAR", "⌂ RETURN TO HANGAR")}</button>
                   <button onClick={cashOutRunToHangar} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "■ BEENDEN & SCORE HOLEN", "■ END & CLAIM SCORE")}</button>
@@ -8312,18 +8302,17 @@ function WorkshopSection({ build, droneBuild, droneRole, selectedSkin, selectedD
 
 function HangarOverlay({
   hangarSlots, activeHangar, onHangarSelect,
-  selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, hybridActive, droneBuild, savedAircraftBuilds, savedDroneBuilds, droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, selectedGameMode, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
-  onStart, onNewGame, onGameModeChange, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onHybridSelect, onSavedAircraftBuildSelect, onSavedDroneBuildSelect, onHybridBuild, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onCrateOpen, onAdminActivate,
+  selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, hybridActive, droneBuild, savedAircraftBuilds, savedDroneBuilds, droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
+  onStart, onNewGame, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onHybridSelect, onSavedAircraftBuildSelect, onSavedDroneBuildSelect, onHybridBuild, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onCrateOpen, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
 }: {
   hangarSlots: HangarSlot[]; activeHangar: number; onHangarSelect: (index: number) => void;
-  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; aircraftBuild: AircraftBuild; hybridActive: boolean; droneBuild: DroneBuild; savedAircraftBuilds: AircraftBuild[]; savedDroneBuilds: DroneBuild[]; droneRole: DroneRoleId; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[]; selectedGameMode: GameMode; coins: number; gems: number; highScore: number;
+  selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; aircraftBuild: AircraftBuild; hybridActive: boolean; droneBuild: DroneBuild; savedAircraftBuilds: AircraftBuild[]; savedDroneBuilds: DroneBuild[]; droneRole: DroneRoleId; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[]; coins: number; gems: number; highScore: number;
   aircraftLevels: Record<string, number>;
   droneLevels: Record<string, number>;
   weaponLevels: Record<string, number>;
   unlockedItems: string[]; hasSave: boolean; saveData: { level: number; score: number; weaponTier: number } | null;
   onStart: () => void; onNewGame: () => void;
-  onGameModeChange: (mode: GameMode) => void;
   onSkinSelect: (id: string) => void; onUltiLoadoutChange: (ids: UltiLoadoutId[]) => void; onDroneSkinSelect: (id: string) => void; onWeaponCrateSelect: (id: string) => void; onBuy: (id: string) => void; onUnlockSkin: (id: string) => void; onUnlockDroneSkin: (id: string) => void;
   onAircraftBuildChange: (build: AircraftBuild) => void;
   onHybridSelect: () => void;
@@ -8676,37 +8665,6 @@ function HangarOverlay({
         )}
       </div>
 
-      {/* ── Game mode selection ── */}
-      <div className="hangar-modes w-full">
-        <div className="mb-1 text-center text-[10px] font-black uppercase tracking-[.24em] text-violet-300">Spielmodus</div>
-        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
-          {GAME_MODES.map(mode => {
-            const active = mode.id === selectedGameMode;
-            return (
-              <button
-                key={mode.id}
-                onClick={() => onGameModeChange(mode.id)}
-                title={mode.description}
-                className="min-w-0 rounded-lg px-1.5 py-1.5 text-center transition active:scale-95"
-                style={{
-                  background: active ? "rgba(109,40,217,.42)" : "rgba(255,255,255,.045)",
-                  border: `1px solid ${active ? "#a78bfa" : "#334155"}`,
-                  color: active ? "#ede9fe" : "#94a3b8",
-                  boxShadow: active ? "0 0 14px #8b5cf633" : "none",
-                }}
-              >
-                <span className="block text-base">{mode.icon}</span>
-                <span className="block truncate text-[10px] font-black">{mode.label}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="mt-1 text-center text-[10px] text-slate-400">
-          {getEffectiveGameModeRules(selectedGameMode).description}
-          {getModeCoinMultiplier(selectedGameMode) > 1 && ` · ${getModeCoinMultiplier(selectedGameMode)}× Credits`}
-        </div>
-      </div>
-
       {/* ── Bottom buttons ── */}
       <div className="hangar-actions w-full flex gap-2">
         <button onClick={() => setView("upgrades")}
@@ -8725,14 +8683,14 @@ function HangarOverlay({
               <button onClick={onNewGame}
                 className="w-full py-1.5 rounded-xl font-bold text-xs tracking-wider transition-all active:scale-95"
                 style={{ background: "rgba(20,20,30,0.7)", border: "1px solid #334466", color: "#667799" }}>
-                {getEffectiveGameModeRules(selectedGameMode).icon} {getEffectiveGameModeRules(selectedGameMode).label.toUpperCase()} STARTEN
+                {translated(language, "▶ NEUES SPIEL", "▶ NEW GAME")}
               </button>
             </>
           ) : (
             <button onClick={onStart}
               className="w-full py-3 rounded-xl font-bold text-lg tracking-widest transition-all active:scale-95"
               style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #00cfff", color: "#00cfff", textShadow: "0 0 10px #00cfff88" }}>
-              ▶ {getEffectiveGameModeRules(selectedGameMode).label.toUpperCase()} STARTEN
+              {translated(language, "▶ SPIELEN", "▶ PLAY")}
             </button>
           )}
         </div>
@@ -9482,7 +9440,6 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
                     <div><span className="block text-slate-500">Abstand zu Platz 1</span><b className="text-cyan-300">{i === 0 ? "Spitzenplatz" : `−${Math.max(0, leaderScore - e.score).toLocaleString("de-DE")}`}</b></div>
                     <div><span className="block text-slate-500">Datum</span><b className="text-white">{validDate ? playedAt.toLocaleDateString("de-DE") : "Unbekannt"}</b></div>
                     <div><span className="block text-slate-500">Uhrzeit</span><b className="text-white">{validDate ? playedAt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "—"}</b></div>
-                    {e.mode && <div><span className="block text-slate-500">Spielmodus</span><b className="text-violet-300">{getEffectiveGameModeRules(e.mode).icon} {getEffectiveGameModeRules(e.mode).label}</b></div>}
                     {e.level !== undefined && <div><span className="block text-slate-500">Erreichtes Level</span><b className="text-emerald-300">Level {e.level}</b></div>}
                     {e.durationMs !== undefined && <div><span className="block text-slate-500">Einsatzdauer</span><b className="text-white">{formatDuration(e.durationMs)}</b></div>}
                     {e.kills !== undefined && <div><span className="block text-slate-500">Abschüsse</span><b className="text-red-300">{e.kills}</b></div>}
@@ -9515,9 +9472,9 @@ function AchievementsScreen({ unlocked, onBack }: { unlocked: string[]; onBack: 
 function BriefingScreen({ settings, onDone }: { settings: GameSettings; onDone: () => void }) {
   const language = settings.language;
   const sections = language === "de" ? [
-    { icon: "①", title: "Im Hangar vorbereiten", text: "Wähle unter dem Jet einen Spielmodus. Öffne im Shop den Bereich Baukasten, um Flugzeug und Drohne zusammenzustellen. Dort kannst du auch Skins, Waffen und bis zu drei Spezialfähigkeiten ausrüsten. Der große mittlere Knopf startet den gewählten Modus; „Weiterspielen“ lädt einen vorhandenen Checkpoint." },
+    { icon: "①", title: "Im Hangar vorbereiten", text: "Öffne im Shop den Bereich Baukasten, um Flugzeug und Drohne zusammenzustellen. Dort kannst du auch Skins, Waffen und bis zu drei Spezialfähigkeiten ausrüsten. Der große mittlere Knopf startet das Spiel; „Weiterspielen“ lädt einen vorhandenen Checkpoint." },
     { icon: "②", title: "Fliegen & feuern", text: "Bewege den Jet in alle vier Richtungen. Der Bildschirm scrollt automatisch – du steuerst nur den Jet. Halte die Feuertaste gedrückt, sofern Auto-Fire ausgeschaltet ist. Weiche gegnerischen Flugzeugen, Hindernissen und ihren Geschossen aus und schieße Ziele ab, um Punkte zu erhalten." },
-    { icon: "❤", title: "Schaden & Leben", text: "Treffer reduzieren zuerst einen aktiven Schild, danach deine HP. Bei 0 HP verlierst du ein Leben und kehrst mit voller Energie zurück. Sind keine Leben mehr übrig, endet der Einsatz. Im Modus „Beschützen“ greifen Gegner vorrangig das Paket an; fällt dessen Energie auf 0, ist die Mission verloren." },
+    { icon: "❤", title: "Schaden & Leben", text: "Treffer reduzieren zuerst einen aktiven Schild, danach deine HP. Bei 0 HP verlierst du ein Leben und kehrst mit voller Energie zurück. Sind keine Leben mehr übrig, endet der Einsatz." },
     { icon: "📦", title: "Power-ups einsammeln", text: "Zerstörte Gegner können Symbole hinterlassen. Fliege mit dem Jet darüber, bevor sie den Bildschirm verlassen: Herzen heilen HP, Schilde absorbieren Treffer und Tempo-Boosts erhöhen vorübergehend deine Fluggeschwindigkeit." },
     { icon: "⚡", title: "Spezialfähigkeiten", text: "Du kannst im Shop bis zu drei Fähigkeiten für einen Einsatz ausrüsten. Jede besitzt im HUD eine eigene Ladeanzeige. Erst wenn die Anzeige voll leuchtet, löst du die Fähigkeit mit ihrer eingeblendeten Taste beziehungsweise dem Touch-Knopf aus." },
     { icon: "💎", title: "Belohnung & dauerhafte Stärke", text: "Am Missionsende wird dein Score in Credits umgerechnet; bestimmte Modi erhöhen den Credit-Ertrag. Je 100 verdiente Einsatz-Credits erhältst du außerdem ein Juwel. Credits kaufen Shopartikel, Juwelen verbessern dauerhaft die Level von Flugzeug und Drohne." },
@@ -10123,14 +10080,10 @@ function drawVirtualControls(
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, gravityCharge: number, gravityActive: number, empCharge: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string, string], mode: GameMode, elapsedMs: number, bossesDefeated: number, upward = false) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, gravityCharge: number, gravityActive: number, empCharge: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string, string], upward = false) {
   const hpText = `${Number(Math.max(0, gs.hp).toFixed(1))}/${gs.maxHp}`;
   if (upward) {
     const viewW = CANVAS_H;
-    const modeRules = getEffectiveGameModeRules(mode);
-    const remaining = modeRules.durationSeconds === null ? null : Math.max(0, modeRules.durationSeconds - Math.floor(elapsedMs / 1000));
-    const timerText = remaining === null ? "" : ` · ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
-    const bossFightText = mode === "boss_fight" ? ` · BOSSE ${Math.min(bossesDefeated, BOSS_FIGHT_COUNT)}/${BOSS_FIGHT_COUNT}` : "";
     const abilityState: Record<UltiLoadoutId, { label: string; charge: number; max: number; active: number; color: string }> = {
       jet: { label: "JET", charge: ultimaCharge, max: ULTI_MAX, active: ultimaActive, color: "#ff44ff" },
       laser: { label: "LASER", charge: laserCharge, max: LASER_MAX, active: laserActive, color: "#ffaa22" },
@@ -10156,7 +10109,6 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     ctx.textAlign = "center";
     ctx.fillStyle = "#ffcc00"; ctx.font = "bold 15px 'Inter', sans-serif"; ctx.fillText(`LEVEL ${gs.level}`, viewW / 2, 7);
     ctx.fillStyle = "#fff"; ctx.font = "bold 12px 'Inter', sans-serif"; ctx.fillText(WEAPON_TIERS[gs.weaponTier].name.toUpperCase(), viewW / 2, 27);
-    ctx.fillStyle = "#a78bfa"; ctx.font = "bold 10px 'Inter', sans-serif"; ctx.fillText(`${modeRules.icon} ${modeRules.label.toUpperCase()}${timerText}${bossFightText}`, viewW / 2, 47);
 
     const hpX = viewW - 150;
     ctx.textAlign = "right";
@@ -10209,14 +10161,6 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ctx.fillStyle = "#ffffff";
   ctx.font = "bold 13px 'Inter', sans-serif";
   ctx.fillText(WEAPON_TIERS[gs.weaponTier].name.toUpperCase(), CANVAS_W / 2, 22);
-  const modeRules = getEffectiveGameModeRules(mode);
-  const remaining = modeRules.durationSeconds === null ? null : Math.max(0, modeRules.durationSeconds - Math.floor(elapsedMs / 1000));
-  ctx.fillStyle = "#a78bfa";
-  ctx.font = "bold 10px 'Inter', sans-serif";
-  const timerText = remaining === null ? "" : ` · ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
-  const bossFightText = mode === "boss_fight" ? ` · BOSSE ${Math.min(bossesDefeated, BOSS_FIGHT_COUNT)}/${BOSS_FIGHT_COUNT}` : "";
-  ctx.fillText(`${modeRules.icon} ${modeRules.label.toUpperCase()}${timerText}${bossFightText}`, CANVAS_W / 2, 48);
-
   // XP bar (progress to next level)
   const thresholds = LEVEL_THRESHOLDS;
   const lo = thresholds[gs.level - 1] ?? 0;
