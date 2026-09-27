@@ -222,6 +222,47 @@ export function drawEncounterHealthBar(ctx: CanvasRenderingContext2D, enemies: r
   const width = Math.min(460, viewWidth - 60), x = (viewWidth - width) / 2;
   const phase = ratio <= .3 ? 3 : ratio <= .6 ? 2 : 1;
   ctx.save();
+  if (kind !== "titan") {
+    const accent = BOSS_ACCENTS[kind];
+    const warning = state && state.stage !== "cooldown";
+    const segments = 20;
+    const gap = 3;
+    const segmentWidth = (width - gap * (segments - 1)) / segments;
+    plate(ctx, x - 12, top, width + 24, 66, true, 8);
+    ctx.fillStyle = accent;
+    ctx.fillRect(x - 12, top, 4, 66);
+    ctx.textAlign = "left";
+    ctx.font = "bold 13px monospace";
+    ctx.fillStyle = "#f1f5f9";
+    ctx.fillText(BOSS_NAMES[kind].toUpperCase(), x, top + 17);
+    ctx.textAlign = "right";
+    ctx.font = "bold 10px monospace";
+    ctx.fillStyle = accent;
+    ctx.fillText(phase === 3 ? "KRITISCH" : phase === 2 ? "BESCHÄDIGT" : "GEPANZERT", x + width, top + 17);
+    for (let i = 0; i < segments; i++) {
+      const segmentX = x + i * (segmentWidth + gap);
+      const fill = Math.max(0, Math.min(1, ratio * segments - i));
+      ctx.fillStyle = "#18202d";
+      ctx.fillRect(segmentX, top + 25, segmentWidth, 16);
+      if (fill > 0) {
+        ctx.fillStyle = accent;
+        ctx.fillRect(segmentX, top + 25, segmentWidth * fill, 16);
+        ctx.fillStyle = "#ffffff44";
+        ctx.fillRect(segmentX, top + 25, segmentWidth * fill, 3);
+      }
+    }
+    ctx.textAlign = "left";
+    ctx.font = "10px monospace";
+    ctx.fillStyle = warning ? "#fbbf24" : "#91a4b7";
+    ctx.fillText(warning ? `⚠ ${SPECIAL_NAMES[kind][state.index].toUpperCase()} · ${state.stage === "warning" ? "ANGRIFF LÄDT" : "ANGRIFF AKTIV"}` : "PANZERUNG", x, top + 57);
+    if (kind === "city") {
+      ctx.textAlign = "right";
+      ctx.fillStyle = accent;
+      ctx.fillText(enemies.length > 0 ? "VERTEIDIGUNG AKTIV" : "VERTEIDIGUNG GEFALLEN", x + width, top + 57);
+    }
+    ctx.restore();
+    return;
+  }
   plate(ctx, x - 12, top, width + 24, 60, true, 8);
   ctx.fillStyle = "#e5edf5"; ctx.font = "bold 12px monospace"; ctx.textAlign = "left";
   ctx.fillText(BOSS_NAMES[kind].toUpperCase(), x, top + 15);
@@ -237,7 +278,6 @@ export function drawEncounterHealthBar(ctx: CanvasRenderingContext2D, enemies: r
   ctx.textAlign = "left"; ctx.font = "10px monospace"; ctx.fillStyle = "#91a4b7";
   const warning = state && state.stage !== "cooldown";
   ctx.fillText(warning ? `⚠ ${SPECIAL_NAMES[kind][state.index].toUpperCase()}${state.stage === "warning" ? ` · ${(state.remaining / 60).toFixed(1)}s` : " · AKTIV"}` : CODE[kind], x, top + 49);
-  if (kind === "city") { ctx.textAlign = "right"; ctx.fillStyle = BOSS_ACCENTS.city; ctx.fillText(`${enemies.length}/6 SYSTEME`, x + width, top + 49); }
   ctx.restore();
 }
 

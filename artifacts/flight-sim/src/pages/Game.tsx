@@ -1555,9 +1555,9 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
     const drawN1Wing = (side: -1 | 1) => {
       ctx.beginPath();
       ctx.moveTo(9, side * 4);
-      ctx.lineTo(-14, side * 22);
-      ctx.lineTo(-28, side * 19);
-      ctx.lineTo(-22, side * 8);
+      ctx.lineTo(-14, side * 24);
+      ctx.lineTo(-29, side * 22);
+      ctx.lineTo(-24, side * 10);
       ctx.closePath();
       ctx.fillStyle = "#596169";
       ctx.fill();
@@ -1610,10 +1610,10 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
     ctx.moveTo(28,0); ctx.lineTo(-22,-8); ctx.lineTo(-28,-3); ctx.lineTo(-20,0); ctx.lineTo(-28,3); ctx.lineTo(-22,8);
     ctx.closePath(); ctx.fillStyle = "#303035"; ctx.fill(); ctx.strokeStyle = "#606070"; ctx.lineWidth = 1.5; ctx.stroke();
     const wingParts: [number,number,number,number,number,number,number,number][] = [
-      [-4,-4, -24,-36, -30,-24, -18,-8],
-      [-4, 4, -24, 36, -30, 24, -18, 8],
-      [ 4,-4,  -6,-26, -16,-18,  -4,-6],
-      [ 4, 4,  -6, 26, -16, 18,  -4, 6],
+      [-2,-6, -24,-36, -33,-25, -18,-7],
+      [-2, 6, -24, 36, -33, 25, -18, 7],
+      [ 5,-5,  -7,-28, -19,-20,  -5,-7],
+      [ 5, 5,  -7, 28, -19, 20,  -5, 7],
     ];
     wingParts.forEach(([x1,y1,x2,y2,x3,y3,x4,y4]) => {
       ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x3,y3); ctx.lineTo(x4,y4);
@@ -1664,6 +1664,7 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
     solaris:    { nose: 35, tail: -30, waist: 9,  wingX: -3,  wingTip: 34, sweep: -22, cockpitX: 12, cockpitW: 10, pattern: 10 },
     voidreaper: { nose: 32, tail: -34, waist: 6,  wingX: -12, wingTip: 35, sweep: -14, cockpitX: 10, cockpitW: 8, pattern: 11 },
   }[skin?.id ?? "steel"] ?? { nose: 28, tail: -28, waist: 10, wingX: -10, wingTip: 22, sweep: -22, cockpitX: 8, cockpitW: 10, pattern: 0 };
+  const bodyHalfWidth = profile.waist + 3;
 
   const hullMetal = ctx.createLinearGradient(0, -profile.wingTip, 0, profile.wingTip);
   hullMetal.addColorStop(0, skin?.stroke ?? "#486795");
@@ -1680,17 +1681,17 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
   for (const side of [-1, 1]) {
     const s = side as -1 | 1;
     ctx.beginPath();
-    ctx.moveTo(4, s * (profile.waist - 2));
+    ctx.moveTo(8, s * (bodyHalfWidth - 2));
     ctx.lineTo(profile.wingX, s * profile.wingTip);
-    ctx.lineTo(profile.sweep, s * (profile.wingTip - 4));
-    ctx.lineTo(profile.tail + 5, s * 7);
+    ctx.lineTo(profile.sweep - 2, s * (profile.wingTip - 2));
+    ctx.lineTo(profile.tail + 3, s * 9);
     ctx.closePath();
     ctx.fillStyle = hullMetal; ctx.fill();
     ctx.strokeStyle = skin?.stroke ?? "#2a4a8a"; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.fillStyle = s < 0 ? `rgba(220,235,245,${.10 + bank * .04})` : "rgba(0,6,15,.18)";
-    ctx.beginPath(); ctx.moveTo(2, s * profile.waist);
-    ctx.lineTo(profile.wingX, s * (profile.wingTip - 2));
-    ctx.lineTo(profile.tail + 7, s * 7); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(4, s * bodyHalfWidth);
+    ctx.lineTo(profile.wingX, s * (profile.wingTip - 3));
+    ctx.lineTo(profile.tail + 7, s * 9); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = "rgba(8,17,26,.5)"; ctx.lineWidth = .7;
     ctx.beginPath(); ctx.moveTo(profile.sweep + 4, s * (profile.wingTip - 6));
     ctx.lineTo(-12, s * 8); ctx.stroke();
@@ -1699,11 +1700,11 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
   // Body
   ctx.beginPath();
   ctx.moveTo(profile.nose, 0);
-  ctx.lineTo(-10, -profile.waist);
-  ctx.lineTo(profile.tail, -5);
+  ctx.lineTo(-9, -bodyHalfWidth);
+  ctx.lineTo(profile.tail, -7);
   ctx.lineTo(profile.tail + 6, 0);
-  ctx.lineTo(profile.tail, 5);
-  ctx.lineTo(-10, profile.waist);
+  ctx.lineTo(profile.tail, 7);
+  ctx.lineTo(-9, bodyHalfWidth);
   ctx.closePath();
   ctx.fillStyle = hullMetal;
   ctx.fill();
@@ -1713,7 +1714,7 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
 
   // Cockpit
   ctx.beginPath();
-  ctx.ellipse(profile.cockpitX, 0, profile.cockpitW, Math.max(4, profile.waist - 4), 0, 0, Math.PI * 2);
+  ctx.ellipse(profile.cockpitX, 0, profile.cockpitW, Math.max(4, bodyHalfWidth - 5), 0, 0, Math.PI * 2);
   const canopy = ctx.createLinearGradient(profile.cockpitX - profile.cockpitW, -8, profile.cockpitX + profile.cockpitW, 7);
   canopy.addColorStop(0, "rgba(225,248,255,.95)");
   canopy.addColorStop(.22, glow + "dd");
@@ -1730,7 +1731,7 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
   ctx.lineWidth = .75;
   ctx.beginPath();
   ctx.moveTo(profile.tail + 9, -2.5);
-  ctx.quadraticCurveTo(1, -profile.waist * .72, profile.nose - 5, -1.5);
+  ctx.quadraticCurveTo(1, -bodyHalfWidth * .72, profile.nose - 5, -1.5);
   ctx.stroke();
   ctx.restore();
 
