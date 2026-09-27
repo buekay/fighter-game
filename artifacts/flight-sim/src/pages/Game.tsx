@@ -7601,6 +7601,14 @@ export default function Game() {
     const owned = loadUnlocks();
     const skin = JET_SKINS.find(item => item.id === slot.skin && (item.cost === 0 || owned.includes(item.id))) ?? JET_SKINS[0];
     const drone = DRONE_SKINS.find(item => item.id === slot.droneSkin && (item.cost === 0 || owned.includes(item.id))) ?? DRONE_SKINS[0];
+    const ownsJetPart = (id: string) => JET_SKINS.some(item => item.id === id && (item.cost === 0 || owned.includes(id)));
+    const ownsDronePart = (id: string) => DRONE_SKINS.some(item => item.id === id && (item.cost === 0 || owned.includes(id)));
+    const aircraft = [slot.aircraftBuild.bodySkin, slot.aircraftBuild.wingSkin, slot.aircraftBuild.engineSkin].every(ownsJetPart)
+      ? slot.aircraftBuild : { wing: "balanced" as WingModuleId, engine: "ion" as EngineModuleId,
+        bodySkin: skin.id, wingSkin: skin.id, engineSkin: skin.id };
+    const combined = slot.hybridActive && aircraft === slot.aircraftBuild;
+    const droneParts = [slot.droneBuild.bodySkin, slot.droneBuild.coreSkin, slot.droneBuild.weaponSkin].every(ownsDronePart)
+      ? slot.droneBuild : { bodySkin: drone.id, coreSkin: drone.id, weaponSkin: drone.id };
     const weapons = slot.weapons.filter(id => {
       const weapon = WEAPONS.find(item => item.id === id);
       return weapon && (weapon.cost === 0 || owned.includes(`weapon_${id}`));
@@ -7610,9 +7618,9 @@ export default function Game() {
     setUnlockedItems(owned);
     setSelectedSkin(skin.id); saveSkin(skin.id); activeSkinRef.current = skin; activeUltiSkinRef.current = skin;
     setSelectedDroneSkin(drone.id); saveDroneSkin(drone.id); activeDroneSkinRef.current = drone;
-    setAircraftBuild(slot.aircraftBuild); saveAircraftBuild(slot.aircraftBuild); aircraftBuildRef.current = slot.aircraftBuild;
-    setHybridActive(slot.hybridActive); saveHybridActive(slot.hybridActive); hybridActiveRef.current = slot.hybridActive;
-    setDroneBuild(slot.droneBuild); saveDroneBuild(slot.droneBuild); droneBuildRef.current = slot.droneBuild;
+    setAircraftBuild(aircraft); saveAircraftBuild(aircraft); aircraftBuildRef.current = aircraft;
+    setHybridActive(combined); saveHybridActive(combined); hybridActiveRef.current = combined;
+    setDroneBuild(droneParts); saveDroneBuild(droneParts); droneBuildRef.current = droneParts;
     setDroneRole(slot.droneRole); saveDroneRole(slot.droneRole); droneRoleRef.current = slot.droneRole;
     const droneWeapon = DRONE_WEAPONS.find(item => item.id === slot.droneWeapon && (item.cost === 0 || owned.includes(`drone_weapon_${item.id}`))) ?? DRONE_WEAPONS[0];
     setSelectedDroneWeapon(droneWeapon.id); saveDroneWeapon(droneWeapon.id); droneWeaponRef.current = droneWeapon;
@@ -7627,8 +7635,8 @@ export default function Game() {
     setAircraftLevels(jetLevels); saveAircraftLevels(jetLevels);
     setDroneLevels(droneUpgradeLevels); saveDroneLevels(droneUpgradeLevels);
     setWeaponLevels(moduleLevels); saveWeaponLevels(moduleLevels); weaponLevelsRef.current = moduleLevels;
-    aircraftUpgradeRef.current = getAircraftUpgradeStats(jetLevels[slot.hybridActive ? aircraftBuildLevelKey(slot.aircraftBuild) : skin.id] ?? 1);
-    droneLevelRef.current = droneUpgradeLevels[isCombinedDroneBuild(slot.droneBuild) ? droneBuildLevelKey(slot.droneBuild) : drone.id] ?? 1;
+    aircraftUpgradeRef.current = getAircraftUpgradeStats(jetLevels[combined ? aircraftBuildLevelKey(aircraft) : skin.id] ?? 1);
+    droneLevelRef.current = droneUpgradeLevels[isCombinedDroneBuild(droneParts) ? droneBuildLevelKey(droneParts) : drone.id] ?? 1;
   };
 
   const buyHangar = (index: number) => {
@@ -7676,6 +7684,10 @@ export default function Game() {
   };
 
   const handleSavedAircraftBuildSelect = (build: AircraftBuild) => {
+    if (![build.bodySkin, build.wingSkin, build.engineSkin].every(id => {
+      const skin = JET_SKINS.find(item => item.id === id);
+      return skin && (skin.cost === 0 || loadUnlocks().includes(id));
+    })) return;
     setAircraftBuild(build);
     saveAircraftBuild(build);
     aircraftBuildRef.current = build;
@@ -7685,6 +7697,10 @@ export default function Game() {
   };
 
   const handleSavedDroneBuildSelect = (build: DroneBuild) => {
+    if (![build.bodySkin, build.coreSkin, build.weaponSkin].every(id => {
+      const skin = DRONE_SKINS.find(item => item.id === id);
+      return skin && (skin.cost === 0 || loadUnlocks().includes(id));
+    })) return;
     setDroneBuild(build);
     saveDroneBuild(build);
     droneBuildRef.current = build;
@@ -7897,7 +7913,7 @@ export default function Game() {
 
   const handleUnlockSkin = (skinId: string) => {
     const sk = JET_SKINS.find(s => s.id === skinId);
-    if (!sk || sk.cost === 0) return;
+    if (!sk || sk.cost === 0 || loadUnlocks().includes(skinId)) return;
     if (!isShopRarityUnlocked(sk.rarity, getPilotLevelFromKills())) return;
     if (loadCoins() < sk.cost) return;
     spendCoins(sk.cost);
@@ -7909,7 +7925,7 @@ export default function Game() {
 
   const handleUnlockDroneSkin = (skinId: string) => {
     const skin = DRONE_SKINS.find(s => s.id === skinId);
-    if (!skin || skin.cost === 0 || loadCoins() < skin.cost) return;
+    if (!skin || skin.cost === 0 || loadUnlocks().includes(skinId) || loadCoins() < skin.cost) return;
     if (!isShopRarityUnlocked(skin.rarity, getPilotLevelFromKills())) return;
     spendCoins(skin.cost);
     addUnlock(skinId);
