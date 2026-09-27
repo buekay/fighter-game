@@ -2,6 +2,7 @@ import { getAircraftUltiIds, getDroneUltiIds, getDroneUltiBoosts } from "./combi
 import assert from "node:assert/strict";
 import {
   addEnemyWithinLimit,
+  addSpawnedEnemy,
   isEnemyReturningToPlayfield,
   rechargeGuardianShield,
   getWaveClearReward,
@@ -24,6 +25,7 @@ import {
   getAircraftUpgradeCost,
   getAircraftUpgradeStats,
   getEnemySpawnRate,
+  shouldSpawnEnemy,
   getEnemyAttackTarget,
   getNormalBossDamage,
   GAME_MODES,
@@ -162,10 +164,10 @@ assert.equal(getGameModeRules("protect").durationSeconds, 180);
 assert.equal(getGameModeRules("protect").label, "Beschützen");
 assert.equal(getModeCoinMultiplier("protect"), 1.4);
 
-assert.equal(getEnemySpawnRate(1), 200);
-assert.equal(getEnemySpawnRate(9), 64);
-assert.equal(getEnemySpawnRate(10), 32);
-assert.equal(getEnemySpawnRate(50), 32);
+assert.equal(getEnemySpawnRate(1), 100);
+assert.equal(getEnemySpawnRate(9), 32);
+assert.equal(getEnemySpawnRate(10), 16);
+assert.equal(getEnemySpawnRate(50), 16);
 
 assert.ok(Math.abs(getNormalBossDamage(3, 9) - 0.6) < Number.EPSILON);
 assert.equal(getNormalBossDamage(1, 9), 0.2);
@@ -368,3 +370,26 @@ assert.deepEqual(getDroneUltiBoosts(combinedDroneUltis, true), { fireRate: 0.25,
 assert.deepEqual(getDroneUltiBoosts(combinedDroneUltis, false), { fireRate: 1, damage: 1 });
 assert.deepEqual([...getDroneUltiIds({ bodySkin: "drone_solar", coreSkin: "drone_solar", weaponSkin: "drone_solar" })], ["drone_solar"]);
 assert.deepEqual(getDroneUltiBoosts(new Set(["drone_solar", "drone_nova"]), true), { fireRate: 0.33, damage: 3 });
+
+// All normal spawn paths share the health bonus; bosses and shields retain their values.
+for (const type of ["scout", "fighter", "bomber", "interceptor", "gunship", "tiefighter", "emeraldtiefighter", "plasmawing", "sentinel", "laserdevice", "biome"]) {
+  const template = { type, hp: 10, maxHp: 10, shieldHp: 6 };
+  const spawned: typeof template[] = [];
+  addSpawnedEnemy(spawned, template);
+  addSpawnedEnemy(spawned, { ...template });
+  assert.deepEqual(spawned.map(enemy => [enemy.hp, enemy.maxHp, enemy.shieldHp]), [[13, 13, 6], [13, 13, 6]]);
+  assert.equal(template.hp, 10);
+}
+for (const type of ["boss", "overlord", "titan"]) {
+  const bosses: { type: string; hp: number; maxHp: number }[] = [];
+  addSpawnedEnemy(bosses, { type, hp: 9000, maxHp: 9000 });
+  assert.equal(bosses[0].hp, 9000);
+  assert.equal(bosses[0].maxHp, 9000);
+}
+
+// Empty combat arenas refill immediately; populated ones retain their spawn cadence.
+assert.equal(shouldSpawnEnemy(0, 0, 100), true);
+assert.equal(shouldSpawnEnemy(1, 0, 100), false);
+assert.equal(shouldSpawnEnemy(1, 100, 100), true);
+assert.equal(shouldSpawnEnemy(19, 100, 100), true);
+assert.equal(shouldSpawnEnemy(20, 1000, 100), false);

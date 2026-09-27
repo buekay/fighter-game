@@ -20,7 +20,7 @@ import {
   MAX_LEVEL,
   MAX_ACTIVE_ENEMIES,
   BOSS_FIGHT_COUNT,
-  addEnemyWithinLimit,
+  addSpawnedEnemy,
   isEnemyReturningToPlayfield,
   rechargeGuardianShield,
   getWaveClearReward,
@@ -36,6 +36,7 @@ import {
   getAircraftUpgradeStats,
   getBackgroundMusicTheme,
   getEnemySpawnRate,
+  shouldSpawnEnemy,
   getEnemyAttackTarget,
   getDailyChallengeRules,
   getGameModeRules,
@@ -4038,11 +4039,11 @@ export default function Game() {
       }
     }
     if (isBossEnemy(enemy)) bossDamageStartRef.current = runStatsRef.current.damageTaken;
-    addEnemyWithinLimit(enemiesRef.current, enemy);
+    addSpawnedEnemy(enemiesRef.current, enemy);
 
     if (type === "emeraldtiefighter") {
       const pairOffset = y < CANVAS_H / 2 ? 58 : -58;
-      addEnemyWithinLimit(enemiesRef.current, {
+      addSpawnedEnemy(enemiesRef.current, {
         ...enemy,
         x: enemy.x + 64,
         y: clamp(enemy.y + pairOffset, 20, CANVAS_H - h - 20),
@@ -4058,7 +4059,7 @@ export default function Game() {
     const { width, height } = BOSS_DIMENSIONS[kind];
     bossSpecialRef.current = kind === "titan" ? null : createBossSpecial(kind);
     if (kind === "titan") titanWarningRef.current = 180;
-    health.forEach((hp, slot) => addEnemyWithinLimit(enemiesRef.current, {
+    health.forEach((hp, slot) => addSpawnedEnemy(enemiesRef.current, {
       x: kind === "city" ? cityMountPosition(slot, CANVAS_W, CANVAS_H).x : CANVAS_W + 24,
       y: kind === "city" ? cityMountPosition(slot, CANVAS_W, CANVAS_H).y : CANVAS_H / 2 - height / 2,
       vx: kind === "city" ? 0 : -.55, vy: 0,
@@ -4103,7 +4104,7 @@ export default function Game() {
         ? centerY + (index - Math.floor(count / 2)) * 52
         : centerY + side * (35 + row * 45);
       const hp = isBomber ? 8 + level : type === "interceptor" ? 2 : 3 + Math.floor(level / 3);
-      addEnemyWithinLimit(enemiesRef.current, {
+      addSpawnedEnemy(enemiesRef.current, {
         x: CANVAS_W + 50 + row * 65,
         y: clamp(y, 90, CANVAS_H - height - 25),
         vx: isBomber ? -1.1 : type === "interceptor" ? -4.3 : -2.5,
@@ -5422,7 +5423,7 @@ export default function Game() {
             waveBannerRef.current = { text: "☄ SELTENES EREIGNIS · METEORSTURM", timer: 180 };
             for (let index = 0; index < 9; index++) {
               const hp = 2 + Math.floor(gs.level / 4);
-              addEnemyWithinLimit(enemiesRef.current, {
+              addSpawnedEnemy(enemiesRef.current, {
                 x: CANVAS_W + 80 + index * 65, y: rand(25, CANVAS_H - 45),
                 vx: -rand(5.5, 8), vy: rand(-.5, .5), hp, maxHp: hp,
                 width: 30, height: 18, type: "interceptor", shootCooldown: 999,
@@ -5443,7 +5444,7 @@ export default function Game() {
             waveBannerRef.current = { text: `◆ SCHATZKONVOI · +${eventCredits.toLocaleString("de-DE")} CREDITS`, timer: 180 };
             for (let index = 0; index < 5; index++) {
               const hp = 3 + Math.floor(gs.level / 3);
-              addEnemyWithinLimit(enemiesRef.current, {
+              addSpawnedEnemy(enemiesRef.current, {
                 x: CANVAS_W + 60 + index * 75, y: 110 + index * 78,
                 vx: -2.2, vy: 0, hp, maxHp: hp, width: 45, height: 25,
                 type: "fighter", shootCooldown: rand(90, 140), points: 250,
@@ -5462,7 +5463,7 @@ export default function Game() {
         milestoneBossFiredRef.current.add(gs.level);
         const ml = gs.level;
         const mbHp = increasedBossHealth(80 + ml * 12);
-        addEnemyWithinLimit(enemiesRef.current, {
+        addSpawnedEnemy(enemiesRef.current, {
           x: CANVAS_W + 20,
           y: rand(40, CANVAS_H - 100),
           vx: -rand(0.45, 0.8),
@@ -5489,6 +5490,7 @@ export default function Game() {
       }
 
       // ── Spawn enemies ──
+      enemiesRef.current = enemiesRef.current.filter(enemy => !enemy.dead);
       if (tutorialActive) {
         enemySpawnTimerRef.current = 0;
         bossFightSpawnTimerRef.current = 0;
@@ -5512,11 +5514,12 @@ export default function Game() {
         enemySpawnTimerRef.current += dtScale;
         waveTimerRef.current += dtScale;
         if (!scheduledBossActive && enemiesRef.current.length < MAX_ACTIVE_ENEMIES &&
-            waveTimerRef.current >= 780 && !activeWaveRef.current?.active) {
+            waveTimerRef.current >= 390 && !activeWaveRef.current?.active) {
           waveTimerRef.current = 0;
           spawnFormationWave(gs.level);
         }
-        if (!scheduledBossActive && enemiesRef.current.length < MAX_ACTIVE_ENEMIES && enemySpawnTimerRef.current >= spawnRate) {
+        if (!scheduledBossActive && shouldSpawnEnemy(
+            enemiesRef.current.filter(enemy => enemy.hp > 0).length, enemySpawnTimerRef.current, spawnRate)) {
           enemySpawnTimerRef.current = 0;
           spawnEnemy(gs.level);
         }
@@ -5780,7 +5783,7 @@ export default function Game() {
       if (halfLifeTitan) {
         halfLifeTitan.titanReinforcementsSpawned = true;
         [-70, 0, 70].forEach((offset, index) => {
-          addEnemyWithinLimit(enemiesRef.current, {
+          addSpawnedEnemy(enemiesRef.current, {
             x: CANVAS_W + 30 + index * 45,
             y: clamp(playerRef.current.y + offset, 18, CANVAS_H - 42),
             vx: -13, vy: 0,

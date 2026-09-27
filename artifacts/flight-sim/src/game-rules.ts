@@ -62,6 +62,17 @@ export function addEnemyWithinLimit<T>(enemies: T[], enemy: T): boolean {
   enemies.push(enemy);
   return true;
 }
+/** Apply the normal-enemy health bonus once, after all variant modifiers. */
+export function addSpawnedEnemy<T extends { type: string; hp: number; maxHp: number; encounterKind?: string }>(enemies: T[], enemy: T): boolean {
+  const boss = enemy.type === "boss" || enemy.type === "overlord" || enemy.type === "titan" || Boolean(enemy.encounterKind);
+  // Copy normal enemies so paired spawns do not inherit an already applied bonus.
+  return addEnemyWithinLimit(enemies, boss ? enemy : {
+    ...enemy,
+    hp: enemy.hp * 1.3,
+    maxHp: enemy.maxHp * 1.3,
+  });
+}
+
 export const EARLY_GAME_LEVEL_LIMIT = 10;
 export const EARLY_GAME_ENEMY_SPAWN_MULTIPLIER = 2;
 export const EARLY_NORMAL_BOSS_DAMAGE_MULTIPLIER = 0.2;
@@ -339,11 +350,16 @@ export function isLaserDeviceEligibleLevel(level: number): boolean {
   return level >= LASER_DEVICE_MIN_LEVEL;
 }
 
+export function shouldSpawnEnemy(activeEnemies: number, elapsed: number, interval: number): boolean {
+  return activeEnemies < MAX_ACTIVE_ENEMIES && (activeEnemies === 0 || elapsed >= interval);
+}
+
 export function getEnemySpawnRate(level: number): number {
   const baseSpawnRate = Math.max(32, 110 - level * 10);
-  return level < EARLY_GAME_LEVEL_LIMIT
+  // Spawn intervals are halved so twice as many enemies arrive per minute.
+  return (level < EARLY_GAME_LEVEL_LIMIT
     ? baseSpawnRate * EARLY_GAME_ENEMY_SPAWN_MULTIPLIER
-    : baseSpawnRate;
+    : baseSpawnRate) / 2;
 }
 
 export function getNormalBossDamage(damage: number, level: number): number {
