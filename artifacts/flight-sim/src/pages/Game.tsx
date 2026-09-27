@@ -3852,11 +3852,13 @@ export default function Game() {
   useEffect(() => {
     const pauseIfPlaying = () => {
       const gs = stateRef.current;
-      if (!gs.started || gs.gameOver || gs.paused) return;
-      gs.paused = true;
+      // Key-up and touch-end events can be lost while the window is unfocused,
+      // including when the player has already opened the pause menu.
       keysRef.current.clear();
       touchFireRef.current.active = false;
       joystickRef.current.active = false;
+      if (!gs.started || gs.gameOver || gs.paused) return;
+      gs.paused = true;
       setPauseView("menu");
       syncDisplay();
     };
@@ -4737,7 +4739,7 @@ export default function Game() {
       }
       if (e.code === bindings.pause || e.code === "Escape") {
         e.preventDefault();
-        if (stateRef.current.started && !stateRef.current.gameOver) {
+        if (!e.repeat && stateRef.current.started && !stateRef.current.gameOver) {
           stateRef.current.paused = !stateRef.current.paused;
           setPauseView("menu");
           syncDisplay();
