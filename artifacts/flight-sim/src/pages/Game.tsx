@@ -892,7 +892,7 @@ type EngineModuleId = "ion" | "afterburner" | "phase";
 type DroneRoleId = "assault" | "guardian" | "repair" | "collector";
 type DroneWeaponId = "pulse" | "rail_lance" | "ion_spread" | "spark_twin" | "frost_needle" |
   "ember_fan" | "hunter_rockets" | "phantom_ray" | "titan_burst" | "quantum_spinner" |
-  "void_spike" | "seraph_crown" | "omega_swarm" | "rotor_blade" | "ion_claw" | "seraph_halo";
+  "void_spike" | "seraph_crown" | "omega_swarm" | "rotor_blade" | "ion_claw" | "seraph_halo" | "laser_weapon";
 interface DroneWeaponDefinition {
   id: DroneWeaponId;
   icon: string;
@@ -962,6 +962,7 @@ const DRONE_WEAPONS: readonly DroneWeaponDefinition[] = [
   { id: "void_spike", icon: "◆", name: "Leerenspitze", description: "Ultraschnelles Geschoss mit konzentrierter Leerenenergie.", rarity: "ultraLegendary", cost: 650_000, shots: 1, spread: 0, projectileSpeed: 20, fireRate: 1.55, damageMultiplier: 5.4, color: "#818cf8" },
   { id: "seraph_crown", icon: "♛", name: "Seraph-Krone", description: "Neun symmetrische Lichtbolzen überziehen das Schlachtfeld.", rarity: "ultimate", cost: 1_000_000, shots: 9, spread: .065, projectileSpeed: 14, fireRate: 1.05, damageMultiplier: .9, color: "#f9a8d4" },
   { id: "seraph_halo", icon: "⊛", name: "Seraph-Halo", description: "Nahkampfwaffe: Ein riesiger Lichtkreis trifft Gegner im Nahbereich.", rarity: "ultimate", cost: 1_100_000, shots: 1, spread: 0, projectileSpeed: 0, fireRate: 2.8, damageMultiplier: 7, color: "#f9a8d4", meleeRange: 105 },
+  { id: "laser_weapon", icon: "🔴", name: "laser-waffe", description: "Feuert automatisch einen durchgehenden roten Laser auf jeweils einen Gegner. Verursacht konstant 50 HP Schaden pro Sekunde, unabhängig von Upgrades.", rarity: "ultimate", cost: 1_000_000, shots: 1, spread: 0, projectileSpeed: 0, fireRate: 1, damageMultiplier: 1, color: "#ff2020" },
   { id: "omega_swarm", icon: "☄", name: "Omega-Schwarm", description: "Fünf schwere Energiesalven mit maximaler Wirkung.", rarity: "ultimate", cost: 1_250_000, shots: 5, spread: .045, projectileSpeed: 18, fireRate: 1.35, damageMultiplier: 2.2, color: "#fde68a" },
 ] as const;
 
@@ -4146,7 +4147,7 @@ export default function Game() {
     const droneWeapon = droneWeaponRef.current;
     const droneFireRate = 280 * drone.fireRateMultiplier * droneFireMultiplier * droneWeapon.fireRate * (role === "assault" ? .72 : 1);
 
-    if (now - lastDroneFireRef.current >= droneFireRate) {
+    if (droneWeapon.id !== "laser_weapon" && now - lastDroneFireRef.current >= droneFireRate) {
       lastDroneFireRef.current = now;
       const droneX = playerRef.current.x + PLAYER_W / 2;
       const droneY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22) + Math.sin(timeRef.current * 0.08) * 4;
@@ -7055,6 +7056,38 @@ export default function Game() {
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + (isBossEnemy(e) ? 30 : 5));
             stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + (isBossEnemy(e) ? 30 : 4));
             e.dead = true;
+            syncDisplay();
+          }
+        }
+      }
+
+      // Continuous single-target beam: fixed DPS, independent of gun count and buffs.
+      if (droneWeaponRef.current.id === "laser_weapon") {
+        const originX = playerRef.current.x + PLAYER_W / 2 + 22;
+        const originY = clamp(playerRef.current.y - 30, 22, CANVAS_H - 22) + Math.sin(timeRef.current * .08) * 4;
+        const target = enemiesRef.current
+          .filter(enemy => !enemy.dead && enemy.hp > 0 && isEnemyVisible(enemy) && !isEnemyInvulnerable(enemy))
+          .sort((a, b) => Math.hypot(a.x + a.width / 2 - originX, a.y + a.height / 2 - originY)
+            - Math.hypot(b.x + b.width / 2 - originX, b.y + b.height / 2 - originY))[0];
+        if (target) {
+          ctx.save();
+          ctx.strokeStyle = "#ff2020"; ctx.shadowColor = "#ff0000"; ctx.shadowBlur = 14; ctx.lineWidth = 4;
+          ctx.beginPath(); ctx.moveTo(originX, originY);
+          ctx.lineTo(target.x + target.width / 2, target.y + target.height / 2); ctx.stroke();
+          ctx.restore();
+          const before = target.hp;
+          const result = applyEnemyDamage(target, 50 * dt / 1000);
+          setEnemyHealth(target, result.hp); target.shieldHp = result.shieldHp;
+          runStatsRef.current.damageDealt += Math.min(Math.max(0, before), Math.max(0, before - target.hp));
+          if (target.hp <= 0) {
+            target.dead = true;
+            spawnExplosion(particlesRef.current, target.x + target.width / 2, target.y + target.height / 2, isBossEnemy(target));
+            gs.score += target.points * (ultimaActiveRef.current > 0 && aircraftUltiIds.has("gold") ? 2 : 1);
+            registerKill(target);
+            audioRef.current.effect("explosion", settingsRef.current.soundVolume);
+            ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (isBossEnemy(target) ? 25 : 4));
+            laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + (isBossEnemy(target) ? 30 : 5));
+            stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + (isBossEnemy(target) ? 30 : 4));
             syncDisplay();
           }
         }
