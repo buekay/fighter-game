@@ -1122,6 +1122,12 @@ const ULTI_LOADOUT_OPTIONS: readonly { id: UltiLoadoutId; name: string; key: str
   { id: "emp_ulti", name: "EMP-Ulti", key: "I", requires: "emp_ulti" },
   ...EXTRA_ITEMS.filter(item => isCombatUlti(item.id)).map(item => ({ id: item.id as ExtraAction, name: item.name, key: "Ulti-Slot", requires: item.id })),
 ];
+// Keep ultimate abilities and their permanent enhancements in the same shop tab.
+const ULTI_SHOP_ITEM_IDS = new Set([
+  ...ULTI_LOADOUT_OPTIONS.flatMap(option => option.requires ? [option.requires] : []),
+  "ulti_boost", "clone_upgrade", "laser_upgrade", "clone_laser",
+]);
+
 function loadUltiLoadout(): UltiLoadoutId[] {
   const available = ULTI_LOADOUT_OPTIONS.filter(option => !option.requires || loadUnlocks().includes(option.requires)).map(option => option.id);
   try {
@@ -9673,9 +9679,9 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
       </>)}
 
       {(shopSection === "upgrades" || shopSection === "ultis") && (<>
-      <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest mt-1">{shopSection === "ultis" ? "Ultis kaufen" : "Dauerhafte Upgrades"}</div>
+      <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest mt-1">{shopSection === "ultis" ? "Ultis & Ulti-Verbesserungen" : "Dauerhafte Upgrades"}</div>
       <div className="relative z-10 flex flex-col gap-2">
-        {SORTED_SHOP_ITEMS.filter(item => ULTI_LOADOUT_OPTIONS.some(option => option.requires === item.id) === (shopSection === "ultis")).map(item => {
+        {SORTED_SHOP_ITEMS.filter(item => ULTI_SHOP_ITEM_IDS.has(item.id) === (shopSection === "ultis")).map(item => {
           const owned = unlockedItems.includes(item.id);
           const prerequisiteMet = !item.requires || unlockedItems.includes(item.requires);
           const levelUnlocked = isShopRarityUnlocked(item.rarity, playerLevel);
