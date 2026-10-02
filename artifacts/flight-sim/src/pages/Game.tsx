@@ -1,3 +1,4 @@
+import { drawSkyFlame } from "../rendering/sky-fire";
 import { LevelMap } from "../components/LevelMap";
 import { loadCompletedLevels, isLevelUnlocked, completeCampaignLevel, getCampaignTarget, canCompleteCampaignLevel, getCampaignLandscape } from "../campaign";
 import { advanceSubmarineDive, isSubmerged, setEnemyHealth } from "../submarine-dive";
@@ -7131,6 +7132,7 @@ export default function Game() {
         clone.fire -= dtScale;
         const cx = clone.x + PLAYER_W / 2, cy = clone.y + PLAYER_H / 2;
         ctx.save(); ctx.shadowColor = "#00aaff"; ctx.shadowBlur = 24; ctx.lineCap = "round";
+        const flameTime = settingsRef.current.reducedMotion ? 0 : timeRef.current * .22;
         for (const e of targets) {
           const ex = e.x + e.width / 2, ey = e.y + e.height / 2;
           ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ex, ey);
@@ -7140,6 +7142,16 @@ export default function Game() {
           ctx.strokeStyle = "#effcff"; ctx.lineWidth = 4; ctx.stroke();
           ctx.fillStyle = "#b9f3ff";
           ctx.beginPath(); ctx.arc(ex, ey, 10, 0, Math.PI * 2); ctx.fill();
+          const beamLength = Math.hypot(ex - cx, ey - cy);
+          const beamAngle = Math.atan2(ey - cy, ex - cx);
+          const flameCount = Math.max(1, Math.ceil(beamLength / 34));
+          for (let i = 0; i < flameCount; i++) {
+            const fraction = (i + .5) / flameCount;
+            for (const side of [-1, 1]) {
+              drawSkyFlame(ctx, cx + (ex - cx) * fraction, cy + (ey - cy) * fraction,
+                beamAngle + side * 1.05, 30 + 8 * Math.sin(flameTime + i), flameTime + i * 2 + side);
+            }
+          }
           damageCloneTarget(e, skyLaserDamage(dtScale));
         }
         const meleeTarget = clone.target;
@@ -7155,6 +7167,11 @@ export default function Game() {
         ctx.strokeStyle = "#168bff"; ctx.lineWidth = 18; ctx.stroke();
         ctx.strokeStyle = "#7dd3fc"; ctx.lineWidth = 11; ctx.stroke();
         ctx.strokeStyle = "#f0fcff"; ctx.lineWidth = 4; ctx.stroke();
+        for (let i = 0; i < 12; i++) {
+          const angle = bladeAngle + i / 11 * Math.PI * 1.25;
+          drawSkyFlame(ctx, cx + Math.cos(angle) * 65, cy + Math.sin(angle) * 65,
+            angle + .45, 32, flameTime + i);
+        }
         if (clone.melee > 45) {
           ctx.globalAlpha = (clone.melee - 45) / 15;
           ctx.strokeStyle = "#b9f3ff"; ctx.lineWidth = 7;
@@ -7175,7 +7192,17 @@ export default function Game() {
           const dx = ball.target.x + ball.target.width / 2 - ball.x;
           const dy = ball.target.y + ball.target.height / 2 - ball.y;
           const distance = Math.hypot(dx, dy), step = 14 * dtScale;
-          if (distance <= step + 12) { damageCloneTarget(ball.target, 300); return false; }
+          if (distance <= step + 12) {
+            damageCloneTarget(ball.target, 300);
+            // Keep close-range fireballs visible as a lingering blue fire burst.
+            for (let spark = 0; spark < 20; spark++) {
+              const angle = spark * Math.PI / 10;
+              particlesRef.current.push({ x: ball.x, y: ball.y,
+                vx: Math.cos(angle) * 3.5, vy: Math.sin(angle) * 3.5,
+                life: 32, maxLife: 32, color: spark % 2 ? "#168bff" : "#7de7ff", radius: 8 });
+            }
+            return false;
+          }
           ball.x += dx / distance * step; ball.y += dy / distance * step;
           // A broad flame tail and bright core keep the homing fireball distinct from the beams.
           const tailX = ball.x - dx / distance * 65, tailY = ball.y - dy / distance * 65;
@@ -7183,6 +7210,10 @@ export default function Game() {
           flame.addColorStop(0, "#168bff00"); flame.addColorStop(.55, "#168bffbb"); flame.addColorStop(1, "#7de7ff");
           ctx.strokeStyle = flame; ctx.lineWidth = 30;
           ctx.beginPath(); ctx.moveTo(tailX, tailY); ctx.lineTo(ball.x, ball.y); ctx.stroke();
+          for (let tongue = -2; tongue <= 2; tongue++) {
+            drawSkyFlame(ctx, ball.x, ball.y, Math.atan2(-dy, -dx) + tongue * .25,
+              80 - Math.abs(tongue) * 12, flameTime + tongue * 2);
+          }
           ctx.fillStyle = "#0757c477"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 30, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = "#168bff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 23, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = "#7de7ff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 16, 0, Math.PI * 2); ctx.fill();
