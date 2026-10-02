@@ -30,6 +30,7 @@ import {
   applyEnemyDamage,
   applyPlayerHitProtection,
   applyPlayerDamage,
+  getNextHangarAfterDamage,
   calculateCoinReward,
   formatLockedSkinPrice,
   getDroneStats,
@@ -3585,6 +3586,7 @@ export default function Game() {
   const [selectedWeapons, setSelectedWeapons] = useState<string[]>(() => loadWeapons());
   const [hangarSlots, setHangarSlots] = useState<HangarSlot[]>(() => loadHangarSlots());
   const [activeHangar, setActiveHangar] = useState(() => loadActiveHangar());
+  const activeHangarRef = useRef(activeHangar);
   const [unlockedHangars, setUnlockedHangars] = useState(() => loadUnlockedHangars());
   const [weaponLevels, setWeaponLevels] = useState<Record<string, number>>(() => loadWeaponLevels());
   const [aircraftLevels, setAircraftLevels] = useState<Record<string, number>>(() => loadAircraftLevels());
@@ -4315,6 +4317,109 @@ export default function Game() {
       }));
     }
   }, []);
+
+  const selectHangar = useCallback((index: number) => {
+    if (index === activeHangarRef.current || index < 0 || index >= loadUnlockedHangars()) return;
+    const slot = hangarSlots[index];
+    writeStoredText(ACTIVE_HANGAR_KEY, String(index));
+    const owned = loadUnlocks();
+    const skin = JET_SKINS.find(item => item.id === slot.skin && (item.cost === 0 || owned.includes(item.id))) ?? JET_SKINS[0];
+    const drone = DRONE_SKINS.find(item => item.id === slot.droneSkin && (item.cost === 0 || owned.includes(item.id))) ?? DRONE_SKINS[0];
+    const ownsJetPart = (id: string) => JET_SKINS.some(item => item.id === id && (item.cost === 0 || owned.includes(id)));
+    const ownsDronePart = (id: string) => DRONE_SKINS.some(item => item.id === id && (item.cost === 0 || owned.includes(id)));
+    const aircraft = [slot.aircraftBuild.bodySkin, slot.aircraftBuild.wingSkin, slot.aircraftBuild.engineSkin].every(ownsJetPart)
+      ? slot.aircraftBuild : { wing: "balanced" as WingModuleId, engine: "ion" as EngineModuleId,
+        bodySkin: skin.id, wingSkin: skin.id, engineSkin: skin.id };
+    const combined = slot.hybridActive && aircraft === slot.aircraftBuild;
+    const droneParts = [slot.droneBuild.bodySkin, slot.droneBuild.coreSkin, slot.droneBuild.weaponSkin].every(ownsDronePart)
+      ? slot.droneBuild : { bodySkin: drone.id, coreSkin: drone.id, weaponSkin: drone.id };
+    const weapons = slot.weapons.filter(id => {
+      const weapon = WEAPONS.find(item => item.id === id);
+      return weapon && (weapon.cost === 0 || owned.includes(`weapon_${id}`));
+    });
+    const safeWeapons = weapons.length ? weapons : [WEAPONS[0].id];
+    activeHangarRef.current = index;
+    setActiveHangar(index);
+    setUnlockedItems(owned);
+    activeUnlocksRef.current = owned;
+    setSelectedSkin(skin.id); saveSkin(skin.id); activeSkinRef.current = skin; activeUltiSkinRef.current = skin;
+    setSelectedDroneSkin(drone.id); saveDroneSkin(drone.id); activeDroneSkinRef.current = drone;
+    setAircraftBuild(aircraft); saveAircraftBuild(aircraft); aircraftBuildRef.current = aircraft;
+    setHybridActive(combined); saveHybridActive(combined); hybridActiveRef.current = combined;
+    setDroneBuild(droneParts); saveDroneBuild(droneParts); droneBuildRef.current = droneParts;
+    setDroneRole(slot.droneRole); saveDroneRole(slot.droneRole); droneRoleRef.current = slot.droneRole;
+    const droneWeapon = DRONE_WEAPONS.find(item => item.id === slot.droneWeapon && (item.cost === 0 || owned.includes(`drone_weapon_${item.id}`))) ?? DRONE_WEAPONS[0];
+    setSelectedDroneWeapon(droneWeapon.id); saveDroneWeapon(droneWeapon.id); droneWeaponRef.current = droneWeapon;
+    const crate = WEAPON_CRATES.find(item => item.id === slot.weaponCrate && (item.cost === 0 || owned.includes(`weapon_crate_${item.id}`))) ?? WEAPON_CRATES[0];
+    setSelectedWeaponCrate(crate.id); saveWeaponCrate(crate.id); weaponCrateRef.current = crate;
+    setSelectedWeapons(safeWeapons); saveWeapons(safeWeapons);
+    activeWeaponsRef.current = safeWeapons.map(id => WEAPONS.find(item => item.id === id) ?? WEAPONS[0]);
+    setUltiLoadout(slot.ultis); saveUltiLoadout(slot.ultis); activeUltiLoadoutRef.current = slot.ultis;
+    const jetLevels = slot.aircraftLevels ?? {};
+    const droneUpgradeLevels = slot.droneLevels ?? {};
+    const moduleLevels = slot.weaponLevels ?? {};
+    setAircraftLevels(jetLevels); saveAircraftLevels(jetLevels);
+    setDroneLevels(droneUpgradeLevels); saveDroneLevels(droneUpgradeLevels);
+    setWeaponLevels(moduleLevels); saveWeaponLevels(moduleLevels); weaponLevelsRef.current = moduleLevels;
+    aircraftUpgradeRef.current = getAircraftUpgradeStats(jetLevels[combined ? aircraftBuildLevelKey(aircraft) : skin.id] ?? 1);
+    droneLevelRef.current = droneUpgradeLevels[isCombinedDroneBuild(droneParts) ? droneBuildLevelKey(droneParts) : drone.id] ?? 1;
+  }, [hangarSlots]);
+
+  const damagePlayer = useCallback((damage: number) => {
+    const gs = stateRef.current;
+    if (gs.gameOver) return;
+    const nextLifeState = applyPlayerDamage(gs, damage);
+    const nextHangar = getNextHangarAfterDamage(gs, nextLifeState, activeHangarRef.current, loadUnlockedHangars());
+    Object.assign(gs, nextLifeState);
+    if (nextHangar === null) return;
+
+    const previousHangar = activeHangarRef.current;
+    const level = gs.level;
+    setHangarSlots(previous => {
+      const next = [...previous];
+      next[previousHangar] = { ...next[previousHangar], level: Math.max(next[previousHangar].level, level) };
+      writeStoredJson(HANGAR_SLOTS_KEY, next);
+      return next;
+    });
+    selectHangar(nextHangar);
+    const unlocks = activeUnlocksRef.current;
+    const stats = aircraftUpgradeRef.current;
+    const build = aircraftBuildRef.current;
+    const wing = WING_MODULES.find(module => module.id === build.wing) ?? WING_MODULES[0];
+    const engine = ENGINE_MODULES.find(module => module.id === build.engine) ?? ENGINE_MODULES[0];
+    gs.maxHp = Math.max(3, (unlocks.includes("max_hp") ? 15 : 10) + stats.maxHpBonus + wing.hp);
+    gs.hp = gs.maxHp;
+    gs.speed = 3.2 + (unlocks.includes("speed_item") ? 0.5 : 0) + stats.speedBonus + engine.speed;
+    gs.weaponTier = unlocks.includes("weapon_head") ? 2 : 0;
+    gs.shield = 0;
+
+    // Active effects belong to the destroyed aircraft, not its replacement.
+    ultimaActiveRef.current = 0;
+    laserActiveRef.current = 0;
+    stealthActiveRef.current = 0;
+    healActiveRef.current = 0;
+    absorberActiveRef.current = 0;
+    absorberHitsRef.current = 0;
+    ultimateActiveRef.current = 0;
+    gravityActiveRef.current = 0;
+    skyCloneRef.current = null;
+    speedBoostRef.current = 0;
+    shieldTimerRef.current = 0;
+    playerShieldHpRef.current = 0;
+    n1ShieldTimerRef.current = 0;
+    movementStunRef.current = 0;
+    invincibleRef.current = 140;
+    lastFireRef.current = {};
+    lastDroneFireRef.current = 0;
+    lastWeaponCrateFireRef.current = 0;
+    weaponCrateActiveUntilRef.current = 0;
+    weaponCrateNextActivationRef.current = runElapsedMsRef.current + WEAPON_CRATE_INTERVAL_MS;
+    fireSwordLightningRef.current = null;
+    nextFireSwordLightningRef.current = runElapsedMsRef.current + 10_000;
+    waveBannerRef.current = { text: `HANGAR ${nextHangar + 1} · ${activeSkinRef.current.name} ÜBERNIMMT`, timer: 150 };
+    saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
+      fireRatePenaltyRef.current, activeMutatorRef.current.id);
+  }, [selectHangar]);
 
   const startGame = useCallback((fromSave = false, requestedLevel = campaignLevelRef.current) => {
     if (!isLevelUnlocked(requestedLevel, loadCompletedLevels())) return;
@@ -5863,10 +5968,7 @@ export default function Game() {
                 if (!protection.protected) {
                   const titanLaserDamage = applyGravityDefense(TITAN_LASER_DAMAGE, e);
                   recordPlayerDamage(titanLaserDamage);
-                  const nextLifeState = applyPlayerDamage(gs, titanLaserDamage);
-                  gs.hp = nextLifeState.hp;
-                  gs.lives = nextLifeState.lives;
-                  gs.gameOver = nextLifeState.gameOver;
+                  damagePlayer(titanLaserDamage);
                   floatingTextsRef.current.push({
                     x: playerRef.current.x + PLAYER_W / 2,
                     y: playerRef.current.y,
@@ -6419,10 +6521,7 @@ export default function Game() {
                   e,
                 );
                 recordPlayerDamage(laserDamage);
-                const nextLifeState = applyPlayerDamage(gs, laserDamage);
-                gs.hp = nextLifeState.hp;
-                gs.lives = nextLifeState.lives;
-                gs.gameOver = nextLifeState.gameOver;
+                damagePlayer(laserDamage);
                 if (gs.gameOver) grantRunReward();
               }
               syncDisplay();
@@ -6541,10 +6640,7 @@ export default function Game() {
             e,
           );
           recordPlayerDamage(collisionDamage);
-          const nextLifeState = applyPlayerDamage(gs, collisionDamage);
-          gs.hp = nextLifeState.hp;
-          gs.lives = nextLifeState.lives;
-          gs.gameOver = nextLifeState.gameOver;
+          damagePlayer(collisionDamage);
           invincibleRef.current = 90;
           spawnExplosion(particlesRef.current, playerRef.current.x + PLAYER_W / 2, playerRef.current.y + PLAYER_H / 2, true);
           audioRef.current.effect("hit", settingsRef.current.soundVolume);
@@ -6597,10 +6693,7 @@ export default function Game() {
           );
           const killedByReflection = Boolean(e.dead);
           recordPlayerDamage(collDmg);
-          const nextLifeState = applyPlayerDamage(gs, collDmg);
-          gs.hp = nextLifeState.hp;
-          gs.lives = nextLifeState.lives;
-          gs.gameOver = nextLifeState.gameOver;
+          damagePlayer(collDmg);
           invincibleRef.current = 140;
           spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, !collidedWithBoss || e.hp <= 0);
           e.dead = e.dead || (collidedWithBoss ? e.hp <= 0 : true);
@@ -6887,10 +6980,7 @@ export default function Game() {
           b.sourceEnemy,
         );
         recordPlayerDamage(bulletDmg);
-        const nextLifeState = applyPlayerDamage(gs, bulletDmg);
-        gs.hp = nextLifeState.hp;
-        gs.lives = nextLifeState.lives;
-        gs.gameOver = nextLifeState.gameOver;
+        damagePlayer(bulletDmg);
         if (b.stunFrames) movementStunRef.current = b.stunFrames;
         invincibleRef.current = 100;
         spawnExplosion(particlesRef.current, b.x, b.y, false);
@@ -7646,7 +7736,7 @@ export default function Game() {
       wakeGameLoopRef.current = () => {};
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [activateAbility, checkAchievements, fireBullets, grantRunReward, recordPlayerDamage, registerKill, screenToWorld, spawnBossEncounter, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
+  }, [activateAbility, checkAchievements, damagePlayer, fireBullets, grantRunReward, recordPlayerDamage, registerKill, screenToWorld, spawnBossEncounter, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
 
   useEffect(() => {
     if (!displayState.paused) wakeGameLoopRef.current();
@@ -7678,51 +7768,6 @@ export default function Game() {
   }, [activeHangar, selectedSkin, selectedDroneSkin, aircraftBuild, hybridActive, droneBuild,
     droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, ultiLoadout,
     aircraftLevels, droneLevels, weaponLevels]);
-
-  const selectHangar = (index: number) => {
-    if (index === activeHangar || index < 0 || index >= loadUnlockedHangars()) return;
-    const slot = hangarSlots[index];
-    writeStoredText(ACTIVE_HANGAR_KEY, String(index));
-    const owned = loadUnlocks();
-    const skin = JET_SKINS.find(item => item.id === slot.skin && (item.cost === 0 || owned.includes(item.id))) ?? JET_SKINS[0];
-    const drone = DRONE_SKINS.find(item => item.id === slot.droneSkin && (item.cost === 0 || owned.includes(item.id))) ?? DRONE_SKINS[0];
-    const ownsJetPart = (id: string) => JET_SKINS.some(item => item.id === id && (item.cost === 0 || owned.includes(id)));
-    const ownsDronePart = (id: string) => DRONE_SKINS.some(item => item.id === id && (item.cost === 0 || owned.includes(id)));
-    const aircraft = [slot.aircraftBuild.bodySkin, slot.aircraftBuild.wingSkin, slot.aircraftBuild.engineSkin].every(ownsJetPart)
-      ? slot.aircraftBuild : { wing: "balanced" as WingModuleId, engine: "ion" as EngineModuleId,
-        bodySkin: skin.id, wingSkin: skin.id, engineSkin: skin.id };
-    const combined = slot.hybridActive && aircraft === slot.aircraftBuild;
-    const droneParts = [slot.droneBuild.bodySkin, slot.droneBuild.coreSkin, slot.droneBuild.weaponSkin].every(ownsDronePart)
-      ? slot.droneBuild : { bodySkin: drone.id, coreSkin: drone.id, weaponSkin: drone.id };
-    const weapons = slot.weapons.filter(id => {
-      const weapon = WEAPONS.find(item => item.id === id);
-      return weapon && (weapon.cost === 0 || owned.includes(`weapon_${id}`));
-    });
-    const safeWeapons = weapons.length ? weapons : [WEAPONS[0].id];
-    setActiveHangar(index);
-    setUnlockedItems(owned);
-    setSelectedSkin(skin.id); saveSkin(skin.id); activeSkinRef.current = skin; activeUltiSkinRef.current = skin;
-    setSelectedDroneSkin(drone.id); saveDroneSkin(drone.id); activeDroneSkinRef.current = drone;
-    setAircraftBuild(aircraft); saveAircraftBuild(aircraft); aircraftBuildRef.current = aircraft;
-    setHybridActive(combined); saveHybridActive(combined); hybridActiveRef.current = combined;
-    setDroneBuild(droneParts); saveDroneBuild(droneParts); droneBuildRef.current = droneParts;
-    setDroneRole(slot.droneRole); saveDroneRole(slot.droneRole); droneRoleRef.current = slot.droneRole;
-    const droneWeapon = DRONE_WEAPONS.find(item => item.id === slot.droneWeapon && (item.cost === 0 || owned.includes(`drone_weapon_${item.id}`))) ?? DRONE_WEAPONS[0];
-    setSelectedDroneWeapon(droneWeapon.id); saveDroneWeapon(droneWeapon.id); droneWeaponRef.current = droneWeapon;
-    const crate = WEAPON_CRATES.find(item => item.id === slot.weaponCrate && (item.cost === 0 || owned.includes(`weapon_crate_${item.id}`))) ?? WEAPON_CRATES[0];
-    setSelectedWeaponCrate(crate.id); saveWeaponCrate(crate.id); weaponCrateRef.current = crate;
-    setSelectedWeapons(safeWeapons); saveWeapons(safeWeapons);
-    activeWeaponsRef.current = safeWeapons.map(id => WEAPONS.find(item => item.id === id) ?? WEAPONS[0]);
-    setUltiLoadout(slot.ultis); saveUltiLoadout(slot.ultis); activeUltiLoadoutRef.current = slot.ultis;
-    const jetLevels = slot.aircraftLevels ?? {};
-    const droneUpgradeLevels = slot.droneLevels ?? {};
-    const moduleLevels = slot.weaponLevels ?? {};
-    setAircraftLevels(jetLevels); saveAircraftLevels(jetLevels);
-    setDroneLevels(droneUpgradeLevels); saveDroneLevels(droneUpgradeLevels);
-    setWeaponLevels(moduleLevels); saveWeaponLevels(moduleLevels); weaponLevelsRef.current = moduleLevels;
-    aircraftUpgradeRef.current = getAircraftUpgradeStats(jetLevels[combined ? aircraftBuildLevelKey(aircraft) : skin.id] ?? 1);
-    droneLevelRef.current = droneUpgradeLevels[isCombinedDroneBuild(droneParts) ? droneBuildLevelKey(droneParts) : drone.id] ?? 1;
-  };
 
   const buyHangar = (index: number) => {
     if (index !== unlockedHangars || loadCoins() < HANGAR_PRICES[index]) return;

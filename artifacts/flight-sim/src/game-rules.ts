@@ -457,6 +457,16 @@ export function applyPlayerHitProtection(state: PlayerHitProtectionState): Playe
   };
 }
 
+export function getNextHangarAfterDamage(
+  previous: LifeState,
+  next: LifeState,
+  activeHangar: number,
+  unlockedHangars: number,
+): number | null {
+  if (previous.gameOver || next.gameOver || next.lives >= previous.lives || unlockedHangars <= 1) return null;
+  return (activeHangar + 1) % unlockedHangars;
+}
+
 export function applyPlayerDamage(state: LifeState, damage: number): LifeState {
   const hp = Math.max(0, state.hp - damage);
 
