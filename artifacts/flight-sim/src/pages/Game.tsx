@@ -37,6 +37,7 @@ import {
   getAircraftUpgradeStats,
   getBackgroundMusicTheme,
   getEnemySpawnRate,
+  getEnemyDamage,
   shouldSpawnEnemy,
   getEnemyAttackTarget,
   getDailyChallengeRules,
@@ -4042,7 +4043,7 @@ export default function Game() {
       }
     }
     if (isBossEnemy(enemy)) bossDamageStartRef.current = runStatsRef.current.damageTaken;
-    addSpawnedEnemy(enemiesRef.current, enemy);
+    addSpawnedEnemy(enemiesRef.current, enemy, level);
 
     if (type === "emeraldtiefighter") {
       const pairOffset = y < CANVAS_H / 2 ? 58 : -58;
@@ -4051,7 +4052,7 @@ export default function Game() {
         x: enemy.x + 64,
         y: clamp(enemy.y + pairOffset, 20, CANVAS_H - h - 20),
         shootCooldown: rand(80, 120),
-      });
+      }, level);
     }
   }, []);
 
@@ -4081,7 +4082,7 @@ export default function Game() {
       titanDashTimer: 0, titanReinforcementsSpawned: true,
       bossTopPartHp: kind === "titan" ? Math.round(hp * .12) : 0,
       bossBottomPartHp: kind === "titan" ? Math.round(hp * .12) : 0,
-    }));
+    }, stateRef.current.level));
     bossDamageStartRef.current = runStatsRef.current.damageTaken;
     waveBannerRef.current = { text: `${BOSS_NAMES[kind].toUpperCase()} · ${level === undefined ? `${power}/${BOSS_FIGHT_COUNT}` : `LEVEL ${level}`}`, timer: 150 };
     audioRef.current.effect("boss", settingsRef.current.soundVolume);
@@ -4119,7 +4120,7 @@ export default function Game() {
         angle: 0,
         oscillate: pattern === 2 ? 1.2 : 0,
         waveId,
-      });
+      }, level);
     }
     activeWaveRef.current = {
       id: waveId, name, active: true, isMajor, damageAtStart: runStatsRef.current.damageTaken,
@@ -5235,6 +5236,7 @@ export default function Game() {
       const droneUltiIds = getDroneUltiIds(droneBuildRef.current);
       const skyUltimateActive = ultimaActiveRef.current > 0 && aircraftUltiIds.has("ultimate");
       const applyGravityDefense = (rawDamage: number, source?: Enemy) => {
+        rawDamage = getEnemyDamage(rawDamage, gs.level);
         if (!skyUltimateActive && gravityActiveRef.current <= 0) return rawDamage;
         if (source && !source.dead && source.hp > 0 && !isEnemyInvulnerable(source)) {
           const reflectedDamage = skyUltimateActive ? skyReflectedDamage(rawDamage) : rawDamage * ULTIMATE_REFLECT_PERCENT;
@@ -5432,7 +5434,7 @@ export default function Game() {
                 width: 30, height: 18, type: "interceptor", shootCooldown: 999,
                 points: 80 + gs.level * 5, color: "#ff7a28", angle: 0,
                 archetype: "kamikaze", ramDamage: 2,
-              });
+              }, stateRef.current.level);
             }
           } else if (eventRoll < .67) {
             gs.hp = Math.min(gs.maxHp, gs.hp + 3);
@@ -5452,7 +5454,7 @@ export default function Game() {
                 vx: -2.2, vy: 0, hp, maxHp: hp, width: 45, height: 25,
                 type: "fighter", shootCooldown: rand(90, 140), points: 250,
                 color: "#ffd84d", angle: 0, isGolden: true, goldenTimer: 900,
-              });
+              }, stateRef.current.level);
             }
           }
           audioRef.current.effect("boss", settingsRef.current.soundVolume * .7);
@@ -5483,7 +5485,7 @@ export default function Game() {
           bossAge: 0,
           bossTopPartHp: Math.max(8, Math.round(mbHp * .12)),
           bossBottomPartHp: Math.max(8, Math.round(mbHp * .12)),
-        });
+        }, stateRef.current.level);
         bossDamageStartRef.current = runStatsRef.current.damageTaken;
         audioRef.current.effect("boss", settingsRef.current.soundVolume);
       }
@@ -5800,7 +5802,7 @@ export default function Game() {
             oscillate: 0,
             ramDamage: 3,
             trackPlayerRam: true,
-          });
+          }, stateRef.current.level);
         });
         audioRef.current.effect("boss", settingsRef.current.soundVolume);
       }
@@ -6511,7 +6513,7 @@ export default function Game() {
         if (activeModeRef.current === "protect" && protectPackageHitCooldownRef.current <= 0 &&
             rectHit(protectPackageRef.current.x, protectPackageRef.current.y, PROTECT_PACKAGE_WIDTH, PROTECT_PACKAGE_HEIGHT,
               e.x, e.y, e.width, e.height)) {
-          const packageDamage = isBossEnemy(e) ? 25 : e.type === "bomber" ? 18 : 12;
+          const packageDamage = getEnemyDamage(isBossEnemy(e) ? 25 : e.type === "bomber" ? 18 : 12, gs.level);
           protectPackageHpRef.current = Math.max(0, protectPackageHpRef.current - packageDamage);
           protectPackageHitCooldownRef.current = 24;
           spawnExplosion(particlesRef.current, protectPackageRef.current.x + PROTECT_PACKAGE_WIDTH / 2,
@@ -6827,7 +6829,7 @@ export default function Game() {
             rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh,
               protectPackageRef.current.x, protectPackageRef.current.y,
               PROTECT_PACKAGE_WIDTH, PROTECT_PACKAGE_HEIGHT)) {
-          protectPackageHpRef.current = Math.max(0, protectPackageHpRef.current - Math.max(2, b.damage * 2));
+          protectPackageHpRef.current = Math.max(0, protectPackageHpRef.current - getEnemyDamage(Math.max(2, b.damage * 2), gs.level));
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           audioRef.current.effect("hit", settingsRef.current.soundVolume);
           if (protectPackageHpRef.current <= 0) {

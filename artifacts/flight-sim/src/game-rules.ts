@@ -62,14 +62,24 @@ export function addEnemyWithinLimit<T>(enemies: T[], enemy: T): boolean {
   enemies.push(enemy);
   return true;
 }
-/** Apply the normal-enemy health bonus once, after all variant modifiers. */
-export function addSpawnedEnemy<T extends { type: string; hp: number; maxHp: number; encounterKind?: string }>(enemies: T[], enemy: T): boolean {
+export function getEnemyStrengthMultiplier(level: number): number {
+  return 1 + (Math.max(1, Math.min(MAX_LEVEL, Math.floor(level))) - 1) * 0.04;
+}
+
+export function getEnemyDamage(damage: number, level: number): number {
+  return damage * getEnemyStrengthMultiplier(level);
+}
+
+/** Apply normal-enemy bonuses once, after all variant modifiers. */
+export function addSpawnedEnemy<T extends { type: string; hp: number; maxHp: number; shieldHp?: number; encounterKind?: string }>(enemies: T[], enemy: T, level = 1): boolean {
   const boss = enemy.type === "boss" || enemy.type === "overlord" || enemy.type === "titan" || Boolean(enemy.encounterKind);
+  const strength = getEnemyStrengthMultiplier(level);
   // Copy normal enemies so paired spawns do not inherit an already applied bonus.
   return addEnemyWithinLimit(enemies, boss ? enemy : {
     ...enemy,
-    hp: enemy.hp * 1.3,
-    maxHp: enemy.maxHp * 1.3,
+    hp: enemy.hp * 1.3 * strength,
+    maxHp: enemy.maxHp * 1.3 * strength,
+    ...(enemy.shieldHp === undefined ? {} : { shieldHp: enemy.shieldHp * strength }),
   });
 }
 

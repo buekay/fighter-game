@@ -25,6 +25,7 @@ import {
   getAircraftUpgradeCost,
   getAircraftUpgradeStats,
   getEnemySpawnRate,
+  getEnemyDamage,
   shouldSpawnEnemy,
   getEnemyAttackTarget,
   getNormalBossDamage,
@@ -393,3 +394,30 @@ assert.equal(shouldSpawnEnemy(1, 0, 100), false);
 assert.equal(shouldSpawnEnemy(1, 100, 100), true);
 assert.equal(shouldSpawnEnemy(19, 100, 100), true);
 assert.equal(shouldSpawnEnemy(20, 1000, 100), false);
+
+// Every level increases durability, including fixed-health enemies and paired spawns.
+for (const type of ["scout", "interceptor", "emeraldtiefighter", "biome"]) {
+  const template = { type, hp: 10, maxHp: 10, shieldHp: 6 };
+  const spawned: typeof template[] = [];
+  for (let level = 1; level <= 500; level++) {
+    addSpawnedEnemy(spawned, template, level);
+    const current = spawned.pop()!;
+    const expected = 1 + (level - 1) * .04;
+    assert.equal(current.hp, 13 * expected);
+    assert.equal(current.maxHp, current.hp);
+    assert.equal(current.shieldHp, 6 * expected);
+  }
+  assert.equal(template.hp, 10);
+  assert.equal(template.shieldHp, 6);
+}
+
+// Projectile, laser and collision damage grows on every level, even below one HP.
+for (const damage of [0.2, 0.5, 1, 3, 10, 25]) {
+  assert.equal(getEnemyDamage(damage, 1), damage);
+  for (let level = 2; level <= 500; level++) {
+    assert.ok(getEnemyDamage(damage, level) > getEnemyDamage(damage, level - 1));
+  }
+  assert.equal(getEnemyDamage(damage, 501), getEnemyDamage(damage, 500));
+}
+assert.equal(getEnemyDamage(0, 50), 0);
+assert.equal(getEnemyDamage(10, 26), 20);
