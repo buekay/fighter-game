@@ -899,3 +899,13 @@ input:focus-visible {
   .game-frame.campaign-frame { width:100%; height:calc(100dvh - 16px); max-height:none; aspect-ratio:auto; }
   .game-frame.campaign-frame .game-canvas { position:absolute; inset:0; }
 }
+
+/* Extra maneuvers sit between the HUD and the existing bottom flight controls. */
+.combat-extras { position: absolute; top: 30%; left: 8px; z-index: 12; pointer-events: none; max-width: 240px; }
+.combat-extras-actions { display: flex; gap: 5px; }
+.combat-extras button { pointer-events: auto; touch-action: none; min-width: 56px; min-height: 44px; padding: 5px 8px; border: 1px solid #a78bfa; border-radius: 9px; background: #0f172ae8; color: #ede9fe; font-size: 11px; font-weight: 800; }
+.combat-extras button small { display: block; color: #a5f3fc; font-size: 10px; }
+.combat-extras button:disabled { border-color: #475569; color: #94a3b8; }
+.combat-extras button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+.combat-extras-status { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-top: 4px; font-size: 10px; color: #fde68a; }
+.combat-extras-status span { background: #0f172ae8; padding: 2px 5px; border-radius: 4px; }

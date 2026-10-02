@@ -1,3 +1,5 @@
+import { drawCombatExtras } from "../rendering/combat-extras";
+import { EXTRA_ITEMS, EXTRA_ACTIONS, CHAOS_LABELS, createCombatExtras, tickCombatExtras, activateExtra, blockWithExtra, consumeCounter, applyExtraDamage, collectChaos, hasExtraFire, getMagnetTarget, magnetStep, distanceToTrail, type ExtraAction } from "../combat-extras";
 import { drawSkyFlame } from "../rendering/sky-fire";
 import { LevelMap } from "../components/LevelMap";
 import { loadCompletedLevels, isLevelUnlocked, completeCampaignLevel, getCampaignTarget, canCompleteCampaignLevel, getCampaignLandscape } from "../campaign";
@@ -222,7 +224,7 @@ const isEnemyInvulnerable = (enemy: Enemy) => isSubmerged(enemy) || (enemy.type 
 
 interface PowerUp {
   x: number; y: number;
-  type: "health" | "shield" | "speedboost";
+  type: "health" | "shield" | "speedboost" | "chaos";
   vy: number;
 }
 
@@ -704,6 +706,8 @@ function getWeaponStats(weapon: WeaponDefinition, level: number) {
 const SAVE_KEY = "fighter-command-save";
 
 interface SaveData {
+  sparkUsed?: boolean;
+  chaosKills?: number;
   score: number; level: number; hp: number; maxHp: number;
   weaponTier: number; speed: number; lives: number; savedAt: number;
   routeModifiers?: Record<RouteModifierId, number>;
@@ -741,6 +745,8 @@ function saveGame(
   sectorChoiceLevels: Iterable<number> = [],
   fireRatePenalty = 1,
   mutatorId: MutatorDefinition["id"] = "none",
+  sparkUsed = false,
+  chaosKills = 0,
 ) {
   try {
     const aircraftBuild = loadAircraftBuild();
@@ -756,6 +762,7 @@ function saveGame(
         .sort((a, b) => a - b),
       fireRatePenalty: Math.max(1, Math.min(10, fireRatePenalty)),
       mutatorId,
+      sparkUsed, chaosKills,
       savedAt: Date.now(),
     };
     writeStoredJson(SAVE_KEY, data);
@@ -820,6 +827,8 @@ function loadSave(): SaveData | null {
       speed: Math.max(0.1, speed!),
       lives: Math.max(0, Math.floor(lives!)),
       savedAt: Math.max(0, savedAt!),
+      sparkUsed: saved.sparkUsed === true,
+      chaosKills: Math.max(0, Math.floor(finiteNumber(saved.chaosKills) ?? 0)),
       routeModifiers,
       aircraftLevel: getAircraftUpgradeStats(finiteNumber(saved.aircraftLevel) ?? 1).level,
       aircraftBuild: savedAircraftBuild,
@@ -1064,6 +1073,7 @@ interface ShopItem {
 }
 
 const SHOP_ITEMS: readonly ShopItem[] = [
+  ...EXTRA_ITEMS,
   { id: "projectile_defense", name: "Geschossbrecher", desc: "Nur mit Nahkampfwaffen: Vier Treffer zerstören ein gegnerisches Geschoss. Jeder Schlag zählt einmal pro Geschoss, unabhängig vom Schaden. Dauerhaft aktiv.", cost: 1_000_000, rarity: "ultimate" },
   { id: "drone_mk2",     name: "Drohne MK II",      desc: "+1 Drohnenschaden und 12% schnelleres Feuer",      cost: 50000,  rarity: "rare" },
   { id: "drone_mk3",     name: "Drohne MK III",     desc: "Zwei Kanonen und nochmals 12% schnelleres Feuer", cost: 100000, rarity: "epic", requires: "drone_mk2" },
@@ -3494,6 +3504,8 @@ export default function Game() {
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const starsRef = useRef<Star[]>([]);
   const powerUpsRef = useRef<PowerUp[]>([]);
+  const extrasRef = useRef(createCombatExtras());
+  const flightVectorRef = useRef({ x: 1, y: 0 });
   const weaponCrateRef = useRef<WeaponCrateDefinition>(WEAPON_CRATES.find(crate => crate.id === loadWeaponCrate()) ?? WEAPON_CRATES[0]);
   const weaponCrateNextActivationRef = useRef(WEAPON_CRATE_INTERVAL_MS);
   const weaponCrateActiveUntilRef = useRef(0);
@@ -3684,6 +3696,10 @@ export default function Game() {
   const registerKill = useCallback((enemy: Enemy) => {
     if (enemy.killRegistered) return;
     enemy.killRegistered = true;
+    if (activeUnlocksRef.current.includes("chaos_pickup") && ++extrasRef.current.kills % 8 === 0) {
+      powerUpsRef.current.push({ x: clamp(enemy.x + enemy.width / 2, 20, CANVAS_W - 20),
+        y: clamp(enemy.y + enemy.height / 2, 100, CANVAS_H - 30), type: "chaos", vy: .65 });
+    }
     const wave = activeWaveRef.current;
     if (wave?.active && enemy.waveId === wave.id) wave.defeated.add(enemy);
     runStatsRef.current.kills += 1;
@@ -4224,13 +4240,15 @@ export default function Game() {
       const tierFireBonus = Math.max(.62, 1 - gs.weaponTier * .045);
       const fireRate = weaponStats.fireRate * tierFireBonus * Math.pow(0.8, routeModifiersRef.current.rapid_fire) *
         aircraftUpgradeRef.current.fireRateMultiplier * aircraftUltiFireRate * wingModule.fireRate *
-        engineModule.fireRate * fireRatePenaltyRef.current;
+        engineModule.fireRate * fireRatePenaltyRef.current * (extrasRef.current.chaos === "rapid" ? .65 : 1);
       if (now - (lastFireRef.current[weapon.id] ?? 0) < fireRate) return;
       lastFireRef.current[weapon.id] = now;
       const offsets = gunOffsets[Math.min(weapon.guns - 1, gunOffsets.length - 1)];
       const slotOffset = activeWeaponsRef.current.length > 1 ? (weaponIndex === 0 ? -4 : 4) : 0;
       const weaponDamage = (weaponStats.damage + Math.floor(gs.weaponTier / 2) + routeModifiersRef.current.damage +
-        aircraftUpgradeRef.current.damageBonus) * buildDamageMultiplier * (1 + wingModule.damage);
+        aircraftUpgradeRef.current.damageBonus) * buildDamageMultiplier * (1 + wingModule.damage) *
+        (activeUnlocksRef.current.includes("fire_core") ? 1.15 : 1) *
+        (extrasRef.current.chaos === "fire" ? 1.35 : 1) * consumeCounter(extrasRef.current);
 
       if (weapon.pattern === "melee" && weapon.meleeRange) {
         bulletsRef.current.push({
@@ -4361,6 +4379,8 @@ export default function Game() {
     droneLevelRef.current = loadDroneLevels()[activeDroneLevelKey] ?? 1;
     aircraftUpgradeRef.current = aircraftStats;
     activeUnlocksRef.current = unlocks;
+    extrasRef.current = createCombatExtras(save?.sparkUsed, save?.chaosKills);
+    flightVectorRef.current = { x: 1, y: 0 };
     activeUltiLoadoutRef.current = loadUltiLoadout();
     activeWeaponsRef.current = loadWeapons().map(id => WEAPONS.find(weapon => weapon.id === id) ?? WEAPONS[0]);
     weaponLevelsRef.current = loadWeaponLevels();
@@ -4475,7 +4495,7 @@ export default function Game() {
     saveExistsRef.current = !!loadSave();
     if (mode === "classic") {
       saveGame(stateRef.current, routeModifiersRef.current, sectorChoiceLevelsRef.current,
-        fireRatePenaltyRef.current, activeMutatorRef.current.id);
+        fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills);
       saveExistsRef.current = true;
     }
     setPauseView("menu");
@@ -4497,7 +4517,7 @@ export default function Game() {
     });
     if (gs.score > 0 && !gs.gameOver && activeModeRef.current === "classic") {
       saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
-        fireRatePenaltyRef.current, activeMutatorRef.current.id);
+        fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills);
     }
     gs.started = false;
     gs.paused = false;
@@ -4696,6 +4716,35 @@ export default function Game() {
     return false;
   }, [activateCombinedJetAndDroneUlti, firePoisonMissiles, syncDisplay]);
 
+  const activateCombatExtra = useCallback((action: ExtraAction) => {
+    const gs = stateRef.current;
+    if (!gs.started || gs.paused || gs.gameOver || movementStunRef.current > 0 ||
+        (isPortraitPhoneRef.current && settingsRef.current.flightDirection !== "up")) return;
+    const extra = extrasRef.current;
+    if (!activateExtra(extra, action, activeUnlocksRef.current)) return;
+    const p = playerRef.current;
+    if (action === "shadow_dash") {
+      const from = { x: p.x + PLAYER_W / 2, y: p.y + PLAYER_H / 2 };
+      extra.decoy = { x: p.x, y: p.y, life: 90 };
+      const vector = flightVectorRef.current;
+      const length = Math.hypot(vector.x, vector.y) || 1;
+      p.x = clamp(p.x + vector.x / length * 140, 0, CANVAS_W - PLAYER_W);
+      p.y = clamp(p.y + vector.y / length * 140, 0, CANVAS_H - PLAYER_H);
+      const fireUlti = ultimaActiveRef.current > 0 && [...getAircraftUltiIds(hybridActiveRef.current,
+        aircraftBuildRef.current, activeUltiSkinRef.current)].some(id => ["lava", "solaris", "xwing", "ultimate"].includes(id));
+      if (hasExtraFire(extra, activeUnlocksRef.current) || fireUlti || activeWeaponsRef.current.some(w => w.id === "fire_sword")) {
+        extra.trail = { from, to: { x: p.x + PLAYER_W / 2, y: p.y + PLAYER_H / 2 }, life: 120, tick: 0 };
+      }
+    }
+    floatingTextsRef.current.push({ x: p.x + PLAYER_W / 2, y: p.y - 12,
+      text: action === "shadow_dash" ? (extra.trail ? "FEUER-DASH" : "SCHATTEN-DASH") : action === "perfect_counter" ? "KONTERFENSTER" : "TRAKTORIMPULS",
+      color: "#c4b5fd", life: 50, maxLife: 50 });
+    audioRef.current.effect("upgrade", settingsRef.current.soundVolume * .6);
+    syncDisplay();
+    // Pointer buttons must not retain keyboard focus and swallow flight controls.
+    canvasRef.current?.focus({ preventScroll: true });
+  }, [syncDisplay]);
+
   useEffect(() => {
     initStars();
     initCity();
@@ -4714,6 +4763,12 @@ export default function Game() {
       if (!stateRef.current.started && e.code === "Escape") { setMapOpen(false); return; }
       keysRef.current.add(e.key);
       keysRef.current.add(e.code);
+      const extraAction = EXTRA_ACTIONS.find(action => action.code === e.code || (action.id === "shadow_dash" && e.code === "ShiftRight"));
+      if (extraAction && activeUnlocksRef.current.includes(extraAction.id)) {
+        e.preventDefault();
+        if (!e.repeat) activateCombatExtra(extraAction.id);
+        return;
+      }
       const bindings = settingsRef.current.keyBindings;
       const movementCodes = [bindings.up, bindings.down, bindings.left, bindings.right, "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
       if (tutorialStageRef.current === 0 && movementCodes.includes(e.code)) {
@@ -4764,7 +4819,7 @@ export default function Game() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [activateAbility, finishTutorial, initCity, initStars, startGame, syncDisplay]);
+  }, [activateAbility, activateCombatExtra, finishTutorial, initCity, initStars, startGame, syncDisplay]);
 
   useEffect(() => {
     let gamepadFrame = 0;
@@ -4807,6 +4862,9 @@ export default function Game() {
         setPauseView("menu");
         syncDisplay();
       }
+      if (pressedOnce(2)) activateCombatExtra("shadow_dash");
+      if (pressedOnce(1)) activateCombatExtra("perfect_counter");
+      if (pressedOnce(3)) activateCombatExtra("magnet_fist");
       if (pressedOnce(4)) activateAbility(activeUltiLoadoutRef.current[0]);
       if (pressedOnce(5)) activateAbility(activeUltiLoadoutRef.current[1]);
       if (pressedOnce(6)) activateAbility(activeUltiLoadoutRef.current[2]);
@@ -4814,7 +4872,7 @@ export default function Game() {
     };
     pollGamepad();
     return () => window.cancelAnimationFrame(gamepadFrame);
-  }, [activateAbility, finishTutorial, syncDisplay]);
+  }, [activateAbility, activateCombatExtra, finishTutorial, syncDisplay]);
 
   useEffect(() => {
     const pointerQuery = window.matchMedia?.("(pointer: coarse)");
@@ -5229,6 +5287,34 @@ export default function Game() {
         }, 2200);
       }
 
+      const extra = extrasRef.current;
+      tickCombatExtras(extra, dtScale);
+      const protectPlayer = (state: Parameters<typeof applyPlayerHitProtection>[0]) => {
+        const blocked = blockWithExtra(extra);
+        if (blocked) {
+          if (blocked === "counter") {
+            floatingTextsRef.current.push({ x: playerRef.current.x, y: playerRef.current.y - 15,
+              text: "PERFEKTER KONTER · 2× SALVE", color: "#67e8f9", life: 75, maxLife: 75 });
+            audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
+          }
+          return { protected: true, shieldTimer: state.shieldTimer, shieldHp: state.shieldHp };
+        }
+        return applyPlayerHitProtection(state);
+      };
+      const damagePlayer = (life: Parameters<typeof applyPlayerDamage>[0], damage: number) => {
+        const used = extra.sparkUsed;
+        const next = applyExtraDamage(extra, life, damage, activeUnlocksRef.current.includes("last_spark"),
+          { x: playerRef.current.x + PLAYER_W / 2, y: playerRef.current.y + PLAYER_H / 2 });
+        if (!used && extra.sparkUsed) {
+          invincibleRef.current = Math.max(invincibleRef.current, 140);
+          floatingTextsRef.current.push({ x: playerRef.current.x, y: playerRef.current.y,
+            text: "LETZTER FUNKE · GERETTET!", color: "#fbbf24", life: 100, maxLife: 100 });
+          audioRef.current.effect("explosion", settingsRef.current.soundVolume);
+        }
+        return next;
+      };
+      const decoyAimBounds = { ...(extra.decoy ?? playerRef.current), width: PLAYER_W, height: PLAYER_H };
+
       // ── Input & Player Movement ──
       const aircraftUltiIds = getAircraftUltiIds(hybridActiveRef.current, aircraftBuildRef.current, activeUltiSkinRef.current);
       const droneUltiIds = getDroneUltiIds(droneBuildRef.current);
@@ -5268,6 +5354,7 @@ export default function Game() {
       const bindings = settingsRef.current.keyBindings;
       const keyPressed = (action: KeyBindingAction) => keysRef.current.has(bindings[action]);
 
+      const previousPosition = { ...playerRef.current };
       movementStunRef.current = Math.max(0, movementStunRef.current - dtScale);
       if (movementStunRef.current <= 0 && js.active) {
         const target = screenToWorld({ x: js.curX, y: js.curY });
@@ -5306,6 +5393,45 @@ export default function Game() {
           }
         }
       }
+
+      const movement = { x: playerRef.current.x - previousPosition.x, y: playerRef.current.y - previousPosition.y };
+      if (Math.hypot(movement.x, movement.y) > .01) flightVectorRef.current = movement;
+
+      const magnetActive = extra.magnet > 0 || extra.chaos === "magnet";
+      const magnetTarget = getMagnetTarget({ x: playerRef.current.x + PLAYER_W / 2, y: playerRef.current.y + PLAYER_H / 2 }, extra.trail, CANVAS_W);
+      if (magnetActive) {
+        for (const enemy of enemiesRef.current) {
+          if (enemy.dead || isBossEnemy(enemy) || enemy.encounterKind || enemy.type === "laserdevice") continue;
+          const step = magnetStep({ x: enemy.x + enemy.width / 2, y: enemy.y + enemy.height / 2 }, magnetTarget, dtScale);
+          enemy.x += step.x; enemy.y += step.y;
+        }
+        for (const pickup of powerUpsRef.current) {
+          const step = magnetStep(pickup, { x: playerRef.current.x + PLAYER_W / 2, y: playerRef.current.y + PLAYER_H / 2 }, dtScale * 2);
+          pickup.x += step.x; pickup.y += step.y;
+        }
+      }
+      const trail = extra.trail;
+      if (trail) trail.tick -= dtScale;
+      const burnTick = trail !== null && trail.tick <= 0;
+      if (burnTick && trail) trail.tick += 30;
+      const pulse = extra.pulse?.pending ? extra.pulse : null;
+      if (pulse) bulletsRef.current = bulletsRef.current.filter(b => b.fromPlayer || Math.hypot(b.x - pulse.x, b.y - pulse.y) >= 230);
+      for (const enemy of enemiesRef.current) {
+        if (enemy.dead || enemy.hp <= 0 || isEnemyInvulnerable(enemy)) continue;
+        const center = { x: enemy.x + enemy.width / 2, y: enemy.y + enemy.height / 2 };
+        const burn = burnTick && trail && distanceToTrail(center, trail.from, trail.to) < 18 + Math.min(enemy.width, enemy.height) / 2;
+        const blast = pulse && Math.hypot(center.x - pulse.x, center.y - pulse.y) < 230;
+        if (!burn && !blast) continue;
+        const before = enemy.hp;
+        const result = applyEnemyDamage(enemy, (burn ? 4 : 0) + (blast ? 12 : 0));
+        setEnemyHealth(enemy, result.hp); enemy.shieldHp = result.shieldHp;
+        runStatsRef.current.damageDealt += Math.max(0, before - enemy.hp);
+        if (result.destroyed) {
+          enemy.dead = true; gs.score += enemy.points; registerKill(enemy);
+          spawnExplosion(particlesRef.current, center.x, center.y, isBossEnemy(enemy));
+        }
+      }
+      if (pulse) pulse.pending = false;
 
       const firing = settingsRef.current.autoFire || keyPressed("fire") || touchFireRef.current.active || gamepad.firing;
       if (firing) fireBullets(timestamp);
@@ -5621,7 +5747,7 @@ export default function Game() {
         if (b.trackPlayer && !b.fromPlayer) {
           const { x: tx, y: ty } = getEnemyAttackTarget(
             activeModeRef.current,
-            { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+            decoyAimBounds,
             { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
           );
           const ang = Math.atan2(ty - b.y, tx - b.x);
@@ -5812,7 +5938,7 @@ export default function Game() {
         const liveMounts = specialBosses.filter(e => !isSubmerged(e) && (e.ultimateFreezeTimer ?? 0) <= 0)
           .map(e => ({ x: e.x, y: e.y + e.height / 2 }));
         const target = getEnemyAttackTarget(activeModeRef.current,
-          { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+          decoyAimBounds,
           { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT });
         const maxHp = special.kind === "city" ? 9000 : leader.maxHp;
         const ratio = specialBosses.reduce((total, e) => total + e.hp, 0) / maxHp;
@@ -5870,7 +5996,7 @@ export default function Game() {
                 if (skyUltimateActive) { applyGravityDefense(TITAN_LASER_DAMAGE, e); continue; }
                 if (ultimateActiveRef.current > 0) continue;
 
-                const protection = applyPlayerHitProtection({
+                const protection = protectPlayer({
                   shieldTimer: shieldTimerRef.current,
                   shieldHp: playerShieldHpRef.current,
                   invincibleTimer: invincibleRef.current,
@@ -5881,7 +6007,7 @@ export default function Game() {
                 if (!protection.protected) {
                   const titanLaserDamage = applyGravityDefense(TITAN_LASER_DAMAGE, e);
                   recordPlayerDamage(titanLaserDamage);
-                  const nextLifeState = applyPlayerDamage(gs, titanLaserDamage);
+                  const nextLifeState = damagePlayer(gs, titanLaserDamage);
                   gs.hp = nextLifeState.hp;
                   gs.lives = nextLifeState.lives;
                   gs.gameOver = nextLifeState.gameOver;
@@ -6145,7 +6271,7 @@ export default function Game() {
                 e.vx = 0; e.vy = 0;
               } else {
                 const target = getEnemyAttackTarget(activeModeRef.current,
-                  { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                  decoyAimBounds,
                   { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT });
                 const measured = (target.y - (e.bossTrackedTargetY ?? target.y)) / Math.max(dtScale, .25);
                 e.bossTargetVelocityY = (e.bossTargetVelocityY ?? 0) * .85 + measured * .15;
@@ -6160,7 +6286,7 @@ export default function Game() {
             } else if (e.type === "overlord" && (e.titanDashTimer ?? 0) <= 0) {
               const attackTarget = getEnemyAttackTarget(
                 activeModeRef.current,
-                { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                decoyAimBounds,
                 { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
               );
               const previousTargetY = e.bossTrackedTargetY ?? attackTarget.y;
@@ -6241,7 +6367,7 @@ export default function Game() {
                 e.specialAttackTimer = 180;
                 const { x: px, y: py } = getEnemyAttackTarget(
                   activeModeRef.current,
-                  { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                  decoyAimBounds,
                   { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
                 );
                 const originX = e.x + 12;
@@ -6302,7 +6428,7 @@ export default function Game() {
             e.bossGunCooldown = (e.bossGunCooldown ?? 0) - dtScale;
             if (e.bossGunCooldown <= 0) {
               const target = getEnemyAttackTarget(activeModeRef.current,
-                { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                decoyAimBounds,
                 { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT });
               const shots = createBossGunfire(e.encounterKind,
                 { x: e.x, y: e.y + e.height / 2 }, target, e.bossGunVolley ?? 0);
@@ -6341,7 +6467,7 @@ export default function Game() {
               // Aimed enemies attack the package in protect mode and the player otherwise.
               const { x: px, y: py } = getEnemyAttackTarget(
                 activeModeRef.current,
-                { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                decoyAimBounds,
                 { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
               );
               const dx = px - e.x; const dy = py - (e.y + e.height / 2);
@@ -6358,10 +6484,10 @@ export default function Game() {
             } else {
               const originX = e.x;
               const originY = e.y + e.height / 2;
-              const tacticalTarget = (e.type === "overlord" || e.type === "titan" || activeModeRef.current === "protect")
+              const tacticalTarget = (e.type === "overlord" || e.type === "titan" || extra.decoy !== null || activeModeRef.current === "protect")
                 ? getEnemyAttackTarget(
                     activeModeRef.current,
-                    { ...playerRef.current, width: PLAYER_W, height: PLAYER_H },
+                    decoyAimBounds,
                     { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
                   )
                 : null;
@@ -6415,7 +6541,7 @@ export default function Game() {
             }
             if (!skyUltimateActive && (playerTouchesUpperBeam || playerTouchesLowerBeam) &&
                 invincibleRef.current <= 0 && stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0) {
-              const protection = applyPlayerHitProtection({
+              const protection = protectPlayer({
                 shieldTimer: shieldTimerRef.current,
                 shieldHp: playerShieldHpRef.current,
                 invincibleTimer: invincibleRef.current,
@@ -6437,7 +6563,7 @@ export default function Game() {
                   e,
                 );
                 recordPlayerDamage(laserDamage);
-                const nextLifeState = applyPlayerDamage(gs, laserDamage);
+                const nextLifeState = damagePlayer(gs, laserDamage);
                 gs.hp = nextLifeState.hp;
                 gs.lives = nextLifeState.lives;
                 gs.gameOver = nextLifeState.gameOver;
@@ -6540,7 +6666,7 @@ export default function Game() {
         }
         if (e.type === "titan" && playerTouchesEnemy && invincibleRef.current <= 0 &&
             stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0) {
-          const protection = applyPlayerHitProtection({
+          const protection = protectPlayer({
             shieldTimer: shieldTimerRef.current,
             shieldHp: playerShieldHpRef.current,
             invincibleTimer: invincibleRef.current,
@@ -6559,7 +6685,7 @@ export default function Game() {
             e,
           );
           recordPlayerDamage(collisionDamage);
-          const nextLifeState = applyPlayerDamage(gs, collisionDamage);
+          const nextLifeState = damagePlayer(gs, collisionDamage);
           gs.hp = nextLifeState.hp;
           gs.lives = nextLifeState.lives;
           gs.gameOver = nextLifeState.gameOver;
@@ -6588,7 +6714,7 @@ export default function Game() {
           const collidedWithBoss = isBossEnemy(e);
           if (collidedWithBoss) setEnemyHealth(e, Math.max(0, e.hp - 1));
           if (isSubmerged(e)) return true;
-          const protection = applyPlayerHitProtection({
+          const protection = protectPlayer({
             shieldTimer: shieldTimerRef.current,
             shieldHp: playerShieldHpRef.current,
             invincibleTimer: 0,
@@ -6615,7 +6741,7 @@ export default function Game() {
           );
           const killedByReflection = Boolean(e.dead);
           recordPlayerDamage(collDmg);
-          const nextLifeState = applyPlayerDamage(gs, collDmg);
+          const nextLifeState = damagePlayer(gs, collDmg);
           gs.hp = nextLifeState.hp;
           gs.lives = nextLifeState.lives;
           gs.gameOver = nextLifeState.gameOver;
@@ -6821,6 +6947,8 @@ export default function Game() {
       bulletsRef.current = bulletsRef.current.filter(b => {
         if (b.fromPlayer) return true;
         if (b.sourceEnemy && isSubmerged(b.sourceEnemy)) return false;
+        if (extra.pulse?.pending && Math.hypot(b.x - extra.pulse.x, b.y - extra.pulse.y) < 230) return false;
+        if (extra.decoy && rectHit(b.x - 4, b.y - 4, 8, 8, extra.decoy.x, extra.decoy.y, PLAYER_W, PLAYER_H)) return false;
         const bw = b.collisionWidth ?? 8, bh = b.collisionHeight ?? 8;
         if (activeModeRef.current === "protect" &&
             rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh,
@@ -6883,7 +7011,7 @@ export default function Game() {
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           return false;
         }
-        const protection = applyPlayerHitProtection({
+        const protection = protectPlayer({
           shieldTimer: shieldTimerRef.current,
           shieldHp: playerShieldHpRef.current,
           invincibleTimer: invincibleRef.current,
@@ -6905,7 +7033,7 @@ export default function Game() {
           b.sourceEnemy,
         );
         recordPlayerDamage(bulletDmg);
-        const nextLifeState = applyPlayerDamage(gs, bulletDmg);
+        const nextLifeState = damagePlayer(gs, bulletDmg);
         gs.hp = nextLifeState.hp;
         gs.lives = nextLifeState.lives;
         gs.gameOver = nextLifeState.gameOver;
@@ -6922,8 +7050,8 @@ export default function Game() {
         p.y += p.vy * dtScale;
         if (p.y > CANVAS_H + 20) return false;
         // Draw
-        const colors: Record<PowerUp["type"], string> = { health: "#00ff88", shield: "#00ccff", speedboost: "#ff9900" };
-        const labels: Record<PowerUp["type"], string> = { health: "+HP", shield: "SHD", speedboost: "2×SPD" };
+        const colors: Record<PowerUp["type"], string> = { health: "#00ff88", shield: "#00ccff", speedboost: "#ff9900", chaos: "#d8b4fe" };
+        const labels: Record<PowerUp["type"], string> = { health: "+HP", shield: "SHD", speedboost: "2×SPD", chaos: "CHAOS" };
         const c = colors[p.type];
         ctx.save();
         ctx.beginPath();
@@ -6953,6 +7081,10 @@ export default function Game() {
           if (gs.hp >= gs.maxHp) runStatsRef.current.fullHealthPickups += 1;
           checkAchievements();
           audioRef.current.effect("pickup", settingsRef.current.soundVolume);
+          if (p.type === "chaos") {
+            const effect = collectChaos(extra, Math.random());
+            floatingTextsRef.current.push({ x: p.x, y: p.y - 18, text: `CHAOS · ${CHAOS_LABELS[effect]} · 8 SEK.`, color: "#d8b4fe", life: 100, maxLife: 100 });
+          }
           if (p.type === "health") gs.hp = Math.min(gs.maxHp, gs.hp + 3);
           if (p.type === "shield") {
             shieldTimerRef.current = 300;
@@ -7269,6 +7401,12 @@ export default function Game() {
         ctx.restore();
       }
 
+      drawCombatExtras(ctx, extra, { x: playerRef.current.x + PLAYER_W / 2, y: playerRef.current.y + PLAYER_H / 2 }, magnetTarget);
+      if (extra.decoy) {
+        ctx.save(); ctx.globalAlpha = .42 * Math.min(1, extra.decoy.life / 20);
+        drawPlayerJet(ctx, extra.decoy.x, extra.decoy.y, gs.weaponTier, true, activeSkinRef.current, "#c4b5fd", aircraftUpgradeRef.current.level);
+        ctx.restore();
+      }
       // ── Draw player and summoned wingmen ──
       if (movementStunRef.current > 0) {
         ctx.save();
@@ -8060,6 +8198,26 @@ export default function Game() {
           style={{ objectFit: "contain", touchAction: "none" }}
           tabIndex={0}
         />
+        {displayState.started && !displayState.gameOver && !displayState.paused && (
+          <div className="combat-extras" aria-label="Kampf-Extras">
+            <div className="combat-extras-actions">
+              {EXTRA_ACTIONS.filter(action => activeUnlocksRef.current.includes(action.id)).map(action => {
+                const cooldown = extrasRef.current.cooldowns[action.id];
+                return <button key={action.id} disabled={cooldown > 0} aria-label={`${action.label} aktivieren`}
+                  title={EXTRA_ITEMS.find(item => item.id === action.id)?.desc}
+                  onPointerDown={event => { event.preventDefault(); activateCombatExtra(action.id); }}
+                  onClick={event => { if (event.detail === 0) activateCombatExtra(action.id); }}>
+                  <span>{action.label}</span><small>{cooldown > 0 ? `${Math.ceil(cooldown / 60)} s` : action.key}</small>
+                </button>;
+              })}
+            </div>
+            <div className="combat-extras-status">
+              {activeUnlocksRef.current.includes("last_spark") && <span>Funke: {extrasRef.current.sparkUsed ? "verbraucht" : "bereit"}</span>}
+              {extrasRef.current.charged > 0 && <span>Konter: 2× Salve</span>}
+              {extrasRef.current.chaos && <span>CHAOS: {CHAOS_LABELS[extrasRef.current.chaos]} · {Math.ceil(extrasRef.current.chaosTime / 60)} s</span>}
+            </div>
+          </div>
+        )}
         {displayState.started && isPortraitPhone && settings.flightDirection !== "up" && (
           <div className="orientation-gate fixed inset-0 z-[70] flex items-center justify-center bg-[#030814]/95 p-6 text-center text-white">
             <div className="max-w-sm rounded-3xl border border-cyan-400/60 bg-slate-950/95 p-7 shadow-[0_0_45px_#22d3ee33]">

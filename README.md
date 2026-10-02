@@ -88,3 +88,25 @@ Remove installed dependencies and the local pnpm store:
 ```bash
 rm -rf node_modules .pnpm-store
 ```
+
+## Kampf-Extras
+
+Im **Shop → Extras** kaufen; aktive Manöver belegen keinen Ulti-Platz.
+
+| Extra | Bedienung | Wirkung |
+| --- | --- | --- |
+| Schatten-Dash | Shift / Gamepad X / Dash-Schaltfläche | 140 px entlang der letzten Bewegung (ohne Bewegung nach vorn), 0,25 s Schutz, 1,5 s Ablenk-Doppelgänger; 6 s Abklingzeit |
+| Perfekter Konter | C / Gamepad B / Konter-Schaltfläche | 0,25 s Abwehrfenster; nächster Hauptwaffen-Feuerstoß macht doppelten Schaden, Ladung verfällt nach 5 s; 4 s Abklingzeit |
+| Magnetfaust | V / Gamepad Y / Magnet-Schaltfläche | 1,5 s Sog auf normale Gegner und nahe Pickups; 10 s Abklingzeit; Bosse und Lasergeräte immun |
+| Letzter Funke | Automatisch | Einmal pro Einsatz tödlichen Treffer mit 1 HP überleben, 12 Schaden und Geschossräumung in 230 px Radius; Verbrauch bleibt beim Fortsetzen gespeichert |
+| Chaos-Pickup | Jeden achten Abschuss einsammeln | Zufällig 8 s Schnellfeuer (35 % kürzeres Feuerintervall), Feuerkraft (+35 % Hauptwaffenschaden) oder Magnetfeld; ersetzt den vorigen Effekt |
+| Feuerkern | Dauerhaft | +15 % Hauptwaffenschaden; Dash hinterlässt 2 s Brandspur mit 8 Schaden/s |
+
+Auch Chaos-Feuer, das Feuerschwert und aktive Feuer-Ultis (Lava, Solaris,
+X-Wing, Caelus) entzünden die Dash-Spur. Der Magnet zieht bei einer aktiven
+Brandspur zum entfernten Spurende. Gegner-Schilde, Titanenschutz und getauchte
+U-Boote behalten ihre Schutzregeln. Pausieren hält alle Extra-Timer an.
+Die eingeblendeten Schaltflächen sind mit Maus und Touch bedienbar.
+
+Die Regeln werden in `src/combat-extras.test.ts` einschließlich 30/60/120-Hz-Timing,
+Einmal-Rettung, Fortsetzen, Chaos-Ablauf und Kombinationsgeometrie geprüft.
