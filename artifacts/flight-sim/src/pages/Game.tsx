@@ -1,5 +1,6 @@
 import { drawSkyFlame } from "../rendering/sky-fire";
 import { LevelMap } from "../components/LevelMap";
+import { advanceMission, createMission, missionProgress } from "../missions";
 import { loadCompletedLevels, isLevelUnlocked, completeCampaignLevel, getCampaignTarget, canCompleteCampaignLevel, getCampaignLandscape } from "../campaign";
 import { advanceSubmarineDive, isSubmerged, setEnemyHealth } from "../submarine-dive";
 import { moveSkyClone, skyLaserDamage, skyReflectedDamage, strongestSkyTarget } from "../sky-ultimate";
@@ -304,8 +305,6 @@ interface RunStats {
 }
 interface Achievement { id: string; icon: string; name: string; description: string; target: number; reward: number; stat: keyof RunStats }
 interface FloatingText { x: number; y: number; text: string; color: string; life: number; maxLife: number }
-type MissionType = "kills" | "combo" | "near_miss" | "flawless_boss";
-interface Mission { type: MissionType; title: string; target: number; reward: number; completed: boolean }
 interface ActiveWave { id: number; name: string; active: boolean; isMajor: boolean; damageAtStart: number; spawned: number; defeated: Set<Enemy> }
 interface RunSummary {
   score: number;
@@ -1163,22 +1162,6 @@ function formatKeyCode(code: string): string {
   return code;
 }
 
-function createMission(index = 0): Mission {
-  const missions: Omit<Mission, "completed">[] = [
-    { type: "kills", title: "Zerstöre 30 Gegner", target: 30, reward: 5000 },
-    { type: "combo", title: "Erreiche eine 20er-Combo", target: 20, reward: 6500 },
-    { type: "near_miss", title: "Schaffe 8 Near Misses", target: 8, reward: 7000 },
-    { type: "flawless_boss", title: "Besiege einen Boss ohne Treffer", target: 1, reward: 9000 },
-  ];
-  return { ...missions[index % missions.length], completed: false };
-}
-
-function missionProgress(mission: Mission, stats: RunStats): number {
-  if (mission.type === "kills") return stats.kills;
-  if (mission.type === "combo") return stats.maxCombo;
-  if (mission.type === "near_miss") return stats.nearMisses;
-  return stats.perfectBosses;
-}
 const ACHIEVEMENT_KEY = "fighter-command-achievements";
 const ACHIEVEMENTS: Achievement[] = [
   { id: "first_sortie", icon: "✈", name: "Erster Einsatz", description: "Besiege 10 Gegner", target: 10, reward: 500, stat: "kills" },
@@ -3523,7 +3506,7 @@ export default function Game() {
   const waveBannerRef = useRef({ text: "", timer: 0 });
   const titanWarningRef = useRef(0);
   const bossSpecialRef = useRef<BossSpecialState | null>(null);
-  const missionRef = useRef<Mission>({ type: "kills", title: "Zerstöre 30 Gegner", target: 30, reward: 5000, completed: false });
+  const missionRef = useRef(createMission());
   const activeMutatorRef = useRef<MutatorDefinition>(MUTATORS.none);
   const sectorChoiceLevelsRef = useRef<Set<number>>(new Set());
 
@@ -5216,17 +5199,16 @@ export default function Game() {
       }
       nearMissCooldownRef.current = Math.max(0, nearMissCooldownRef.current - dtScale);
       const activeMission = missionRef.current;
-      if (!activeMission.completed && missionProgress(activeMission, runStatsRef.current) >= activeMission.target) {
-        activeMission.completed = true;
+      const nextMission = advanceMission(activeMission, runStatsRef.current, comboRef.current, runElapsedMsRef.current);
+      missionRef.current = nextMission;
+      if (!activeMission.completed && nextMission.completed) {
         addCoins(activeMission.reward);
         runStatsRef.current.missions += 1;
         checkAchievements();
         waveBannerRef.current = { text: `MISSION ERFÜLLT · +${activeMission.reward}`, timer: 180 };
         audioRef.current.effect("upgrade", settingsRef.current.soundVolume);
-        window.setTimeout(() => {
-          missionRef.current = createMission(runStatsRef.current.missions);
-          waveBannerRef.current = { text: "NEUES MISSIONSZIEL", timer: 100 };
-        }, 2200);
+      } else if (nextMission.index !== activeMission.index) {
+        waveBannerRef.current = { text: "NEUES MISSIONSZIEL", timer: 100 };
       }
 
       // ── Input & Player Movement ──
@@ -7567,7 +7549,7 @@ export default function Game() {
         ctx.restore();
       }
       const mission = missionRef.current;
-      const progress = Math.min(mission.target, missionProgress(mission, runStatsRef.current));
+      const progress = Math.min(mission.target, missionProgress(mission, runStatsRef.current, comboRef.current));
       ctx.save();
       if (hudBosses.length === 0) {
         ctx.fillStyle = "rgba(4,10,24,.82)";
