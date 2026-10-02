@@ -1073,7 +1073,6 @@ const SHOP_ITEMS: readonly ShopItem[] = [
   { id: "drone_mk7",     name: "Drohne MK VII",      desc: "Quantenkühlung: nochmals 12% schnelleres Feuer",  cost: 400000, rarity: "ultraLegendary", requires: "drone_mk6" },
   { id: "drone_mk8",     name: "Drohne MK VIII",     desc: "+1 Drohnenschaden bei maximaler Feuerrate",       cost: 400000, rarity: "ultraLegendary", requires: "drone_mk7" },
   { id: "ulti_boost",    name: "Ulti-Boost",       desc: "Ultis laden 50% schneller",                      cost: 50000,  rarity: "rare" },
-  { id: "extra_life",    name: "+1 Leben",          desc: "Starte mit 4 statt 3 Leben",                     cost: 50000,  rarity: "rare" },
   { id: "weapon_head",   name: "Waffen-Vorstart",   desc: "Starte auf Waffentier 2",                        cost: 50000,  rarity: "rare" },
   { id: "clone_upgrade", name: "Flugzeug-Ulti ⬆", desc: "Die Flugzeug-Ulti lädt 25% schneller", cost: 50000, rarity: "rare" },
   { id: "laser_upgrade", name: "Laser-Ulti ⬆",     desc: "Laser macht 2× Schaden & hält 25% länger",       cost: 50000,  rarity: "rare" },
@@ -1087,7 +1086,6 @@ const SHOP_ITEMS: readonly ShopItem[] = [
   { id: "emp_ulti", name: "EMP-Ulti ◉", desc: "Löscht feindliche Geschosse, verursacht Flächenschaden und friert normale Gegner 4 Sek. ein [Taste I]", cost: 400000, rarity: "ultraLegendary" },
   { id: "max_hp",        name: "Panzer-HP",         desc: "+5 maximale HP (dauerhaft)",                     cost: 50000,  rarity: "rare" },
   { id: "speed_item",    name: "Speed-Triebwerk",   desc: "+0.5 permanente Geschwindigkeit",                cost: 50000,  rarity: "rare" },
-  { id: "armor",         name: "Panzerung",         desc: "Treffer geben nur 0.5 HP Schaden",               cost: 100000, rarity: "epic" },
 ] as const;
 const SORTED_SHOP_CRATES = orderCatalog(SHOP_CRATES);
 const SORTED_SHOP_ITEMS = orderCatalog(SHOP_ITEMS);
@@ -6534,7 +6532,7 @@ export default function Game() {
           if (invincibleRef.current <= 0) {
             const raw = e.type === "titan" ? ((e.titanDashTimer ?? 0) > 0 ? 10 : 1)
               : e.ramDamage ?? (e.type === "boss" ? getNormalBossDamage(1, gs.level)
-                : isBossEnemy(e) ? 1 : activeUnlocksRef.current.includes("armor") ? .5 : 1);
+                : 1);
             applyGravityDefense(raw * Math.pow(.85, routeModifiersRef.current.reactive_armor), e);
             invincibleRef.current = 90;
           }
@@ -6610,8 +6608,7 @@ export default function Game() {
           }
           const rawCollisionDamage = e.ramDamage ?? (e.type === "boss"
             ? getNormalBossDamage(1, gs.level)
-            : collidedWithBoss ? 1
-            : activeUnlocksRef.current.includes("armor") ? 0.5 : 1);
+            : 1);
           const collDmg = applyGravityDefense(
             rawCollisionDamage * Math.pow(.85, routeModifiersRef.current.reactive_armor),
             e,
@@ -6878,8 +6875,7 @@ export default function Game() {
           return true;
         }
         if (skyUltimateActive) {
-          const base = activeUnlocksRef.current.includes("armor") ? .5 : b.damage;
-          applyGravityDefense((b.normalBossProjectile ? getNormalBossDamage(base, gs.level) : base)
+          applyGravityDefense((b.normalBossProjectile ? getNormalBossDamage(b.damage, gs.level) : b.damage)
             * Math.pow(.85, routeModifiersRef.current.reactive_armor) * activeMutatorRef.current.enemyDamageMultiplier, b.sourceEnemy);
           return false;
         }
@@ -6900,18 +6896,14 @@ export default function Game() {
           audioRef.current.tone(620, .08, settingsRef.current.soundVolume * .25, "sine");
           return false;
         }
-        const protectedBulletDamage = activeUnlocksRef.current.includes("armor") ? 0.5 : b.damage;
         const rawBulletDamage = b.normalBossProjectile
-          ? getNormalBossDamage(protectedBulletDamage, gs.level)
-          : protectedBulletDamage;
+          ? getNormalBossDamage(b.damage, gs.level)
+          : b.damage;
         const bulletDmg = applyGravityDefense(
           rawBulletDamage * Math.pow(.85, routeModifiersRef.current.reactive_armor) *
             activeMutatorRef.current.enemyDamageMultiplier,
           b.sourceEnemy,
         );
-        if (activeUnlocksRef.current.includes("armor")) {
-          audioRef.current.tone(120, .08, settingsRef.current.soundVolume * .2, "square");
-        }
         recordPlayerDamage(bulletDmg);
         const nextLifeState = applyPlayerDamage(gs, bulletDmg);
         gs.hp = nextLifeState.hp;
