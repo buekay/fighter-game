@@ -11,6 +11,7 @@ import {
   applyEnemyDamage,
   applyPlayerHitProtection,
   applyPlayerDamage,
+  getNextHangarAfterDamage,
   calculateCoinReward,
   formatLockedSkinPrice,
   getCrossedMilestoneLevels,
@@ -107,6 +108,15 @@ assert.deepEqual(applyPlayerDamage(damagedOnLastLife, 3), {
   lives: 0,
   gameOver: true,
 });
+
+// A destroyed aircraft hands the ongoing mission to the next owned hangar.
+const respawned = applyPlayerDamage(damagedWithSpareLife, 3);
+assert.equal(getNextHangarAfterDamage(damagedWithSpareLife, respawned, 0, 4), 1);
+assert.equal(getNextHangarAfterDamage(damagedWithSpareLife, respawned, 1, 2), 0);
+assert.equal(getNextHangarAfterDamage(damagedWithSpareLife, respawned, 3, 4), 0);
+assert.equal(getNextHangarAfterDamage(damagedWithSpareLife, respawned, 0, 1), null);
+assert.equal(getNextHangarAfterDamage(damagedWithSpareLife, applyPlayerDamage(damagedWithSpareLife, 1), 0, 4), null);
+assert.equal(getNextHangarAfterDamage(damagedOnLastLife, applyPlayerDamage(damagedOnLastLife, 3), 0, 4), null);
 
 assert.equal(getLevelForScore(getLevelThreshold(1)), 1);
 assert.equal(getLevelThreshold(2), 225);

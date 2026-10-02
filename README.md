@@ -58,6 +58,7 @@ pnpm run build
 
 ## Gameplay Rules
 
+- Losing a life deploys the aircraft and equipment from the next unlocked hangar with full health, keeping the current mission and score. Hangars wrap back to the first unlocked bay; losing the final life still ends the run.
 - Missions progress through 500 levels. The daytime city backdrop changes to a space scene from level 50 onward.
 - The tank, spider robot, submarine, and city use enlarged mechanical models with metal armor, pistons, joints, reactors, damage marks, and a shared phase-marked boss health bar. Each has three unique special attacks with 1.5 seconds of locked-target warning; attacks pause when frozen and accelerate in later health phases. The city shares one attack controller and health bar across its surviving defense systems. The Titan retains its original model, size, health bar, and abilities.
 - Boss Fight mode has five encounters in order: Titan, tank, spider robot, submarine, and fortress city. Each encounter starts with 9,000 HP; the city splits this pool across six destructible flame, rocket, and cannon defenders. Destroy all defenders to complete the final encounter.

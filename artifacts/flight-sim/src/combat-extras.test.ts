@@ -1,3 +1,4 @@
+import { getNextHangarAfterDamage } from "./game-rules";
 import assert from "node:assert/strict";
 import { activateExtra, combatUltiStates, isCombatUlti, applyExtraDamage, blockWithExtra, collectChaos, consumeCounter, createCombatExtras, distanceToTrail, EXTRA_ITEMS, hasExtraFire, getMagnetTarget, magnetStep, tickCombatExtras } from "./combat-extras";
 
@@ -87,3 +88,9 @@ assert.equal(boosted.magnet, 30, "Ulti-Boost must not shorten active effect dura
 tickCombatExtras(boosted, 340, 1.5);
 assert.equal(combatUltiStates(boosted).magnet_fist.charge, 600);
 assert.equal(activateExtra(boosted, "magnet_fist", owned, []), false, "unequipping blocks activation even when fully charged");
+
+const hangarRescue = createCombatExtras();
+const firstHit = applyExtraDamage(hangarRescue, life, 100, true, origin);
+assert.equal(getNextHangarAfterDamage(life, firstHit, 0, 3), null, "rescue must preserve current aircraft");
+const secondHit = applyExtraDamage(hangarRescue, firstHit, 100, true, origin);
+assert.equal(getNextHangarAfterDamage(firstHit, secondHit, 0, 3), 1, "real life loss must deploy next hangar");
