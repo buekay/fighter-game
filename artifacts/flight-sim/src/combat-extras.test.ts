@@ -1,39 +1,40 @@
 import assert from "node:assert/strict";
-import { activateExtra, applyExtraDamage, blockWithExtra, collectChaos, consumeCounter, createCombatExtras, distanceToTrail, EXTRA_ITEMS, hasExtraFire, getMagnetTarget, magnetStep, tickCombatExtras } from "./combat-extras";
+import { activateExtra, combatUltiStates, isCombatUlti, applyExtraDamage, blockWithExtra, collectChaos, consumeCounter, createCombatExtras, distanceToTrail, EXTRA_ITEMS, hasExtraFire, getMagnetTarget, magnetStep, tickCombatExtras } from "./combat-extras";
 
 const owned = EXTRA_ITEMS.map(item => item.id);
+assert.equal(activateExtra(createCombatExtras(), "shadow_dash", owned, []), false, "owned but unequipped ultimate cannot activate");
 const life = { hp: 3, maxHp: 10, lives: 2, gameOver: false };
 const origin = { x: 100, y: 100 };
 const extra = createCombatExtras();
-assert.equal(activateExtra(extra, "shadow_dash", []), false, "locked extras cannot activate");
-assert.equal(activateExtra(extra, "shadow_dash", owned), true);
-assert.equal(activateExtra(extra, "shadow_dash", owned), false, "cooldown prevents repeats");
+assert.equal(activateExtra(extra, "shadow_dash", [], owned), false, "locked extras cannot activate");
+assert.equal(activateExtra(extra, "shadow_dash", owned, owned), true);
+assert.equal(activateExtra(extra, "shadow_dash", owned, owned), false, "cooldown prevents repeats");
 assert.equal(blockWithExtra(extra), "dash");
 tickCombatExtras(extra, 15);
 assert.equal(blockWithExtra(extra), null, "dash protection expires after 250 ms");
 tickCombatExtras(extra, 345);
-assert.equal(activateExtra(extra, "shadow_dash", owned), true);
+assert.equal(activateExtra(extra, "shadow_dash", owned, owned), true);
 
 for (const hz of [30, 60, 120]) {
   const timed = createCombatExtras();
-  activateExtra(timed, "perfect_counter", owned);
+  activateExtra(timed, "perfect_counter", owned, owned);
   for (let i = 0; i < hz / 2; i++) tickCombatExtras(timed, 60 / hz);
   assert.equal(timed.parry, 0);
   assert.equal(timed.cooldowns.perfect_counter, 210);
 }
 const counter = createCombatExtras();
-activateExtra(counter, "perfect_counter", owned);
+activateExtra(counter, "perfect_counter", owned, owned);
 tickCombatExtras(counter, 14);
 assert.equal(blockWithExtra(counter), "counter", "late hit inside window counters");
 assert.equal(blockWithExtra(counter), null, "one counter per activation");
 assert.equal(consumeCounter(counter), 2);
 assert.equal(consumeCounter(counter), 1, "one amplified volley only");
 tickCombatExtras(counter, 240);
-activateExtra(counter, "perfect_counter", owned);
+activateExtra(counter, "perfect_counter", owned, owned);
 tickCombatExtras(counter, 15);
 assert.equal(blockWithExtra(counter), null, "hit after window cannot counter");
 tickCombatExtras(counter, 240);
-activateExtra(counter, "perfect_counter", owned);
+activateExtra(counter, "perfect_counter", owned, owned);
 blockWithExtra(counter);
 tickCombatExtras(counter, 300);
 assert.equal(consumeCounter(counter), 1, "unused charge expires");
@@ -74,3 +75,15 @@ console.log("Combat extras: ownership, cooldowns, timing, rescue, chaos and comb
 
 assert.deepEqual(getMagnetTarget({ x: 850, y: 200 }, null, 900), { x: 700, y: 200 }, "right edge keeps pull target away from player");
 assert.deepEqual(getMagnetTarget({ x: 250, y: 200 }, { from: { x: 110, y: 200 }, to: { x: 250, y: 200 }, life: 100, tick: 0 }, 900), { x: 110, y: 200 }, "magnet targets burning trail for combo");
+
+assert.equal(isCombatUlti("shadow_dash"), true);
+assert.equal(isCombatUlti("fire_core"), false, "passive upgrades are not ultimates");
+const boosted = createCombatExtras();
+activateExtra(boosted, "magnet_fist", owned, ["magnet_fist"]);
+assert.equal(combatUltiStates(boosted).magnet_fist.charge, 0);
+tickCombatExtras(boosted, 60, 1.5);
+assert.equal(combatUltiStates(boosted).magnet_fist.charge, 90, "Ulti-Boost increases charge rate by 50 percent");
+assert.equal(boosted.magnet, 30, "Ulti-Boost must not shorten active effect duration");
+tickCombatExtras(boosted, 340, 1.5);
+assert.equal(combatUltiStates(boosted).magnet_fist.charge, 600);
+assert.equal(activateExtra(boosted, "magnet_fist", owned, []), false, "unequipping blocks activation even when fully charged");

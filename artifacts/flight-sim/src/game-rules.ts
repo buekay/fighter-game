@@ -235,13 +235,11 @@ export const KEYBOARD_CONTROL_HELP = [
   ["R", "Stealth-Ulti"],
   ["H", "Heil-Ulti"],
   ["T", "Gift-Raketen-Ulti"],
-  ["Shift / C / V", "Extras: Dash / Konter / Magnet (im Shop kaufen)"],
   ["P", "Pause"],
 ] as const;
 export const MOBILE_CONTROL_HELP = [
   "Linke Seite -> Finger ziehen (Jet folgt schnell)",
   "FIRE -> Schießen",
-  "DASH / KONTER / MAGNET -> Gekaufte Extras links im Spielfeld",
   "FÄHIGKEITEN 1–3 -> Ausgerüstete Ultis aktivieren",
   "STEALTH / HEAL / GIFT -> Im Ulti-Loadout ausrüstbar",
 ] as const;

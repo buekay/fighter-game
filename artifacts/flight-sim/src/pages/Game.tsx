@@ -1,5 +1,5 @@
 import { drawCombatExtras } from "../rendering/combat-extras";
-import { EXTRA_ITEMS, EXTRA_ACTIONS, CHAOS_LABELS, createCombatExtras, tickCombatExtras, activateExtra, blockWithExtra, consumeCounter, applyExtraDamage, collectChaos, hasExtraFire, getMagnetTarget, magnetStep, distanceToTrail, type ExtraAction } from "../combat-extras";
+import { EXTRA_ITEMS, EXTRA_ACTIONS, isCombatUlti, combatUltiStates, type CombatExtras, CHAOS_LABELS, createCombatExtras, tickCombatExtras, activateExtra, blockWithExtra, consumeCounter, applyExtraDamage, collectChaos, hasExtraFire, getMagnetTarget, magnetStep, distanceToTrail, type ExtraAction } from "../combat-extras";
 import { drawSkyFlame } from "../rendering/sky-fire";
 import { LevelMap } from "../components/LevelMap";
 import { loadCompletedLevels, isLevelUnlocked, completeCampaignLevel, getCampaignTarget, canCompleteCampaignLevel, getCampaignLandscape } from "../campaign";
@@ -1109,7 +1109,7 @@ const SORTED_JET_SKINS = [
 ];
 const SORTED_DRONE_SKINS = orderCatalog(DRONE_SKINS);
 
-type UltiLoadoutId = "jet" | "laser" | "stealth_ulti" | "heal_ulti" | "poison_missiles_ulti" | "absorber_ulti" | "ultimate_ulti" | "gravity_ulti" | "emp_ulti";
+type UltiLoadoutId = ExtraAction | "jet" | "laser" | "stealth_ulti" | "heal_ulti" | "poison_missiles_ulti" | "absorber_ulti" | "ultimate_ulti" | "gravity_ulti" | "emp_ulti";
 const ULTI_LOADOUT_OPTIONS: readonly { id: UltiLoadoutId; name: string; key: string; requires?: string }[] = [
   { id: "jet", name: "Flugzeug-Ulti", key: "Q" },
   { id: "laser", name: "Laser-Ulti", key: "E" },
@@ -1120,6 +1120,7 @@ const ULTI_LOADOUT_OPTIONS: readonly { id: UltiLoadoutId; name: string; key: str
   { id: "ultimate_ulti", name: "Ultimate Ulti", key: "U", requires: "ultimate_ulti" },
   { id: "gravity_ulti", name: "Gravitations-Ulti", key: "G", requires: "gravity_ulti" },
   { id: "emp_ulti", name: "EMP-Ulti", key: "I", requires: "emp_ulti" },
+  ...EXTRA_ITEMS.filter(item => isCombatUlti(item.id)).map(item => ({ id: item.id as ExtraAction, name: item.name, key: "Ulti-Slot", requires: item.id })),
 ];
 function loadUltiLoadout(): UltiLoadoutId[] {
   const available = ULTI_LOADOUT_OPTIONS.filter(option => !option.requires || loadUnlocks().includes(option.requires)).map(option => option.id);
@@ -4638,11 +4639,40 @@ export default function Game() {
     return true;
   }, [syncDisplay]);
 
+  const activateCombatExtra = useCallback((action: ExtraAction) => {
+    const gs = stateRef.current;
+    if (!gs.started || gs.paused || gs.gameOver || movementStunRef.current > 0 ||
+        (isPortraitPhoneRef.current && settingsRef.current.flightDirection !== "up")) return false;
+    const extra = extrasRef.current;
+    if (!activateExtra(extra, action, activeUnlocksRef.current, activeUltiLoadoutRef.current)) return false;
+    const p = playerRef.current;
+    if (action === "shadow_dash") {
+      const from = { x: p.x + PLAYER_W / 2, y: p.y + PLAYER_H / 2 };
+      extra.decoy = { x: p.x, y: p.y, life: 90 };
+      const vector = flightVectorRef.current;
+      const length = Math.hypot(vector.x, vector.y) || 1;
+      p.x = clamp(p.x + vector.x / length * 140, 0, CANVAS_W - PLAYER_W);
+      p.y = clamp(p.y + vector.y / length * 140, 0, CANVAS_H - PLAYER_H);
+      const fireUlti = ultimaActiveRef.current > 0 && [...getAircraftUltiIds(hybridActiveRef.current,
+        aircraftBuildRef.current, activeUltiSkinRef.current)].some(id => ["lava", "solaris", "xwing", "ultimate"].includes(id));
+      if (hasExtraFire(extra, activeUnlocksRef.current) || fireUlti || activeWeaponsRef.current.some(w => w.id === "fire_sword")) {
+        extra.trail = { from, to: { x: p.x + PLAYER_W / 2, y: p.y + PLAYER_H / 2 }, life: 120, tick: 0 };
+      }
+    }
+    floatingTextsRef.current.push({ x: p.x + PLAYER_W / 2, y: p.y - 12,
+      text: action === "shadow_dash" ? (extra.trail ? "FEUER-DASH" : "SCHATTEN-DASH") : action === "perfect_counter" ? "KONTERFENSTER" : "TRAKTORIMPULS",
+      color: "#c4b5fd", life: 50, maxLife: 50 });
+    audioRef.current.effect("upgrade", settingsRef.current.soundVolume * .6);
+    syncDisplay();
+    return true;
+  }, [syncDisplay]);
+
   const activateAbility = useCallback((id: UltiLoadoutId | undefined) => {
-    if (!id || !stateRef.current.started || stateRef.current.gameOver || stateRef.current.paused) return false;
+    if (!id || !activeUltiLoadoutRef.current.includes(id) || !stateRef.current.started || stateRef.current.gameOver || stateRef.current.paused) return false;
     const titanDashing = enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0);
     if (titanDashing) return false;
 
+    if (isCombatUlti(id)) return activateCombatExtra(id);
     if (id === "jet") return activateCombinedJetAndDroneUlti();
     if (id === "laser" && laserChargeRef.current >= LASER_MAX && laserActiveRef.current === 0) {
       laserActiveRef.current = LASER_DURATION * (activeUnlocksRef.current.includes("laser_upgrade") ? 1.25 : 1);
@@ -4714,36 +4744,7 @@ export default function Game() {
       return true;
     }
     return false;
-  }, [activateCombinedJetAndDroneUlti, firePoisonMissiles, syncDisplay]);
-
-  const activateCombatExtra = useCallback((action: ExtraAction) => {
-    const gs = stateRef.current;
-    if (!gs.started || gs.paused || gs.gameOver || movementStunRef.current > 0 ||
-        (isPortraitPhoneRef.current && settingsRef.current.flightDirection !== "up")) return;
-    const extra = extrasRef.current;
-    if (!activateExtra(extra, action, activeUnlocksRef.current)) return;
-    const p = playerRef.current;
-    if (action === "shadow_dash") {
-      const from = { x: p.x + PLAYER_W / 2, y: p.y + PLAYER_H / 2 };
-      extra.decoy = { x: p.x, y: p.y, life: 90 };
-      const vector = flightVectorRef.current;
-      const length = Math.hypot(vector.x, vector.y) || 1;
-      p.x = clamp(p.x + vector.x / length * 140, 0, CANVAS_W - PLAYER_W);
-      p.y = clamp(p.y + vector.y / length * 140, 0, CANVAS_H - PLAYER_H);
-      const fireUlti = ultimaActiveRef.current > 0 && [...getAircraftUltiIds(hybridActiveRef.current,
-        aircraftBuildRef.current, activeUltiSkinRef.current)].some(id => ["lava", "solaris", "xwing", "ultimate"].includes(id));
-      if (hasExtraFire(extra, activeUnlocksRef.current) || fireUlti || activeWeaponsRef.current.some(w => w.id === "fire_sword")) {
-        extra.trail = { from, to: { x: p.x + PLAYER_W / 2, y: p.y + PLAYER_H / 2 }, life: 120, tick: 0 };
-      }
-    }
-    floatingTextsRef.current.push({ x: p.x + PLAYER_W / 2, y: p.y - 12,
-      text: action === "shadow_dash" ? (extra.trail ? "FEUER-DASH" : "SCHATTEN-DASH") : action === "perfect_counter" ? "KONTERFENSTER" : "TRAKTORIMPULS",
-      color: "#c4b5fd", life: 50, maxLife: 50 });
-    audioRef.current.effect("upgrade", settingsRef.current.soundVolume * .6);
-    syncDisplay();
-    // Pointer buttons must not retain keyboard focus and swallow flight controls.
-    canvasRef.current?.focus({ preventScroll: true });
-  }, [syncDisplay]);
+  }, [activateCombatExtra, activateCombinedJetAndDroneUlti, firePoisonMissiles, syncDisplay]);
 
   useEffect(() => {
     initStars();
@@ -4763,12 +4764,6 @@ export default function Game() {
       if (!stateRef.current.started && e.code === "Escape") { setMapOpen(false); return; }
       keysRef.current.add(e.key);
       keysRef.current.add(e.code);
-      const extraAction = EXTRA_ACTIONS.find(action => action.code === e.code || (action.id === "shadow_dash" && e.code === "ShiftRight"));
-      if (extraAction && activeUnlocksRef.current.includes(extraAction.id)) {
-        e.preventDefault();
-        if (!e.repeat) activateCombatExtra(extraAction.id);
-        return;
-      }
       const bindings = settingsRef.current.keyBindings;
       const movementCodes = [bindings.up, bindings.down, bindings.left, bindings.right, "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
       if (tutorialStageRef.current === 0 && movementCodes.includes(e.code)) {
@@ -4819,7 +4814,7 @@ export default function Game() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [activateAbility, activateCombatExtra, finishTutorial, initCity, initStars, startGame, syncDisplay]);
+  }, [activateAbility, finishTutorial, initCity, initStars, startGame, syncDisplay]);
 
   useEffect(() => {
     let gamepadFrame = 0;
@@ -4862,9 +4857,6 @@ export default function Game() {
         setPauseView("menu");
         syncDisplay();
       }
-      if (pressedOnce(2)) activateCombatExtra("shadow_dash");
-      if (pressedOnce(1)) activateCombatExtra("perfect_counter");
-      if (pressedOnce(3)) activateCombatExtra("magnet_fist");
       if (pressedOnce(4)) activateAbility(activeUltiLoadoutRef.current[0]);
       if (pressedOnce(5)) activateAbility(activeUltiLoadoutRef.current[1]);
       if (pressedOnce(6)) activateAbility(activeUltiLoadoutRef.current[2]);
@@ -4872,7 +4864,7 @@ export default function Game() {
     };
     pollGamepad();
     return () => window.cancelAnimationFrame(gamepadFrame);
-  }, [activateAbility, activateCombatExtra, finishTutorial, syncDisplay]);
+  }, [activateAbility, finishTutorial, syncDisplay]);
 
   useEffect(() => {
     const pointerQuery = window.matchMedia?.("(pointer: coarse)");
@@ -4932,6 +4924,8 @@ export default function Game() {
             const position = getUltiButtonPosition(activeUltiLoadoutRef.current, id, settingsRef.current.flightDirection === "up");
             return position ? Math.hypot(x - position[0], y - position[1]) : Number.POSITIVE_INFINITY;
           };
+          const combatUlti = activeUltiLoadoutRef.current.find(id => isCombatUlti(id) && distanceToUlti(id) <= 50);
+          if (combatUlti) { activateAbility(combatUlti); continue; }
           const du = distanceToUlti("jet");
           const dl = distanceToUlti("laser");
           const ds = distanceToUlti("stealth_ulti");
@@ -5288,7 +5282,7 @@ export default function Game() {
       }
 
       const extra = extrasRef.current;
-      tickCombatExtras(extra, dtScale);
+      tickCombatExtras(extra, dtScale, activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1);
       const protectPlayer = (state: Parameters<typeof applyPlayerHitProtection>[0]) => {
         const blocked = blockWithExtra(extra);
         if (blocked) {
@@ -7670,7 +7664,7 @@ export default function Game() {
       if (settingsRef.current.autoUlti) {
         activeUltiLoadoutRef.current.forEach(id => activateAbility(id));
       }
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, gravityChargeRef.current, gravityActiveRef.current, empChargeRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], upwardFlight);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, gravityChargeRef.current, gravityActiveRef.current, empChargeRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], extrasRef.current, upwardFlight);
       const hudW = upwardFlight ? CANVAS_H : CANVAS_W;
       const hudTop = upwardFlight ? 136 : 86;
       const hudBosses = enemiesRef.current.filter(e => e.encounterKind && e.encounterKind !== "titan" && !e.dead && e.hp > 0);
@@ -7758,7 +7752,7 @@ export default function Game() {
 
       // ── Virtual controls overlay ──
       if (showVirtualControlsRef.current) {
-        drawVirtualControls(ctx, joystickRef.current, settingsRef.current.showJoystick, touchFireRef.current.active, settingsRef.current.autoFire, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, gravityChargeRef.current, gravityActiveRef.current, empChargeRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, upwardFlight);
+        drawVirtualControls(ctx, joystickRef.current, settingsRef.current.showJoystick, touchFireRef.current.active, settingsRef.current.autoFire, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, gravityChargeRef.current, gravityActiveRef.current, empChargeRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, extrasRef.current, upwardFlight);
         if (enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0)) {
           ctx.save(); ctx.font = "bold 25px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
           activeUltiLoadoutRef.current.forEach(id => {
@@ -8199,18 +8193,7 @@ export default function Game() {
           tabIndex={0}
         />
         {displayState.started && !displayState.gameOver && !displayState.paused && (
-          <div className="combat-extras" aria-label="Kampf-Extras">
-            <div className="combat-extras-actions">
-              {EXTRA_ACTIONS.filter(action => activeUnlocksRef.current.includes(action.id)).map(action => {
-                const cooldown = extrasRef.current.cooldowns[action.id];
-                return <button key={action.id} disabled={cooldown > 0} aria-label={`${action.label} aktivieren`}
-                  title={EXTRA_ITEMS.find(item => item.id === action.id)?.desc}
-                  onPointerDown={event => { event.preventDefault(); activateCombatExtra(action.id); }}
-                  onClick={event => { if (event.detail === 0) activateCombatExtra(action.id); }}>
-                  <span>{action.label}</span><small>{cooldown > 0 ? `${Math.ceil(cooldown / 60)} s` : action.key}</small>
-                </button>;
-              })}
-            </div>
+          <div className="combat-extras" aria-label="Upgrade-Status">
             <div className="combat-extras-status">
               {activeUnlocksRef.current.includes("last_spark") && <span>Funke: {extrasRef.current.sparkUsed ? "verbraucht" : "bereit"}</span>}
               {extrasRef.current.charged > 0 && <span>Konter: 2× Salve</span>}
@@ -9633,7 +9616,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
             const option = ULTI_LOADOUT_OPTIONS.find(item => item.id === id)!;
             const move = (offset: number) => { const next = [...ultiLoadout]; const target = index + offset; if (target < 0 || target >= next.length) return; [next[index], next[target]] = [next[target], next[index]]; onUltiLoadoutChange(next); };
             return <div key={id} className="flex items-center gap-2 rounded-xl border border-violet-400/30 bg-black/25 p-2">
-              <span className="w-12 text-xs font-black text-violet-300">SLOT {index + 1}</span><span className="flex-1 text-sm font-bold">{option.name} <b className="text-cyan-300">[{option.key}]</b></span>
+              <span className="w-12 text-xs font-black text-violet-300">SLOT {index + 1}</span><span className="flex-1 text-sm font-bold">{option.name} <b className="text-cyan-300">[{formatKeyCode(loadSettings().keyBindings[(["ability1", "ability2", "ability3"] as const)[index]])}]</b></span>
               <button onClick={() => move(-1)} disabled={index === 0} className="rounded px-2 py-1 disabled:opacity-25">↑</button>
               <button onClick={() => move(1)} disabled={index === ultiLoadout.length - 1} className="rounded px-2 py-1 disabled:opacity-25">↓</button>
               <button onClick={() => onUltiLoadoutChange(ultiLoadout.filter(item => item !== id))} className="rounded px-2 py-1 text-red-300" aria-label={`${option.name} entfernen`}>✕</button>
@@ -9689,10 +9672,10 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
       </div>
       </>)}
 
-      {shopSection === "upgrades" && (<>
-      <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest mt-1">Upgrades</div>
+      {(shopSection === "upgrades" || shopSection === "ultis") && (<>
+      <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest mt-1">{shopSection === "ultis" ? "Ultis kaufen" : "Dauerhafte Upgrades"}</div>
       <div className="relative z-10 flex flex-col gap-2">
-        {SORTED_SHOP_ITEMS.map(item => {
+        {SORTED_SHOP_ITEMS.filter(item => ULTI_LOADOUT_OPTIONS.some(option => option.requires === item.id) === (shopSection === "ultis")).map(item => {
           const owned = unlockedItems.includes(item.id);
           const prerequisiteMet = !item.requires || unlockedItems.includes(item.requires);
           const levelUnlocked = isShopRarityUnlocked(item.rarity, playerLevel);
@@ -10174,6 +10157,7 @@ function drawVirtualControls(
   empCharge: number,
   unlocks: string[],
   ultiLoadout: UltiLoadoutId[],
+  combatExtras: CombatExtras,
   upward = false,
 ) {
   ctx.save();
@@ -10188,6 +10172,25 @@ function drawVirtualControls(
   const [ultimateX, ultimateY] = position("ultimate_ulti");
   const [gravityX, gravityY] = position("gravity_ulti");
   const [empX, empY] = position("emp_ulti");
+
+  const combatStates = combatUltiStates(combatExtras);
+  for (const id of EXTRA_ACTIONS) {
+    if (!ultiLoadout.includes(id) || !unlocks.includes(id)) continue;
+    const [x, y] = position(id);
+    const item = combatStates[id];
+    const ready = item.charge >= item.max;
+    ctx.globalAlpha = ready || item.active > 0 ? .95 : .48;
+    ctx.beginPath(); ctx.arc(x, y, 38, 0, Math.PI * 2);
+    ctx.fillStyle = "#312e8166"; ctx.strokeStyle = item.color; ctx.lineWidth = 2.5;
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, 34, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * item.charge / item.max);
+    ctx.lineWidth = 4; ctx.stroke();
+    ctx.fillStyle = item.color; ctx.font = "bold 11px Inter, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(item.label, x, y - 6);
+    ctx.font = "9px Inter, sans-serif";
+    ctx.fillText(item.active > 0 ? "AKTIV" : ready ? "BEREIT" : `${Math.ceil((item.max - item.charge) / 60)} s`, x, y + 10);
+  }
 
   if (showJoystick) {
     const baseX = js.active ? js.centerX : 110;
@@ -10439,11 +10442,12 @@ function drawVirtualControls(
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, gravityCharge: number, gravityActive: number, empCharge: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string, string], upward = false) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, gravityCharge: number, gravityActive: number, empCharge: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string, string], combatExtras: CombatExtras, upward = false) {
   const hpText = `${Number(Math.max(0, gs.hp).toFixed(1))}/${gs.maxHp}`;
   if (upward) {
     const viewW = CANVAS_H;
     const abilityState: Record<UltiLoadoutId, { label: string; charge: number; max: number; active: number; color: string }> = {
+      ...combatUltiStates(combatExtras),
       jet: { label: "JET", charge: ultimaCharge, max: ULTI_MAX, active: ultimaActive, color: "#ff44ff" },
       laser: { label: "LASER", charge: laserCharge, max: LASER_MAX, active: laserActive, color: "#ffaa22" },
       stealth_ulti: { label: "STEALTH", charge: stealthCharge, max: STEALTH_MAX, active: stealthActive, color: "#00ddcc" },
@@ -10620,6 +10624,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     label: string; key: string; charge: number; max: number; active: number; duration: number;
     activeColors: [string, string]; chargeColors: [string, string]; color: string;
   }> = {
+    ...combatUltiStates(combatExtras),
     jet: { label: "JET ULTI", key: "Q", charge: ultimaCharge, max: ULTI_MAX, active: ultimaActive, duration: ULTI_DURATION, activeColors: ["#ff00ff","#8800ff"], chargeColors: ["#6600bb","#cc00ff"], color: "#ff44ff" },
     laser: { label: "LASER", key: "E", charge: laserCharge, max: LASER_MAX, active: laserActive, duration: LASER_DURATION * (unlocks.includes("laser_upgrade") ? 1.25 : 1), activeColors: ["#ff8800","#ffdd00"], chargeColors: ["#cc4400","#ff8800"], color: "#ffaa22" },
     stealth_ulti: { label: "STEALTH", key: "R", charge: stealthCharge, max: STEALTH_MAX, active: stealthActive, duration: STEALTH_DURATION, activeColors: ["#00ffee","#0088ff"], chargeColors: ["#004488","#00aacc"], color: "#00ddcc" },
