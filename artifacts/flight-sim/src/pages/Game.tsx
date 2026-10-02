@@ -8002,6 +8002,13 @@ export default function Game() {
     addUnlock(itemId);
     setCoins(loadCoins());
     setUnlockedItems(loadUnlocks());
+    const purchasedUlti = ULTI_LOADOUT_OPTIONS.find(option => option.requires === itemId);
+    if (purchasedUlti) {
+      const current = activeUltiLoadoutRef.current.filter(id => id !== purchasedUlti.id);
+      // Make room by replacing the first equipped ultimate when all slots are full.
+      const next = current.length >= ULTI_LOADOUT_SLOTS ? current.slice(1) : current;
+      handleUltiLoadoutChange([...next, purchasedUlti.id]);
+    }
   };
 
   const handleUnlockSkin = (skinId: string) => {
@@ -9452,7 +9459,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
         <span>Ulti-Loadout</span><span className="text-violet-300">{ultiLoadout.length}/{ULTI_LOADOUT_SLOTS} belegt</span>
       </div>
       <div className="relative z-10 rounded-2xl border border-violet-400/40 bg-violet-950/20 p-3">
-        <div className="mb-2 text-[10px] text-slate-400">Entferne Ultis, ändere ihre Reihenfolge oder setze neu gekaufte Ultis ein.</div>
+        <div className="mb-2 text-[10px] text-slate-400">Neue Ultis werden beim Kauf sofort ausgerüstet. Sind alle Slots belegt, ersetzen sie die erste Ulti. Reihenfolge und Auswahl kannst du hier ändern.</div>
         <div className="flex flex-col gap-2">
           {ultiLoadout.map((id, index) => {
             const option = ULTI_LOADOUT_OPTIONS.find(item => item.id === id)!;
