@@ -872,7 +872,7 @@ const JET_SKINS = [
   { id: "n1", name: "Naboo-Sternjäger", body: "#34383c", stroke: "#8c949b", glow: "#cfd6dc", cost: 400000, rarity: "ultraLegendary", ultiName: "Naboo-Blitz", ultiDesc: "Unverwundbar: Naboo-Blitz, Schwarzes Loch und gezielte X-Wing-Feuerbälle zugleich." },
   { id: "solaris", name: "Solaris Prime", body: "#4a1900", stroke: "#ff8a00", glow: "#fff06a", cost: 1000000, rarity: "ultimate", ultiName: "Phönix-Protokoll", ultiDesc: "Repariert den Jet vollständig, aktiviert einen Schild und verstärkt Kanonen und Feuerrate massiv." },
   { id: "voidreaper", name: "Void Reaper", body: "#10052d", stroke: "#6d28d9", glow: "#e879f9", cost: 1000000, rarity: "ultimate", ultiName: "Nullzone", ultiDesc: "Löscht gegnerische Projektile, verlangsamt alle Gegner und verdoppelt deinen Waffenschaden." },
-  { id: "ultimate", name: "Caelus", body: "#87ceeb", stroke: "#38bdf8", glow: "#bae6fd", cost: 1000000, rarity: "ultimate", ultiName: "Himmels-Doppelgänger", ultiDesc: "10 Sek. unsterblich, dreifacher Schaden und 50 % Schadensreflexion. Du behältst deine ausgerüsteten Waffen. Nur dein eigenständig umherfliegender, unsterblicher Doppelgänger hat die Spezialwaffen: Er durchfliegt Geschosse, lasert alle sichtbaren Gegner mit 300 Schaden/Sek., schlägt jede Sekunde für 300 Schaden zu und feuert alle 3 Sek. einen zielsuchenden Feuerball (300 Schaden) auf den stärksten sichtbaren Gegner." },
+  { id: "ultimate", name: "Caelus", body: "#87ceeb", stroke: "#38bdf8", glow: "#bae6fd", cost: 1000000, rarity: "ultimate", ultiName: "Himmels-Doppelgänger", ultiDesc: "10 Sek. unsterblich, dreifacher Schaden und 50 % Schadensreflexion. Du behältst deine ausgerüsteten Waffen. Nur dein eigenständig umherfliegender, unsterblicher Doppelgänger hat die Spezialwaffen, darunter den Flammenwerfer der Festungsstadt: Er durchfliegt Geschosse, lasert alle sichtbaren Gegner mit 300 Schaden/Sek., schlägt jede Sekunde für 300 Schaden zu und feuert alle 3 Sek. einen zielsuchenden Feuerball (300 Schaden) auf den stärksten sichtbaren Gegner." },
 ] as const;
 type JetSkin = typeof JET_SKINS[number];
 
@@ -3573,7 +3573,7 @@ export default function Game() {
   const absorberChargeRef = useRef(0);
   const absorberActiveRef = useRef(0);
   const absorberHitsRef = useRef(0);
-  const skyCloneRef = useRef<{ x: number; y: number; target?: Enemy; travel: number; elapsed: number; melee: number; fire: number;
+  const skyCloneRef = useRef<{ x: number; y: number; target?: Enemy; travel: number; elapsed: number; melee: number; fire: number; flamethrower: number;
     fireballs: { x: number; y: number; target: Enemy }[] } | null>(null);
   const ultimateChargeRef = useRef(0);
   const ultimateActiveRef = useRef(0);
@@ -7103,7 +7103,7 @@ export default function Game() {
 
       // The clone is an effect, never a collision body: all hostile shots pass through it.
       if (skyUltimateActive && ultimaActiveRef.current > 0) {
-        const clone = skyCloneRef.current ??= { x: clamp(playerRef.current.x + 140, 0, CANVAS_W - PLAYER_W), y: clamp(playerRef.current.y - 90, 0, CANVAS_H - PLAYER_H), travel: 0, elapsed: 0, melee: 0, fire: 180, fireballs: [] };
+        const clone = skyCloneRef.current ??= { x: clamp(playerRef.current.x + 140, 0, CANVAS_W - PLAYER_W), y: clamp(playerRef.current.y - 90, 0, CANVAS_H - PLAYER_H), travel: 0, elapsed: 0, melee: 0, fire: 180, flamethrower: 0, fireballs: [] };
         const targets = enemiesRef.current.filter(e => !e.dead && e.hp > 0 && isEnemyVisible(e));
         const damageCloneTarget = (e: Enemy, damage: number) => {
           if (e.dead || isEnemyInvulnerable(e)) return;
@@ -7133,6 +7133,24 @@ export default function Game() {
         clone.melee = Math.max(0, clone.melee - dtScale);
         clone.fire -= dtScale;
         const cx = clone.x + PLAYER_W / 2, cy = clone.y + PLAYER_H / 2;
+        // The Festungsstadt's flame weapon, fired by the clone toward enemies.
+        clone.flamethrower = Math.max(0, clone.flamethrower - dtScale);
+        const flameTarget = clone.target;
+        if (flameTarget && !flameTarget.dead && clone.flamethrower <= 0) {
+          clone.flamethrower = 7;
+          const aim = Math.atan2(flameTarget.y + flameTarget.height / 2 - cy,
+            flameTarget.x + flameTarget.width / 2 - cx);
+          for (let shot = 0; shot < 5; shot++) {
+            const angle = aim + (shot - 2) * .10;
+            bulletsRef.current.push({ x: cx, y: cy,
+              vx: Math.cos(angle) * 7, vy: Math.sin(angle) * 7,
+              fromPlayer: true, damage: 1, weaponId: "sky_clone_flamethrower",
+              color: shot % 2 ? "#ff5500" : "#ffcc33",
+              lifetime: 48, isFlame: true, collisionWidth: 18, collisionHeight: 18,
+            });
+          }
+        }
+
         ctx.save(); ctx.shadowColor = "#00aaff"; ctx.shadowBlur = 24; ctx.lineCap = "round";
         const flameTime = settingsRef.current.reducedMotion ? 0 : timeRef.current * .22;
         for (const e of targets) {
