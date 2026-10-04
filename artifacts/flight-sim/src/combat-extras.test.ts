@@ -13,7 +13,9 @@ assert.equal(activateExtra(extra, "shadow_dash", owned, owned), false, "cooldown
 assert.equal(blockWithExtra(extra), "dash");
 tickCombatExtras(extra, 15);
 assert.equal(blockWithExtra(extra), null, "dash protection expires after 250 ms");
-tickCombatExtras(extra, 345);
+tickCombatExtras(extra, 464);
+assert.equal(activateExtra(extra, "shadow_dash", owned, owned), false, "eight-second cooldown has not finished");
+tickCombatExtras(extra, 1);
 assert.equal(activateExtra(extra, "shadow_dash", owned, owned), true);
 
 for (const hz of [30, 60, 120]) {

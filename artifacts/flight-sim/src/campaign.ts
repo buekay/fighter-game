@@ -1,4 +1,4 @@
-import { MAX_LEVEL, getLevelThreshold, isMilestoneBossLevel } from './game-rules';
+import { MAX_LEVEL, getLevelThreshold, isMilestoneBossLevel, getGameModeRules } from './game-rules';
 import { BIOMES } from './biomes';
 import { readStoredJson, writeStoredJson } from './storage';
 
@@ -23,7 +23,14 @@ export function getCampaignTarget(level: number): number {
   return Math.max(1, span) * LEVEL_LENGTH_MULTIPLIER;
 }
 export const isCampaignBossLevel = isMilestoneBossLevel;
-export function canCompleteCampaignLevel(level: number, score: number, bossDefeated: boolean): boolean {
+export function isCampaignProtectLevel(level: number): boolean {
+  return Number.isInteger(level) && level >= 1 && level <= MAX_LEVEL && level % 7 === 0 && !isCampaignBossLevel(level);
+}
+export function getCampaignMode(level: number): 'classic' | 'protect' {
+  return isCampaignProtectLevel(level) ? 'protect' : 'classic';
+}
+export function canCompleteCampaignLevel(level: number, score: number, bossDefeated: boolean, elapsedMs = 0): boolean {
+  if (isCampaignProtectLevel(level)) return elapsedMs >= getGameModeRules('protect').durationSeconds! * 1000;
   return score >= getCampaignTarget(level) && (!isCampaignBossLevel(level) || bossDefeated);
 }
 export function getCampaignLandscape(level: number) {

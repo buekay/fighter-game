@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { MAX_LEVEL, getLevelThreshold } from './game-rules';
-import { normalizeCompleted, isLevelUnlocked, getCampaignTarget, canCompleteCampaignLevel, getCampaignLandscape, completeCampaignLevel, loadCompletedLevels } from './campaign';
+import { normalizeCompleted, isLevelUnlocked, getCampaignTarget, canCompleteCampaignLevel, getCampaignLandscape, completeCampaignLevel, loadCompletedLevels, getCampaignMode, isCampaignProtectLevel, isCampaignBossLevel } from './campaign';
 assert.equal(isLevelUnlocked(1, 0), true);
 assert.equal(isLevelUnlocked(2, 0), false);
 assert.equal(isLevelUnlocked(4, 2), false);
@@ -28,3 +28,13 @@ assert.equal(completeCampaignLevel(2),2);
 assert.equal(completeCampaignLevel(1),2);
 assert.equal(completeCampaignLevel(4),2);
 console.log('Campaign progression tests passed');
+
+assert.equal(getCampaignMode(1), 'classic');
+assert.equal(getCampaignMode(7), 'protect');
+assert.equal(getCampaignMode(49), 'protect');
+assert.equal(getCampaignMode(70), 'classic', 'Boss levels keep their boss encounter');
+assert.equal(canCompleteCampaignLevel(7, 1_000_000, false, 179_999), false, 'Score cannot end protection early');
+assert.equal(canCompleteCampaignLevel(7, 0, false, 180_000), true, 'Surviving three minutes completes protection');
+for (let level = 1; level <= MAX_LEVEL; level++) {
+  if (isCampaignProtectLevel(level)) assert.equal(isCampaignBossLevel(level), false);
+}

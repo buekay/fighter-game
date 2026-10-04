@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { MAX_LEVEL } from '../game-rules';
-import { getCampaignLandscape, getCampaignTarget, isCampaignBossLevel, isLevelUnlocked } from '../campaign';
+import { getCampaignLandscape, getCampaignTarget, isCampaignBossLevel, isCampaignProtectLevel, isLevelUnlocked } from '../campaign';
 
 // Deterministic shaded relief: coastlines, mountain ridges and woodland, generated locally.
 function terrainImage(): string {
@@ -39,18 +39,18 @@ export function LevelMap({ completed, onBack, onSelect }: { completed: number; o
     </header>
     <div className="campaign-map-scroll" ref={scroller} tabIndex={0} aria-label="Nach unten scrollen für weitere Level">
       <div className="campaign-terrain" style={{ backgroundImage: terrain ? `linear-gradient(90deg, #04131866, transparent 45%, #04131866), url(${terrain})` : undefined }}>
-        <div className="campaign-map-intro"><b>MISSION WÄHLEN</b><p>Folge der Route. Jeder Sieg öffnet das nächste Level.</p><span>↓ Wischen oder scrollen · ☠ Bosslevel</span></div>
+        <div className="campaign-map-intro"><b>MISSION WÄHLEN</b><p>Folge der Route. Jeder Sieg öffnet das nächste Level.</p><span>↓ Wischen oder scrollen · ☠ Bosslevel · 📦 Beschützen</span></div>
         {Array.from({ length: MAX_LEVEL }, (_, i) => {
           const level=i+1, unlocked=isLevelUnlocked(level,completed), done=level<=completed, current=level===Math.min(MAX_LEVEL,completed+1), boss=isCampaignBossLevel(level);
-          const landscape=getCampaignLandscape(level);
+          const landscape=getCampaignLandscape(level), protect=isCampaignProtectLevel(level);
           return <div key={level} className="campaign-map-stop" data-current={current}>
             {level<MAX_LEVEL && <svg className="campaign-route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d={`M ${nodeX(i)} 0 C ${nodeX(i)} 50, ${nodeX(i+1)} 50, ${nodeX(i+1)} 100`} className={done?'route-done':''}/></svg>}
             <div className="campaign-node-group" style={{ left:`${nodeX(i)}%` }}>
-              <button disabled={!unlocked} onClick={()=>onSelect(level)} className={`campaign-node ${done?'done':''} ${current?'current':''} ${boss?'boss':''}`} aria-label={`Level ${level}${boss?', Bosslevel':''}${done?', abgeschlossen':unlocked?', verfügbar':', gesperrt'}`} title={unlocked?`${getCampaignTarget(level).toLocaleString('de-DE')} Punkte${boss?' und Boss besiegen':''}`:`Schließe zuerst Level ${level-1} ab`}>
-                {boss ? <><span className="campaign-skull">☠</span><small>{level}</small></> : <span>{level}</span>}
+              <button disabled={!unlocked} onClick={()=>onSelect(level)} className={`campaign-node ${done?'done':''} ${current?'current':''} ${boss?'boss':''}`} aria-label={`Level ${level}${boss?', Bosslevel':protect?', Beschützen':''}${done?', abgeschlossen':unlocked?', verfügbar':', gesperrt'}`} title={unlocked?protect?'Beschütze das Paket drei Minuten lang':`${getCampaignTarget(level).toLocaleString('de-DE')} Punkte${boss?' und Boss besiegen':''}`:`Schließe zuerst Level ${level-1} ab`}>
+                {boss ? <><span className="campaign-skull">☠</span><small>{level}</small></> : protect ? <><span className="campaign-skull">📦</span><small>{level}</small></> : <span>{level}</span>}
                 <i aria-hidden="true">{done?'✓':unlocked?'▶':'🔒'}</i>
               </button>
-              <div className="campaign-node-label"><b>{current?'NÄCHSTER EINSATZ':boss?'BOSSGEBIET':`LEVEL ${level}`}</b><span>{landscape.name}</span></div>
+              <div className="campaign-node-label"><b>{current?'NÄCHSTER EINSATZ':boss?'BOSSGEBIET':protect?'BESCHÜTZEN':`LEVEL ${level}`}</b><span>{landscape.name}</span></div>
             </div>
           </div>;
         })}

@@ -2,8 +2,9 @@ import { drawCombatExtras } from "../rendering/combat-extras";
 import { EXTRA_ITEMS, EXTRA_ACTIONS, isCombatUlti, combatUltiStates, type CombatExtras, CHAOS_LABELS, createCombatExtras, tickCombatExtras, activateExtra, blockWithExtra, consumeCounter, applyExtraDamage, collectChaos, createShadowDecoy, getMagnetTarget, magnetStep, distanceToTrail, type ExtraAction } from "../combat-extras";
 import { drawSkyFlame } from "../rendering/sky-fire";
 import { LevelMap } from "../components/LevelMap";
+import { PackageLanding } from "../components/PackageLanding";
 import { advanceMission, createMission, missionProgress } from "../missions";
-import { loadCompletedLevels, isLevelUnlocked, completeCampaignLevel, getCampaignTarget, canCompleteCampaignLevel, getCampaignLandscape } from "../campaign";
+import { loadCompletedLevels, isLevelUnlocked, completeCampaignLevel, getCampaignTarget, canCompleteCampaignLevel, getCampaignLandscape, getCampaignMode } from "../campaign";
 import { advanceSubmarineDive, isSubmerged, setEnemyHealth } from "../submarine-dive";
 import { moveSkyClone, skyLaserDamage, skyReflectedDamage, strongestSkyTarget } from "../sky-ultimate";
 import { advanceBossSpecial, createBossSpecial, type BossSpecialState } from "../boss-specials";
@@ -2036,7 +2037,7 @@ function drawCombinedPlayerJet(
   ctx.restore();
 }
 
-function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, reducedMotion = false) {
+function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, reducedMotion = false) {
   if (e.encounterKind && e.encounterKind !== "titan") {
     drawEncounterBoss(ctx, e, reducedMotion ? 0 : performance.now());
     return;
@@ -2047,60 +2048,36 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
   const visualScale = e.type === "titan" ? 1.28 : e.type === "overlord" ? 1.25 : e.type === "boss" ? 1.14 : e.type === "gunship" || e.type === "sentinel" ? 1.14 : 1.22;
   ctx.scale(visualScale, visualScale);
 
+  const trim = e.isGolden ? "#c4a46b" : e.type === "emeraldtiefighter" ? "#82917a" : "#a4b3bc";
   const now = reducedMotion ? 0 : performance.now();
   const pulse = 0.72 + Math.sin(now * 0.009 + e.x * 0.03) * 0.18;
-  const roleColor = e.archetype === "healer" ? "#55ff9a" : e.archetype === "shield" ? "#58d8ff" :
-    e.archetype === "kamikaze" ? "#ff3b45" : null;
-  if (roleColor) {
-    ctx.beginPath();
-    ctx.arc(0, 0, Math.max(e.width, e.height) * .66 + pulse * 3, 0, Math.PI * 2);
-    ctx.strokeStyle = roleColor + "cc";
-    ctx.lineWidth = e.archetype === "kamikaze" ? 3 : 2;
-    ctx.setLineDash(e.archetype === "kamikaze" ? [3, 4] : [7, 5]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-  if (e.eliteModifier) {
-    ctx.beginPath();
-    ctx.arc(0, 0, Math.max(e.width, e.height) * .76, 0, Math.PI * 2);
-    ctx.strokeStyle = e.eliteModifier === "armored" ? "#b9c5d6" :
-      e.eliteModifier === "swift" ? "#fff06a" : "#ff67c8";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-  if (e.isGolden) {
-    const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, Math.max(e.width, e.height) * .72);
-    glow.addColorStop(0, "rgba(255,245,120,0.22)");
-    glow.addColorStop(.58, "rgba(255,215,0,0.12)");
-    glow.addColorStop(1, "rgba(255,200,0,0)");
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, e.width * .7, e.height * (.8 + pulse * .15), 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  const hullGradient = (dark: string, mid: string, highlight = e.color) => {
-    const gradient = ctx.createLinearGradient(-e.width / 2, -e.height / 2, e.width / 2, e.height / 2);
-    gradient.addColorStop(0, dark);
-    gradient.addColorStop(.38, mid);
-    gradient.addColorStop(.65, highlight + "88");
-    gradient.addColorStop(1, mid);
+  const roleColor = e.archetype === "healer" ? "#82917a" : e.archetype === "shield" ? "#a4b3bc" :
+    e.archetype === "kamikaze" ? "#b5674e" : null;
+  const hullGradient = () => {
+    const gradient = ctx.createLinearGradient(0, -e.height / 2, 0, e.height / 2);
+    gradient.addColorStop(0, e.isGolden ? "#d2ba83" : "#a4b0b7");
+    gradient.addColorStop(.18, e.isGolden ? "#8c7448" : "#596974");
+    gradient.addColorStop(.48, e.isGolden ? "#57472e" : "#303c45");
+    gradient.addColorStop(.72, e.isGolden ? "#b49a62" : "#788790");
+    gradient.addColorStop(1, "#182127");
     return gradient;
   };
-  const drawEngine = (x: number, y: number, size: number, color = e.color) => {
+  const drawEngine = (x: number, y: number, size: number) => {
     ctx.save();
-    ctx.shadowColor = color;
     ctx.shadowBlur = 0;
-    const flame = ctx.createLinearGradient(x - size * 2.4, y, x + size * 0.2, y);
-    flame.addColorStop(0, "transparent");
-    flame.addColorStop(0.55, color + "55");
-    flame.addColorStop(1, "#ffffff");
+    const flame = ctx.createLinearGradient(x - size * 1.3, y, x, y);
+    flame.addColorStop(0, "#b5674e00");
+    flame.addColorStop(.7, "#b8874f88");
+    flame.addColorStop(1, "#e3cf9d");
     ctx.beginPath();
-    ctx.moveTo(x + 2, y - size * 0.45);
-    ctx.lineTo(x - size * (1.6 + pulse), y);
-    ctx.lineTo(x + 2, y + size * 0.45);
-    ctx.closePath();
-    ctx.fillStyle = flame;
-    ctx.fill();
+    ctx.moveTo(x, y - size * .25);
+    ctx.lineTo(x - size * (.8 + pulse * .35), y);
+    ctx.lineTo(x, y + size * .25);
+    ctx.closePath(); ctx.fillStyle = flame; ctx.fill();
+    ctx.fillStyle = "#27313a"; ctx.strokeStyle = "#8e9ba3"; ctx.lineWidth = .8;
+    ctx.beginPath(); ctx.roundRect(x - 2, y - size * .42, size * .65, size * .84, 1);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#10181e"; ctx.fillRect(x - 2, y - size * .3, 2, size * .6);
     ctx.restore();
   };
   const drawPanelLine = (x1: number, y1: number, x2: number, y2: number) => {
@@ -2110,7 +2087,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
 
   // Every enemy gets a readable propulsion signature, even against dark backgrounds.
   if (e.type === "titan") {
-    drawEngine(-61, -35, 15, e.color); drawEngine(-61, 0, 12, "#ff4fd8"); drawEngine(-61, 35, 15, e.color);
+    drawEngine(-61, -35, 15); drawEngine(-61, 0, 12); drawEngine(-61, 35, 15);
   } else if (e.type === "overlord") {
     drawEngine(-43, -26, 12); drawEngine(-43, 26, 12);
   } else if (e.type === "boss" && !e.bossEngineDisabled) {
@@ -2121,28 +2098,28 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
     drawEngine(-14, 0, 7);
   }
 
-  ctx.shadowColor = e.isGolden ? "#ffe45c" : e.color;
-  ctx.shadowBlur = e.isGolden ? (economical ? 4 : 8 + pulse * 3) : 0;
+  ctx.shadowColor = e.isGolden ? "#b69a66" : trim;
+  ctx.shadowBlur = 0;
 
   switch (e.type) {
     case "biome": {
       const definition = getBiomeEnemyDefinition(e.biomeEnemyId);
-      const body = definition?.color ?? e.color;
-      const accent = definition?.accent ?? "#ffffff";
+      const body = "#596974";
+      const accent = trim;
       const visual = definition?.visual ?? "interceptor";
       const outline = "#ffffff88";
       ctx.lineJoin = "round";
 
       if (visual === "tank") {
         // Local Y is inverted by the enemy-facing rotation above.
-        ctx.fillStyle = "#111820";
+        ctx.fillStyle = "#161e24";
         ctx.beginPath(); ctx.roundRect(-25, -15, 48, 12, 6); ctx.fill();
         for (let x = -18; x <= 16; x += 11) {
-          ctx.beginPath(); ctx.arc(x, -9, 4, 0, Math.PI * 2); ctx.fillStyle = "#4b5563"; ctx.fill();
+          ctx.beginPath(); ctx.arc(x, -9, 4, 0, Math.PI * 2); ctx.fillStyle = "#394650"; ctx.fill();
         }
         ctx.beginPath();
         ctx.moveTo(-22, -3); ctx.lineTo(-15, 10); ctx.lineTo(14, 10); ctx.lineTo(24, 1); ctx.lineTo(18, -4); ctx.closePath();
-        ctx.fillStyle = hullGradient("#111820", body, accent); ctx.fill(); ctx.strokeStyle = outline; ctx.stroke();
+        ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = outline; ctx.stroke();
         ctx.fillStyle = body; ctx.beginPath(); ctx.roundRect(-5, 8, 22, 10, 4); ctx.fill();
         ctx.fillStyle = accent; ctx.fillRect(11, 12, 25, 4);
         ctx.beginPath(); ctx.arc(2, 13, 3, 0, Math.PI * 2); ctx.fillStyle = accent; ctx.fill();
@@ -2153,7 +2130,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
         } else {
           ctx.ellipse(0, -4, 34, 13, 0, 0, Math.PI * 2);
         }
-        ctx.fillStyle = hullGradient("#07131c", body, accent); ctx.fill(); ctx.strokeStyle = outline; ctx.stroke();
+        ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = outline; ctx.stroke();
         ctx.fillStyle = body; ctx.beginPath(); ctx.roundRect(-10, 0, 24, 11, 3); ctx.fill();
         ctx.strokeStyle = accent; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(3, 10); ctx.lineTo(3, 21); ctx.lineTo(10, 21); ctx.stroke();
@@ -2163,7 +2140,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
         }
       } else if (visual === "helicopter") {
         ctx.beginPath(); ctx.ellipse(4, 0, 23, 12, 0, 0, Math.PI * 2);
-        ctx.fillStyle = hullGradient("#101a13", body, accent); ctx.fill(); ctx.strokeStyle = outline; ctx.stroke();
+        ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = outline; ctx.stroke();
         ctx.beginPath(); ctx.moveTo(-16, 2); ctx.lineTo(-37, 8); ctx.lineTo(-38, 2); ctx.lineTo(-14, -4); ctx.closePath();
         ctx.fillStyle = body; ctx.fill();
         ctx.strokeStyle = accent; ctx.lineWidth = 2;
@@ -2173,7 +2150,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
         ctx.fillStyle = accent; ctx.fillRect(18, -2, 17, 3);
       } else if (visual === "drone") {
         ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2);
-        ctx.fillStyle = hullGradient("#071018", body, accent); ctx.fill(); ctx.strokeStyle = outline; ctx.stroke();
+        ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = outline; ctx.stroke();
         for (const side of [-1, 1]) {
           ctx.beginPath(); ctx.ellipse(-2, side * 17, 21, 7, 0, 0, Math.PI * 2);
           ctx.fillStyle = body; ctx.fill(); ctx.strokeStyle = accent; ctx.stroke();
@@ -2183,7 +2160,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       } else if (visual === "crawler") {
         ctx.beginPath();
         ctx.moveTo(24, 0); ctx.lineTo(12, 12); ctx.lineTo(-17, 10); ctx.lineTo(-26, 0); ctx.lineTo(-14, -8); ctx.lineTo(14, -8); ctx.closePath();
-        ctx.fillStyle = hullGradient("#170d08", body, accent); ctx.fill(); ctx.strokeStyle = outline; ctx.stroke();
+        ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = outline; ctx.stroke();
         ctx.strokeStyle = body; ctx.lineWidth = 5;
         for (const x of [-16, -2, 12]) {
           ctx.beginPath(); ctx.moveTo(x, -5); ctx.lineTo(x - 7, -18); ctx.lineTo(x + 1, -21); ctx.stroke();
@@ -2193,7 +2170,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       } else if (visual === "skimmer") {
         ctx.beginPath();
         ctx.moveTo(31, 1); ctx.lineTo(16, 11); ctx.lineTo(-22, 9); ctx.lineTo(-31, -3); ctx.lineTo(10, -7); ctx.closePath();
-        ctx.fillStyle = hullGradient("#051720", body, accent); ctx.fill(); ctx.strokeStyle = outline; ctx.stroke();
+        ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = outline; ctx.stroke();
         ctx.beginPath(); ctx.moveTo(-8, 8); ctx.lineTo(0, 17); ctx.lineTo(14, 16); ctx.lineTo(18, 8); ctx.closePath();
         ctx.fillStyle = accent + "88"; ctx.fill();
         ctx.fillStyle = accent; ctx.fillRect(15, 3, 20, 3);
@@ -2201,17 +2178,17 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
         ctx.beginPath();
         ctx.moveTo(38, 0); ctx.lineTo(14, 10); ctx.lineTo(-14, 18); ctx.lineTo(-34, 10);
         ctx.lineTo(-25, 0); ctx.lineTo(-34, -10); ctx.lineTo(-14, -18); ctx.lineTo(14, -10); ctx.closePath();
-        ctx.fillStyle = hullGradient("#070515", body, accent); ctx.fill(); ctx.strokeStyle = accent; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = accent; ctx.lineWidth = 1.5; ctx.stroke();
         ctx.beginPath(); ctx.ellipse(4, 0, 13, 7, 0, 0, Math.PI * 2); ctx.fillStyle = accent + "88"; ctx.fill();
-        ctx.fillStyle = "#ffffff"; ctx.fillRect(28, -2, 12, 4);
+        ctx.fillStyle = "#bbc4c8"; ctx.fillRect(28, -2, 12, 4);
         drawPanelLine(-22, -8, 18, -5); drawPanelLine(-22, 8, 18, 5);
       } else {
         ctx.beginPath();
         ctx.moveTo(29, 0); ctx.lineTo(5, -6); ctx.lineTo(-16, -18); ctx.lineTo(-10, -4);
         ctx.lineTo(-24, 0); ctx.lineTo(-10, 4); ctx.lineTo(-16, 18); ctx.lineTo(5, 6); ctx.closePath();
-        ctx.fillStyle = hullGradient("#090b16", body, accent); ctx.fill(); ctx.strokeStyle = accent; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = accent; ctx.lineWidth = 1.5; ctx.stroke();
         ctx.beginPath(); ctx.ellipse(7, 0, 9, 4, 0, 0, Math.PI * 2); ctx.fillStyle = accent + "99"; ctx.fill();
-        ctx.fillStyle = "#ffffff"; ctx.fillRect(20, -1.5, 14, 3);
+        ctx.fillStyle = "#bbc4c8"; ctx.fillRect(20, -1.5, 14, 3);
       }
       ctx.shadowBlur = 0;
       break;
@@ -2230,13 +2207,13 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       ctx.lineTo(-13, 16);
       ctx.lineTo(4, 6);
       ctx.closePath();
-      ctx.fillStyle = hullGradient("#160406", "#5b1520");
+      ctx.fillStyle = hullGradient();
       ctx.fill();
-      ctx.strokeStyle = e.color;
+      ctx.strokeStyle = trim;
       ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.beginPath(); ctx.ellipse(5, 0, 8, 4.5, 0, 0, Math.PI * 2);
-      ctx.fillStyle = e.color + "99"; ctx.fill();
+      ctx.fillStyle = trim + "99"; ctx.fill();
       ctx.beginPath(); ctx.ellipse(7, -1, 3.5, 2, 0, 0, Math.PI * 2);
       ctx.fillStyle = "#fff4f6"; ctx.fill();
       drawPanelLine(-10, -4, 8, 0); drawPanelLine(-10, 4, 8, 0);
@@ -2247,33 +2224,33 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       ctx.beginPath();
       ctx.moveTo(24, 0); ctx.lineTo(-16, -12); ctx.lineTo(-22, -5); ctx.lineTo(-14, 0);
       ctx.lineTo(-22, 5); ctx.lineTo(-16, 12); ctx.closePath();
-      ctx.fillStyle = hullGradient("#151204", "#554b0b");
-      ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = hullGradient();
+      ctx.fill(); ctx.strokeStyle = trim; ctx.lineWidth = 1.5; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-4, -12); ctx.lineTo(-16, -24); ctx.lineTo(-22, -12); ctx.closePath();
-      ctx.fillStyle = hullGradient("#080804", "#332e08"); ctx.fill(); ctx.strokeStyle = e.color; ctx.stroke();
+      ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = trim; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-4, 12); ctx.lineTo(-16, 24); ctx.lineTo(-22, 12); ctx.closePath();
-      ctx.fillStyle = hullGradient("#080804", "#332e08"); ctx.fill(); ctx.strokeStyle = e.color; ctx.stroke();
+      ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = trim; ctx.stroke();
       ctx.beginPath(); ctx.ellipse(6, 0, 9, 5, 0, 0, Math.PI * 2);
-      ctx.fillStyle = e.color + "99"; ctx.fill();
+      ctx.fillStyle = trim + "99"; ctx.fill();
       drawPanelLine(-14, -8, 10, 0); drawPanelLine(-14, 8, 10, 0);
-      ctx.fillStyle = "#fff7b0"; ctx.fillRect(19, -7, 6, 2); ctx.fillRect(19, 5, 6, 2);
+      ctx.fillStyle = "#b69a66"; ctx.fillRect(19, -7, 6, 2); ctx.fillRect(19, 5, 6, 2);
       break;
     }
     case "bomber": {
       ctx.beginPath();
       ctx.moveTo(18, 0); ctx.lineTo(-10, -18); ctx.lineTo(-28, -10); ctx.lineTo(-20, 0);
       ctx.lineTo(-28, 10); ctx.lineTo(-10, 18); ctx.closePath();
-      ctx.fillStyle = hullGradient("#071006", "#244814");
-      ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = hullGradient();
+      ctx.fill(); ctx.strokeStyle = trim; ctx.lineWidth = 2; ctx.stroke();
       ctx.beginPath(); ctx.ellipse(0, 0, 10, 7, 0, 0, Math.PI * 2);
-      ctx.fillStyle = e.color + "99"; ctx.fill();
+      ctx.fillStyle = trim + "99"; ctx.fill();
       drawPanelLine(-18, -11, 8, -3); drawPanelLine(-18, 11, 8, 3);
-      [-9, 9].forEach(y => { ctx.beginPath(); ctx.arc(12, y, 2.5, 0, Math.PI * 2); ctx.fillStyle = "#fff4bd"; ctx.fill(); });
+      [-9, 9].forEach(y => { ctx.beginPath(); ctx.arc(12, y, 2.5, 0, Math.PI * 2); ctx.fillStyle = "#b69a66"; ctx.fill(); });
       // Heavy ordnance pods make the bomber distinct at a glance.
       [-14, 14].forEach(y => {
         ctx.beginPath(); ctx.roundRect(-11, y - 4, 19, 8, 3);
-        ctx.fillStyle = "#10180d"; ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 1; ctx.stroke();
-        ctx.fillStyle = "#fff7cf"; ctx.fillRect(5, y - 1, 6, 2);
+        ctx.fillStyle = "#161e24"; ctx.fill(); ctx.strokeStyle = trim; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = "#b69a66"; ctx.fillRect(5, y - 1, 6, 2);
       });
       break;
     }
@@ -2281,14 +2258,14 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       ctx.beginPath();
       ctx.moveTo(40, 0); ctx.lineTo(-20, -28); ctx.lineTo(-36, -14); ctx.lineTo(-24, 0);
       ctx.lineTo(-36, 14); ctx.lineTo(-20, 28); ctx.closePath();
-      ctx.fillStyle = hullGradient("#100310", "#47134c");
-      ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.fillStyle = hullGradient();
+      ctx.fill(); ctx.strokeStyle = trim; ctx.lineWidth = 2.5; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-4, -28); ctx.lineTo(-24, -44); ctx.lineTo(-36, -28); ctx.closePath();
-      ctx.fillStyle = hullGradient("#090109", "#2e0a32"); ctx.fill(); ctx.strokeStyle = e.color; ctx.stroke();
+      ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = trim; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-4, 28); ctx.lineTo(-24, 44); ctx.lineTo(-36, 28); ctx.closePath();
-      ctx.fillStyle = hullGradient("#090109", "#2e0a32"); ctx.fill(); ctx.strokeStyle = e.color; ctx.stroke();
+      ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = trim; ctx.stroke();
       ctx.beginPath(); ctx.ellipse(8, 0, 14, 9, 0, 0, Math.PI * 2);
-      ctx.fillStyle = e.color + "bb"; ctx.fill();
+      ctx.fillStyle = trim + "bb"; ctx.fill();
       ctx.beginPath(); ctx.arc(8, 0, 5 + pulse * 2, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
       drawPanelLine(-24, -23, 20, -5); drawPanelLine(-24, 23, 20, 5);
       [-16, 0, 16].forEach(y => { ctx.fillStyle = "#ffedf9"; ctx.fillRect(31, y - 1.5, 8, 3); });
@@ -2296,21 +2273,21 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       const barW = 64, barH = 6;
       ctx.fillStyle = "#333";
       ctx.fillRect(-barW / 2, -e.height / 2 - 16, barW, barH);
-      ctx.fillStyle = e.color;
+      ctx.fillStyle = trim;
       ctx.fillRect(-barW / 2, -e.height / 2 - 16, barW * (e.hp / e.maxHp), barH);
       break;
     }
     case "overlord": {
       const overlordPulse = .72 + Math.sin(now * .008) * .28;
       const overlordPhase = getBossPhase(e.hp, e.maxHp);
-      const accent = overlordPhase === 3 ? "#ffffff" : overlordPhase === 2 ? "#6fe9ff" : "#ff4fc8";
+      const accent = overlordPhase === 3 ? "#b5674e" : overlordPhase === 2 ? "#b69a66" : "#a4b3bc";
       const overlordSpectrum = ctx.createLinearGradient(-67, -50, 60, 50);
-      overlordSpectrum.addColorStop(0, "#22d3ee");
-      overlordSpectrum.addColorStop(.35, "#8b5cf6");
-      overlordSpectrum.addColorStop(.68, "#ff4fc8");
-      overlordSpectrum.addColorStop(1, "#fbbf24");
+      overlordSpectrum.addColorStop(0, "#a4b3bc");
+      overlordSpectrum.addColorStop(.35, "#a4b3bc");
+      overlordSpectrum.addColorStop(.68, "#a4b3bc");
+      overlordSpectrum.addColorStop(1, "#b69a66");
       ctx.shadowColor = accent;
-      ctx.shadowBlur = 16 + overlordPulse * 14;
+      ctx.shadowBlur = 0;
 
       // A broad, forked command-ship silhouette with a recessed armored center.
       ctx.beginPath();
@@ -2319,54 +2296,54 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       ctx.lineTo(-67, 13); ctx.lineTo(-39, 28); ctx.lineTo(-49, 57); ctx.lineTo(-5, 49);
       ctx.lineTo(13, 25); ctx.lineTo(34, 13); ctx.closePath();
       const hull = ctx.createLinearGradient(-65, -48, 58, 36);
-      hull.addColorStop(0, "#020611"); hull.addColorStop(.32, "#182b45");
-      hull.addColorStop(.58, "#0b1428"); hull.addColorStop(1, "#17051c");
+      hull.addColorStop(0, "#161e24"); hull.addColorStop(.32, "#394650");
+      hull.addColorStop(.58, "#161e24"); hull.addColorStop(1, "#161e24");
       ctx.fillStyle = hull; ctx.fill();
       ctx.strokeStyle = overlordSpectrum; ctx.lineWidth = 3; ctx.stroke();
 
       // Mirrored armor plates add depth and make the split wings readable.
       [-1, 1].forEach(side => {
-        const wingAccent = side < 0 ? "#35e7ff" : "#ff4fc8";
+        const wingAccent = "#a4b3bc";
         const plate = ctx.createLinearGradient(-45, side * 48, 25, side * 12);
-        plate.addColorStop(0, side < 0 ? "#174e68" : "#5d174f");
-        plate.addColorStop(.5, "#15142d"); plate.addColorStop(1, wingAccent + "66");
+        plate.addColorStop(0, "#394650");
+        plate.addColorStop(.5, "#161e24"); plate.addColorStop(1, wingAccent + "66");
         ctx.beginPath();
         ctx.moveTo(29, side * 11); ctx.lineTo(4, side * 26); ctx.lineTo(-10, side * 45);
         ctx.lineTo(-43, side * 49); ctx.lineTo(-30, side * 27); ctx.lineTo(-8, side * 17); ctx.closePath();
-        ctx.fillStyle = plate; ctx.fill(); ctx.strokeStyle = "#a9eaff88"; ctx.lineWidth = 1.2; ctx.stroke();
+        ctx.fillStyle = plate; ctx.fill(); ctx.strokeStyle = "#a4b3bc88"; ctx.lineWidth = 1.2; ctx.stroke();
         ctx.beginPath(); ctx.moveTo(-35, side * 43); ctx.lineTo(-4, side * 33); ctx.lineTo(24, side * 13);
         ctx.strokeStyle = wingAccent; ctx.lineWidth = 1.6; ctx.stroke();
 
         // Heavy outer cannons sit in armored pods instead of floating dots.
         ctx.beginPath(); ctx.roundRect(27, side * 24 - 6, 26, 12, 5);
-        ctx.fillStyle = side < 0 ? "#062a38" : "#300923"; ctx.fill();
+        ctx.fillStyle = "#161e24"; ctx.fill();
         ctx.strokeStyle = wingAccent; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.fillStyle = side < 0 ? "#b9f8ff" : "#ffd0f1"; ctx.fillRect(48, side * 24 - 2, 12, 4);
+        ctx.fillStyle = "#a4b3bc"; ctx.fillRect(48, side * 24 - 2, 12, 4);
       });
 
-      // Raised command spine and layered reactor rings.
+      // Raised command spine and layered turbine housings.
       ctx.beginPath(); ctx.moveTo(-47, 0); ctx.lineTo(-12, -15); ctx.lineTo(38, -9);
       ctx.lineTo(55, 0); ctx.lineTo(38, 9); ctx.lineTo(-12, 15); ctx.closePath();
       const spine = ctx.createLinearGradient(-45, 0, 55, 0);
-      spine.addColorStop(0, "#12052c"); spine.addColorStop(.36, "#263f64");
-      spine.addColorStop(.7, "#512050"); spine.addColorStop(1, "#2c1905");
+      spine.addColorStop(0, "#161e24"); spine.addColorStop(.36, "#394650");
+      spine.addColorStop(.7, "#394650"); spine.addColorStop(1, "#161e24");
       ctx.fillStyle = spine; ctx.fill(); ctx.strokeStyle = "#d8f7ff99"; ctx.lineWidth = 1.4; ctx.stroke();
-      ctx.shadowBlur = 22;
-      ctx.beginPath(); ctx.arc(12, 0, 17, 0, Math.PI * 2); ctx.fillStyle = "#040711"; ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.beginPath(); ctx.arc(12, 0, 17, 0, Math.PI * 2); ctx.fillStyle = "#161e24"; ctx.fill();
       ctx.strokeStyle = accent; ctx.lineWidth = 4; ctx.stroke();
       ctx.beginPath(); ctx.arc(12, 0, 10 + overlordPulse * 2.5, 0, Math.PI * 2);
       const reactor = ctx.createRadialGradient(9, -3, 1, 12, 0, 12);
-      reactor.addColorStop(0, "#ffffff"); reactor.addColorStop(.2, "#fef08a");
-      reactor.addColorStop(.48, "#ff4fc8"); reactor.addColorStop(.74, "#8b5cf6"); reactor.addColorStop(1, "#22d3ee11");
+      reactor.addColorStop(0, "#ffffff"); reactor.addColorStop(.2, "#b69a66");
+      reactor.addColorStop(.48, "#a4b3bc"); reactor.addColorStop(.74, "#a4b3bc"); reactor.addColorStop(1, "#a4b3bc11");
       ctx.fillStyle = reactor; ctx.fill();
-      ctx.beginPath(); ctx.arc(50, 0, 5, 0, Math.PI * 2); ctx.fillStyle = "#fbbf24"; ctx.fill();
+      ctx.beginPath(); ctx.arc(50, 0, 5, 0, Math.PI * 2); ctx.fillStyle = "#b69a66"; ctx.fill();
 
       ctx.shadowBlur = 0;
       const barW = 112, barH = 7;
-      ctx.fillStyle = "#170d20"; ctx.fillRect(-barW / 2, -e.height / 2 - 17, barW, barH);
+      ctx.fillStyle = "#161e24"; ctx.fillRect(-barW / 2, -e.height / 2 - 17, barW, barH);
       const hpGradient = ctx.createLinearGradient(-barW / 2, 0, barW / 2, 0);
-      hpGradient.addColorStop(0, "#22d3ee"); hpGradient.addColorStop(.45, "#8b5cf6");
-      hpGradient.addColorStop(.75, "#ff4fc8"); hpGradient.addColorStop(1, "#fbbf24");
+      hpGradient.addColorStop(0, "#a4b3bc"); hpGradient.addColorStop(.45, "#a4b3bc");
+      hpGradient.addColorStop(.75, "#a4b3bc"); hpGradient.addColorStop(1, "#b69a66");
       ctx.fillStyle = hpGradient; ctx.fillRect(-barW / 2, -e.height / 2 - 17, barW * (e.hp / e.maxHp), barH);
       ctx.strokeStyle = "#ffffff88"; ctx.lineWidth = 1; ctx.strokeRect(-barW / 2, -e.height / 2 - 17, barW, barH);
       break;
@@ -2374,15 +2351,15 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
     case "titan": {
       const phase = e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1;
       const titanPulse = .65 + Math.sin(now * .012) * .35;
-      const phaseColor = phase === 3 ? "#fff36a" : phase === 2 ? "#45f6ff" : "#ff3fd2";
-      const titanSecondary = phase === 3 ? "#ff6b35" : phase === 2 ? "#ff4fd8" : "#45f6ff";
-      const titanTertiary = phase === 3 ? "#e879f9" : phase === 2 ? "#fbbf24" : "#8b5cf6";
+      const phaseColor = phase === 3 ? "#b5674e" : phase === 2 ? "#b69a66" : "#a4b3bc";
+      const titanSecondary = phase === 3 ? "#b5674e" : "#a4b3bc";
+      const titanTertiary = phase === 3 ? "#a4b3bc" : phase === 2 ? "#b69a66" : "#a4b3bc";
       const titanSpectrum = ctx.createLinearGradient(-76, -70, 78, 65);
       titanSpectrum.addColorStop(0, titanSecondary);
       titanSpectrum.addColorStop(.42, titanTertiary);
       titanSpectrum.addColorStop(.72, phaseColor);
-      titanSpectrum.addColorStop(1, "#fbbf24");
-      ctx.shadowColor = phaseColor; ctx.shadowBlur = economical ? 0 : 5;
+      titanSpectrum.addColorStop(1, "#b69a66");
+      ctx.shadowColor = phaseColor; ctx.shadowBlur = 0;
 
       // Crown-like dreadnought silhouette, wider and more imposing than the Overlord.
       ctx.beginPath();
@@ -2391,22 +2368,22 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       ctx.lineTo(-76, 28); ctx.lineTo(-35, 42); ctx.lineTo(-42, 76); ctx.lineTo(7, 58);
       ctx.lineTo(22, 31); ctx.lineTo(46, 15); ctx.closePath();
       const titanHull = ctx.createLinearGradient(-75, -65, 75, 55);
-      titanHull.addColorStop(0, "#151c26");
-      titanHull.addColorStop(.3, "#3d4b59");
-      titanHull.addColorStop(.57, "#71838c");
-      titanHull.addColorStop(.78, "#293844");
-      titanHull.addColorStop(1, "#03040d");
+      titanHull.addColorStop(0, "#161e24");
+      titanHull.addColorStop(.3, "#394650");
+      titanHull.addColorStop(.57, "#687781");
+      titanHull.addColorStop(.78, "#394650");
+      titanHull.addColorStop(1, "#161e24");
       ctx.fillStyle = titanHull; ctx.fill(); ctx.strokeStyle = "#9baeb8"; ctx.lineWidth = 1.5; ctx.stroke();
 
-      // Layered mirrored plates, crown blades and energy veins change with phase.
+      // Layered mirrored armor, reinforced fins and phase markings.
       [-1, 1].forEach(side => {
         const plateAccent = side < 0 ? titanSecondary : titanTertiary;
         ctx.beginPath();
         ctx.moveTo(37, side * 16); ctx.lineTo(9, side * 34); ctx.lineTo(-4, side * 57);
         ctx.lineTo(-38, side * 68); ctx.lineTo(-27, side * 39); ctx.lineTo(1, side * 25); ctx.closePath();
         const armor = ctx.createLinearGradient(-38, side * 66, 37, side * 16);
-        armor.addColorStop(0, side < 0 ? "#34414f" : "#71838c");
-        armor.addColorStop(.5, "#18232f"); armor.addColorStop(1, "#546574");
+        armor.addColorStop(0, side < 0 ? "#394650" : "#687781");
+        armor.addColorStop(.5, "#161e24"); armor.addColorStop(1, "#394650");
         ctx.fillStyle = armor; ctx.fill(); ctx.strokeStyle = "#ffffff99"; ctx.lineWidth = 1.4; ctx.stroke();
         ctx.beginPath(); ctx.moveTo(-31, side * 61); ctx.lineTo(-1, side * 43); ctx.lineTo(31, side * 18);
         ctx.strokeStyle = plateAccent; ctx.lineWidth = phase >= 2 ? 2.4 : 1.5; ctx.stroke();
@@ -2415,22 +2392,22 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
         ctx.strokeStyle = plateAccent; ctx.lineWidth = 2; ctx.stroke();
       });
 
-      // Central armor spine and a multi-ring reactor give the ship a focal point.
+      // Central armor spine and a bolted turbine housing.
       ctx.beginPath(); ctx.moveTo(-56, 0); ctx.lineTo(-15, -20); ctx.lineTo(53, -13);
       ctx.lineTo(73, 0); ctx.lineTo(53, 13); ctx.lineTo(-15, 20); ctx.closePath();
-      ctx.fillStyle = "#110a25"; ctx.fill(); ctx.strokeStyle = titanSpectrum; ctx.lineWidth = 2; ctx.stroke();
-      ctx.beginPath(); ctx.arc(18, 0, 25, 0, Math.PI * 2); ctx.fillStyle = "#05050d"; ctx.fill();
-      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.stroke();
+      ctx.fillStyle = "#161e24"; ctx.fill(); ctx.strokeStyle = titanSpectrum; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(18, 0, 25, 0, Math.PI * 2); ctx.fillStyle = "#161e24"; ctx.fill();
+      ctx.strokeStyle = "#bbc4c8"; ctx.lineWidth = 3; ctx.stroke();
       ctx.beginPath(); ctx.arc(18, 0, 18, 0, Math.PI * 2); ctx.strokeStyle = phaseColor; ctx.lineWidth = 5; ctx.stroke();
       ctx.beginPath(); ctx.arc(18, 0, 9 + titanPulse * 4, 0, Math.PI * 2);
       const titanCore = ctx.createRadialGradient(15, -3, 1, 18, 0, 14);
-      titanCore.addColorStop(0, "#ffffff"); titanCore.addColorStop(.22, "#fef08a");
+      titanCore.addColorStop(0, "#ffffff"); titanCore.addColorStop(.22, "#b69a66");
       titanCore.addColorStop(.45, phaseColor); titanCore.addColorStop(.7, titanSecondary); titanCore.addColorStop(1, titanTertiary + "11");
       ctx.fillStyle = titanCore; ctx.fill();
 
       // Six visible gun housings with protruding barrels.
       [-31, -19, -7, 7, 19, 31].forEach((offset, index) => {
-        const cannonColor = ["#45f6ff", "#8b5cf6", "#ff4fd8", "#fbbf24", "#ff6b35", phaseColor][index];
+        const cannonColor = ["#a4b3bc", "#a4b3bc", "#a4b3bc", "#b69a66", "#b5674e", phaseColor][index];
         ctx.beginPath(); ctx.roundRect(47, offset - 4, 20, 8, 3);
         ctx.fillStyle = cannonColor + "33"; ctx.fill(); ctx.strokeStyle = cannonColor; ctx.lineWidth = 1.2; ctx.stroke();
         ctx.fillStyle = cannonColor; ctx.fillRect(64, offset - 1.5, 13, 3);
@@ -2444,15 +2421,15 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
           if (side === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         ctx.closePath();
-        ctx.fillStyle = `rgba(255,35,190,${.10 + titanPulse * .1})`; ctx.fill();
+        ctx.fillStyle = `rgba(164,179,188,${.06 + titanPulse * .04})`; ctx.fill();
         ctx.strokeStyle = titanSpectrum; ctx.lineWidth = 4; ctx.stroke();
         ctx.setLineDash([7, 7]); ctx.strokeStyle = "#ffffffaa"; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
       }
       const barW = 146, barH = 9;
-      ctx.shadowBlur = 0; ctx.fillStyle = "#160718"; ctx.fillRect(-barW / 2, -e.height / 2 - 20, barW, barH);
+      ctx.shadowBlur = 0; ctx.fillStyle = "#161e24"; ctx.fillRect(-barW / 2, -e.height / 2 - 20, barW, barH);
       const titanHpGradient = ctx.createLinearGradient(-barW / 2, 0, barW / 2, 0);
       titanHpGradient.addColorStop(0, titanSecondary); titanHpGradient.addColorStop(.42, titanTertiary);
-      titanHpGradient.addColorStop(.72, phaseColor); titanHpGradient.addColorStop(1, "#fbbf24");
+      titanHpGradient.addColorStop(.72, phaseColor); titanHpGradient.addColorStop(1, "#b69a66");
       ctx.fillStyle = titanHpGradient; ctx.fillRect(-barW / 2, -e.height / 2 - 20, barW * (e.hp / e.maxHp), barH);
       ctx.strokeStyle = "#ffffffaa"; ctx.lineWidth = 1; ctx.strokeRect(-barW / 2, -e.height / 2 - 20, barW, barH);
       break;
@@ -2460,12 +2437,12 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
     case "interceptor": {
       ctx.beginPath();
       ctx.moveTo(24,0); ctx.lineTo(4,-5); ctx.lineTo(-12,-10); ctx.lineTo(-18,-3); ctx.lineTo(-8,0); ctx.lineTo(-18,3); ctx.lineTo(-12,10); ctx.lineTo(4,5);
-      ctx.closePath(); ctx.fillStyle=hullGradient("#031112", "#0a464b"); ctx.fill(); ctx.strokeStyle=e.color; ctx.lineWidth=1.5; ctx.stroke();
+      ctx.closePath(); ctx.fillStyle=hullGradient(); ctx.fill(); ctx.strokeStyle=trim; ctx.lineWidth=1.5; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(3,-3); ctx.lineTo(-8,-19); ctx.lineTo(-16,-15); ctx.lineTo(-11,-6); ctx.closePath();
-      ctx.fillStyle="#001010"; ctx.fill(); ctx.strokeStyle=e.color; ctx.stroke();
+      ctx.fillStyle="#161e24"; ctx.fill(); ctx.strokeStyle=trim; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(3,3); ctx.lineTo(-8,19); ctx.lineTo(-16,15); ctx.lineTo(-11,6); ctx.closePath();
-      ctx.fillStyle="#001010"; ctx.fill(); ctx.strokeStyle=e.color; ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(5,0,7,3.5,0,0,Math.PI*2); ctx.fillStyle=e.color+"99"; ctx.fill();
+      ctx.fillStyle="#161e24"; ctx.fill(); ctx.strokeStyle=trim; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(5,0,7,3.5,0,0,Math.PI*2); ctx.fillStyle=trim+"99"; ctx.fill();
       ctx.beginPath(); ctx.ellipse(7,-.5,3,1.5,0,0,Math.PI*2); ctx.fillStyle="#edffff"; ctx.fill();
       drawPanelLine(-10, -5, 10, 0); drawPanelLine(-10, 5, 10, 0);
       ctx.fillStyle = "#dfffff"; ctx.fillRect(17, -6, 9, 2); ctx.fillRect(17, 4, 9, 2);
@@ -2475,62 +2452,62 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       ctx.beginPath();
       ctx.moveTo(22, 0); ctx.lineTo(-8, -7); ctx.lineTo(-24, -19); ctx.lineTo(-17, -3);
       ctx.lineTo(-17, 3); ctx.lineTo(-24, 19); ctx.lineTo(-8, 7); ctx.closePath();
-      ctx.fillStyle = hullGradient("#0c0215", "#4c1268"); ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = trim; ctx.lineWidth = 2; ctx.stroke();
       ctx.beginPath(); ctx.arc(3, 0, 6, 0, Math.PI * 2);
-      ctx.fillStyle = "#ffffff"; ctx.shadowColor = e.color; ctx.shadowBlur = 14; ctx.fill();
+      ctx.fillStyle = "#bbc4c8"; ctx.shadowColor = trim; ctx.shadowBlur = 0; ctx.fill();
       drawPanelLine(-17, -11, 8, -3); drawPanelLine(-17, 11, 8, 3);
-      ctx.fillStyle = e.color; ctx.fillRect(16, -7, 8, 2); ctx.fillRect(16, 5, 8, 2);
+      ctx.fillStyle = trim; ctx.fillRect(16, -7, 8, 2); ctx.fillRect(16, 5, 8, 2);
       break;
     }
     case "sentinel": {
       ctx.beginPath();
       ctx.moveTo(20, 0); ctx.lineTo(5, -17); ctx.lineTo(-18, -17); ctx.lineTo(-27, 0);
       ctx.lineTo(-18, 17); ctx.lineTo(5, 17); ctx.closePath();
-      ctx.fillStyle = hullGradient("#040c14", "#173c58"); ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 2.5; ctx.stroke();
-      ctx.beginPath(); ctx.rect(-12, -8, 18, 16); ctx.fillStyle = e.color + "66"; ctx.fill();
+      ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = trim; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.beginPath(); ctx.rect(-12, -8, 18, 16); ctx.fillStyle = trim + "66"; ctx.fill();
       drawPanelLine(-19, -12, 11, -8); drawPanelLine(-19, 12, 11, 8);
       ctx.beginPath(); ctx.arc(-3, 0, 4 + pulse, 0, Math.PI * 2); ctx.fillStyle = "#eaffff"; ctx.fill();
       [-12, 12].forEach(y => {
         ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(25, y * .72); ctx.lineTo(8, y * .5); ctx.closePath();
-        ctx.fillStyle = "#0a1e2d"; ctx.fill(); ctx.strokeStyle = e.color; ctx.stroke();
+        ctx.fillStyle = "#161e24"; ctx.fill(); ctx.strokeStyle = trim; ctx.stroke();
       });
       if ((e.shieldHp ?? 0) > 0) {
         ctx.beginPath(); ctx.arc(-2, 0, 29, 0, Math.PI * 2);
-        ctx.strokeStyle = "#66ddff88"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.strokeStyle = "#a4b3bc88"; ctx.lineWidth = 2; ctx.stroke();
       }
       break;
     }
     case "gunship": {
       ctx.beginPath();
       ctx.moveTo(22,0); ctx.lineTo(-14,-20); ctx.lineTo(-32,-12); ctx.lineTo(-22,0); ctx.lineTo(-32,12); ctx.lineTo(-14,20);
-      ctx.closePath(); ctx.fillStyle=hullGradient("#140804", "#593016"); ctx.fill(); ctx.strokeStyle=e.color; ctx.lineWidth=2.5; ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(4,0,8,5,0,0,Math.PI*2); ctx.fillStyle=e.color+"99"; ctx.fill();
+      ctx.closePath(); ctx.fillStyle=hullGradient(); ctx.fill(); ctx.strokeStyle=trim; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(4,0,8,5,0,0,Math.PI*2); ctx.fillStyle=trim+"99"; ctx.fill();
       drawPanelLine(-21, -14, 10, -4); drawPanelLine(-21, 14, 10, 4);
-      [-11, 11].forEach(y => { ctx.fillStyle = "#fff0d0"; ctx.fillRect(17, y - 2, 8, 4); });
+      [-11, 11].forEach(y => { ctx.fillStyle = "#b69a66"; ctx.fillRect(17, y - 2, 8, 4); });
       [-15, 15].forEach(y => {
         ctx.beginPath(); ctx.arc(-7, y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = "#21130a"; ctx.fill(); ctx.strokeStyle = e.color; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = "#161e24"; ctx.fill(); ctx.strokeStyle = trim; ctx.lineWidth = 1.5; ctx.stroke();
         ctx.fillStyle = "#fff3db"; ctx.fillRect(-3, y - 1.5, 15, 3);
       });
       const bW=e.width*0.8,bH=4;
       ctx.fillStyle="#333"; ctx.fillRect(-bW/2,-e.height/2-8,bW,bH);
-      ctx.fillStyle=e.color; ctx.fillRect(-bW/2,-e.height/2-8,bW*(e.hp/e.maxHp),bH);
+      ctx.fillStyle=trim; ctx.fillRect(-bW/2,-e.height/2-8,bW*(e.hp/e.maxHp),bH);
       break;
     }
     case "laserdevice": {
       // A stationary, heavily armored laser generator with emitters on both ends.
       const devicePulse = .65 + Math.sin(now * .018) * .35;
-      ctx.shadowColor = "#ff1d2e";
-      ctx.shadowBlur = 8 + devicePulse * 9;
+      ctx.shadowColor = "#b5674e";
+      ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.roundRect(-19, -22, 38, 44, 7);
-      ctx.fillStyle = hullGradient("#050608", "#282c31", "#60656b");
+      ctx.fillStyle = hullGradient();
       ctx.fill();
       ctx.strokeStyle = "#858b92";
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.shadowBlur = 0;
-      ctx.fillStyle = "#0a0b0d";
+      ctx.fillStyle = "#161e24";
       ctx.fillRect(-13, -15, 26, 30);
       ctx.strokeStyle = "#42474d";
       ctx.lineWidth = 1;
@@ -2543,52 +2520,48 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
         ctx.lineTo(8, emitterY);
         ctx.lineTo(-8, emitterY);
         ctx.closePath();
-        ctx.fillStyle = "#111317";
+        ctx.fillStyle = "#161e24";
         ctx.fill();
         ctx.strokeStyle = "#747a80";
         ctx.stroke();
         ctx.beginPath();
         ctx.arc(0, emitterY, 4 + devicePulse, 0, Math.PI * 2);
         ctx.fillStyle = "#fff";
-        ctx.shadowColor = "#ff1028";
-        ctx.shadowBlur = 14;
+        ctx.shadowColor = "#b5674e";
+        ctx.shadowBlur = 0;
         ctx.fill();
         ctx.shadowBlur = 0;
       });
       ctx.beginPath();
       ctx.arc(0, 0, 8, 0, Math.PI * 2);
-      ctx.fillStyle = "#111318";
+      ctx.fillStyle = "#161e24";
       ctx.fill();
       ctx.strokeStyle = "#9ba1a7";
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.beginPath();
       ctx.arc(0, 0, 3 + devicePulse, 0, Math.PI * 2);
-      ctx.fillStyle = "#ff2438";
+      ctx.fillStyle = "#b5674e";
       ctx.fill();
       if ((e.shieldHp ?? 0) > 0) {
         ctx.beginPath();
         ctx.arc(0, 0, 31, 0, Math.PI * 2);
-        ctx.fillStyle = "#58d8ff12";
+        ctx.fillStyle = "#a4b3bc12";
         ctx.fill();
-        ctx.strokeStyle = "#73ddffbb";
+        ctx.strokeStyle = "#a4b3bcbb";
         ctx.lineWidth = 2;
         ctx.stroke();
       }
       const bW = e.width * .9, bH = 4;
       ctx.fillStyle = "#26282c";
       ctx.fillRect(-bW / 2, -e.height / 2 - 9, bW, bH);
-      ctx.fillStyle = "#ff6b24";
+      ctx.fillStyle = "#b5674e";
       ctx.fillRect(-bW / 2, -e.height / 2 - 9, bW * (e.hp / e.maxHp), bH);
       break;
     }
     case "tiefighter":
     case "emeraldtiefighter": {
-      const tg = e.color;
-      if (e.type === "emeraldtiefighter") {
-        ctx.shadowColor = tg;
-        ctx.shadowBlur = 12 + Math.sin(performance.now() * 0.006) * 5;
-      }
+      const tg = trim;
       const drawEnemyHex = (cy: number) => {
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
@@ -2597,7 +2570,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
           if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
         }
         ctx.closePath();
-        ctx.fillStyle = hullGradient("#05060b", e.type === "emeraldtiefighter" ? "#123c2c" : "#18263a"); ctx.fill(); ctx.strokeStyle = tg; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = hullGradient(); ctx.fill(); ctx.strokeStyle = tg; ctx.lineWidth = 1.5; ctx.stroke();
         ctx.beginPath(); ctx.moveTo(-10, cy); ctx.lineTo(6, cy); ctx.strokeStyle = "#ffffff42"; ctx.lineWidth = 1; ctx.stroke();
       };
       drawEnemyHex(-16); drawEnemyHex(16);
@@ -2605,18 +2578,18 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       ctx.beginPath(); ctx.moveTo(-2, -7); ctx.lineTo(-2, -4); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-2, 7); ctx.lineTo(-2, 4); ctx.stroke();
       ctx.beginPath(); ctx.arc(-2, 0, 8, 0, Math.PI * 2);
-      ctx.fillStyle = "#12121a"; ctx.fill(); ctx.strokeStyle = tg; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = "#161e24"; ctx.fill(); ctx.strokeStyle = tg; ctx.lineWidth = 1.5; ctx.stroke();
       ctx.beginPath(); ctx.arc(-3, -1, 4, 0, Math.PI * 2);
       ctx.fillStyle = tg + "88"; ctx.fill();
-      ctx.beginPath(); ctx.arc(-3, -1, 2 + pulse, 0, Math.PI * 2); ctx.fillStyle = "#ffffff"; ctx.fill();
-      drawEngine(-12, -16, 5, tg); drawEngine(-12, 16, 5, tg);
+      ctx.beginPath(); ctx.arc(-3, -1, 2 + pulse, 0, Math.PI * 2); ctx.fillStyle = "#bbc4c8"; ctx.fill();
+      drawEngine(-12, -16, 5); drawEngine(-12, 16, 5);
       if ((e.shieldHp ?? 0) > 0) {
         ctx.beginPath();
         ctx.arc(-2, 0, 27, 0, Math.PI * 2);
-        ctx.strokeStyle = "#88ddff99";
+        ctx.strokeStyle = "#a4b3bc99";
         ctx.lineWidth = 2;
         ctx.stroke();
-        ctx.fillStyle = "#88ddff12";
+        ctx.fillStyle = "#a4b3bc12";
         ctx.fill();
       }
       break;
@@ -2630,15 +2603,48 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
     ctx.strokeStyle = "#d5e0e877"; ctx.lineWidth = .7;
     for (const side of [-1, 1]) {
       ctx.beginPath(); ctx.moveTo(-span, side * span); ctx.lineTo(span * .5, side * span * .5); ctx.stroke();
-      ctx.fillStyle = "#080f18";
+      ctx.fillStyle = "#161e24";
       for (let vent = 0; vent < 3; vent++) ctx.fillRect(-span + vent * 3, side * span - 2, 1.5, 4);
     }
     const canopy = ctx.createLinearGradient(0, -5, 0, 5);
-    canopy.addColorStop(0, "#0c202e"); canopy.addColorStop(.65, "#436476"); canopy.addColorStop(1, "#d5e5e6");
+    canopy.addColorStop(0, "#161e24"); canopy.addColorStop(.65, "#394650"); canopy.addColorStop(1, "#d5e5e6");
     ctx.fillStyle = canopy;
     ctx.beginPath(); ctx.ellipse(large ? 17 : 6, 0, large ? 10 : 6, large ? 5 : 3, 0, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   }
+
+  // Riveted inspection cover, cooling slots and a recessed mechanical hub.
+  ctx.save(); ctx.shadowBlur = 0;
+  const heavy = e.type === "titan" || e.type === "overlord" || e.type === "boss";
+  const panelX = heavy ? -34 : e.type === "biome" ? -12 : -10;
+  const panelW = heavy ? 24 : 10;
+  const panelH = heavy ? 16 : 7;
+  ctx.fillStyle = "#25313a"; ctx.strokeStyle = "#8a989f"; ctx.lineWidth = .7;
+  ctx.beginPath(); ctx.roundRect(panelX, -panelH / 2, panelW, panelH, 1);
+  ctx.fill(); ctx.stroke();
+  for (const side of [-1, 1]) {
+    for (const x of [panelX + 1.5, panelX + panelW - 1.5]) {
+      ctx.beginPath(); ctx.arc(x, side * (panelH / 2 - 1.5), heavy ? 1.2 : .65, 0, Math.PI * 2);
+      ctx.fillStyle = "#bac3c6"; ctx.fill();
+    }
+  }
+  for (let slot = 0; slot < 3; slot++) {
+    ctx.fillStyle = "#0c141a";
+    ctx.fillRect(panelX + panelW * .3 + slot * panelW * .15, -panelH * .25, heavy ? 2 : 1, panelH * .5);
+  }
+  if (heavy || e.type === "plasmawing" || e.type === "sentinel" || e.type === "laserdevice") {
+    const hubX = e.type === "titan" ? 18 : e.type === "overlord" ? 12 : e.type === "boss" ? 8 : 0;
+    const radius = heavy ? 9 : 4;
+    ctx.beginPath(); ctx.arc(hubX, 0, radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#172128"; ctx.fill(); ctx.strokeStyle = "#8d9ca5"; ctx.lineWidth = 1.5; ctx.stroke();
+    for (let tooth = 0; tooth < 6; tooth++) {
+      const angle = tooth * Math.PI / 3;
+      ctx.fillStyle = "#b3bdc1";
+      ctx.fillRect(hubX + Math.cos(angle) * radius * .7 - .8, Math.sin(angle) * radius * .7 - .8, 1.6, 1.6);
+    }
+    ctx.fillStyle = "#b69a66"; ctx.fillRect(hubX - 1.2, -1.2, 2.4, 2.4);
+  }
+  ctx.restore();
 
   if (isBossEnemy(e)) {
     const drawDetachableModule = (y: number, kind: "cannon" | "engine") => {
@@ -2647,15 +2653,13 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       const moduleHeight = Math.max(11, e.height * .13);
       ctx.save();
       ctx.translate(moduleX, y);
-      ctx.shadowColor = kind === "cannon" ? "#ff4668" : "#64e8ff";
-      ctx.shadowBlur = 14;
+      ctx.shadowColor = kind === "cannon" ? "#b5674e" : "#a4b3bc";
+      ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.roundRect(-moduleWidth / 2, -moduleHeight / 2, moduleWidth, moduleHeight, 4);
-      ctx.fillStyle = kind === "cannon"
-        ? hullGradient("#19040b", "#7c1735", "#ff4668")
-        : hullGradient("#03141c", "#0e5064", "#64e8ff");
+      ctx.fillStyle = hullGradient();
       ctx.fill();
-      ctx.strokeStyle = kind === "cannon" ? "#ff7890" : "#a8f5ff";
+      ctx.strokeStyle = kind === "cannon" ? "#b5674e" : "#a4b3bc";
       ctx.lineWidth = 2;
       ctx.stroke();
       if (kind === "cannon") {
@@ -2663,7 +2667,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
         ctx.fillRect(moduleWidth * .3, -moduleHeight * .28, moduleWidth * .55, 3);
         ctx.fillRect(moduleWidth * .3, moduleHeight * .28 - 3, moduleWidth * .55, 3);
       } else {
-        drawEngine(-moduleWidth * .55, 0, Math.max(8, moduleHeight * .7), "#64e8ff");
+        drawEngine(-moduleWidth * .55, 0, Math.max(8, moduleHeight * .7));
         ctx.beginPath();
         ctx.arc(moduleWidth * .15, 0, moduleHeight * .24, 0, Math.PI * 2);
         ctx.fillStyle = "#e8fdff";
@@ -2682,10 +2686,10 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, economical = false, 
       e.archetype === "kamikaze" ? "!" : e.eliteModifier === "armored" ? "A" :
       e.eliteModifier === "swift" ? "S" : "F";
     const badgeColor = roleColor ?? (e.eliteModifier === "armored" ? "#b9c5d6" :
-      e.eliteModifier === "swift" ? "#fff06a" : "#ff67c8");
+      e.eliteModifier === "swift" ? "#b69a66" : "#a4b3bc");
     ctx.beginPath();
     ctx.arc(0, -e.height / 2 - 9, 7, 0, Math.PI * 2);
-    ctx.fillStyle = "#06101a";
+    ctx.fillStyle = "#161e24";
     ctx.fill();
     ctx.strokeStyle = badgeColor;
     ctx.lineWidth = 1.5;
@@ -4465,7 +4469,7 @@ export default function Game() {
     audioRef.current.unlock();
     const savedRun = fromSave ? loadSave() : null;
     const save = savedRun?.level === requestedLevel ? savedRun : null;
-    const mode = "classic";
+    const mode = getCampaignMode(requestedLevel);
     const modeRules = getEffectiveGameModeRules(mode);
     activeModeRef.current = mode;
     const unlocks = loadUnlocks();
@@ -4639,7 +4643,7 @@ export default function Game() {
 
   useEffect(() => {
     if (completedAnimation === null) return;
-    const timer = window.setTimeout(returnToHangar, settings.reducedMotion ? 1800 : 3600);
+    const timer = window.setTimeout(returnToHangar, settings.reducedMotion ? 1800 : getCampaignMode(completedAnimation) === "protect" ? 5600 : 3600);
     return () => window.clearTimeout(timer);
   }, [completedAnimation, returnToHangar, settings.reducedMotion]);
 
@@ -5268,8 +5272,7 @@ export default function Game() {
         enemiesRef.current.forEach(enemy => advanceSubmarineDive(enemy, dt));
       }
       const modeRules = getEffectiveGameModeRules(activeModeRef.current);
-      if (modeRules.durationSeconds !== null && runElapsedMsRef.current >= modeRules.durationSeconds * 1000) {
-        if (activeModeRef.current === "protect") gs.score += 10_000;
+      if (activeModeRef.current !== "protect" && modeRules.durationSeconds !== null && runElapsedMsRef.current >= modeRules.durationSeconds * 1000) {
         runResultRef.current = "complete";
         gs.gameOver = true;
         grantRunReward();
@@ -5578,9 +5581,10 @@ export default function Game() {
 
       // Map missions stay on their selected level until the full objective is met.
       const encounterActive = enemiesRef.current.some(e => e.encounterKind && !e.dead && e.hp > 0);
-      if (!tutorialActive && canCompleteCampaignLevel(gs.level, gs.score, campaignBossDefeatedRef.current)) {
+      if (!tutorialActive && canCompleteCampaignLevel(gs.level, gs.score, campaignBossDefeatedRef.current, runElapsedMsRef.current)) {
         runResultRef.current = "complete";
         gs.gameOver = true;
+        if (activeModeRef.current === "protect") gs.score += 10_000;
         setCompletedLevels(completeCampaignLevel(gs.level));
         setCompletedAnimation(gs.level);
         grantRunReward();
@@ -6692,7 +6696,7 @@ export default function Game() {
           ctx.shadowColor = "#ffe13b";
           ctx.shadowBlur = 20;
         }
-        drawEnemy(ctx, e, visualQuality.economical, settingsRef.current.reducedMotion);
+        drawEnemy(ctx, e, settingsRef.current.reducedMotion);
         ctx.restore();
         if (e.isGolden) {
           ctx.save();
@@ -7734,7 +7738,7 @@ export default function Game() {
       if (settingsRef.current.autoUlti) {
         activeUltiLoadoutRef.current.forEach(id => activateAbility(id));
       }
-      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, gravityChargeRef.current, gravityActiveRef.current, empChargeRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], extrasRef.current, upwardFlight);
+      drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, gravityChargeRef.current, gravityActiveRef.current, empChargeRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], extrasRef.current, upwardFlight, runElapsedMsRef.current);
       const hudW = upwardFlight ? CANVAS_H : CANVAS_W;
       const hudTop = upwardFlight ? 136 : 86;
       const hudBosses = enemiesRef.current.filter(e => e.encounterKind && e.encounterKind !== "titan" && !e.dead && e.hp > 0);
@@ -8243,7 +8247,9 @@ export default function Game() {
         {mapOpen && !displayState.started && <LevelMap completed={completedLevels} onBack={() => setMapOpen(false)} onSelect={level => startGame(false, level)} />}
         {completedAnimation !== null && (
           <div className="campaign-victory" role="status" aria-live="polite">
-            <div className="campaign-victory-ring">✓</div>
+            {getCampaignMode(completedAnimation) === "protect"
+              ? <PackageLanding />
+              : <div className="campaign-victory-ring">✓</div>}
             <span>MISSION ABGESCHLOSSEN</span>
             <h2>LEVEL {completedAnimation} GESCHAFFT!</h2>
             <p>{completedAnimation < MAX_LEVEL ? `Level ${completedAnimation + 1} ist jetzt freigeschaltet.` : "Du hast die gesamte Flugroute abgeschlossen!"}</p>
@@ -9749,8 +9755,26 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
 // ─── Leaderboard Screen ───────────────────────────────────────────────────────
 
 function LeaderboardScreen({ onBack }: { onBack: () => void }) {
-  const entries = loadLeaderboard();
+  const [entries, setEntries] = useState(loadLeaderboard);
   const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<number | "all" | null>(null);
+  const [deleteError, setDeleteError] = useState(false);
+  const requestDelete = (target: number | "all") => {
+    setDeleteError(false);
+    setPendingDelete(target);
+  };
+  const confirmDelete = () => {
+    if (pendingDelete === null) return;
+    const remaining = pendingDelete === "all" ? [] : entries.filter((_, index) => index !== pendingDelete);
+    if (!writeStoredJson(LEADERBOARD_KEY, remaining)) {
+      setDeleteError(true);
+      return;
+    }
+    setEntries(remaining);
+    setExpandedEntry(null);
+    setPendingDelete(null);
+    setDeleteError(false);
+  };
   const leaderScore = entries[0]?.score ?? 0;
   const formatDuration = (durationMs: number) => {
     const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
@@ -9769,6 +9793,24 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
         </div>
         <div className="text-xs text-slate-500 ml-auto">(lokal – dieses Gerät)</div>
       </div>
+      {entries.length > 0 && (
+        <div className="mb-3 flex justify-end">
+          <button type="button" onClick={() => requestDelete("all")}
+            className="min-h-11 rounded-lg border border-red-400/40 bg-red-950/40 px-3 text-xs font-bold text-red-300 hover:bg-red-900/40">
+            Alle löschen
+          </button>
+        </div>
+      )}
+      {pendingDelete !== null && (
+        <div role="alert" className="mb-3 rounded-lg border border-red-400/40 bg-red-950/40 p-3 text-sm">
+          <p>{pendingDelete === "all" ? "Alle Einträge aus der Rangliste löschen?" : `Eintrag von „${entries[pendingDelete].name}“ (${entries[pendingDelete].score.toLocaleString("de-DE")} Punkte) löschen?`}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" onClick={confirmDelete} className="min-h-11 rounded-lg bg-red-700 px-4 text-xs font-bold text-white hover:bg-red-600">Löschen bestätigen</button>
+            <button type="button" onClick={() => { setPendingDelete(null); setDeleteError(false); }} className="min-h-11 rounded-lg bg-white/10 px-4 text-xs font-bold hover:bg-white/15">Abbrechen</button>
+          </div>
+          {deleteError && <p className="mt-2 text-red-300">Löschen konnte nicht gespeichert werden. Bitte erneut versuchen.</p>}
+        </div>
+      )}
       {entries.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
           Noch keine Einträge. Spiel beenden um deinen Score zu speichern!
@@ -9787,12 +9829,13 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
                   background: i === 0 ? "rgba(255,204,0,0.12)" : i === 1 ? "rgba(180,180,180,0.10)" : i === 2 ? "rgba(180,90,0,0.10)" : "rgba(255,255,255,0.04)",
                   border: `1px solid ${expanded ? "#00cfff88" : i === 0 ? "#ffcc0040" : i < 3 ? "#33445540" : "#1a2a3a"}`,
                 }}>
+                <div className="flex items-center">
                 <button
                   type="button"
                   aria-expanded={expanded}
                   aria-controls={detailsId}
                   onClick={() => setExpandedEntry(expanded ? null : entryId)}
-                  className="flex min-h-11 w-full items-center gap-2 px-3 py-1.5 text-left transition hover:bg-white/5"
+                  className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left transition hover:bg-white/5"
                 >
                   <span className="w-6 text-center text-xs font-black" style={{ color: i === 0 ? "#ffcc00" : i === 1 ? "#aabbcc" : i === 2 ? "#cc8844" : "#446677" }}>
                     {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
@@ -9801,6 +9844,11 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
                   <span className="text-sm font-black tabular-nums" style={{ color: i === 0 ? "#ffcc00" : "#00cfff" }}>{e.score.toLocaleString("de-DE")}</span>
                   <span aria-hidden="true" className={`ml-1 text-xs text-cyan-400 transition-transform ${expanded ? "rotate-180" : ""}`}>▼</span>
                 </button>
+                <button type="button" onClick={() => requestDelete(i)} aria-label={`Eintrag von ${e.name} löschen`}
+                  className="mr-2 min-h-11 shrink-0 rounded-lg px-2 text-xs font-bold text-red-300 hover:bg-red-900/40">
+                  Löschen
+                </button>
+                </div>
                 {expanded && (
                   <div id={detailsId} className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-cyan-900/70 px-4 py-3 text-xs sm:grid-cols-4">
                     <div><span className="block text-slate-500">Platzierung</span><b className="text-white">#{i + 1} von {entries.length}</b></div>
@@ -10485,7 +10533,13 @@ function drawVirtualControls(
   ctx.restore();
 }
 
-function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, gravityCharge: number, gravityActive: number, empCharge: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string, string], combatExtras: CombatExtras, upward = false) {
+function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: number, ultimaActive: number, laserCharge: number, laserActive: number, stealthCharge: number, stealthActive: number, healCharge: number, healActive: number, poisonMissileCharge: number, absorberCharge: number, absorberActive: number, absorberHits: number, ultimateCharge: number, ultimateActive: number, gravityCharge: number, gravityActive: number, empCharge: number, bestScore: number, pilotLevel: number, unlocks: string[], ultiLoadout: UltiLoadoutId[], abilityKeys: [string, string, string], combatExtras: CombatExtras, upward = false, elapsedMs = 0) {
+  const protect = getCampaignMode(gs.level) === "protect";
+  const durationMs = getGameModeRules("protect").durationSeconds! * 1000;
+  const secondsLeft = Math.max(0, Math.ceil((durationMs - elapsedMs) / 1000));
+  const objectiveLabel = protect
+    ? `BESCHÜTZEN ${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
+    : `ZIEL ${Math.min(gs.score, getCampaignTarget(gs.level)).toLocaleString("de-DE")} / ${getCampaignTarget(gs.level).toLocaleString("de-DE")}`;
   const hpText = `${Number(Math.max(0, gs.hp).toFixed(1))}/${gs.maxHp}`;
   if (upward) {
     const viewW = CANVAS_H;
@@ -10517,7 +10571,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     ctx.fillStyle = "#fff"; ctx.font = "bold 12px 'Inter', sans-serif"; ctx.fillText(WEAPON_TIERS[gs.weaponTier].name.toUpperCase(), viewW / 2, 27);
 
     ctx.fillStyle = "#a7e8cf"; ctx.font = "bold 10px Inter, sans-serif";
-    ctx.fillText(`ZIEL ${Math.min(gs.score, getCampaignTarget(gs.level)).toLocaleString("de-DE")} / ${getCampaignTarget(gs.level).toLocaleString("de-DE")}`, viewW / 2, 49);
+    ctx.fillText(objectiveLabel, viewW / 2, 49);
     const hpX = viewW - 150;
     ctx.textAlign = "right";
     ctx.fillStyle = "#ff6666"; ctx.font = "bold 12px 'Inter', sans-serif"; ctx.fillText(`HP ${hpText}`, viewW - 14, 8);
@@ -10570,7 +10624,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ctx.font = "bold 13px 'Inter', sans-serif";
   ctx.fillText(WEAPON_TIERS[gs.weaponTier].name.toUpperCase(), CANVAS_W / 2, 22);
   // Mission progress uses the tenfold objective for this selected level.
-  const pct = Math.max(0, Math.min(1, gs.score / getCampaignTarget(gs.level)));
+  const pct = Math.max(0, Math.min(1, protect ? elapsedMs / durationMs : gs.score / getCampaignTarget(gs.level)));
   const barX = CANVAS_W / 2 - 80, barY = 36, barW = 160, barH = 5;
   ctx.fillStyle = "#222";
   ctx.fillRect(barX, barY, barW, barH);
@@ -10581,7 +10635,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ctx.fillRect(barX, barY, barW * pct, barH);
 
   ctx.fillStyle = "#a7e8cf"; ctx.font = "bold 10px Inter, sans-serif";
-  ctx.fillText(`ZIEL ${Math.min(gs.score, getCampaignTarget(gs.level)).toLocaleString("de-DE")} / ${getCampaignTarget(gs.level).toLocaleString("de-DE")}`, CANVAS_W / 2, 48);
+  ctx.fillText(objectiveLabel, CANVAS_W / 2, 48);
 
   // HP bar
   const hpW = 130;
