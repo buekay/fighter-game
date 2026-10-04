@@ -71,7 +71,7 @@ pnpm run build
 - Bosses announce phase changes and telegraph their radial special attacks.
 - Flawless formation waves award triple credits, and the end-of-run report records combat statistics and per-mode personal records.
 - At the end of a mission, the score is converted to credits at a 1:1 rate (for example, 1,000 points award 1,000 credits).
-- Shop skins and upgrades are displayed in rarity order: rare, epic, legendary, ultra legendary, then ultimate. Legendary and higher items receive an additional visual glow; ultimate uses an iridescent, colorful silver treatment.
+- Shop skins and upgrades are displayed in rarity order: rare, epic, legendary, ultra legendary, then ultimate. Rarities use muted color accents and subtle material shadows; ultimate uses an iridescent silver treatment without a neon halo.
 - Purchasable shop items cost 50,000 credits for rare, 100,000 credits for epic, 200,000 credits for legendary, 400,000 credits for ultra legendary, and 1,000,000 credits for ultimate rarity. The default Steel skin remains free.
 
 ## Deployment Notes

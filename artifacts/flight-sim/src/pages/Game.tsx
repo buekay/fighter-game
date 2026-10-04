@@ -375,9 +375,9 @@ const WEAPON_CRATES: readonly WeaponCrateDefinition[] = [
 
 const WEAPON_CRATE_RARITY_COLOR: Record<ShopRarity, string> = {
   rare: "#a8b0ba",
-  epic: "#b44cff",
-  legendary: "#ffe600",
-  ultraLegendary: "#53d8ff",
+  epic: "#a18cb8",
+  legendary: "#cfbc7b",
+  ultraLegendary: "#91b7c8",
   ultimate: "#f8fafc",
 };
 
@@ -442,7 +442,7 @@ function drawProtectPackage(ctx: CanvasRenderingContext2D, position: Vec2, hp: n
   ctx.save();
   const glow = ratio > .35 ? "#38bdf8" : "#ff3344";
   ctx.shadowColor = glow;
-  ctx.shadowBlur = 15 + Math.sin(time * .12) * 4;
+  ctx.shadowBlur = 0;
 
   // Animated twin engines.
   for (const engineY of [y + 9, y + height - 9]) {
@@ -516,7 +516,7 @@ function drawWeaponCrate(
   const rarityColor = WEAPON_CRATE_RARITY_COLOR[crate.rarity];
   ctx.save();
   ctx.shadowColor = rarityColor;
-  ctx.shadowBlur = active ? 18 + Math.sin(time * .3) * 5 : 7;
+  ctx.shadowBlur = 0;
   ctx.fillStyle = active ? crate.color + "aa" : "#101a2a";
   ctx.strokeStyle = rarityColor;
   ctx.lineWidth = active ? 3 : 2;
@@ -559,13 +559,12 @@ function drawWeaponCrate(
 
 const SHOP_RARITIES: Record<ShopRarity, { label: string; color: string; glow: string }> = {
   rare:      { label: "SELTEN",    color: "#a8b0ba", glow: "#d6dbe166" },
-  epic:      { label: "EPISCH",    color: "#b44cff", glow: "#b44cff88" },
-  legendary: { label: "LEGENDÄR", color: "#ffe600", glow: "#ffe600cc" },
-  ultraLegendary: { label: "ULTRA LEGENDÄR", color: "#53d8ff", glow: "#00aaffee" },
+  epic:      { label: "EPISCH",    color: "#a18cb8", glow: "#a18cb888" },
+  legendary: { label: "LEGENDÄR", color: "#cfbc7b", glow: "#cfbc7bcc" },
+  ultraLegendary: { label: "ULTRA LEGENDÄR", color: "#91b7c8", glow: "#799eb8ee" },
   ultimate: { label: "ULTIMATE", color: "#e7edf7", glow: "#cbd5e1ee" },
 } as const;
 const ULTIMATE_GRADIENT = "linear-gradient(90deg, #f8fafc 0%, #67e8f9 22%, #c4b5fd 43%, #f9a8d4 63%, #fde68a 82%, #f8fafc 100%)";
-const ULTIMATE_GLOW = "0 0 7px #f8fafc, 0 0 14px #67e8f9aa, 0 0 21px #f472b688";
 
 function shopRarityLabelStyle(rarity: ShopRarity) {
   if (rarity === "ultimate") {
@@ -574,17 +573,17 @@ function shopRarityLabelStyle(rarity: ShopRarity) {
       background: ULTIMATE_GRADIENT,
       backgroundClip: "text",
       WebkitBackgroundClip: "text",
-      textShadow: "0 0 7px #ffffff99",
+      textShadow: "none",
     };
   }
   return {
     color: SHOP_RARITIES[rarity].color,
-    textShadow: `0 0 6px ${SHOP_RARITIES[rarity].glow}`,
+    textShadow: "none",
   };
 }
 
-function shopRarityGlow(rarity: ShopRarity, size: number) {
-  return rarity === "ultimate" ? ULTIMATE_GLOW : `0 0 ${size}px ${SHOP_RARITIES[rarity].glow}`;
+function shopRarityFinish(rarity: ShopRarity, size: number) {
+  return `inset 0 1px 0 ${SHOP_RARITIES[rarity].color}22, 0 3px ${size}px #0004`;
 }
 const SHOP_RARITY_MIN_LEVEL: Record<ShopRarity, number> = {
   rare: 1,
@@ -638,7 +637,7 @@ interface WeaponDefinition {
 }
 
 const WEAPONS: readonly WeaponDefinition[] = [
-  { id: "pulse_cannon", name: "Falke MK-I", icon: "➤", description: "Zuverlässige, präzise Einzelkanone.", rarity: "rare", cost: 0, currency: "credits", pattern: "focused", guns: 1, damage: 2, fireRate: 250, color: "#35d7ff" },
+  { id: "pulse_cannon", name: "Falke MK-I", icon: "➤", description: "Zuverlässige, präzise Einzelkanone.", rarity: "rare", cost: 0, currency: "credits", pattern: "focused", guns: 1, damage: 2, fireRate: 250, color: "#8ab0c2" },
   { id: "twin_fang", name: "Doppelzahn", icon: "ᐅᐅ", description: "Zwei parallele Läufe für konstanten Schaden.", rarity: "rare", cost: 35_000, currency: "credits", pattern: "twin", guns: 2, damage: 2, fireRate: 235, color: "#34d399" },
   { id: "comet_blaster", name: "Kometenblaster", icon: "✧", description: "Leichte Kanone mit hoher Kadenz.", rarity: "rare", cost: 50_000, currency: "credits", pattern: "rapid", guns: 1, damage: 2, fireRate: 150, color: "#38bdf8" },
   { id: "scarab_twins", name: "Skarabäus-Zwillinge", icon: "»", description: "Eng geführtes Doppelfeuer für schnelle Ziele.", rarity: "rare", cost: 65_000, currency: "credits", pattern: "twin", guns: 2, damage: 3, fireRate: 245, color: "#a3e635" },
@@ -866,14 +865,14 @@ const ULTI_LOADOUT_KEY = "fighter-command-ulti-loadout";
 const ULTI_LOADOUT_SLOTS = 3;
 
 const JET_SKINS = [
-  { id: "steel", name: "Aegis", body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0, rarity: "rare", ultiName: "Stahlfestung", ultiDesc: "Starker Schutzschild und stark verringerter Schaden." },
+  { id: "steel", name: "Aegis", body: "#1a2a4a", stroke: "#2a4a8a", glow: "#7ba8bd", cost: 0, rarity: "rare", ultiName: "Stahlfestung", ultiDesc: "Starker Schutzschild und stark verringerter Schaden." },
   { id: "fire", name: "Ignis", body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 50000, rarity: "rare", ultiName: "Feuersturm", ultiDesc: "Alle Gegner brennen und erleiden fortlaufend Schaden." },
-  { id: "jade", name: "Viridia", body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 50000, rarity: "rare", ultiName: "Lebensenergie", ultiDesc: "Heilt sofort 5 HP und aktiviert einen Schutzschild." },
+  { id: "jade", name: "Viridia", body: "#0a2a1a", stroke: "#1a5a2a", glow: "#81b798", cost: 50000, rarity: "rare", ultiName: "Lebensenergie", ultiDesc: "Heilt sofort 5 HP und aktiviert einen Schutzschild." },
   { id: "gold", name: "Midas", body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 50000, rarity: "rare", ultiName: "Goldrausch", ultiDesc: "Doppelte Punkte und deutlich schnellere Feuerrate." },
   { id: "shadow", name: "Nyx", body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 50000, rarity: "rare", ultiName: "Phantomflug", ultiDesc: "Unsichtbar und unverwundbar; endet mit einer Schockwelle." },
   { id: "crimson", name: "Ravena", body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 50000, rarity: "rare", ultiName: "Blutrausch", ultiDesc: "Doppelter Schaden und massiv erhöhte Feuerrate." },
   { id: "galaxy", name: "Orion", body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 100000, rarity: "epic", ultiName: "Schwarzes Loch", ultiDesc: "Zieht Gegner zur Mitte und beschädigt sie dauerhaft." },
-  { id: "neon", name: "Voltara", body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 100000, rarity: "epic", ultiName: "Kettenblitz", ultiDesc: "Blitze springen fortlaufend durch alle Gegner." },
+  { id: "neon", name: "Voltara", body: "#001a10", stroke: "#004422", glow: "#80b5ac", cost: 100000, rarity: "epic", ultiName: "Kettenblitz", ultiDesc: "Blitze springen fortlaufend durch alle Gegner." },
   { id: "arctic", name: "Boreas", body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 100000, rarity: "epic", ultiName: "Absoluter Nullpunkt", ultiDesc: "Friert Gegner und gegnerische Projektile vollständig ein." },
   { id: "lava", name: "Vulkara", body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 100000, rarity: "epic", ultiName: "Vulkanausbruch", ultiDesc: "Explosive Lavawellen verursachen hohen Flächenschaden." },
   { id: "xwing", name: "X-Wing", body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 200000, rarity: "legendary", ultiName: "Rebellenangriff", ultiDesc: "Zwei verbündete X-Wings greifen mit dir gemeinsam an." },
@@ -1729,7 +1728,7 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
   }
 
   // Engine glow
-  const glowColors = ["#00cfff", "#00cfff", "#00ff88", "#ff9900", "#ff4444", "#ff00ff"];
+  const glowColors = ["#7ba8bd", "#7ba8bd", "#81b798", "#ff9900", "#ff4444", "#b68aaa"];
   const glow = skin?.glow ?? glowColors[Math.min(tier, glowColors.length - 1)];
   const grad = ctx.createRadialGradient(0, 0, 2, 0, 0, 40);
   grad.addColorStop(0, glow + "55");
@@ -1830,7 +1829,7 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
   const marks = 1 + Math.floor(level / 2);
   ctx.save();
   ctx.strokeStyle = glow; ctx.lineCap = "round";
-  ctx.shadowColor = glow; ctx.shadowBlur = level >= 7 ? 5 : 0;
+  ctx.shadowColor = glow; ctx.shadowBlur = 0;
   for (let i = 0; i < marks; i++) {
     const t = marks === 1 ? .5 : i / (marks - 1);
     const px = -18 + t * 30;
@@ -1998,7 +1997,7 @@ function drawCombinedPlayerJet(
   ctx.save();
   ctx.globalAlpha = .75;
   ctx.shadowColor = bodySkin.glow;
-  ctx.shadowBlur = 6;
+  ctx.shadowBlur = 0;
   ctx.strokeStyle = bodySkin.glow;
   ctx.lineWidth = 1;
   for (const side of [-1, 1] as const) {
@@ -2010,7 +2009,7 @@ function drawCombinedPlayerJet(
   ctx.restore();
 
   ctx.shadowColor = engineSkin.glow;
-  ctx.shadowBlur = 15;
+  ctx.shadowBlur = 0;
   for (const side of [-1, 1] as const) {
     ctx.beginPath();
     ctx.roundRect(-25, side * 8 - 3, 16, 6, 3);
@@ -2029,7 +2028,7 @@ function drawCombinedPlayerJet(
     ctx.beginPath(); ctx.arc(2, 0, 18, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
   }
   if (shieldActive) {
-    const color = shieldColor ?? "#35d7ff";
+    const color = shieldColor ?? "#8ab0c2";
     ctx.beginPath(); ctx.arc(0, 0, 38, 0, Math.PI * 2);
     ctx.strokeStyle = color + "aa"; ctx.lineWidth = 2.5; ctx.stroke();
     ctx.fillStyle = color + "12"; ctx.fill();
@@ -2717,7 +2716,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, reducedMotion = fals
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 0.25 + poisonPulse * 0.75;
     ctx.shadowColor = "#ff2020";
-    ctx.shadowBlur = 8 + poisonPulse * 18;
+    ctx.shadowBlur = 0;
     ctx.strokeStyle = "#ff3030";
     ctx.lineWidth = 1.5 + poisonPulse * 2;
     ctx.strokeRect(-e.width / 2 - 5, -e.height / 2 - 5, e.width + 10, e.height + 10);
@@ -2742,7 +2741,7 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
     ctx.translate(b.x, b.y);
     ctx.strokeStyle = b.color ?? "#ffffff";
     ctx.shadowColor = b.color ?? "#ffffff";
-    ctx.shadowBlur = isDroneBlade ? 20 : 26;
+    ctx.shadowBlur = 0;
     ctx.lineCap = "round";
     ctx.lineWidth = isDroneBlade ? 6 : 9;
     ctx.globalAlpha = Math.max(.2, 1 - progress * .7);
@@ -2761,7 +2760,7 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
     ctx.translate(b.x, b.y);
     ctx.rotate(Math.atan2(b.vy, b.vx));
     ctx.shadowColor = "#65ff38";
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 0;
     const body = ctx.createLinearGradient(-9, 0, 14, 0);
     body.addColorStop(0, "#2b073e");
     body.addColorStop(0.42, "#4c1464");
@@ -2786,14 +2785,14 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
     ctx.strokeStyle = "#282d31"; ctx.lineWidth = 0.8; ctx.stroke();
     const exhaust = ctx.createLinearGradient(-28, 0, -13, 0);
     exhaust.addColorStop(0, "#7d12ff00"); exhaust.addColorStop(0.45, "#9a26ff99"); exhaust.addColorStop(1, "#e7ff6eee");
-    ctx.shadowColor = "#b84cff"; ctx.shadowBlur = 10;
+    ctx.shadowColor = "#b84cff"; ctx.shadowBlur = 0;
     ctx.beginPath(); ctx.moveTo(-13, -2.8); ctx.lineTo(-28, 0); ctx.lineTo(-13, 2.8); ctx.closePath();
     ctx.fillStyle = exhaust; ctx.fill();
   } else if (b.weaponId === "fire_sword_lightning") {
     ctx.translate(b.x, b.y);
     ctx.rotate(Math.atan2(b.vy, b.vx));
     ctx.shadowColor = "#ffe13b";
-    ctx.shadowBlur = 18;
+    ctx.shadowBlur = 0;
     ctx.strokeStyle = "#ffe13b";
     ctx.lineWidth = 5;
     ctx.lineJoin = "round";
@@ -2811,7 +2810,7 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
   } else if (b.weaponId === "seraph_barrage" && b.isMissile) {
     ctx.translate(b.x, b.y);
     ctx.rotate(Math.atan2(b.vy, b.vx));
-    ctx.shadowColor = "#67e8f9"; ctx.shadowBlur = 14;
+    ctx.shadowColor = "#67e8f9"; ctx.shadowBlur = 0;
     ctx.beginPath();
     ctx.moveTo(16, 0); ctx.lineTo(5, -6); ctx.lineTo(-7, -4); ctx.lineTo(-12, 0); ctx.lineTo(-7, 4); ctx.lineTo(5, 6); ctx.closePath();
     const seraphGradient = ctx.createLinearGradient(-12, 0, 16, 0);
@@ -2827,7 +2826,7 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
     ctx.rotate(ang);
     const body = ctx.createLinearGradient(0, -5, 0, 5);
     body.addColorStop(0, "#ff8cff"); body.addColorStop(0.45, "#b900df"); body.addColorStop(1, "#4d075e");
-    ctx.shadowColor = "#aa00ff"; ctx.shadowBlur = 8;
+    ctx.shadowColor = "#aa00ff"; ctx.shadowBlur = 0;
     ctx.beginPath();
     ctx.moveTo(12, 0); ctx.quadraticCurveTo(7, -4.5, -5, -4); ctx.lineTo(-6, 4); ctx.quadraticCurveTo(7, 4.5, 12, 0); ctx.closePath();
     ctx.fillStyle = body; ctx.fill();
@@ -2844,7 +2843,7 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
     ctx.rotate(ang);
     const body = ctx.createLinearGradient(0, -4, 0, 4);
     body.addColorStop(0, "#fff3cf"); body.addColorStop(0.4, "#ff8a18"); body.addColorStop(1, "#8f2109");
-    ctx.shadowColor = "#ff6a00"; ctx.shadowBlur = 7;
+    ctx.shadowColor = "#ff6a00"; ctx.shadowBlur = 0;
     ctx.beginPath();
     ctx.moveTo(12, 0); ctx.quadraticCurveTo(7, -4, -5, -3.6); ctx.lineTo(-6, 3.6); ctx.quadraticCurveTo(7, 4, 12, 0); ctx.closePath();
     ctx.fillStyle = body; ctx.fill();
@@ -2860,7 +2859,7 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
     ctx.translate(b.x, b.y);
     ctx.rotate(Math.atan2(b.vy, b.vx));
     ctx.fillStyle = bc; ctx.strokeStyle = "#ffffffcc";
-    ctx.shadowColor = bc; ctx.shadowBlur = 10;
+    ctx.shadowColor = bc; ctx.shadowBlur = 0;
     if (b.weaponId === "seraph_barrage") {
       ctx.beginPath(); ctx.moveTo(13, 0); ctx.quadraticCurveTo(2, -6, -7, -3); ctx.lineTo(-2, 0); ctx.lineTo(-7, 3); ctx.quadraticCurveTo(2, 6, 13, 0); ctx.fill();
       ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1; ctx.stroke();
@@ -2946,16 +2945,16 @@ function drawLaserDeviceBeam(ctx: CanvasRenderingContext2D, e: Enemy, time: numb
   ctx.globalAlpha = .2 * flicker;
   ctx.fillStyle = "#ff001d";
   ctx.shadowColor = "#ff001d";
-  ctx.shadowBlur = 28;
+  ctx.shadowBlur = 0;
   ctx.fillRect(beamX - 11, 0, 22, upperHeight);
   ctx.fillRect(beamX - 11, lowerY, 22, lowerHeight);
   ctx.globalAlpha = .62 * flicker;
-  ctx.shadowBlur = 14;
+  ctx.shadowBlur = 0;
   ctx.fillStyle = "#ff1830";
   ctx.fillRect(beamX - LASER_DEVICE_BEAM_WIDTH / 2, 0, LASER_DEVICE_BEAM_WIDTH, upperHeight);
   ctx.fillRect(beamX - LASER_DEVICE_BEAM_WIDTH / 2, lowerY, LASER_DEVICE_BEAM_WIDTH, lowerHeight);
   ctx.globalAlpha = flicker;
-  ctx.shadowBlur = 5;
+  ctx.shadowBlur = 0;
   ctx.fillStyle = "#fff5f5";
   ctx.fillRect(beamX - 2, 0, 4, upperHeight);
   ctx.fillRect(beamX - 2, lowerY, 4, lowerHeight);
@@ -2971,14 +2970,14 @@ function drawTitanDashLaser(ctx: CanvasRenderingContext2D, e: Enemy, time: numbe
   ctx.globalAlpha = .2 * pulse;
   ctx.fillStyle = "#ff0018";
   ctx.shadowColor = "#ff0018";
-  ctx.shadowBlur = 40;
+  ctx.shadowBlur = 0;
   ctx.fillRect(0, beamY - TITAN_LASER_BEAM_WIDTH / 2 - 12, beamEndX, TITAN_LASER_BEAM_WIDTH + 24);
   ctx.globalAlpha = .72 * pulse;
-  ctx.shadowBlur = 24;
+  ctx.shadowBlur = 0;
   ctx.fillStyle = "#ff1834";
   ctx.fillRect(0, beamY - TITAN_LASER_BEAM_WIDTH / 2, beamEndX, TITAN_LASER_BEAM_WIDTH);
   ctx.globalAlpha = pulse;
-  ctx.shadowBlur = 10;
+  ctx.shadowBlur = 0;
   ctx.fillStyle = "#fff4f4";
   ctx.fillRect(0, beamY - 6, beamEndX, 12);
   ctx.restore();
@@ -3010,7 +3009,7 @@ function drawCombatDrone(ctx: CanvasRenderingContext2D, x: number, y: number, ti
     ctx.strokeStyle = skin.stroke; ctx.lineWidth = 2 + tier * 0.25; ctx.stroke();
   }
 
-  ctx.shadowColor = skin.stroke; ctx.shadowBlur = 3;
+  ctx.shadowColor = skin.stroke; ctx.shadowBlur = 0;
   ctx.beginPath();
   ctx.moveTo(16 + tier, 0); ctx.lineTo(2, -8 - tier); ctx.lineTo(-13 - tier, -5 - tier * .4); ctx.lineTo(-18 - tier, 0); ctx.lineTo(-13 - tier, 5 + tier * .4); ctx.lineTo(2, 8 + tier); ctx.closePath();
   const armor = ctx.createLinearGradient(0, -10, 0, 10);
@@ -3062,11 +3061,11 @@ function drawCombinedCombatDrone(ctx: CanvasRenderingContext2D, x: number, y: nu
   const guns = getDroneStats(Math.max(0, level - 1)).guns;
   ctx.save();
   ctx.translate(x, y + Math.sin(time * .08) * 4);
-  ctx.shadowColor = core.core; ctx.shadowBlur = 13;
+  ctx.shadowColor = core.core; ctx.shadowBlur = 0;
   ctx.beginPath(); ctx.arc(3, 0, 5 + tier * .7, 0, Math.PI * 2);
   ctx.fillStyle = core.core; ctx.fill();
   ctx.strokeStyle = core.stroke; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.shadowColor = weapons.stroke; ctx.shadowBlur = 9;
+  ctx.shadowColor = weapons.stroke; ctx.shadowBlur = 0;
   const offsets = guns === 3 ? [-5, 0, 5] : guns === 2 ? [-3.5, 3.5] : [0];
   offsets.forEach(offset => {
     ctx.beginPath(); ctx.roundRect(10 + tier, offset - 2, 15 + tier, 4, 2);
@@ -3332,7 +3331,7 @@ function drawBiomeBackground(
     }
     if (!reducedMotion && Math.floor(time / 95) % 7 === 1) {
       const lightningX = 180 + (Math.floor(time / 95) * 137) % 560;
-      ctx.strokeStyle = "#f8ffb0"; ctx.lineWidth = 5; ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 20;
+      ctx.strokeStyle = "#f8ffb0"; ctx.lineWidth = 5; ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 0;
       ctx.beginPath(); ctx.moveTo(lightningX, 65); ctx.lineTo(lightningX - 25, 205); ctx.lineTo(lightningX + 8, 198); ctx.lineTo(lightningX - 38, 365); ctx.stroke();
       ctx.shadowBlur = 0;
     }
@@ -3984,7 +3983,7 @@ export default function Game() {
     } else if (level >= 3 && roll < 0.44) {
       type = "plasmawing"; hp = 2 + Math.floor(level / 3); w = 46; h = 34; vx = -rand(2.4, 3.8); pts = 35; color = "#cc55ff";
     } else if (level >= 5 && roll < 0.55) {
-      type = "interceptor"; hp = 1; w = 36; h = 22; vx = -rand(3.5, 5.5); pts = 20; color = "#00ffcc";
+      type = "interceptor"; hp = 1; w = 36; h = 22; vx = -rand(3.5, 5.5); pts = 20; color = "#80b5ac";
     } else if (level >= 4 && roll < 0.68) {
       type = "bomber"; hp = 4 + level; w = 56; h = 40; vx = -rand(0.8, 1.5); pts = 60; color = "#44ff44";
     } else if (level >= 2 && roll < 0.84) {
@@ -5244,7 +5243,7 @@ export default function Game() {
           ? translated(resultLanguage, "SUPER!", "Great!").toLocaleUpperCase(localeFor(resultLanguage))
           : completed ? "MISSION GESCHAFFT" : "GAME OVER";
         ctx.fillStyle = completed ? "#4ade80" : "#ff4444"; ctx.font = "bold 46px 'Inter', sans-serif";
-        ctx.shadowColor = completed ? "#4ade80" : "#ff4444"; ctx.shadowBlur = 20;
+        ctx.shadowColor = completed ? "#4ade80" : "#ff4444"; ctx.shadowBlur = 0;
         ctx.fillText(resultTitle, resultW/2, resultH/2-72);
         ctx.shadowBlur = 0;
         ctx.fillStyle = "#fff"; ctx.font = "24px 'Inter', sans-serif";
@@ -6674,7 +6673,7 @@ export default function Game() {
           ctx.textAlign = "center";
           ctx.fillStyle = "#ffffff";
           ctx.shadowColor = "#ff001e";
-          ctx.shadowBlur = 14;
+          ctx.shadowBlur = 0;
           ctx.font = "900 13px 'Inter', sans-serif";
           ctx.fillText(`DASH-LASER · ${Math.max(1, Math.ceil((e.titanDashWarningTimer ?? 0) / 60))}`, e.x + e.width / 2, e.y - 27);
           ctx.restore();
@@ -6685,7 +6684,7 @@ export default function Game() {
           ctx.strokeStyle = `rgba(255, 70, 90, ${.35 + warningProgress * .65})`;
           ctx.lineWidth = 3 + warningProgress * 4;
           ctx.shadowColor = "#ff3344";
-          ctx.shadowBlur = 18;
+          ctx.shadowBlur = 0;
           ctx.beginPath();
           ctx.arc(e.x + e.width / 2, e.y + e.height / 2, e.width * (.58 + warningProgress * .12), 0, Math.PI * 2);
           ctx.stroke();
@@ -6701,7 +6700,7 @@ export default function Game() {
             Math.floor(((e.lightningFrozenUntilMs ?? 0) - runElapsedMsRef.current) / 125) % 2 === 0)) {
           ctx.filter = "brightness(1.8) sepia(1) saturate(8)";
           ctx.shadowColor = "#ffe13b";
-          ctx.shadowBlur = 20;
+          ctx.shadowBlur = 0;
         }
         drawEnemy(ctx, e, settingsRef.current.reducedMotion);
         ctx.restore();
@@ -6711,7 +6710,7 @@ export default function Game() {
           ctx.font = "bold 11px 'Inter', sans-serif";
           ctx.fillStyle = "#ffe45c";
           ctx.shadowColor = "#ffcc00";
-          ctx.shadowBlur = 8;
+          ctx.shadowBlur = 0;
           ctx.fillText(`GOLD · ${Math.max(0, Math.ceil((e.goldenTimer ?? 0) / 60))}s`, e.x + e.width / 2, e.y - 9);
           ctx.restore();
         }
@@ -7125,7 +7124,7 @@ export default function Game() {
         p.y += p.vy * dtScale;
         if (p.y > CANVAS_H + 20) return false;
         // Draw
-        const colors: Record<PowerUp["type"], string> = { health: "#00ff88", shield: "#00ccff", speedboost: "#ff9900", chaos: "#d8b4fe" };
+        const colors: Record<PowerUp["type"], string> = { health: "#81b798", shield: "#00ccff", speedboost: "#ff9900", chaos: "#d8b4fe" };
         const labels: Record<PowerUp["type"], string> = { health: "+HP", shield: "SHD", speedboost: "2×SPD", chaos: "CHAOS" };
         const c = colors[p.type];
         ctx.save();
@@ -7205,7 +7204,7 @@ export default function Game() {
         ctx.globalAlpha = Math.max(0, item.life / item.maxLife);
         ctx.fillStyle = item.color;
         ctx.shadowColor = item.color;
-        ctx.shadowBlur = 7;
+        ctx.shadowBlur = 0;
         ctx.font = "bold 12px 'Inter', sans-serif";
         ctx.textAlign = "center";
         ctx.fillText(item.text, item.x, item.y);
@@ -7227,13 +7226,13 @@ export default function Game() {
         for (const ly of laserBeams) {
           ctx.save();
           ctx.globalAlpha = 0.28 * flicker;
-          ctx.fillStyle = "#ff5500"; ctx.shadowColor = "#ff3300"; ctx.shadowBlur = 50;
+          ctx.fillStyle = "#ff5500"; ctx.shadowColor = "#ff3300"; ctx.shadowBlur = 0;
           ctx.fillRect(lx, ly - 18, beamW, 36);
           ctx.globalAlpha = 0.55 * flicker;
-          ctx.fillStyle = "#ffaa00"; ctx.shadowBlur = 25;
+          ctx.fillStyle = "#ffaa00"; ctx.shadowBlur = 0;
           ctx.fillRect(lx, ly - 7, beamW, 14);
           ctx.globalAlpha = flicker;
-          ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 8;
+          ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 0;
           ctx.fillRect(lx, ly - 2, beamW, 4);
           ctx.restore();
         }
@@ -7278,7 +7277,7 @@ export default function Game() {
             - Math.hypot(b.x + b.width / 2 - originX, b.y + b.height / 2 - originY))[0];
         if (target) {
           ctx.save();
-          ctx.strokeStyle = "#ff2020"; ctx.shadowColor = "#ff0000"; ctx.shadowBlur = 14; ctx.lineWidth = 4;
+          ctx.strokeStyle = "#ff2020"; ctx.shadowColor = "#ff0000"; ctx.shadowBlur = 0; ctx.lineWidth = 4;
           ctx.beginPath(); ctx.moveTo(originX, originY);
           ctx.lineTo(target.x + target.width / 2, target.y + target.height / 2); ctx.stroke();
           ctx.restore();
@@ -7350,7 +7349,7 @@ export default function Game() {
           }
         }
 
-        ctx.save(); ctx.shadowColor = "#00aaff"; ctx.shadowBlur = 24; ctx.lineCap = "round";
+        ctx.save(); ctx.shadowColor = "#799eb8"; ctx.shadowBlur = 0; ctx.lineCap = "round";
         const flameTime = settingsRef.current.reducedMotion ? 0 : timeRef.current * .22;
         for (const e of targets) {
           const ex = e.x + e.width / 2, ey = e.y + e.height / 2;
@@ -7451,7 +7450,7 @@ export default function Game() {
         ctx.translate(holeX, holeY); ctx.scale(pulse, pulse);
         const vortex = ctx.createRadialGradient(0, 0, 4, 0, 0, 68);
         vortex.addColorStop(0, "#000000"); vortex.addColorStop(.45, "#10002d"); vortex.addColorStop(.72, "#5533ff99"); vortex.addColorStop(1, "#4488ff00");
-        ctx.fillStyle = vortex; ctx.shadowColor = "#7755ff"; ctx.shadowBlur = 30;
+        ctx.fillStyle = vortex; ctx.shadowColor = "#7755ff"; ctx.shadowBlur = 0;
         ctx.beginPath(); ctx.arc(0, 0, 68, 0, Math.PI * 2); ctx.fill();
         ctx.rotate(timeRef.current * .018);
         for (let ring = 0; ring < 4; ring++) {
@@ -7465,7 +7464,7 @@ export default function Game() {
         }
         ctx.globalAlpha = 1;
         ctx.fillStyle = "#000";
-        ctx.shadowColor = "#000"; ctx.shadowBlur = 18;
+        ctx.shadowColor = "#000"; ctx.shadowBlur = 0;
         ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
         for (let star = 0; star < 12; star++) {
           const angle = star * Math.PI / 6 + timeRef.current * .035;
@@ -7489,7 +7488,7 @@ export default function Game() {
         ctx.font = "bold 14px sans-serif";
         ctx.textAlign = "center";
         ctx.shadowColor = "#ff8fda";
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 0;
         ctx.fillText("BEWEGUNG BLOCKIERT", playerRef.current.x + PLAYER_W / 2, playerRef.current.y - 10);
         ctx.restore();
       }
@@ -7507,7 +7506,7 @@ export default function Game() {
         ctx.strokeStyle = gradient;
         ctx.lineWidth = 6;
         ctx.shadowColor = "#ff43d7";
-        ctx.shadowBlur = 20 + pulse * 12;
+        ctx.shadowBlur = 0;
         ctx.beginPath();
         ctx.moveTo(shieldX, shieldTop);
         ctx.quadraticCurveTo(shieldX + shieldCurve, shieldY, shieldX, shieldBottom);
@@ -7536,7 +7535,7 @@ export default function Game() {
         ctx.restore();
         ctx.save();
         ctx.shadowColor = "#d946ef";
-        ctx.shadowBlur = 22;
+        ctx.shadowBlur = 0;
         for (let ring = 0; ring < 4; ring++) {
           const phase = (timeRef.current * 2.4 + ring * 75) % GRAVITY_EXPLOSION_RADIUS;
           const radius = GRAVITY_EXPLOSION_RADIUS - phase;
@@ -7565,7 +7564,7 @@ export default function Game() {
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         ctx.shadowColor = "#35bfff";
-        ctx.shadowBlur = 24;
+        ctx.shadowBlur = 0;
         for (const enemy of enemiesRef.current) {
           if (enemy.dead || !isEnemyVisible(enemy)) continue;
           const ex = enemy.x + enemy.width / 2;
@@ -7617,7 +7616,7 @@ export default function Game() {
       } else if (stealthActiveRef.current > 0) {
         ctx.save();
         ctx.globalAlpha = 0.15 + 0.1 * Math.sin(timeRef.current * 0.25);
-        ctx.shadowColor = "#00ffee"; ctx.shadowBlur = 20;
+        ctx.shadowColor = "#00ffee"; ctx.shadowBlur = 0;
         if (hybridActiveRef.current) drawCombinedPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, aircraftBuildRef.current, activeSkinRef.current, undefined, aircraftUpgradeRef.current.level, visualBank);
         else drawPlayerJet(ctx, playerRef.current.x, playerRef.current.y, gs.weaponTier, false, activeSkinRef.current, undefined, aircraftUpgradeRef.current.level, visualBank);
         ctx.restore();
@@ -7649,7 +7648,7 @@ export default function Game() {
               ctx.save();
               ctx.globalAlpha = 0.72 + 0.2 * Math.sin(timeRef.current * .18 + index);
               ctx.shadowColor = allySkin.glow;
-              ctx.shadowBlur = 18;
+              ctx.shadowBlur = 0;
               drawPlayerJet(ctx, playerRef.current.x - 18 - Math.abs(wingOffset) * .12 - groupIndex * 14, wingY, gs.weaponTier, false, allySkin);
               ctx.restore();
             });
@@ -7661,7 +7660,7 @@ export default function Game() {
       ctx.save();
       if (ultimaActiveRef.current > 0) {
         ctx.shadowColor = activeDroneSkinRef.current.stroke;
-        ctx.shadowBlur = 28 + 8 * Math.sin(timeRef.current * .25);
+        ctx.shadowBlur = 0;
       }
       const droneVisualLevel = droneLevelRef.current
         + ["drone_mk2", "drone_mk3", "drone_mk4", "drone_mk5", "drone_mk6", "drone_mk7", "drone_mk8"].filter(id => activeUnlocksRef.current.includes(id)).length
@@ -7696,7 +7695,7 @@ export default function Game() {
       // ── Engine exhaust ──
       if (!reducedMotion && particlesRef.current.length < MAX_VISUAL_PARTICLES && Math.random() < 1 - Math.pow(0.6, dtScale)) {
         const tier = WEAPON_TIERS[gs.weaponTier];
-        const glowColors = ["#00cfff", "#00cfff", "#00ff88", "#ff9900", "#ff4444", "#ff00ff"];
+        const glowColors = ["#7ba8bd", "#7ba8bd", "#81b798", "#ff9900", "#ff4444", "#b68aaa"];
         particlesRef.current.push({
           x: playerRef.current.x + 2, y: playerRef.current.y + PLAYER_H / 2 + rand(-4, 4),
           vx: -rand(1, 3), vy: rand(-0.5, 0.5),
@@ -7731,12 +7730,12 @@ export default function Game() {
         ctx.globalAlpha = pulse;
         ctx.strokeStyle = "#ff172f";
         ctx.shadowColor = "#ff001e";
-        ctx.shadowBlur = 18;
+        ctx.shadowBlur = 0;
         ctx.lineWidth = 10;
         ctx.strokeRect(5, 5, warningW - 10, warningH - 10);
         ctx.globalAlpha = pulse * .34;
         ctx.lineWidth = 28;
-        ctx.shadowBlur = 30;
+        ctx.shadowBlur = 0;
         ctx.strokeRect(14, 14, warningW - 28, warningH - 28);
         ctx.restore();
       }
@@ -7761,7 +7760,7 @@ export default function Game() {
         ctx.textAlign = "right";
         ctx.fillStyle = rarityColor;
         ctx.shadowColor = rarityColor;
-        ctx.shadowBlur = weaponCrateActive ? 12 : 4;
+        ctx.shadowBlur = 0;
         ctx.font = "900 12px 'Inter', sans-serif";
         ctx.fillText(`${crate.name} · ${SHOP_RARITIES[crate.rarity].label}`, hudW - 20, hudTop + 14);
         ctx.shadowBlur = 0;
@@ -7805,7 +7804,7 @@ export default function Game() {
         const comboMultiplier = Math.min(4, 1 + Math.floor(milestoneCombo / 10) * .25);
         ctx.textAlign = "center";
         ctx.fillStyle = "#ffe45c";
-        ctx.shadowColor = "#ff7a18"; ctx.shadowBlur = 12;
+        ctx.shadowColor = "#ff7a18"; ctx.shadowBlur = 0;
         ctx.font = "bold 34px 'Inter', sans-serif";
         ctx.fillText(`${milestoneCombo}× MEGA-COMBO · SCORE ×${comboMultiplier.toFixed(2)}`, hudW / 2, hudTop + 100);
       }
@@ -7813,7 +7812,7 @@ export default function Game() {
         waveBannerRef.current.timer = Math.max(0, waveBannerRef.current.timer - dtScale);
         ctx.textAlign = "center";
         ctx.fillStyle = "#ffffff";
-        ctx.shadowColor = "#00cfff"; ctx.shadowBlur = 20;
+        ctx.shadowColor = "#7ba8bd"; ctx.shadowBlur = 0;
         ctx.font = "bold 24px 'Inter', sans-serif";
         ctx.fillText(waveBannerRef.current.text, hudW / 2, hudTop + 125);
       }
@@ -7824,7 +7823,7 @@ export default function Game() {
         ctx.textBaseline = "middle";
         ctx.fillStyle = `rgba(255, 18, 42, ${pulse})`;
         ctx.shadowColor = "#ff001e";
-        ctx.shadowBlur = 22;
+        ctx.shadowBlur = 0;
         ctx.font = "900 34px 'Inter', sans-serif";
         ctx.font = `900 ${upwardFlight ? 23 : 34}px 'Inter', sans-serif`;
         ctx.fillText("⚠ WARNING: TITAN APPROACHING ⚠", hudW / 2, hudTop + 160);
@@ -8218,7 +8217,7 @@ export default function Game() {
       className={`game-shell flex flex-col items-center justify-center w-full bg-[#08080e] select-none ${settings.highContrast ? "high-contrast" : ""} ${settings.reducedMotion ? "reduced-motion" : ""}`}
       style={{ touchAction: mapOpen ? "pan-y" : "none" }}
     >
-      <div className={`game-frame ${mapOpen ? "campaign-frame" : ""} ${settings.flightDirection === "up" ? "flight-up" : ""} relative rounded overflow-hidden shadow-[0_0_40px_#00cfff22]`}
+      <div className={`game-frame ${mapOpen ? "campaign-frame" : ""} ${settings.flightDirection === "up" ? "flight-up" : ""} relative rounded overflow-hidden shadow-lg`}
         style={{ border: "1px solid rgba(0,207,255,0.15)" }}>
         <canvas
           ref={canvasRef}
@@ -8239,7 +8238,7 @@ export default function Game() {
         )}
         {displayState.started && isPortraitPhone && settings.flightDirection !== "up" && (
           <div className="orientation-gate fixed inset-0 z-[70] flex items-center justify-center bg-[#030814]/95 p-6 text-center text-white">
-            <div className="max-w-sm rounded-3xl border border-cyan-400/60 bg-slate-950/95 p-7 shadow-[0_0_45px_#22d3ee33]">
+            <div className="max-w-sm rounded-3xl border border-cyan-400/60 bg-slate-950/95 p-7 shadow-lg">
               <div className="text-6xl" aria-hidden="true">📱↻</div>
               <h2 className="mt-4 text-2xl font-black">GERÄT DREHEN</h2>
               <p className="mt-2 text-sm text-slate-300">Das Spielfeld ist im Querformat größer und leichter zu steuern. Die Mission wartet, bis du dein Gerät gedreht hast.</p>
@@ -8265,7 +8264,7 @@ export default function Game() {
           </div>
         )}
         {achievementToast && (
-          <div className="absolute left-1/2 top-4 z-50 w-[min(90%,390px)] -translate-x-1/2 rounded-xl border border-amber-300 bg-slate-950/95 p-3 text-center shadow-[0_0_30px_#ffcc0066]">
+          <div className="absolute left-1/2 top-4 z-50 w-[min(90%,390px)] -translate-x-1/2 rounded-xl border border-amber-300 bg-slate-950/95 p-3 text-center shadow-lg">
             <div className="text-xs font-black uppercase tracking-[.25em] text-amber-300">Erfolg freigeschaltet</div>
             <div className="mt-1 text-lg font-black text-white">{achievementToast.icon} {achievementToast.name}</div>
             <div className="text-sm text-slate-300">+{achievementToast.reward.toLocaleString("de-DE")} Credits</div>
@@ -8273,7 +8272,7 @@ export default function Game() {
         )}
         {displayState.gameOver && runSummary && completedAnimation === null && (
           <div className="run-summary-layer absolute inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-slate-950/94 p-4 touch-pan-y">
-            <div className="w-full max-w-2xl rounded-3xl border border-cyan-400/50 bg-[#071126] p-6 text-white shadow-[0_0_50px_#22d3ee33]">
+            <div className="w-full max-w-2xl rounded-3xl border border-cyan-400/50 bg-[#071126] p-6 text-white shadow-lg">
               <div className="text-center">
                 <div className="text-xs font-black uppercase tracking-[.3em] text-cyan-300">Einsatzbilanz</div>
                 <h2 className="mt-2 text-3xl font-black">{runSummary.newRecord ? "🏆 NEUER REKORD" : runResultRef.current === "complete" ? "MISSION GESCHAFFT" : "EINSATZ BEENDET"}</h2>
@@ -8401,7 +8400,7 @@ export default function Game() {
                 <SettingsScreen settings={settings} onChange={updateSettings} onBack={() => setPauseView("menu")} />
               </div>
             ) : (
-              <div className="pause-panel w-full max-w-sm rounded-2xl p-5 text-center" style={{ background: "#071126", border: "1px solid #285078", boxShadow: "0 0 40px #00cfff22" }}>
+              <div className="pause-panel w-full max-w-sm rounded-2xl p-5 text-center" style={{ background: "#071126", border: "1px solid #285078", boxShadow: "0 3px 8px #0005" }}>
                 <div className="text-xs uppercase tracking-[0.3em] text-cyan-400">{translated(language, "Mission unterbrochen", "Mission paused")}</div>
                 <h2 className="mt-2 text-3xl font-black text-white">{translated(language, "PAUSE", "PAUSED")}</h2>
                 <div className="mt-5 flex flex-col gap-2">
@@ -8418,7 +8417,7 @@ export default function Game() {
         )}
         {displayState.started && !displayState.paused && tutorialStage >= 0 && (
           <>
-            <div className="tutorial-card absolute left-1/2 top-20 z-20 w-[min(92%,460px)] -translate-x-1/2 rounded-2xl px-5 py-4 text-center" style={{ background: "rgba(4,12,28,0.96)", border: "1px solid #00cfff", boxShadow: "0 0 30px #00cfff33" }}>
+            <div className="tutorial-card absolute left-1/2 top-20 z-20 w-[min(92%,460px)] -translate-x-1/2 rounded-2xl px-5 py-4 text-center" style={{ background: "rgba(4,12,28,0.96)", border: "1px solid #7ba8bd", boxShadow: "0 3px 8px #0005" }}>
               <div className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-400">Training {tutorialStage + 1}/3</div>
               <div className="mt-1 text-lg font-black text-white">{tutorialStage === 0 ? translated(language, "Bewege deinen Jet", "Move your jet") : tutorialStage === 1 ? translated(language, "Jetzt schießen", "Now fire") : translated(language, "Bereit für die Mission!", "Ready for the mission!")}</div>
               {tutorialStage === 0 && !showVirtualControls && (
@@ -8612,7 +8611,7 @@ function WorkshopSection({ build, droneBuild, droneRole, selectedSkin, selectedD
             ? { ...build, bodySkin: skin.id, engineSkin: skin.id }
             : { ...build, wingSkin: skin.id })}
           className="rounded-xl p-3 text-left transition active:scale-95"
-          style={{ background: active ? `${skin.glow}30` : "rgba(15,23,42,.8)", border: `2px solid ${active ? skin.glow : "#334155"}`, boxShadow: active ? `0 0 12px ${skin.glow}55` : "none" }}>
+          style={{ background: active ? `${skin.glow}30` : "rgba(15,23,42,.8)", border: `2px solid ${active ? skin.glow : "#334155"}`, boxShadow: active ? "0 3px 8px #0005" : "none" }}>
           <JetBuildThumbnail skin={skin} />
           <span className="mt-2 block text-xs font-black">{skin.name}</span>
         </button>})}
@@ -8843,7 +8842,7 @@ function HangarOverlay({
       {/* ── Top bar ── */}
       <div className="hangar-topbar w-full flex items-start justify-between">
         <div>
-          <div className="font-black text-2xl tracking-widest" style={{ color: "#00cfff", textShadow: "0 0 14px #00cfff99" }}>
+          <div className="font-black text-2xl tracking-widest" style={{ color: "#7ba8bd", textShadow: "none" }}>
             fighter-game
           </div>
           <div className="text-xs text-slate-400 mt-0.5">{translated(language, "2D Kampfjet-Simulator", "2D fighter jet simulator")}</div>
@@ -8895,7 +8894,7 @@ function HangarOverlay({
           maxLength={20}
           placeholder="Pilot"
           className="flex-1 px-2 py-1 rounded-lg text-sm font-bold text-white outline-none"
-          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid #334466", color: "#00cfff" }}
+          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid #334466", color: "#7ba8bd" }}
         />
       </div>
 
@@ -8903,7 +8902,7 @@ function HangarOverlay({
       <div className="hangar-preview flex flex-col items-center gap-2">
         <div className="text-xs text-slate-500 uppercase tracking-widest">{translated(language, "Dein Jet", "Your jet")}</div>
         <div className="hangar-preview-canvas rounded-2xl overflow-hidden"
-          style={{ border: `1.5px solid ${skin.glow}55`, boxShadow: `0 0 24px ${skin.glow}33` }}>
+          style={{ border: `1.5px solid ${skin.glow}55`, boxShadow: "0 3px 8px #0005" }}>
           <canvas ref={previewRef} width={240} height={140} className="block" />
         </div>
         <div className="font-bold text-white text-sm tracking-wide">{hybridActive ? `Hybrid · ${JET_SKINS.find(item => item.id === aircraftBuild.bodySkin)?.name} + ${JET_SKINS.find(item => item.id === aircraftBuild.wingSkin)?.name}` : skin.name}</div>
@@ -8930,7 +8929,7 @@ function HangarOverlay({
                 style={{
                   width: 38, height: 38, minWidth: 38, borderRadius: "50%", background: s.glow,
                   border: previewing ? `3px solid #fff` : active ? "3px solid #fff" : `2px solid ${s.glow}66`,
-                  boxShadow: previewing ? `0 0 14px ${s.glow}, 0 0 4px #fff8` : active ? `0 0 10px ${s.glow}` : "none",
+                  boxShadow: previewing ? "0 3px 8px #0005" : active ? "0 3px 8px #0005" : "none",
                   transform: previewing ? "scale(1.25)" : "scale(1)",
                   transition: "transform 0.12s, box-shadow 0.12s",
                 }}
@@ -8947,7 +8946,7 @@ function HangarOverlay({
               width: 46, height: 38, minWidth: 46, borderRadius: 10,
               background: `linear-gradient(135deg, ${JET_SKINS.find(item => item.id === aircraftBuild.bodySkin)?.glow ?? "#22d3ee"} 0 50%, ${JET_SKINS.find(item => item.id === aircraftBuild.wingSkin)?.glow ?? "#a78bfa"} 50% 100%)`,
               border: hybridActive ? "3px solid #fff" : "2px solid #67e8f9",
-              boxShadow: hybridActive ? "0 0 16px #67e8f9" : "none",
+              boxShadow: hybridActive ? "0 3px 8px #0005" : "none",
             }}
           >H</button>
           {savedAircraftBuilds
@@ -8974,7 +8973,7 @@ function HangarOverlay({
               className="hangar-skin-button grid place-items-center overflow-hidden"
               style={{ width: 50, height: 38, minWidth: 50, borderRadius: 10, background: `${s.body}cc`,
                 border: active ? "3px solid #fff" : `2px solid ${s.stroke}66`,
-                boxShadow: active ? `0 0 10px ${s.stroke}` : "none" }}>
+                boxShadow: active ? "0 3px 8px #0005" : "none" }}>
               <DroneBuildThumbnail skin={s} level={droneLevels[s.id] ?? 1} compact className="h-full w-full" />
             </button>;
           })}
@@ -8984,7 +8983,7 @@ function HangarOverlay({
               aria-label={`Kombinierte Drohne ${combinedDroneNames.join(" und ")}`}
               title={`Kombiniert · ${combinedDroneNames.join(" + ")}`}
               className="grid place-items-center overflow-hidden"
-              style={{ width: 58, height: 42, minWidth: 58, borderRadius: 11, background: "rgba(109,40,217,.32)", border: "3px solid #fff", boxShadow: "0 0 16px #c084fc" }}
+              style={{ width: 58, height: 42, minWidth: 58, borderRadius: 11, background: "rgba(109,40,217,.32)", border: "3px solid #fff", boxShadow: "0 3px 8px #0005" }}
             >
               <CombinedDroneBuildThumbnail build={droneBuild} fallback={selectedDrone} level={combinedDroneLevel} compact className="h-full w-full" />
             </div>
@@ -9021,7 +9020,7 @@ function HangarOverlay({
                 width: 52, height: 38, minWidth: 52, borderRadius: 10,
                 color: "#fff", background: `${crate.color}35`,
                 border: selectedWeaponCrate === crate.id ? "3px solid #fff" : `2px solid ${crate.color}`,
-                boxShadow: selectedWeaponCrate === crate.id ? `0 0 12px ${crate.color}` : "none",
+                boxShadow: selectedWeaponCrate === crate.id ? "0 3px 8px #0005" : "none",
               }}
             >
               <WeaponModuleThumbnail module={crate} compact className="h-full w-full" />
@@ -9057,7 +9056,7 @@ function HangarOverlay({
             <>
               <button onClick={onStart}
                 className="w-full py-2.5 rounded-xl font-bold text-base tracking-widest transition-all active:scale-95"
-                style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #00cfff", color: "#00cfff", textShadow: "0 0 10px #00cfff88" }}>
+                style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #7ba8bd", color: "#7ba8bd", textShadow: "none" }}>
                 {translated(language, "▶ WEITERSPIELEN", "▶ CONTINUE")}
               </button>
               <button onClick={onNewGame}
@@ -9069,7 +9068,7 @@ function HangarOverlay({
           ) : (
             <button onClick={onStart}
               className="w-full py-3 rounded-xl font-bold text-lg tracking-widest transition-all active:scale-95"
-              style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #00cfff", color: "#00cfff", textShadow: "0 0 10px #00cfff88" }}>
+              style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #7ba8bd", color: "#7ba8bd", textShadow: "none" }}>
               {translated(language, "▶ START", "▶ START")}
             </button>
           )}
@@ -9107,7 +9106,7 @@ function HangarOverlay({
           style={{ background: "rgba(0,0,0,0.88)" }}>
           <div className="flex flex-col gap-4 rounded-2xl p-6 w-72"
             style={{ background: "#0a0f20", border: "1.5px solid #2244aa" }}>
-            <div className="font-black text-lg tracking-wide" style={{ color: "#00cfff" }}>ADMIN PANEL</div>
+            <div className="font-black text-lg tracking-wide" style={{ color: "#7ba8bd" }}>ADMIN PANEL</div>
             <div className="text-slate-400 text-sm">Pilot: <span className="text-white font-bold">{playerName || "Pilot"}</span></div>
             <div className="text-slate-400 text-sm">Spieler aktiv: <span className="text-emerald-400 font-bold">1 (lokal)</span></div>
             <div className="text-slate-500 text-xs">Admin-Code eingeben:</div>
@@ -9271,8 +9270,8 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
 
       {pendingPurchase && (
         <div className="purchase-confirmation fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4" role="dialog" aria-modal="true" aria-labelledby="purchase-title">
-          <div className="w-full max-w-sm rounded-3xl border border-amber-300/70 bg-[#090d1d]/95 p-6 text-center shadow-[0_0_45px_#fbbf2444]">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-amber-300/60 bg-amber-400/10 text-4xl shadow-[0_0_25px_#fbbf2444]">{pendingPurchase.currency === "gems" ? "💎" : "💰"}</div>
+          <div className="w-full max-w-sm rounded-3xl border border-amber-300/70 bg-[#090d1d]/95 p-6 text-center shadow-lg">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-amber-300/60 bg-amber-400/10 text-4xl shadow-lg">{pendingPurchase.currency === "gems" ? "💎" : "💰"}</div>
             <div className="mt-4 text-[10px] font-black uppercase tracking-[.28em] text-amber-300">Kauf bestätigen</div>
             <h3 id="purchase-title" className="mt-2 text-2xl font-black text-white">Bist du sicher?</h3>
             <p className="mt-2 text-sm text-slate-300">
@@ -9293,7 +9292,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
       {purchaseCelebration && (
         <div key={purchaseCelebration.nonce} className="purchase-celebration pointer-events-none fixed inset-0 z-50 grid place-items-center" role="status" aria-live="polite">
           <div className="purchase-flash absolute inset-0" />
-          <div className="purchase-success relative rounded-3xl border border-emerald-300/80 bg-slate-950/95 px-8 py-6 text-center shadow-[0_0_60px_#34d39977]">
+          <div className="purchase-success relative rounded-3xl border border-emerald-300/80 bg-slate-950/95 px-8 py-6 text-center shadow-lg">
             <div className="purchase-check mx-auto grid h-20 w-20 place-items-center rounded-full bg-emerald-400 text-5xl font-black text-slate-950">✓</div>
             <div className="mt-4 text-[11px] font-black uppercase tracking-[.3em] text-emerald-300">Kauf erfolgreich</div>
             <div className="mt-1 text-xl font-black text-white">{purchaseCelebration.name}</div>
@@ -9306,7 +9305,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
       )}
       <div className="relative z-10 flex items-center gap-3 shrink-0">
         <button onClick={onBack} className="text-slate-400 hover:text-white text-xl font-bold px-2">←</button>
-        <h2 className="font-bold text-xl tracking-wide" style={{ textShadow: "0 0 12px #00cfff88" }}>SHOP</h2>
+        <h2 className="font-bold text-xl tracking-wide" style={{ textShadow: "none" }}>SHOP</h2>
         <span className="rounded-full border border-cyan-400/50 bg-cyan-950/60 px-2.5 py-1 text-xs font-black text-cyan-300">PILOT-LEVEL {playerLevel}</span>
         <span className="ml-auto text-cyan-300 font-bold text-sm">💎 {gems.toLocaleString("de-DE")}</span>
         <span className="text-amber-300 font-bold text-sm">💰 {coins.toLocaleString("de-DE")}</span>
@@ -9320,7 +9319,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
             opacity: unlocked ? 1 : .45,
             ...shopRarityLabelStyle(key),
             border: `1px solid ${rarity.color}`,
-            boxShadow: unlocked ? shopRarityGlow(key, 7) : undefined,
+            boxShadow: unlocked ? shopRarityFinish(key, 7) : undefined,
           }}>{unlocked ? "" : "🔒 "}{rarity.label} · LVL {SHOP_RARITY_MIN_LEVEL[key]}</span>;
         })}
       </div>
@@ -9335,7 +9334,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
               onClick={() => setShopSection(section.id)}
               aria-pressed={active}
               title={section.description}
-              className={`min-w-0 rounded-xl px-1 py-2 text-center transition ${active ? "bg-cyan-400 text-slate-950 shadow-[0_0_16px_#22d3ee66]" : "bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"}`}
+              className={`min-w-0 rounded-xl px-1 py-2 text-center transition ${active ? "bg-cyan-400 text-slate-950 shadow-lg" : "bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"}`}
             >
               <span className="block text-base leading-none">{section.icon}</span>
               <span className="mt-1 block truncate text-[10px] font-black uppercase tracking-wide">{section.label}</span>
@@ -9361,7 +9360,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
               const canAfford = coins >= crate.cost;
               return (
                 <div key={crate.rarity} className={`shop-crate-card relative overflow-hidden rounded-2xl p-4 ${isOpening ? "daily-chest-opening" : ""} ${isOpening && dailyChestCelebrating ? "daily-chest-celebrating" : ""}`}
-                  style={{ background: crate.rarity === "ultimate" ? "linear-gradient(125deg,#172033,#31173b,#12313b)" : `${rarity.color}12`, border: `1px solid ${rarity.color}99`, boxShadow: shopRarityGlow(crate.rarity, 15) }}>
+                  style={{ background: crate.rarity === "ultimate" ? "linear-gradient(125deg,#172033,#31173b,#12313b)" : `${rarity.color}12`, border: `1px solid ${rarity.color}99`, boxShadow: shopRarityFinish(crate.rarity, 15) }}>
                   {isOpening && dailyChestCelebrating && crateReward && (
                     <div className="crate-reward-reveal absolute inset-0 z-20 grid place-items-center bg-slate-950/90 p-4 text-center" role="status" aria-live="polite">
                       <div>
@@ -9418,11 +9417,11 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
               background: active ? `${weapon.color}20` : "rgba(255,255,255,.045)",
               border: `1px solid ${active ? weapon.color : rarity.color}88`,
               borderLeft: `5px solid ${rarity.color}`,
-              boxShadow: active ? `0 0 18px ${weapon.color}44` : undefined,
+              boxShadow: active ? "0 3px 8px #0005" : undefined,
               opacity: !owned && !levelUnlocked ? .48 : 1,
             }}>
               <div className="flex items-start gap-3">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xl font-black" style={{ color: weapon.color, background: `${weapon.color}16`, border: `1px solid ${weapon.color}88`, textShadow: `0 0 9px ${weapon.color}` }}>{weapon.icon}</div>
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xl font-black" style={{ color: weapon.color, background: `${weapon.color}16`, border: `1px solid ${weapon.color}88`, textShadow: "none" }}>{weapon.icon}</div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2"><b>{weapon.name}</b><span className="text-[9px] font-black" style={shopRarityLabelStyle(weapon.rarity)}>{rarity.label}</span></div>
                   <div className="text-[11px] text-slate-400">{weapon.description}</div>
@@ -9478,12 +9477,12 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
                     background: active ? `${weapon.color}20` : "rgba(255,255,255,.045)",
                     border: `1px solid ${active ? weapon.color : `${weapon.color}66`}`,
                     borderLeft: `5px solid ${rarity.color}`,
-                    boxShadow: active ? `0 0 18px ${weapon.color}44` : undefined,
+                    boxShadow: active ? "0 3px 8px #0005" : undefined,
                     opacity: !owned && (!canAfford || !levelUnlocked) ? .48 : 1,
                   }}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xl font-black" style={{ color: weapon.color, background: `${weapon.color}16`, border: `1px solid ${weapon.color}88`, textShadow: `0 0 9px ${weapon.color}` }}>{weapon.icon}</span>
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xl font-black" style={{ color: weapon.color, background: `${weapon.color}16`, border: `1px solid ${weapon.color}88`, textShadow: "none" }}>{weapon.icon}</span>
                     <span className="min-w-0">
                       <span className="flex flex-wrap items-center gap-2"><b className="block text-white">{weapon.name}</b><span className="text-[9px] font-black" style={shopRarityLabelStyle(weapon.rarity)}>{rarity.label}</span></span>
                       <span className="text-[11px] text-slate-400">{weapon.description}</span>
@@ -9526,7 +9525,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
                   background: active ? `${module.color}20` : "rgba(255,255,255,.045)",
                   border: `1px solid ${active ? module.color : `${rarity.color}88`}`,
                   borderLeft: `5px solid ${rarity.color}`,
-                  boxShadow: active ? `0 0 18px ${module.color}44` : undefined,
+                  boxShadow: active ? "0 3px 8px #0005" : undefined,
                   opacity: !owned && (!canAfford || !levelUnlocked) ? .48 : 1,
                 }}>
                 <WeaponModuleThumbnail module={module} className="h-16 w-full" />
@@ -9550,13 +9549,13 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
       )}
 
       {shopSection === "levels" && (<>
-      <div className="relative z-10 rounded-2xl p-4" style={{ background: `${selectedJet.glow}12`, border: `1px solid ${selectedJet.glow}77`, boxShadow: `0 0 18px ${selectedJet.glow}22` }}>
+      <div className="relative z-10 rounded-2xl p-4" style={{ background: `${selectedJet.glow}12`, border: `1px solid ${selectedJet.glow}77`, boxShadow: "0 3px 8px #0005" }}>
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl" style={{ background: selectedJet.body, border: `2px solid ${selectedJet.glow}`, boxShadow: `0 0 12px ${selectedJet.glow}66` }}>✈</div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl" style={{ background: selectedJet.body, border: `2px solid ${selectedJet.glow}`, boxShadow: "0 3px 8px #0005" }}>✈</div>
           <div className="min-w-0 flex-1">
             <div className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-300">Flugzeug verbessern</div>
             <div className="font-black">{aircraftName} · Level {aircraftStats.level}/10</div>
-            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${aircraftStats.level * 10}%`, boxShadow: "0 0 8px #22d3ee" }} /></div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${aircraftStats.level * 10}%`, boxShadow: "0 3px 8px #0005" }} /></div>
           </div>
           {aircraftUpgradeCost === null ? (
             <span className="shrink-0 rounded-lg border border-emerald-400/50 px-3 py-2 text-xs font-black text-emerald-300">MAX</span>
@@ -9576,13 +9575,13 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
         </div>
       </div>
 
-      <div className="relative z-10 rounded-2xl p-4" style={{ background: `${selectedDrone.stroke}12`, border: `1px solid ${selectedDrone.stroke}77`, boxShadow: `0 0 18px ${selectedDrone.stroke}22` }}>
+      <div className="relative z-10 rounded-2xl p-4" style={{ background: `${selectedDrone.stroke}12`, border: `1px solid ${selectedDrone.stroke}77`, boxShadow: "0 3px 8px #0005" }}>
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl" style={{ background: selectedDrone.body, border: `2px solid ${selectedDrone.stroke}`, boxShadow: `0 0 12px ${selectedDrone.stroke}66` }}>🛸</div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl" style={{ background: selectedDrone.body, border: `2px solid ${selectedDrone.stroke}`, boxShadow: "0 3px 8px #0005" }}>🛸</div>
           <div className="min-w-0 flex-1">
             <div className="text-[10px] font-black uppercase tracking-[.2em] text-violet-300">Drohne verbessern</div>
             <div className="font-black">{droneName} · Level {droneLevel}/10</div>
-            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-violet-400" style={{ width: `${droneLevel * 10}%`, boxShadow: "0 0 8px #c084fc" }} /></div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-violet-400" style={{ width: `${droneLevel * 10}%`, boxShadow: "0 3px 8px #0005" }} /></div>
           </div>
           {droneUpgradeCost === null ? (
             <span className="shrink-0 rounded-lg border border-emerald-400/50 px-3 py-2 text-xs font-black text-emerald-300">MAX</span>
@@ -9623,7 +9622,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
                 borderBottom: active ? `2px solid ${s.glow}` : `1px solid ${s.glow}33`,
                 borderLeft: `4px solid ${rarity.color}`,
                 borderRight: `4px solid ${rarity.color}`,
-                boxShadow: SHOP_RARITY_ORDER[s.rarity] >= SHOP_RARITY_ORDER.legendary ? shopRarityGlow(s.rarity, 12) : undefined,
+                boxShadow: SHOP_RARITY_ORDER[s.rarity] >= SHOP_RARITY_ORDER.legendary ? shopRarityFinish(s.rarity, 12) : undefined,
                 opacity: !owned && (!canAfford || !levelUnlocked) ? 0.45 : 1,
               }}>
               <JetShopImage skin={s} aircraftLevel={aircraftLevel} />
@@ -9693,10 +9692,10 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
               border: `1px solid ${s.stroke}55`,
               borderLeft: `4px solid ${rarity.color}`,
               borderRight: `4px solid ${rarity.color}`,
-              boxShadow: SHOP_RARITY_ORDER[s.rarity] >= SHOP_RARITY_ORDER.legendary ? shopRarityGlow(s.rarity, 12) : undefined,
+              boxShadow: SHOP_RARITY_ORDER[s.rarity] >= SHOP_RARITY_ORDER.legendary ? shopRarityFinish(s.rarity, 12) : undefined,
               opacity: !owned && (!canAfford || !levelUnlocked) ? .45 : 1,
             }}>
-            <div className="h-12 w-20 overflow-hidden rounded-lg" style={{ background: `${s.body}99`, border: `1px solid ${s.stroke}88`, boxShadow: `0 0 8px ${s.stroke}55` }}>
+            <div className="h-12 w-20 overflow-hidden rounded-lg" style={{ background: `${s.body}99`, border: `1px solid ${s.stroke}88`, boxShadow: "0 3px 8px #0005" }}>
               <DroneBuildThumbnail skin={s} level={droneLevels[s.id] ?? 1} compact className="h-full w-full" />
             </div>
             <div className="text-xs font-bold">{s.name}</div>
@@ -9729,7 +9728,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
                 borderBottom: `1px solid ${owned ? "#00aa4444" : "#334"}`,
                 borderLeft: `5px solid ${rarity.color}`,
                 borderRight: `5px solid ${rarity.color}`,
-                boxShadow: SHOP_RARITY_ORDER[item.rarity] >= SHOP_RARITY_ORDER.legendary ? shopRarityGlow(item.rarity, 14) : undefined,
+                boxShadow: SHOP_RARITY_ORDER[item.rarity] >= SHOP_RARITY_ORDER.legendary ? shopRarityFinish(item.rarity, 14) : undefined,
               }}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -9795,7 +9794,7 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
           style={{ background: "rgba(255,255,255,0.07)", border: "1px solid #334466", color: "#7799bb" }}>
           ← ZURÜCK
         </button>
-        <div className="font-black text-lg tracking-widest" style={{ color: "#ffcc00", textShadow: "0 0 12px #ffcc0099" }}>
+        <div className="font-black text-lg tracking-widest" style={{ color: "#ffcc00", textShadow: "none" }}>
           🏆 RANGLISTE
         </div>
         <div className="text-xs text-slate-500 ml-auto">(lokal – dieses Gerät)</div>
@@ -9834,7 +9833,7 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
               <div key={entryId} className="overflow-hidden rounded-lg"
                 style={{
                   background: i === 0 ? "rgba(255,204,0,0.12)" : i === 1 ? "rgba(180,180,180,0.10)" : i === 2 ? "rgba(180,90,0,0.10)" : "rgba(255,255,255,0.04)",
-                  border: `1px solid ${expanded ? "#00cfff88" : i === 0 ? "#ffcc0040" : i < 3 ? "#33445540" : "#1a2a3a"}`,
+                  border: `1px solid ${expanded ? "#7ba8bd88" : i === 0 ? "#ffcc0040" : i < 3 ? "#33445540" : "#1a2a3a"}`,
                 }}>
                 <div className="flex items-center">
                   <button
@@ -9848,7 +9847,7 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
                       {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color: i < 3 ? "#e0f0ff" : "#8899bb" }}>{e.name}</span>
-                    <span className="text-sm font-black tabular-nums" style={{ color: i === 0 ? "#ffcc00" : "#00cfff" }}>{e.score.toLocaleString("de-DE")}</span>
+                    <span className="text-sm font-black tabular-nums" style={{ color: i === 0 ? "#ffcc00" : "#7ba8bd" }}>{e.score.toLocaleString("de-DE")}</span>
                     <span aria-hidden="true" className={`ml-1 text-xs text-cyan-400 transition-transform ${expanded ? "rotate-180" : ""}`}>▼</span>
                   </button>
                   <button type="button" onClick={() => requestDelete(i)} aria-label={`Eintrag von ${e.name} löschen`}
@@ -10060,7 +10059,7 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
           maxLength={20}
           placeholder="Pilot"
           className="flex-1 px-2 py-1.5 rounded-lg text-sm font-bold outline-none"
-          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid #334466", color: "#00cfff" }}
+          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid #334466", color: "#7ba8bd" }}
         />
       </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Shop</div>
@@ -10206,7 +10205,7 @@ function drawActiveUltiCountdowns(
   ctx.stroke();
 
   ctx.shadowColor = active.length === 1 ? active[0].color : "#ffffff";
-  ctx.shadowBlur = 8;
+  ctx.shadowBlur = 0;
   ctx.fillStyle = "#ffffff";
   ctx.fillText(text, centerX, centerY + 1);
   ctx.restore();
@@ -10314,7 +10313,7 @@ function drawVirtualControls(
     }
     ctx.beginPath();
     ctx.arc(knobX, knobY, JOY_KNOB_R, 0, Math.PI * 2);
-    ctx.fillStyle = js.active ? "#00cfff99" : "#ffffff44";
+    ctx.fillStyle = js.active ? "#7ba8bd99" : "#ffffff44";
     ctx.fill();
     ctx.strokeStyle = "#ffffff66";
     ctx.lineWidth = 1.5;
@@ -10348,8 +10347,8 @@ function drawVirtualControls(
   ctx.globalAlpha = ultiGlow;
   ctx.beginPath();
   ctx.arc(ultiX, ultiY, ULTI_BTN_R, 0, Math.PI * 2);
-  ctx.fillStyle   = ultimaActive > 0 ? "#ff00ff55" : ultiReady ? "#cc00ff44" : "#44004422";
-  ctx.strokeStyle = ultimaActive > 0 ? "#ff00ffcc" : ultiReady ? "#cc00ffcc" : "#88008866";
+  ctx.fillStyle   = ultimaActive > 0 ? "#b68aaa55" : ultiReady ? "#cc00ff44" : "#44004422";
+  ctx.strokeStyle = ultimaActive > 0 ? "#b68aaacc" : ultiReady ? "#cc00ffcc" : "#88008866";
   ctx.lineWidth = 2.5;
   ctx.fill(); ctx.stroke();
 
@@ -10364,7 +10363,7 @@ function drawVirtualControls(
   }
 
   ctx.globalAlpha = ultiReady ? 0.95 : 0.55;
-  ctx.fillStyle = ultiReady ? "#ff00ff" : "#cc88cc";
+  ctx.fillStyle = ultiReady ? "#b68aaa" : "#cc88cc";
   ctx.font = `bold ${ultiReady ? 12 : 10}px 'Inter', sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -10568,7 +10567,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     ctx.fillStyle = "rgba(4,10,24,0.78)";
     ctx.fillRect(0, 0, viewW, 136);
     ctx.textAlign = "left";
-    ctx.fillStyle = "#00cfff"; ctx.font = "bold 13px 'Inter', sans-serif"; ctx.fillText("SCORE", 14, 8);
+    ctx.fillStyle = "#7ba8bd"; ctx.font = "bold 13px 'Inter', sans-serif"; ctx.fillText("SCORE", 14, 8);
     ctx.fillStyle = "#fff"; ctx.font = "bold 21px 'Inter', sans-serif"; ctx.fillText(String(gs.score), 14, 25);
     ctx.fillStyle = "#ffaa00"; ctx.font = "10px 'Inter', sans-serif"; ctx.fillText(`BEST ${bestScore.toLocaleString("de-DE")}`, 14, 52);
     ctx.fillStyle = "#67e8f9"; ctx.fillText(`PILOT ${pilotLevel}`, 14, 67);
@@ -10614,7 +10613,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ctx.fillRect(0, 0, CANVAS_W, 86);
 
   // Score
-  ctx.fillStyle = "#00cfff";
+  ctx.fillStyle = "#7ba8bd";
   ctx.font = "bold 18px 'Inter', sans-serif";
   ctx.textAlign = "left";
   ctx.fillText(`SCORE`, 16, 6);
@@ -10636,7 +10635,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ctx.fillStyle = "#222";
   ctx.fillRect(barX, barY, barW, barH);
   const xpGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
-  xpGrad.addColorStop(0, "#00cfff");
+  xpGrad.addColorStop(0, "#7ba8bd");
   xpGrad.addColorStop(1, "#7700ff");
   ctx.fillStyle = xpGrad;
   ctx.fillRect(barX, barY, barW * pct, barH);
@@ -10729,7 +10728,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     activeColors: [string, string]; chargeColors: [string, string]; color: string;
   }> = {
     ...combatUltiStates(combatExtras),
-    jet: { label: "JET ULTI", key: "Q", charge: ultimaCharge, max: ULTI_MAX, active: ultimaActive, duration: ULTI_DURATION, activeColors: ["#ff00ff","#8800ff"], chargeColors: ["#6600bb","#cc00ff"], color: "#ff44ff" },
+    jet: { label: "JET ULTI", key: "Q", charge: ultimaCharge, max: ULTI_MAX, active: ultimaActive, duration: ULTI_DURATION, activeColors: ["#b68aaa","#8800ff"], chargeColors: ["#6600bb","#cc00ff"], color: "#ff44ff" },
     laser: { label: "LASER", key: "E", charge: laserCharge, max: LASER_MAX, active: laserActive, duration: LASER_DURATION * (unlocks.includes("laser_upgrade") ? 1.25 : 1), activeColors: ["#ff8800","#ffdd00"], chargeColors: ["#cc4400","#ff8800"], color: "#ffaa22" },
     stealth_ulti: { label: "STEALTH", key: "R", charge: stealthCharge, max: STEALTH_MAX, active: stealthActive, duration: STEALTH_DURATION, activeColors: ["#00ffee","#0088ff"], chargeColors: ["#004488","#00aacc"], color: "#00ddcc" },
     heal_ulti: { label: "HEAL", key: "H", charge: healCharge, max: HEAL_MAX, active: healActive, duration: HEAL_DURATION, activeColors: ["#ff6699","#ff0044"], chargeColors: ["#aa2233","#ff3366"], color: "#ff4466" },

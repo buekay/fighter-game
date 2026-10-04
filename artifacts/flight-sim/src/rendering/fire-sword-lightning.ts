@@ -21,7 +21,7 @@ export function drawFireSwordLightning(
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.shadowColor = "#ffd21f";
-  ctx.shadowBlur = 18;
+  ctx.shadowBlur = 0;
 
   // Short radial arcs show the activation even when no enemy is in range.
   const endpoints = Array.from({ length: 7 }, (_, index) => {
