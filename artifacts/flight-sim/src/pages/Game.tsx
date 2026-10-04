@@ -3687,7 +3687,7 @@ export default function Game() {
   const registerKill = useCallback((enemy: Enemy) => {
     if (enemy.killRegistered) return;
     enemy.killRegistered = true;
-    if (activeUnlocksRef.current.includes("chaos_pickup") && ++extrasRef.current.kills % 8 === 0) {
+    if (activeUnlocksRef.current.includes("chaos_pickup") && ++extrasRef.current.kills % 15 === 0) {
       powerUpsRef.current.push({ x: clamp(enemy.x + enemy.width / 2, 20, CANVAS_W - 20),
         y: clamp(enemy.y + enemy.height / 2, 100, CANVAS_H - 30), type: "chaos", vy: .65 });
     }

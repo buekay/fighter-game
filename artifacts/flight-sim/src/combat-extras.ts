@@ -5,7 +5,7 @@ export const EXTRA_ITEMS = [
   { id: "perfect_counter", name: "Konter-Ulti", rarity: "rare", cost: 50_000, desc: "Ausrüstbare Ulti: Konterschild für 0,25 Sek. Ein abgewehrter Treffer lädt die nächste Hauptwaffen-Salve 5 Sek. lang auf 2× Schaden. 4 Sek. Ladezeit." },
   { id: "magnet_fist", name: "Magnetfaust-Ulti", rarity: "epic", cost: 100_000, desc: "Ausrüstbare Ulti: Zieht normale Gegner 1,5 Sek. in die Feuerlinie vor deinem Jet und sammelt nahe Pickups. Bosse sind immun. 10 Sek. Ladezeit. Eine aktive Brandspur wird zum Sogziel." },
   { id: "last_spark", name: "Letzter Funke", rarity: "legendary", cost: 200_000, desc: "Automatisch einmal pro Einsatz: Ein tödlicher Treffer lässt 1 HP übrig. Eine Druckwelle räumt nahe Geschosse ab und verursacht 12 Schaden. Kein zusätzliches Leben; Fortsetzen lädt den Funken nicht neu." },
-  { id: "chaos_pickup", name: "Chaos-Pickup", rarity: "rare", cost: 50_000, desc: "Jeder 8. Abschuss hinterlässt ein CHAOS-Pickup. Einsammeln verleiht zufällig 8 Sek. Schnellfeuer, Feuerkraft oder Magnetfeld. Neue Pickups ersetzen den Effekt. Funktioniert auch mit Ulti-Abschüssen." },
+  { id: "chaos_pickup", name: "Chaos-Pickup", rarity: "rare", cost: 50_000, desc: "Jeder 15. Abschuss hinterlässt ein CHAOS-Pickup. Einsammeln verleiht zufällig 8 Sek. Schnellfeuer, Feuerkraft oder Magnetfeld. Neue Pickups ersetzen den Effekt. Funktioniert auch mit Ulti-Abschüssen." },
   { id: "fire_core", name: "Feuerkern", rarity: "epic", cost: 100_000, desc: "Dauerhaft +15 % Hauptwaffen-Schaden. Mit Schatten-Dash entsteht für 2 Sek. eine Brandspur (8 Schaden/Sek.). Mit Magnetfaust lassen sich normale Gegner hineinziehen." },
 ] as const;
 export type ExtraAction = "shadow_dash" | "perfect_counter" | "magnet_fist";

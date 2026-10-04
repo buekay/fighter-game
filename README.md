@@ -100,7 +100,7 @@ Aktive Fähigkeiten unter **Shop → Ultis** kaufen und in einem der drei Ulti-P
 | Perfekter Konter | Ulti-Slot | 0,25 s Abwehrfenster; nächster Hauptwaffen-Feuerstoß macht doppelten Schaden, Ladung verfällt nach 5 s; 4 s Abklingzeit |
 | Magnetfaust | Ulti-Slot | 1,5 s Sog auf normale Gegner und nahe Pickups; 10 s Abklingzeit; Bosse und Lasergeräte immun |
 | Letzter Funke | Automatisch | Einmal pro Einsatz tödlichen Treffer mit 1 HP überleben, 12 Schaden und Geschossräumung in 230 px Radius; Verbrauch bleibt beim Fortsetzen gespeichert |
-| Chaos-Pickup | Jeden achten Abschuss einsammeln | Zufällig 8 s Schnellfeuer (35 % kürzeres Feuerintervall), Feuerkraft (+35 % Hauptwaffenschaden) oder Magnetfeld; ersetzt den vorigen Effekt |
+| Chaos-Pickup | Jeden 15. Abschuss einsammeln | Zufällig 8 s Schnellfeuer (35 % kürzeres Feuerintervall), Feuerkraft (+35 % Hauptwaffenschaden) oder Magnetfeld; ersetzt den vorigen Effekt |
 | Feuerkern | Dauerhaft | +15 % Hauptwaffenschaden; Dash hinterlässt 2 s Brandspur mit 8 Schaden/s |
 
 Auch Chaos-Feuer, das Feuerschwert und aktive Feuer-Ultis (Lava, Solaris,
