@@ -11,7 +11,7 @@ export interface BossBody {
   submarineDiveMs?: number;
 }
 export const BOSS_ACCENTS: Record<EncounterKind, string> = {
-  titan: "#b69a66", tank: "#baa06c", spider: "#a4adb7", submarine: "#8da7ac", city: "#b7825d",
+  titan: "#e879f9", tank: "#fbbf24", spider: "#c084fc", submarine: "#67e8f9", city: "#fb923c",
 };
 const CODE: Record<EncounterKind, string> = { titan: "T-01 / PROMETHEUS", tank: "P-02 / IRONCLAD", spider: "S-03 / ARACHNE", submarine: "U-04 / ABYSS", city: "C-05 / CITADEL" };
 
@@ -92,7 +92,7 @@ export function drawFortressCity(ctx: CanvasRenderingContext2D, width: number, h
     for (let floor = 0; floor < 4; floor++) for (let win = 0; win < 3; win++) {
       ctx.fillRect(x + 7 + win * 10, y + floor * 10, 3, 4);
     }
-    if ((row + col) % 4 === 0) { piston(ctx, x + 20, y - rise, x + 20, y - rise - 12, 2); serviceHub(ctx, x + 20, y - rise - 12, 4, "#b5674e"); }
+    if ((row + col) % 4 === 0) { piston(ctx, x + 20, y - rise, x + 20, y - rise - 12, 2); serviceHub(ctx, x + 20, y - rise - 12, 4, "#fb7185"); }
   }
   for (let y = 30; y < h; y += 65) { plate(ctx, -8, y, 18, 35, false, 3); ctx.fillStyle = "#fbbf24"; ctx.fillRect(-5, y + 8, 4, 15); }
   ctx.restore();
@@ -107,7 +107,7 @@ export function drawEncounterBoss(ctx: CanvasRenderingContext2D, e: BossBody, ti
     // Only a submerged silhouette and surface ripples remain: no collision body.
     ctx.fillStyle = "#05243199";
     ctx.beginPath(); ctx.ellipse(0, 12, 120, 30, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "#8da7ac"; ctx.lineWidth = 2;
+    ctx.strokeStyle = "#67e8f9"; ctx.lineWidth = 2;
     for (let i = 0; i < 3; i++) {
       const ripple = (time * .0004 + i / 3) % 1;
       ctx.globalAlpha = (1 - ripple) * .4;
@@ -160,7 +160,7 @@ export function drawEncounterBoss(ctx: CanvasRenderingContext2D, e: BossBody, ti
     plate(ctx, 23, -31, 45, 62, true, 10); vents(ctx, 30, -23, 6, 46);
     joint(ctx, -10, 0, 31, accent, -time * .0006); serviceHub(ctx, -10, 0, 21, accent);
     plate(ctx, -103, -25, 43, 50, true, 12);
-    for (const y of [-14, 0, 14]) serviceHub(ctx, -91, y, 6, "#b5674e");
+    for (const y of [-14, 0, 14]) serviceHub(ctx, -91, y, 6, "#fb7185");
     for (const side of [-1, 1]) { piston(ctx, -82, side * 20, -121, side * 33, 8); barrel(ctx, -141, side * 31, 30, accent); }
   } else if (kind === "submarine") {
     for (const side of [-1, 1]) {
@@ -191,18 +191,18 @@ export function drawEncounterBoss(ctx: CanvasRenderingContext2D, e: BossBody, ti
       plate(ctx, -51, side * 67 - 19, 133, 38, false, 11);
       vents(ctx, 47, side * 67 - 13, 5, 26);
       for (let i = 0; i < 3; i++) barrel(ctx, -141 + i * 4, side * (52 + i * 13), 66, accent);
-      serviceHub(ctx, 125, side * 67, e.bossEngineDisabled ? 5 : 23, "#8da7ac");
+      serviceHub(ctx, 125, side * 67, e.bossEngineDisabled ? 5 : 23, "#67e8f9");
     }
     plate(ctx, -75, -40, 202, 80, false, 22);
     plate(ctx, -115, -21, 111, 42, true, 12);
     joint(ctx, 13, 0, 43, accent, time * .0004);
-    joint(ctx, 13, 0, 30, "#8da7ac", -time * .0007); serviceHub(ctx, 13, 0, 24, accent);
+    joint(ctx, 13, 0, 30, "#67e8f9", -time * .0007); serviceHub(ctx, 13, 0, 24, accent);
     plate(ctx, 66, -24, 44, 48, true); vents(ctx, 72, -15, 5, 30);
-    for (const side of [-1, 1]) { ctx.strokeStyle = "#8da7ac"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-37, side * 26); ctx.lineTo(-61, side * 14); ctx.lineTo(-106, side * 14); ctx.stroke(); }
+    for (const side of [-1, 1]) { ctx.strokeStyle = "#67e8f9"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-37, side * 26); ctx.lineTo(-61, side * 14); ctx.lineTo(-106, side * 14); ctx.stroke(); }
     if ((e.titanShieldTimer ?? 0) > 0) {
       ctx.strokeStyle = "#67e8f9bb"; ctx.fillStyle = "#67e8f912"; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.ellipse(0, 0, 149, 108, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.setLineDash([5, 7]); ctx.strokeStyle = "#b69a66"; ctx.stroke(); ctx.setLineDash([]);
+      ctx.setLineDash([5, 7]); ctx.strokeStyle = "#e879f9"; ctx.stroke(); ctx.setLineDash([]);
     }
   } else {
     const weapon = CITY_WEAPONS[e.citySlot ?? 0];
@@ -220,7 +220,7 @@ export function drawEncounterBoss(ctx: CanvasRenderingContext2D, e: BossBody, ti
     } else if (weapon === "rocket") {
       for (const side of [-1, 1]) {
         plate(ctx, -84, side * 27 - 18, 139, 36, true);
-        for (let i = 0; i < 5; i++) joint(ctx, -68 + i * 25, side * 27, 8, "#b5674e");
+        for (let i = 0; i < 5; i++) joint(ctx, -68 + i * 25, side * 27, 8, "#fb7185");
       }
     } else { barrel(ctx, -147, -15, 125, "#fbbf24", true); barrel(ctx, -147, 15, 125, "#fbbf24", true); joint(ctx, 27, 0, 19, "#fbbf24"); }
     // Individual module condition; the full city's HP lives in the shared boss bar.
@@ -233,7 +233,7 @@ export function drawEncounterBoss(ctx: CanvasRenderingContext2D, e: BossBody, ti
     serviceHub(ctx, 60, 17, 9, "#fb923c");
   }
   if ((e.poisonTimer ?? 0) > 0 || (e.ultimateFreezeTimer ?? 0) > 0) {
-    ctx.strokeStyle = (e.ultimateFreezeTimer ?? 0) > 0 ? "#a5f3fc" : "#b5674e"; ctx.lineWidth = 2;
+    ctx.strokeStyle = (e.ultimateFreezeTimer ?? 0) > 0 ? "#a5f3fc" : "#fb7185"; ctx.lineWidth = 2;
     ctx.strokeRect(-148, -108, 296, 216);
   }
   ctx.restore();
@@ -297,7 +297,7 @@ export function drawEncounterHealthBar(ctx: CanvasRenderingContext2D, enemies: r
   ctx.fillText(`PHASE ${phase}  ·  ${Math.ceil(hp).toLocaleString("de-DE")} / ${maxHp.toLocaleString("de-DE")}`, x + width, top + 15);
   ctx.fillStyle = "#070910"; ctx.fillRect(x, top + 22, width, 12);
   const spectrum = ctx.createLinearGradient(x, 0, x + width, 0);
-  spectrum.addColorStop(0, "#8da7ac"); spectrum.addColorStop(.36, "#a78bfa"); spectrum.addColorStop(.7, BOSS_ACCENTS[kind]); spectrum.addColorStop(1, "#fde68a");
+  spectrum.addColorStop(0, "#67e8f9"); spectrum.addColorStop(.36, "#a78bfa"); spectrum.addColorStop(.7, BOSS_ACCENTS[kind]); spectrum.addColorStop(1, "#fde68a");
   ctx.fillStyle = spectrum; ctx.fillRect(x, top + 22, width * ratio, 12);
   ctx.fillStyle = "#ffffff55"; ctx.fillRect(x, top + 22, width * ratio, 3);
   ctx.strokeStyle = "#cbd5e199"; ctx.lineWidth = 1; ctx.strokeRect(x, top + 22, width, 12);
