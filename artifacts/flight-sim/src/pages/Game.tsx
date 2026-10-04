@@ -10204,6 +10204,23 @@ function drawVirtualControls(
     const [x, y] = position(id);
     const item = combatStates[id];
     const ready = item.charge >= item.max && item.active === 0;
+    if (id === "magnet_fist") {
+      ctx.globalAlpha = ready ? (0.55 + 0.45 * Math.sin(Date.now() / 200)) : 0.45;
+      ctx.beginPath(); ctx.arc(x, y, ULTI_BTN_R, 0, Math.PI * 2);
+      ctx.fillStyle = item.active > 0 ? "#d8b4fe55" : ready ? "#a855f744" : "#3b174422";
+      ctx.strokeStyle = item.active > 0 ? "#d8b4fecc" : ready ? "#a855f7cc" : "#8855aa66";
+      ctx.lineWidth = 2.5; ctx.fill(); ctx.stroke();
+      if (item.active === 0 && !ready) {
+        ctx.beginPath(); ctx.arc(x, y, ULTI_BTN_R - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * item.charge / item.max);
+        ctx.strokeStyle = "#a855f7"; ctx.lineWidth = 4; ctx.stroke();
+      }
+      ctx.globalAlpha = ready ? 0.95 : 0.55;
+      ctx.fillStyle = ready ? item.color : "#b68acc";
+      ctx.font = `bold ${ready ? 11 : 9}px 'Inter', sans-serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(item.active > 0 ? `${Math.ceil(item.active / 60)}s` : item.label, x, y);
+      continue;
+    }
     ctx.globalAlpha = ready || item.active > 0 ? .95 : .48;
     ctx.beginPath(); ctx.arc(x, y, 38, 0, Math.PI * 2);
     ctx.fillStyle = item.active > 0 ? "#c4b5fd55" : ready ? "#8b5cf644" : "#312e8122";

@@ -1,7 +1,7 @@
 import { applyPlayerDamage, type LifeState } from "./game-rules";
 
 export const EXTRA_ITEMS = [
-  { id: "shadow_dash", name: "Schatten-Dash-Ulti", rarity: "rare", cost: 50_000, desc: "Ausrüstbare Ulti: Ohne Bewegung und ohne Feuerspur, 0,25 Sek. geschützt. Ein Doppelgänger bleibt 10 Sek. stehen und zieht alle Gegnerangriffe auf sich. 6 Sek. Ladezeit; erneut nutzbar, sobald der Doppelgänger verschwindet." },
+  { id: "shadow_dash", name: "Schatten-Dash-Ulti", rarity: "epic", cost: 50_000, desc: "Ausrüstbare Ulti: Ohne Bewegung und ohne Feuerspur, 0,25 Sek. geschützt. Ein Doppelgänger bleibt 10 Sek. stehen und zieht alle Gegnerangriffe auf sich. 6 Sek. Ladezeit; erneut nutzbar, sobald der Doppelgänger verschwindet." },
   { id: "perfect_counter", name: "Konter-Ulti", rarity: "rare", cost: 50_000, desc: "Ausrüstbare Ulti: Konterschild für 0,25 Sek. Ein abgewehrter Treffer lädt die nächste Hauptwaffen-Salve 5 Sek. lang auf 2× Schaden. 4 Sek. Ladezeit." },
   { id: "magnet_fist", name: "Magnetfaust-Ulti", rarity: "epic", cost: 100_000, desc: "Ausrüstbare Ulti: Zieht normale Gegner 1,5 Sek. in die Feuerlinie vor deinem Jet und sammelt nahe Pickups. Bosse sind immun. 10 Sek. Ladezeit." },
   { id: "last_spark", name: "Letzter Funke", rarity: "legendary", cost: 200_000, desc: "Automatisch einmal pro Einsatz: Ein tödlicher Treffer lässt 1 HP übrig. Eine Druckwelle räumt nahe Geschosse ab und verursacht 12 Schaden. Kein zusätzliches Leben; Fortsetzen lädt den Funken nicht neu." },
