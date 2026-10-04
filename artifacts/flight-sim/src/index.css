@@ -15,7 +15,7 @@
   --background: 220 20% 6%;
   --foreground: 210 40% 95%;
   --border: 220 15% 18%;
-  --primary: 200 28% 62%;
+  --primary: 195 80% 55%;
   --primary-foreground: 220 20% 6%;
   --app-font-sans: 'Inter', sans-serif;
   --radius: 0.5rem;
@@ -94,8 +94,8 @@
 
 .pause-primary {
   color: #03101d;
-  background: #8ab0c2;
-  border: 2px solid #b4c9d2;
+  background: #35d7ff;
+  border: 2px solid #8beaff;
 }
 
 .pause-secondary {
@@ -263,8 +263,8 @@ input:focus-visible {
 
 .pilot-level-card {
   min-width: min(360px, calc(100vw - 32px));
-  border: 2px solid #8cabb5;
-  background: linear-gradient(145deg, rgba(31,46,57,.96), rgba(24,30,40,.96));
+  border: 2px solid #a5f3fc;
+  background: linear-gradient(145deg, rgba(8,47,73,.96), rgba(46,16,101,.96));
   box-shadow: inset 0 0 28px #ffffff12;
   animation: pilot-level-card-in 2.8s cubic-bezier(.2,.85,.2,1) both;
 }
@@ -272,7 +272,7 @@ input:focus-visible {
 .pilot-level-wings {
   color: #e0f2fe;
   font-size: 32px;
-  text-shadow: -28px 8px 0 #8cabb5, 28px 8px 0 #a18cb8;
+  text-shadow: -28px 8px 0 #67e8f9, 28px 8px 0 #c084fc;
 }
 
 .pilot-level-number {

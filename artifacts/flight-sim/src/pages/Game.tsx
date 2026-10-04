@@ -375,9 +375,9 @@ const WEAPON_CRATES: readonly WeaponCrateDefinition[] = [
 
 const WEAPON_CRATE_RARITY_COLOR: Record<ShopRarity, string> = {
   rare: "#a8b0ba",
-  epic: "#a18cb8",
-  legendary: "#cfbc7b",
-  ultraLegendary: "#91b7c8",
+  epic: "#b44cff",
+  legendary: "#ffe600",
+  ultraLegendary: "#53d8ff",
   ultimate: "#f8fafc",
 };
 
@@ -559,9 +559,9 @@ function drawWeaponCrate(
 
 const SHOP_RARITIES: Record<ShopRarity, { label: string; color: string; glow: string }> = {
   rare:      { label: "SELTEN",    color: "#a8b0ba", glow: "#d6dbe166" },
-  epic:      { label: "EPISCH",    color: "#a18cb8", glow: "#a18cb888" },
-  legendary: { label: "LEGENDÄR", color: "#cfbc7b", glow: "#cfbc7bcc" },
-  ultraLegendary: { label: "ULTRA LEGENDÄR", color: "#91b7c8", glow: "#799eb8ee" },
+  epic:      { label: "EPISCH",    color: "#b44cff", glow: "#b44cff88" },
+  legendary: { label: "LEGENDÄR", color: "#ffe600", glow: "#ffe600cc" },
+  ultraLegendary: { label: "ULTRA LEGENDÄR", color: "#53d8ff", glow: "#00aaffee" },
   ultimate: { label: "ULTIMATE", color: "#e7edf7", glow: "#cbd5e1ee" },
 } as const;
 const ULTIMATE_GRADIENT = "linear-gradient(90deg, #f8fafc 0%, #67e8f9 22%, #c4b5fd 43%, #f9a8d4 63%, #fde68a 82%, #f8fafc 100%)";
@@ -637,7 +637,7 @@ interface WeaponDefinition {
 }
 
 const WEAPONS: readonly WeaponDefinition[] = [
-  { id: "pulse_cannon", name: "Falke MK-I", icon: "➤", description: "Zuverlässige, präzise Einzelkanone.", rarity: "rare", cost: 0, currency: "credits", pattern: "focused", guns: 1, damage: 2, fireRate: 250, color: "#8ab0c2" },
+  { id: "pulse_cannon", name: "Falke MK-I", icon: "➤", description: "Zuverlässige, präzise Einzelkanone.", rarity: "rare", cost: 0, currency: "credits", pattern: "focused", guns: 1, damage: 2, fireRate: 250, color: "#35d7ff" },
   { id: "twin_fang", name: "Doppelzahn", icon: "ᐅᐅ", description: "Zwei parallele Läufe für konstanten Schaden.", rarity: "rare", cost: 35_000, currency: "credits", pattern: "twin", guns: 2, damage: 2, fireRate: 235, color: "#34d399" },
   { id: "comet_blaster", name: "Kometenblaster", icon: "✧", description: "Leichte Kanone mit hoher Kadenz.", rarity: "rare", cost: 50_000, currency: "credits", pattern: "rapid", guns: 1, damage: 2, fireRate: 150, color: "#38bdf8" },
   { id: "scarab_twins", name: "Skarabäus-Zwillinge", icon: "»", description: "Eng geführtes Doppelfeuer für schnelle Ziele.", rarity: "rare", cost: 65_000, currency: "credits", pattern: "twin", guns: 2, damage: 3, fireRate: 245, color: "#a3e635" },
@@ -865,14 +865,14 @@ const ULTI_LOADOUT_KEY = "fighter-command-ulti-loadout";
 const ULTI_LOADOUT_SLOTS = 3;
 
 const JET_SKINS = [
-  { id: "steel", name: "Aegis", body: "#1a2a4a", stroke: "#2a4a8a", glow: "#7ba8bd", cost: 0, rarity: "rare", ultiName: "Stahlfestung", ultiDesc: "Starker Schutzschild und stark verringerter Schaden." },
+  { id: "steel", name: "Aegis", body: "#1a2a4a", stroke: "#2a4a8a", glow: "#00cfff", cost: 0, rarity: "rare", ultiName: "Stahlfestung", ultiDesc: "Starker Schutzschild und stark verringerter Schaden." },
   { id: "fire", name: "Ignis", body: "#3a1500", stroke: "#8a3a00", glow: "#ff6600", cost: 50000, rarity: "rare", ultiName: "Feuersturm", ultiDesc: "Alle Gegner brennen und erleiden fortlaufend Schaden." },
-  { id: "jade", name: "Viridia", body: "#0a2a1a", stroke: "#1a5a2a", glow: "#81b798", cost: 50000, rarity: "rare", ultiName: "Lebensenergie", ultiDesc: "Heilt sofort 5 HP und aktiviert einen Schutzschild." },
+  { id: "jade", name: "Viridia", body: "#0a2a1a", stroke: "#1a5a2a", glow: "#00ff88", cost: 50000, rarity: "rare", ultiName: "Lebensenergie", ultiDesc: "Heilt sofort 5 HP und aktiviert einen Schutzschild." },
   { id: "gold", name: "Midas", body: "#2a2000", stroke: "#5a4a00", glow: "#ffcc00", cost: 50000, rarity: "rare", ultiName: "Goldrausch", ultiDesc: "Doppelte Punkte und deutlich schnellere Feuerrate." },
   { id: "shadow", name: "Nyx", body: "#0d0d12", stroke: "#2a1a3a", glow: "#aa44ff", cost: 50000, rarity: "rare", ultiName: "Phantomflug", ultiDesc: "Unsichtbar und unverwundbar; endet mit einer Schockwelle." },
   { id: "crimson", name: "Ravena", body: "#2a0a0a", stroke: "#5a1a1a", glow: "#ff2244", cost: 50000, rarity: "rare", ultiName: "Blutrausch", ultiDesc: "Doppelter Schaden und massiv erhöhte Feuerrate." },
   { id: "galaxy", name: "Orion", body: "#06063a", stroke: "#1a1a6a", glow: "#4488ff", cost: 100000, rarity: "epic", ultiName: "Schwarzes Loch", ultiDesc: "Zieht Gegner zur Mitte und beschädigt sie dauerhaft." },
-  { id: "neon", name: "Voltara", body: "#001a10", stroke: "#004422", glow: "#80b5ac", cost: 100000, rarity: "epic", ultiName: "Kettenblitz", ultiDesc: "Blitze springen fortlaufend durch alle Gegner." },
+  { id: "neon", name: "Voltara", body: "#001a10", stroke: "#004422", glow: "#00ffcc", cost: 100000, rarity: "epic", ultiName: "Kettenblitz", ultiDesc: "Blitze springen fortlaufend durch alle Gegner." },
   { id: "arctic", name: "Boreas", body: "#142030", stroke: "#3a6a8a", glow: "#aaddff", cost: 100000, rarity: "epic", ultiName: "Absoluter Nullpunkt", ultiDesc: "Friert Gegner und gegnerische Projektile vollständig ein." },
   { id: "lava", name: "Vulkara", body: "#2a0800", stroke: "#7a2200", glow: "#ff4400", cost: 100000, rarity: "epic", ultiName: "Vulkanausbruch", ultiDesc: "Explosive Lavawellen verursachen hohen Flächenschaden." },
   { id: "xwing", name: "X-Wing", body: "#252528", stroke: "#505060", glow: "#ff2200", cost: 200000, rarity: "legendary", ultiName: "Rebellenangriff", ultiDesc: "Zwei verbündete X-Wings greifen mit dir gemeinsam an." },
@@ -1728,7 +1728,7 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
   }
 
   // Engine glow
-  const glowColors = ["#7ba8bd", "#7ba8bd", "#81b798", "#ff9900", "#ff4444", "#b68aaa"];
+  const glowColors = ["#00cfff", "#00cfff", "#00ff88", "#ff9900", "#ff4444", "#ff00ff"];
   const glow = skin?.glow ?? glowColors[Math.min(tier, glowColors.length - 1)];
   const grad = ctx.createRadialGradient(0, 0, 2, 0, 0, 40);
   grad.addColorStop(0, glow + "55");
@@ -2028,7 +2028,7 @@ function drawCombinedPlayerJet(
     ctx.beginPath(); ctx.arc(2, 0, 18, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
   }
   if (shieldActive) {
-    const color = shieldColor ?? "#8ab0c2";
+    const color = shieldColor ?? "#35d7ff";
     ctx.beginPath(); ctx.arc(0, 0, 38, 0, Math.PI * 2);
     ctx.strokeStyle = color + "aa"; ctx.lineWidth = 2.5; ctx.stroke();
     ctx.fillStyle = color + "12"; ctx.fill();
@@ -3983,7 +3983,7 @@ export default function Game() {
     } else if (level >= 3 && roll < 0.44) {
       type = "plasmawing"; hp = 2 + Math.floor(level / 3); w = 46; h = 34; vx = -rand(2.4, 3.8); pts = 35; color = "#cc55ff";
     } else if (level >= 5 && roll < 0.55) {
-      type = "interceptor"; hp = 1; w = 36; h = 22; vx = -rand(3.5, 5.5); pts = 20; color = "#80b5ac";
+      type = "interceptor"; hp = 1; w = 36; h = 22; vx = -rand(3.5, 5.5); pts = 20; color = "#00ffcc";
     } else if (level >= 4 && roll < 0.68) {
       type = "bomber"; hp = 4 + level; w = 56; h = 40; vx = -rand(0.8, 1.5); pts = 60; color = "#44ff44";
     } else if (level >= 2 && roll < 0.84) {
@@ -7124,7 +7124,7 @@ export default function Game() {
         p.y += p.vy * dtScale;
         if (p.y > CANVAS_H + 20) return false;
         // Draw
-        const colors: Record<PowerUp["type"], string> = { health: "#81b798", shield: "#00ccff", speedboost: "#ff9900", chaos: "#d8b4fe" };
+        const colors: Record<PowerUp["type"], string> = { health: "#00ff88", shield: "#00ccff", speedboost: "#ff9900", chaos: "#d8b4fe" };
         const labels: Record<PowerUp["type"], string> = { health: "+HP", shield: "SHD", speedboost: "2×SPD", chaos: "CHAOS" };
         const c = colors[p.type];
         ctx.save();
@@ -7349,7 +7349,7 @@ export default function Game() {
           }
         }
 
-        ctx.save(); ctx.shadowColor = "#799eb8"; ctx.shadowBlur = 0; ctx.lineCap = "round";
+        ctx.save(); ctx.shadowColor = "#00aaff"; ctx.shadowBlur = 0; ctx.lineCap = "round";
         const flameTime = settingsRef.current.reducedMotion ? 0 : timeRef.current * .22;
         for (const e of targets) {
           const ex = e.x + e.width / 2, ey = e.y + e.height / 2;
@@ -7695,7 +7695,7 @@ export default function Game() {
       // ── Engine exhaust ──
       if (!reducedMotion && particlesRef.current.length < MAX_VISUAL_PARTICLES && Math.random() < 1 - Math.pow(0.6, dtScale)) {
         const tier = WEAPON_TIERS[gs.weaponTier];
-        const glowColors = ["#7ba8bd", "#7ba8bd", "#81b798", "#ff9900", "#ff4444", "#b68aaa"];
+        const glowColors = ["#00cfff", "#00cfff", "#00ff88", "#ff9900", "#ff4444", "#ff00ff"];
         particlesRef.current.push({
           x: playerRef.current.x + 2, y: playerRef.current.y + PLAYER_H / 2 + rand(-4, 4),
           vx: -rand(1, 3), vy: rand(-0.5, 0.5),
@@ -7812,7 +7812,7 @@ export default function Game() {
         waveBannerRef.current.timer = Math.max(0, waveBannerRef.current.timer - dtScale);
         ctx.textAlign = "center";
         ctx.fillStyle = "#ffffff";
-        ctx.shadowColor = "#7ba8bd"; ctx.shadowBlur = 0;
+        ctx.shadowColor = "#00cfff"; ctx.shadowBlur = 0;
         ctx.font = "bold 24px 'Inter', sans-serif";
         ctx.fillText(waveBannerRef.current.text, hudW / 2, hudTop + 125);
       }
@@ -8417,7 +8417,7 @@ export default function Game() {
         )}
         {displayState.started && !displayState.paused && tutorialStage >= 0 && (
           <>
-            <div className="tutorial-card absolute left-1/2 top-20 z-20 w-[min(92%,460px)] -translate-x-1/2 rounded-2xl px-5 py-4 text-center" style={{ background: "rgba(4,12,28,0.96)", border: "1px solid #7ba8bd", boxShadow: "0 3px 8px #0005" }}>
+            <div className="tutorial-card absolute left-1/2 top-20 z-20 w-[min(92%,460px)] -translate-x-1/2 rounded-2xl px-5 py-4 text-center" style={{ background: "rgba(4,12,28,0.96)", border: "1px solid #00cfff", boxShadow: "0 3px 8px #0005" }}>
               <div className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-400">Training {tutorialStage + 1}/3</div>
               <div className="mt-1 text-lg font-black text-white">{tutorialStage === 0 ? translated(language, "Bewege deinen Jet", "Move your jet") : tutorialStage === 1 ? translated(language, "Jetzt schießen", "Now fire") : translated(language, "Bereit für die Mission!", "Ready for the mission!")}</div>
               {tutorialStage === 0 && !showVirtualControls && (
@@ -8842,7 +8842,7 @@ function HangarOverlay({
       {/* ── Top bar ── */}
       <div className="hangar-topbar w-full flex items-start justify-between">
         <div>
-          <div className="font-black text-2xl tracking-widest" style={{ color: "#7ba8bd", textShadow: "none" }}>
+          <div className="font-black text-2xl tracking-widest" style={{ color: "#00cfff", textShadow: "none" }}>
             fighter-game
           </div>
           <div className="text-xs text-slate-400 mt-0.5">{translated(language, "2D Kampfjet-Simulator", "2D fighter jet simulator")}</div>
@@ -8894,7 +8894,7 @@ function HangarOverlay({
           maxLength={20}
           placeholder="Pilot"
           className="flex-1 px-2 py-1 rounded-lg text-sm font-bold text-white outline-none"
-          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid #334466", color: "#7ba8bd" }}
+          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid #334466", color: "#00cfff" }}
         />
       </div>
 
@@ -9056,7 +9056,7 @@ function HangarOverlay({
             <>
               <button onClick={onStart}
                 className="w-full py-2.5 rounded-xl font-bold text-base tracking-widest transition-all active:scale-95"
-                style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #7ba8bd", color: "#7ba8bd", textShadow: "none" }}>
+                style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #00cfff", color: "#00cfff", textShadow: "none" }}>
                 {translated(language, "▶ WEITERSPIELEN", "▶ CONTINUE")}
               </button>
               <button onClick={onNewGame}
@@ -9068,7 +9068,7 @@ function HangarOverlay({
           ) : (
             <button onClick={onStart}
               className="w-full py-3 rounded-xl font-bold text-lg tracking-widest transition-all active:scale-95"
-              style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #7ba8bd", color: "#7ba8bd", textShadow: "none" }}>
+              style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #00cfff", color: "#00cfff", textShadow: "none" }}>
               {translated(language, "▶ START", "▶ START")}
             </button>
           )}
@@ -9106,7 +9106,7 @@ function HangarOverlay({
           style={{ background: "rgba(0,0,0,0.88)" }}>
           <div className="flex flex-col gap-4 rounded-2xl p-6 w-72"
             style={{ background: "#0a0f20", border: "1.5px solid #2244aa" }}>
-            <div className="font-black text-lg tracking-wide" style={{ color: "#7ba8bd" }}>ADMIN PANEL</div>
+            <div className="font-black text-lg tracking-wide" style={{ color: "#00cfff" }}>ADMIN PANEL</div>
             <div className="text-slate-400 text-sm">Pilot: <span className="text-white font-bold">{playerName || "Pilot"}</span></div>
             <div className="text-slate-400 text-sm">Spieler aktiv: <span className="text-emerald-400 font-bold">1 (lokal)</span></div>
             <div className="text-slate-500 text-xs">Admin-Code eingeben:</div>
@@ -9833,7 +9833,7 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
               <div key={entryId} className="overflow-hidden rounded-lg"
                 style={{
                   background: i === 0 ? "rgba(255,204,0,0.12)" : i === 1 ? "rgba(180,180,180,0.10)" : i === 2 ? "rgba(180,90,0,0.10)" : "rgba(255,255,255,0.04)",
-                  border: `1px solid ${expanded ? "#7ba8bd88" : i === 0 ? "#ffcc0040" : i < 3 ? "#33445540" : "#1a2a3a"}`,
+                  border: `1px solid ${expanded ? "#00cfff88" : i === 0 ? "#ffcc0040" : i < 3 ? "#33445540" : "#1a2a3a"}`,
                 }}>
                 <div className="flex items-center">
                   <button
@@ -9847,7 +9847,7 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
                       {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color: i < 3 ? "#e0f0ff" : "#8899bb" }}>{e.name}</span>
-                    <span className="text-sm font-black tabular-nums" style={{ color: i === 0 ? "#ffcc00" : "#7ba8bd" }}>{e.score.toLocaleString("de-DE")}</span>
+                    <span className="text-sm font-black tabular-nums" style={{ color: i === 0 ? "#ffcc00" : "#00cfff" }}>{e.score.toLocaleString("de-DE")}</span>
                     <span aria-hidden="true" className={`ml-1 text-xs text-cyan-400 transition-transform ${expanded ? "rotate-180" : ""}`}>▼</span>
                   </button>
                   <button type="button" onClick={() => requestDelete(i)} aria-label={`Eintrag von ${e.name} löschen`}
@@ -10059,7 +10059,7 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
           maxLength={20}
           placeholder="Pilot"
           className="flex-1 px-2 py-1.5 rounded-lg text-sm font-bold outline-none"
-          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid #334466", color: "#7ba8bd" }}
+          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid #334466", color: "#00cfff" }}
         />
       </div>
       <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Shop</div>
@@ -10313,7 +10313,7 @@ function drawVirtualControls(
     }
     ctx.beginPath();
     ctx.arc(knobX, knobY, JOY_KNOB_R, 0, Math.PI * 2);
-    ctx.fillStyle = js.active ? "#7ba8bd99" : "#ffffff44";
+    ctx.fillStyle = js.active ? "#00cfff99" : "#ffffff44";
     ctx.fill();
     ctx.strokeStyle = "#ffffff66";
     ctx.lineWidth = 1.5;
@@ -10347,8 +10347,8 @@ function drawVirtualControls(
   ctx.globalAlpha = ultiGlow;
   ctx.beginPath();
   ctx.arc(ultiX, ultiY, ULTI_BTN_R, 0, Math.PI * 2);
-  ctx.fillStyle   = ultimaActive > 0 ? "#b68aaa55" : ultiReady ? "#cc00ff44" : "#44004422";
-  ctx.strokeStyle = ultimaActive > 0 ? "#b68aaacc" : ultiReady ? "#cc00ffcc" : "#88008866";
+  ctx.fillStyle   = ultimaActive > 0 ? "#ff00ff55" : ultiReady ? "#cc00ff44" : "#44004422";
+  ctx.strokeStyle = ultimaActive > 0 ? "#ff00ffcc" : ultiReady ? "#cc00ffcc" : "#88008866";
   ctx.lineWidth = 2.5;
   ctx.fill(); ctx.stroke();
 
@@ -10363,7 +10363,7 @@ function drawVirtualControls(
   }
 
   ctx.globalAlpha = ultiReady ? 0.95 : 0.55;
-  ctx.fillStyle = ultiReady ? "#b68aaa" : "#cc88cc";
+  ctx.fillStyle = ultiReady ? "#ff00ff" : "#cc88cc";
   ctx.font = `bold ${ultiReady ? 12 : 10}px 'Inter', sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -10567,7 +10567,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     ctx.fillStyle = "rgba(4,10,24,0.78)";
     ctx.fillRect(0, 0, viewW, 136);
     ctx.textAlign = "left";
-    ctx.fillStyle = "#7ba8bd"; ctx.font = "bold 13px 'Inter', sans-serif"; ctx.fillText("SCORE", 14, 8);
+    ctx.fillStyle = "#00cfff"; ctx.font = "bold 13px 'Inter', sans-serif"; ctx.fillText("SCORE", 14, 8);
     ctx.fillStyle = "#fff"; ctx.font = "bold 21px 'Inter', sans-serif"; ctx.fillText(String(gs.score), 14, 25);
     ctx.fillStyle = "#ffaa00"; ctx.font = "10px 'Inter', sans-serif"; ctx.fillText(`BEST ${bestScore.toLocaleString("de-DE")}`, 14, 52);
     ctx.fillStyle = "#67e8f9"; ctx.fillText(`PILOT ${pilotLevel}`, 14, 67);
@@ -10613,7 +10613,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ctx.fillRect(0, 0, CANVAS_W, 86);
 
   // Score
-  ctx.fillStyle = "#7ba8bd";
+  ctx.fillStyle = "#00cfff";
   ctx.font = "bold 18px 'Inter', sans-serif";
   ctx.textAlign = "left";
   ctx.fillText(`SCORE`, 16, 6);
@@ -10635,7 +10635,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   ctx.fillStyle = "#222";
   ctx.fillRect(barX, barY, barW, barH);
   const xpGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
-  xpGrad.addColorStop(0, "#7ba8bd");
+  xpGrad.addColorStop(0, "#00cfff");
   xpGrad.addColorStop(1, "#7700ff");
   ctx.fillStyle = xpGrad;
   ctx.fillRect(barX, barY, barW * pct, barH);
@@ -10728,7 +10728,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     activeColors: [string, string]; chargeColors: [string, string]; color: string;
   }> = {
     ...combatUltiStates(combatExtras),
-    jet: { label: "JET ULTI", key: "Q", charge: ultimaCharge, max: ULTI_MAX, active: ultimaActive, duration: ULTI_DURATION, activeColors: ["#b68aaa","#8800ff"], chargeColors: ["#6600bb","#cc00ff"], color: "#ff44ff" },
+    jet: { label: "JET ULTI", key: "Q", charge: ultimaCharge, max: ULTI_MAX, active: ultimaActive, duration: ULTI_DURATION, activeColors: ["#ff00ff","#8800ff"], chargeColors: ["#6600bb","#cc00ff"], color: "#ff44ff" },
     laser: { label: "LASER", key: "E", charge: laserCharge, max: LASER_MAX, active: laserActive, duration: LASER_DURATION * (unlocks.includes("laser_upgrade") ? 1.25 : 1), activeColors: ["#ff8800","#ffdd00"], chargeColors: ["#cc4400","#ff8800"], color: "#ffaa22" },
     stealth_ulti: { label: "STEALTH", key: "R", charge: stealthCharge, max: STEALTH_MAX, active: stealthActive, duration: STEALTH_DURATION, activeColors: ["#00ffee","#0088ff"], chargeColors: ["#004488","#00aacc"], color: "#00ddcc" },
     heal_ulti: { label: "HEAL", key: "H", charge: healCharge, max: HEAL_MAX, active: healActive, duration: HEAL_DURATION, activeColors: ["#ff6699","#ff0044"], chargeColors: ["#aa2233","#ff3366"], color: "#ff4466" },
