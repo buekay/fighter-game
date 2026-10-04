@@ -431,3 +431,13 @@ for (const damage of [0.2, 0.5, 1, 3, 10, 25]) {
 }
 assert.equal(getEnemyDamage(0, 50), 0);
 assert.equal(getEnemyDamage(10, 26), 20);
+
+for (const mode of ["classic", "protect", "boss_fight"] as const) {
+  const player = { x: 100, y: 200, width: 40, height: 20 };
+  const objective = { x: 20, y: 80, width: 60, height: 30 };
+  const decoy = { x: 300, y: 150, width: 40, height: 20 };
+  assert.deepEqual(getEnemyAttackTarget(mode, player, objective, decoy), { x: 320, y: 160 },
+    "shadow decoy takes priority over player and protect objective");
+  assert.deepEqual(getEnemyAttackTarget(mode, player, objective, null),
+    getEnemyAttackTarget(mode, player, objective), "normal target resumes when decoy expires");
+}

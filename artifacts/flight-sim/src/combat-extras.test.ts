@@ -1,6 +1,6 @@
 import { getNextHangarAfterDamage } from "./game-rules";
 import assert from "node:assert/strict";
-import { activateExtra, combatUltiStates, isCombatUlti, applyExtraDamage, blockWithExtra, collectChaos, consumeCounter, createCombatExtras, distanceToTrail, EXTRA_ITEMS, hasExtraFire, getMagnetTarget, magnetStep, tickCombatExtras } from "./combat-extras";
+import { activateExtra, createShadowDecoy, combatUltiStates, isCombatUlti, applyExtraDamage, blockWithExtra, collectChaos, consumeCounter, createCombatExtras, distanceToTrail, EXTRA_ITEMS, hasExtraFire, getMagnetTarget, magnetStep, tickCombatExtras } from "./combat-extras";
 
 const owned = EXTRA_ITEMS.map(item => item.id);
 assert.equal(activateExtra(createCombatExtras(), "shadow_dash", owned, []), false, "owned but unequipped ultimate cannot activate");
@@ -94,3 +94,17 @@ const firstHit = applyExtraDamage(hangarRescue, life, 100, true, origin);
 assert.equal(getNextHangarAfterDamage(life, firstHit, 0, 3), null, "rescue must preserve current aircraft");
 const secondHit = applyExtraDamage(hangarRescue, firstHit, 100, true, origin);
 assert.equal(getNextHangarAfterDamage(firstHit, secondHit, 0, 3), 1, "real life loss must deploy next hangar");
+
+for (const hz of [30, 60, 120]) {
+  const shadow = createCombatExtras();
+  const player = { ...origin };
+  shadow.decoy = createShadowDecoy(player);
+  player.x += 200;
+  assert.equal(shadow.decoy.x, origin.x, "decoy stays at activation position as player moves");
+  assert.equal(combatUltiStates(shadow).shadow_dash.duration, 600);
+  assert.equal(activateExtra(shadow, "shadow_dash", owned, owned), false, "active decoy cannot be replaced early");
+  for (let i = 0; i < hz * 10 - 1; i++) tickCombatExtras(shadow, 60 / hz);
+  assert.ok(shadow.decoy, "decoy remains for the full ten seconds");
+  tickCombatExtras(shadow, 60 / hz);
+  assert.equal(shadow.decoy, null, "decoy expires after ten seconds at every frame rate");
+}

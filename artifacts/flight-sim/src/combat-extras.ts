@@ -1,12 +1,12 @@
 import { applyPlayerDamage, type LifeState } from "./game-rules";
 
 export const EXTRA_ITEMS = [
-  { id: "shadow_dash", name: "Schatten-Dash-Ulti", rarity: "rare", cost: 50_000, desc: "Ausrüstbare Ulti: 140 px in Flugrichtung ausweichen, 0,25 Sek. geschützt. Ein Doppelgänger lenkt 1,5 Sek. Beschuss ab. 6 Sek. Ladezeit. Mit Feuerkern, Chaos-Feuer oder aktiver Feuer-Ulti: brennende Spur." },
+  { id: "shadow_dash", name: "Schatten-Dash-Ulti", rarity: "rare", cost: 50_000, desc: "Ausrüstbare Ulti: Ohne Bewegung und ohne Feuerspur, 0,25 Sek. geschützt. Ein Doppelgänger bleibt 10 Sek. stehen und zieht alle Gegnerangriffe auf sich. 6 Sek. Ladezeit; erneut nutzbar, sobald der Doppelgänger verschwindet." },
   { id: "perfect_counter", name: "Konter-Ulti", rarity: "rare", cost: 50_000, desc: "Ausrüstbare Ulti: Konterschild für 0,25 Sek. Ein abgewehrter Treffer lädt die nächste Hauptwaffen-Salve 5 Sek. lang auf 2× Schaden. 4 Sek. Ladezeit." },
-  { id: "magnet_fist", name: "Magnetfaust-Ulti", rarity: "epic", cost: 100_000, desc: "Ausrüstbare Ulti: Zieht normale Gegner 1,5 Sek. in die Feuerlinie vor deinem Jet und sammelt nahe Pickups. Bosse sind immun. 10 Sek. Ladezeit. Eine aktive Brandspur wird zum Sogziel." },
+  { id: "magnet_fist", name: "Magnetfaust-Ulti", rarity: "epic", cost: 100_000, desc: "Ausrüstbare Ulti: Zieht normale Gegner 1,5 Sek. in die Feuerlinie vor deinem Jet und sammelt nahe Pickups. Bosse sind immun. 10 Sek. Ladezeit." },
   { id: "last_spark", name: "Letzter Funke", rarity: "legendary", cost: 200_000, desc: "Automatisch einmal pro Einsatz: Ein tödlicher Treffer lässt 1 HP übrig. Eine Druckwelle räumt nahe Geschosse ab und verursacht 12 Schaden. Kein zusätzliches Leben; Fortsetzen lädt den Funken nicht neu." },
   { id: "chaos_pickup", name: "Chaos-Pickup", rarity: "rare", cost: 50_000, desc: "Jeder 15. Abschuss hinterlässt ein CHAOS-Pickup. Einsammeln verleiht zufällig 8 Sek. Schnellfeuer, Feuerkraft oder Magnetfeld. Neue Pickups ersetzen den Effekt. Funktioniert auch mit Ulti-Abschüssen." },
-  { id: "fire_core", name: "Feuerkern", rarity: "epic", cost: 100_000, desc: "Dauerhaft +15 % Hauptwaffen-Schaden. Mit Schatten-Dash entsteht für 2 Sek. eine Brandspur (8 Schaden/Sek.). Mit Magnetfaust lassen sich normale Gegner hineinziehen." },
+  { id: "fire_core", name: "Feuerkern", rarity: "epic", cost: 100_000, desc: "Dauerhaft +15 % Hauptwaffen-Schaden." },
 ] as const;
 export type ExtraAction = "shadow_dash" | "perfect_counter" | "magnet_fist";
 export const EXTRA_ACTIONS: readonly ExtraAction[] = ["shadow_dash", "perfect_counter", "magnet_fist"];
@@ -16,6 +16,10 @@ export function isCombatUlti(id: string): id is ExtraAction {
 export const COMBAT_ULTI_RECHARGE: Record<ExtraAction, number> = {
   shadow_dash: 360, perfect_counter: 240, magnet_fist: 600,
 };
+export const SHADOW_DECOY_DURATION = 10 * 60;
+export function createShadowDecoy(position: Point): Point & { life: number } {
+  return { ...position, life: SHADOW_DECOY_DURATION };
+}
 export type ChaosEffect = "rapid" | "fire" | "magnet";
 export const CHAOS_LABELS: Record<ChaosEffect, string> = { rapid: "SCHNELLFEUER", fire: "FEUERKRAFT", magnet: "MAGNETFELD" };
 export interface Point { x: number; y: number }
@@ -50,6 +54,7 @@ export function tickCombatExtras(state: CombatExtras, frames: number, rechargeMu
   }
 }
 export function activateExtra(state: CombatExtras, action: ExtraAction, owned: readonly string[], loadout: readonly string[]): boolean {
+  if (action === "shadow_dash" && state.decoy) return false;
   if (!loadout.includes(action) || !owned.includes(action) || state.cooldowns[action] > 0) return false;
   if (action === "shadow_dash") { state.cooldowns[action] = COMBAT_ULTI_RECHARGE[action]; state.dashProtection = 15; }
   if (action === "perfect_counter") { state.cooldowns[action] = COMBAT_ULTI_RECHARGE[action]; state.parry = 15; }
@@ -111,7 +116,7 @@ export function combatUltiStates(state: CombatExtras) {
     chargeColors: ["#312e81", color] as [string, string],
   });
   return {
-    shadow_dash: entry("shadow_dash", "DASH", state.decoy?.life ?? 0, 90, "#c4b5fd"),
+    shadow_dash: entry("shadow_dash", "DASH", state.decoy?.life ?? 0, SHADOW_DECOY_DURATION, "#c4b5fd"),
     perfect_counter: entry("perfect_counter", "KONTER", state.parry, 15, "#67e8f9"),
     magnet_fist: entry("magnet_fist", "MAGNET", state.magnet, 90, "#d8b4fe"),
   };

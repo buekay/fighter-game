@@ -1,5 +1,5 @@
 import { drawCombatExtras } from "../rendering/combat-extras";
-import { EXTRA_ITEMS, EXTRA_ACTIONS, isCombatUlti, combatUltiStates, type CombatExtras, CHAOS_LABELS, createCombatExtras, tickCombatExtras, activateExtra, blockWithExtra, consumeCounter, applyExtraDamage, collectChaos, hasExtraFire, getMagnetTarget, magnetStep, distanceToTrail, type ExtraAction } from "../combat-extras";
+import { EXTRA_ITEMS, EXTRA_ACTIONS, isCombatUlti, combatUltiStates, type CombatExtras, CHAOS_LABELS, createCombatExtras, tickCombatExtras, activateExtra, blockWithExtra, consumeCounter, applyExtraDamage, collectChaos, createShadowDecoy, getMagnetTarget, magnetStep, distanceToTrail, type ExtraAction } from "../combat-extras";
 import { drawSkyFlame } from "../rendering/sky-fire";
 import { LevelMap } from "../components/LevelMap";
 import { advanceMission, createMission, missionProgress } from "../missions";
@@ -4751,20 +4751,10 @@ export default function Game() {
     if (!activateExtra(extra, action, activeUnlocksRef.current, activeUltiLoadoutRef.current)) return false;
     const p = playerRef.current;
     if (action === "shadow_dash") {
-      const from = { x: p.x + PLAYER_W / 2, y: p.y + PLAYER_H / 2 };
-      extra.decoy = { x: p.x, y: p.y, life: 90 };
-      const vector = flightVectorRef.current;
-      const length = Math.hypot(vector.x, vector.y) || 1;
-      p.x = clamp(p.x + vector.x / length * 140, 0, CANVAS_W - PLAYER_W);
-      p.y = clamp(p.y + vector.y / length * 140, 0, CANVAS_H - PLAYER_H);
-      const fireUlti = ultimaActiveRef.current > 0 && [...getAircraftUltiIds(hybridActiveRef.current,
-        aircraftBuildRef.current, activeUltiSkinRef.current)].some(id => ["lava", "solaris", "xwing", "ultimate"].includes(id));
-      if (hasExtraFire(extra, activeUnlocksRef.current) || fireUlti || activeWeaponsRef.current.some(w => w.id === "fire_sword")) {
-        extra.trail = { from, to: { x: p.x + PLAYER_W / 2, y: p.y + PLAYER_H / 2 }, life: 120, tick: 0 };
-      }
+      extra.decoy = createShadowDecoy(p);
     }
     floatingTextsRef.current.push({ x: p.x + PLAYER_W / 2, y: p.y - 12,
-      text: action === "shadow_dash" ? (extra.trail ? "FEUER-DASH" : "SCHATTEN-DASH") : action === "perfect_counter" ? "KONTERFENSTER" : "TRAKTORIMPULS",
+      text: action === "shadow_dash" ? "SCHATTEN-DASH" : action === "perfect_counter" ? "KONTERFENSTER" : "TRAKTORIMPULS",
       color: "#c4b5fd", life: 50, maxLife: 50 });
     audioRef.current.effect("upgrade", settingsRef.current.soundVolume * .6);
     syncDisplay();
@@ -5398,7 +5388,9 @@ export default function Game() {
         }
         return applyPlayerHitProtection(state);
       };
-      const decoyAimBounds = { ...(extra.decoy ?? playerRef.current), width: PLAYER_W, height: PLAYER_H };
+      const decoyAimBounds = { ...playerRef.current, width: PLAYER_W, height: PLAYER_H };
+      const shadowTarget = extra.decoy ? { ...extra.decoy, width: PLAYER_W, height: PLAYER_H } : null;
+      const enemyAimBounds = shadowTarget ?? decoyAimBounds;
 
       // ── Input & Player Movement ──
       const aircraftUltiIds = getAircraftUltiIds(hybridActiveRef.current, aircraftBuildRef.current, activeUltiSkinRef.current);
@@ -5833,7 +5825,7 @@ export default function Game() {
           const { x: tx, y: ty } = getEnemyAttackTarget(
             activeModeRef.current,
             decoyAimBounds,
-            { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
+            { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT }, shadowTarget
           );
           const ang = Math.atan2(ty - b.y, tx - b.x);
           const steer = 1 - Math.pow(1 - 0.06, dtScale);
@@ -6024,7 +6016,7 @@ export default function Game() {
           .map(e => ({ x: e.x, y: e.y + e.height / 2 }));
         const target = getEnemyAttackTarget(activeModeRef.current,
           decoyAimBounds,
-          { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT });
+          { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT }, shadowTarget);
         const maxHp = special.kind === "city" ? 9000 : leader.maxHp;
         const ratio = specialBosses.reduce((total, e) => total + e.hp, 0) / maxHp;
         const shots = advanceBossSpecial(special, dtScale, liveMounts, target, ratio,
@@ -6113,15 +6105,15 @@ export default function Game() {
                 e.titanDashTimer = 180;
                 e.titanDashHomeX = e.x;
                 e.titanDashHomeY = e.y;
-                e.titanDashStageX = clamp(playerRef.current.x + 245, CANVAS_W * .45, CANVAS_W - e.width - 12);
-                e.titanDashTargetX = Math.max(-e.width - 15, playerRef.current.x - e.width - 40);
-                e.titanDashTargetY ??= clamp(playerRef.current.y + PLAYER_H / 2 - e.height / 2, 0, CANVAS_H - e.height);
+                e.titanDashStageX = clamp(enemyAimBounds.x + 245, CANVAS_W * .45, CANVAS_W - e.width - 12);
+                e.titanDashTargetX = Math.max(-e.width - 15, enemyAimBounds.x - e.width - 40);
+                e.titanDashTargetY ??= clamp(enemyAimBounds.y + PLAYER_H / 2 - e.height / 2, 0, CANVAS_H - e.height);
                 e.titanShieldTimer = Math.max(e.titanShieldTimer ?? 0, 180);
               }
             } else if ((e.titanDashTimer ?? 0) <= 0) {
               if (e.titanDashCooldown <= 0) {
                 e.titanDashCooldown = TITAN_DASH_COOLDOWN;
-                e.titanDashTargetY = clamp(playerRef.current.y + PLAYER_H / 2 - e.height / 2, 28, CANVAS_H - e.height - 28);
+                e.titanDashTargetY = clamp(enemyAimBounds.y + PLAYER_H / 2 - e.height / 2, 28, CANVAS_H - e.height - 28);
                 e.vx = 0; e.vy = 0;
                 e.titanDashWarningTimer = TITAN_DASH_WARNING_DURATION;
                 e.titanLaserDamageTimer = TITAN_LASER_DAMAGE_INTERVAL;
@@ -6278,14 +6270,14 @@ export default function Game() {
             }
           }
           if (e.archetype === "kamikaze" && !e.trackPlayerRam &&
-              e.x < CANVAS_W * .78 && Math.abs((e.y + e.height / 2) - (playerRef.current.y + PLAYER_H / 2)) < 170) {
+              e.x < CANVAS_W * .78 && Math.abs((e.y + e.height / 2) - (enemyAimBounds.y + PLAYER_H / 2)) < 170) {
             e.trackPlayerRam = true;
             waveBannerRef.current = { text: "⚠ KAMIKAZE IM ANFLUG", timer: 55 };
             audioRef.current.tone(190, .12, settingsRef.current.soundVolume * .4, "sawtooth");
           }
           if (e.trackPlayerRam) {
-            const dx = playerRef.current.x + PLAYER_W / 2 - (e.x + e.width / 2);
-            const dy = playerRef.current.y + PLAYER_H / 2 - (e.y + e.height / 2);
+            const dx = enemyAimBounds.x + PLAYER_W / 2 - (e.x + e.width / 2);
+            const dy = enemyAimBounds.y + PLAYER_H / 2 - (e.y + e.height / 2);
             const distance = Math.max(1, Math.hypot(dx, dy));
             e.vx = dx / distance * 13;
             e.vy = dy / distance * 13;
@@ -6328,7 +6320,7 @@ export default function Game() {
               const homeX = e.titanDashHomeX ?? e.x;
               const homeY = e.titanDashHomeY ?? e.y;
               const stageX = e.titanDashStageX ?? homeX;
-              const strikeX = e.titanDashTargetX ?? playerRef.current.x - e.width;
+              const strikeX = e.titanDashTargetX ?? enemyAimBounds.x - e.width;
               const targetY = e.titanDashTargetY ?? e.y;
               if (remaining > 120) {
                 const progress = (180 - remaining) / 60;
@@ -6354,7 +6346,7 @@ export default function Game() {
               } else {
                 const target = getEnemyAttackTarget(activeModeRef.current,
                   decoyAimBounds,
-                  { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT });
+                  { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT }, shadowTarget);
                 const measured = (target.y - (e.bossTrackedTargetY ?? target.y)) / Math.max(dtScale, .25);
                 e.bossTargetVelocityY = (e.bossTargetVelocityY ?? 0) * .85 + measured * .15;
                 e.bossTrackedTargetY = target.y;
@@ -6369,7 +6361,7 @@ export default function Game() {
               const attackTarget = getEnemyAttackTarget(
                 activeModeRef.current,
                 decoyAimBounds,
-                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
+                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT }, shadowTarget
               );
               const previousTargetY = e.bossTrackedTargetY ?? attackTarget.y;
               const measuredVelocity = (attackTarget.y - previousTargetY) / Math.max(dtScale, .25);
@@ -6450,7 +6442,7 @@ export default function Game() {
                 const { x: px, y: py } = getEnemyAttackTarget(
                   activeModeRef.current,
                   decoyAimBounds,
-                  { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
+                  { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT }, shadowTarget
                 );
                 const originX = e.x + 12;
                 const originY = e.y + e.height / 2;
@@ -6511,7 +6503,7 @@ export default function Game() {
             if (e.bossGunCooldown <= 0) {
               const target = getEnemyAttackTarget(activeModeRef.current,
                 decoyAimBounds,
-                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT });
+                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT }, shadowTarget);
               const shots = createBossGunfire(e.encounterKind,
                 { x: e.x, y: e.y + e.height / 2 }, target, e.bossGunVolley ?? 0);
               bulletsRef.current.push(...shots.map(shot => ({ ...shot, sourceEnemy: e })));
@@ -6533,7 +6525,9 @@ export default function Game() {
               const flame = weapon === "flame";
               const count = flame ? 5 : weapon === "web" ? 9 : weapon === "rocket" ? 2 : 3;
               e.shootCooldown = (flame ? 7 : weapon === "rocket" ? 120 : weapon === "web" ? 65 : 85) / (1 + (bossPhase - 1) * .2);
-              const aim = Math.atan2(playerRef.current.y + PLAYER_H / 2 - (e.y + e.height / 2), playerRef.current.x + PLAYER_W / 2 - e.x);
+              const target = getEnemyAttackTarget(activeModeRef.current, decoyAimBounds,
+                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT }, shadowTarget);
+              const aim = Math.atan2(target.y - (e.y + e.height / 2), target.x - e.x);
               for (let shot = 0; shot < count; shot++) {
                 const angle = aim + (shot - (count - 1) / 2) * (flame ? .10 : weapon === "web" ? .18 : .13);
                 const speed = flame ? 7 : weapon === "cannon" ? 6 : 3.8;
@@ -6550,7 +6544,7 @@ export default function Game() {
               const { x: px, y: py } = getEnemyAttackTarget(
                 activeModeRef.current,
                 decoyAimBounds,
-                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
+                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT }, shadowTarget
               );
               const dx = px - e.x; const dy = py - (e.y + e.height / 2);
               const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
@@ -6570,10 +6564,10 @@ export default function Game() {
                 ? getEnemyAttackTarget(
                     activeModeRef.current,
                     decoyAimBounds,
-                    { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT },
+                    { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT }, shadowTarget
                   )
                 : null;
-              const predictedTargetY = tacticalTarget && (e.type === "overlord" || e.type === "titan")
+              const predictedTargetY = tacticalTarget && !shadowTarget && (e.type === "overlord" || e.type === "titan")
                 ? clamp(tacticalTarget.y + (e.bossTargetVelocityY ?? 0) * 16, 0, CANVAS_H)
                 : tacticalTarget?.y;
               const aim = tacticalTarget
@@ -10209,18 +10203,19 @@ function drawVirtualControls(
     if (!ultiLoadout.includes(id) || !unlocks.includes(id)) continue;
     const [x, y] = position(id);
     const item = combatStates[id];
-    const ready = item.charge >= item.max;
+    const ready = item.charge >= item.max && item.active === 0;
     ctx.globalAlpha = ready || item.active > 0 ? .95 : .48;
     ctx.beginPath(); ctx.arc(x, y, 38, 0, Math.PI * 2);
-    ctx.fillStyle = "#312e8166"; ctx.strokeStyle = item.color; ctx.lineWidth = 2.5;
+    ctx.fillStyle = item.active > 0 ? "#c4b5fd55" : ready ? "#8b5cf644" : "#312e8122";
+    ctx.strokeStyle = ready || item.active > 0 ? item.color : "#78699b66"; ctx.lineWidth = 2.5;
     ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.arc(x, y, 34, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * item.charge / item.max);
-    ctx.lineWidth = 4; ctx.stroke();
+    if (item.active === 0 && !ready) {
+      ctx.beginPath(); ctx.arc(x, y, 34, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * item.charge / item.max);
+      ctx.lineWidth = 4; ctx.stroke();
+    }
     ctx.fillStyle = item.color; ctx.font = "bold 11px Inter, sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(item.label, x, y - 6);
-    ctx.font = "9px Inter, sans-serif";
-    ctx.fillText(item.active > 0 ? "AKTIV" : ready ? "BEREIT" : `${Math.ceil((item.max - item.charge) / 60)} s`, x, y + 10);
+    ctx.fillText(item.active > 0 ? `${Math.ceil(item.active / 60)}s` : item.label, x, y);
   }
 
   if (showJoystick) {

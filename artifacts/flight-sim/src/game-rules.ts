@@ -122,8 +122,9 @@ export function getEnemyAttackTarget(
   mode: GameMode,
   player: AttackTargetBounds,
   protectObjective: AttackTargetBounds,
+  decoy?: AttackTargetBounds | null,
 ): { x: number; y: number } {
-  const target = mode === "protect" ? protectObjective : player;
+  const target = decoy ?? (mode === "protect" ? protectObjective : player);
   return {
     x: target.x + target.width / 2,
     y: target.y + target.height / 2,
