@@ -9830,24 +9830,24 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
                   border: `1px solid ${expanded ? "#00cfff88" : i === 0 ? "#ffcc0040" : i < 3 ? "#33445540" : "#1a2a3a"}`,
                 }}>
                 <div className="flex items-center">
-                <button
-                  type="button"
-                  aria-expanded={expanded}
-                  aria-controls={detailsId}
-                  onClick={() => setExpandedEntry(expanded ? null : entryId)}
-                  className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left transition hover:bg-white/5"
-                >
-                  <span className="w-6 text-center text-xs font-black" style={{ color: i === 0 ? "#ffcc00" : i === 1 ? "#aabbcc" : i === 2 ? "#cc8844" : "#446677" }}>
-                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color: i < 3 ? "#e0f0ff" : "#8899bb" }}>{e.name}</span>
-                  <span className="text-sm font-black tabular-nums" style={{ color: i === 0 ? "#ffcc00" : "#00cfff" }}>{e.score.toLocaleString("de-DE")}</span>
-                  <span aria-hidden="true" className={`ml-1 text-xs text-cyan-400 transition-transform ${expanded ? "rotate-180" : ""}`}>▼</span>
-                </button>
-                <button type="button" onClick={() => requestDelete(i)} aria-label={`Eintrag von ${e.name} löschen`}
-                  className="mr-2 min-h-11 shrink-0 rounded-lg px-2 text-xs font-bold text-red-300 hover:bg-red-900/40">
-                  Löschen
-                </button>
+                  <button
+                    type="button"
+                    aria-expanded={expanded}
+                    aria-controls={detailsId}
+                    onClick={() => setExpandedEntry(expanded ? null : entryId)}
+                    className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left transition hover:bg-white/5"
+                  >
+                    <span className="w-6 text-center text-xs font-black" style={{ color: i === 0 ? "#ffcc00" : i === 1 ? "#aabbcc" : i === 2 ? "#cc8844" : "#446677" }}>
+                      {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color: i < 3 ? "#e0f0ff" : "#8899bb" }}>{e.name}</span>
+                    <span className="text-sm font-black tabular-nums" style={{ color: i === 0 ? "#ffcc00" : "#00cfff" }}>{e.score.toLocaleString("de-DE")}</span>
+                    <span aria-hidden="true" className={`ml-1 text-xs text-cyan-400 transition-transform ${expanded ? "rotate-180" : ""}`}>▼</span>
+                  </button>
+                  <button type="button" onClick={() => requestDelete(i)} aria-label={`Eintrag von ${e.name} löschen`}
+                    className="mr-2 min-h-11 shrink-0 rounded-lg px-2 text-xs font-bold text-red-300 hover:bg-red-900/40">
+                    Löschen
+                  </button>
                 </div>
                 {expanded && (
                   <div id={detailsId} className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-cyan-900/70 px-4 py-3 text-xs sm:grid-cols-4">
