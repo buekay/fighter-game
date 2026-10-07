@@ -3666,6 +3666,8 @@ export default function Game() {
   const language = settings.language;
   const [pauseView, setPauseView] = useState<"menu" | "settings">("menu");
   const [tutorialStage, setTutorialStage] = useState(-1);
+  const [introOpen, setIntroOpen] = useState(true);
+  const introOpenRef = useRef(true);
   const [showVirtualControls, setShowVirtualControls] = useState(false);
   const [isPortraitPhone, setIsPortraitPhone] = useState(false);
   const isPortraitPhoneRef = useRef(false);
@@ -4901,6 +4903,8 @@ export default function Game() {
       // game (for example, typing "n" in the pilot-name input used to start a
       // new mission and clear the current checkpoint).
       if (isMenuControl) return;
+      // The opening guide must be acknowledged before hangar shortcuts work.
+      if (introOpenRef.current) return;
       if (!stateRef.current.started && e.code === "Escape") { setMapOpen(false); return; }
       keysRef.current.add(e.key);
       keysRef.current.add(e.code);
@@ -8251,7 +8255,7 @@ export default function Game() {
     <div
       ref={shellRef}
       className={`game-shell flex flex-col items-center justify-center w-full bg-[#08080e] select-none ${settings.highContrast ? "high-contrast" : ""} ${settings.reducedMotion ? "reduced-motion" : ""}`}
-      style={{ touchAction: mapOpen ? "pan-y" : "none" }}
+      style={{ touchAction: mapOpen || introOpen ? "pan-y" : "none" }}
     >
       <div className={`game-frame ${mapOpen ? "campaign-frame" : ""} ${settings.flightDirection === "up" ? "flight-up" : ""} relative rounded overflow-hidden shadow-lg`}
         style={{ border: "1px solid rgba(0,207,255,0.15)" }}>
@@ -8362,7 +8366,17 @@ export default function Game() {
             </button>
           </div>
         )}
-        {!displayState.started && !mapOpen && (
+        {introOpen && (
+          <div className="hangar-layer absolute inset-0 z-30 overflow-hidden" style={{ background: "rgba(4,12,28,0.98)" }}>
+            <BriefingScreen settings={settings} onDone={() => {
+              markBriefingSeen();
+              introOpenRef.current = false;
+              setIntroOpen(false);
+              canvasRef.current?.focus({ preventScroll: true });
+            }} />
+          </div>
+        )}
+        {!introOpen && !displayState.started && !mapOpen && (
           <HangarOverlay
             hangarSlots={hangarSlots}
             activeHangar={activeHangar}
@@ -9928,6 +9942,10 @@ function AchievementsScreen({ unlocked, onBack }: { unlocked: string[]; onBack: 
 
 function BriefingScreen({ settings, onDone }: { settings: GameSettings; onDone: () => void }) {
   const language = settings.language;
+  const briefingRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    briefingRef.current?.focus({ preventScroll: true });
+  }, []);
   const sections = language === "de" ? [
     { icon: "①", title: "Im Hangar vorbereiten", text: "Öffne im Shop den Bereich Baukasten, um Flugzeug und Drohne zusammenzustellen. Dort kannst du auch Skins, Waffen und bis zu drei Spezialfähigkeiten ausrüsten. „Start“ öffnet die Levelkarte. Level 1 ist offen; jeder Sieg schaltet das nächste Level frei. Wische auf der Karte nach unten, um weitere Level zu sehen. Totenköpfe markieren Bosslevel. Nach dem Sieg fliegst du automatisch zurück zum Hangar." },
     { icon: "②", title: "Fliegen & feuern", text: "Bewege den Jet in alle vier Richtungen. Der Bildschirm scrollt automatisch – du steuerst nur den Jet. Halte die Feuertaste gedrückt, sofern Auto-Fire ausgeschaltet ist. Weiche gegnerischen Flugzeugen, Hindernissen und ihren Geschossen aus und schieße Ziele ab, um Punkte zu erhalten." },
@@ -9975,12 +9993,12 @@ function BriefingScreen({ settings, onDone }: { settings: GameSettings; onDone: 
   ] as const;
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto px-4 py-5 text-white sm:px-7">
+    <div ref={briefingRef} tabIndex={-1} role="region" aria-label={translated(language, "Einführung ins Spiel", "Game introduction")} className="flex h-full flex-col overflow-y-auto px-4 py-5 text-white outline-none sm:px-7" style={{ touchAction: "pan-y" }}>
       <div className="mx-auto w-full max-w-4xl">
         <div className="text-center">
-          <div className="text-xs font-black uppercase tracking-[.3em] text-cyan-400">{translated(language, "Einsatzbriefing", "Mission briefing")}</div>
+          <div className="text-xs font-black uppercase tracking-[.3em] text-cyan-400">{translated(language, "Willkommen bei Fighter Command", "Welcome to Fighter Command")}</div>
           <h2 className="mt-1 text-2xl font-black sm:text-3xl">{translated(language, "SO FUNKTIONIERT FIGHTER COMMAND", "HOW FIGHTER COMMAND WORKS")}</h2>
-          <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">{translated(language, "Dein Ziel ist einfach: so lange wie möglich überleben, Gegner ausschalten und deinen Jet während des Einsatzes immer stärker machen. Lies das Briefing einmal durch – danach übst du Bewegung und Schießen direkt in deiner ersten Mission.", "Your objective is simple: survive as long as possible, destroy enemies, and make your jet stronger throughout the mission. Read this briefing once—then practice movement and shooting during your first deployment.")}</p>
+          <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">{translated(language, "Steuere deinen Jet, weiche Geschossen aus und besiege Gegner und Bosse, um neue Level freizuschalten. Sammle Belohnungen und verbessere deine Ausrüstung im Hangar. Hier lernst du die Grundlagen, bevor du deinen ersten Einsatz startest.", "Pilot your jet, dodge projectiles, and defeat enemies and bosses to unlock new levels. Collect rewards and upgrade your equipment in the hangar. Learn the basics here before launching your first mission.")}</p>
         </div>
 
         <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -10010,7 +10028,7 @@ function BriefingScreen({ settings, onDone }: { settings: GameSettings; onDone: 
         </div>
 
         <div className="mt-5 border-t border-slate-800/80 bg-[#040c1c] pt-4 pb-1 text-center">
-          <button autoFocus onClick={onDone} className="pause-primary min-h-12 w-full max-w-md rounded-xl px-6 py-3 font-black tracking-widest">
+          <button onClick={onDone} className="pause-primary min-h-12 w-full max-w-md rounded-xl px-6 py-3 font-black tracking-widest">
             {translated(language, "VERSTANDEN – ZUM HANGAR", "GOT IT — GO TO HANGAR")}
           </button>
           <div className="mt-2 text-[11px] text-slate-500">{translated(language, "Die Anleitung ist im Hangar jederzeit wieder erreichbar.", "You can reopen this guide from the hangar at any time.")}</div>
