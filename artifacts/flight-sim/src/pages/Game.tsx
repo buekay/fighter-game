@@ -697,6 +697,8 @@ function getWeaponStats(weapon: WeaponDefinition, level: number) {
 const SAVE_KEY = "fighter-command-save";
 
 interface SaveData {
+  elapsedMs?: number;
+  campaignBossDefeated?: boolean;
   runStats?: RunStats;
   sparkUsed?: boolean;
   chaosKills?: number;
@@ -731,7 +733,7 @@ function loadStringArray(key: string): string[] {
   return Array.isArray(saved) ? saved.filter((value): value is string => typeof value === "string") : [];
 }
 
-function saveGame(
+export function saveGame(
   gs: GameState,
   routeModifiers: Record<RouteModifierId, number>,
   sectorChoiceLevels: Iterable<number> = [],
@@ -740,6 +742,8 @@ function saveGame(
   sparkUsed = false,
   chaosKills = 0,
   runStats: RunStats = normalizeRunStats(undefined),
+  elapsedMs = 0,
+  campaignBossDefeated = false,
 ) {
   try {
     const aircraftBuild = loadAircraftBuild();
@@ -756,13 +760,14 @@ function saveGame(
       fireRatePenalty: Math.max(1, Math.min(10, fireRatePenalty)),
       mutatorId,
       sparkUsed, chaosKills, runStats: { ...runStats },
+      elapsedMs, campaignBossDefeated,
       savedAt: Date.now(),
     };
     writeStoredJson(SAVE_KEY, data);
   } catch { /* storage unavailable */ }
 }
 
-function loadSave(): SaveData | null {
+export function loadSave(): SaveData | null {
   try {
     const raw = readStoredText(SAVE_KEY);
     if (!raw) return null;
@@ -821,6 +826,8 @@ function loadSave(): SaveData | null {
       lives: Math.max(0, Math.floor(lives!)),
       savedAt: Math.max(0, savedAt!),
       runStats: normalizeRunStats(saved.runStats),
+      elapsedMs: Math.max(0, finiteNumber(saved.elapsedMs) ?? 0),
+      campaignBossDefeated: saved.campaignBossDefeated === true,
       sparkUsed: saved.sparkUsed === true,
       chaosKills: Math.max(0, Math.floor(finiteNumber(saved.chaosKills) ?? 0)),
       routeModifiers,
@@ -4347,18 +4354,20 @@ export default function Game() {
     nextFireSwordLightningRef.current = runElapsedMsRef.current + 10_000;
     waveBannerRef.current = { text: `HANGAR ${nextHangar + 1} · ${activeSkinRef.current.name} ÜBERNIMMT`, timer: 150 };
     saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
-      fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current);
+      fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current,
+      runElapsedMsRef.current, campaignBossDefeatedRef.current);
   }, [selectHangar]);
 
   const startGame = useCallback((fromSave = false, requestedLevel = campaignLevelRef.current) => {
     if (!isLevelUnlocked(requestedLevel, loadCompletedLevels())) return;
     campaignLevelRef.current = requestedLevel;
-    campaignBossDefeatedRef.current = false;
     setMapOpen(false);
     setCompletedAnimation(null);
     audioRef.current.unlock();
     const savedRun = fromSave ? loadSave() : null;
     const save = savedRun?.level === requestedLevel ? savedRun : null;
+    campaignBossDefeatedRef.current = save?.campaignBossDefeated ?? false;
+    runElapsedMsRef.current = save?.elapsedMs ?? 0;
     const mode = getCampaignMode(requestedLevel);
     const modeRules = getEffectiveGameModeRules(mode);
     activeModeRef.current = mode;
@@ -4430,13 +4439,12 @@ export default function Game() {
     floatingTextsRef.current = [];
     powerUpsRef.current = [];
     weaponCrateRef.current = WEAPON_CRATES.find(crate => crate.id === loadWeaponCrate()) ?? WEAPON_CRATES[0];
-    weaponCrateNextActivationRef.current = WEAPON_CRATE_INTERVAL_MS;
+    weaponCrateNextActivationRef.current = runElapsedMsRef.current + WEAPON_CRATE_INTERVAL_MS;
     weaponCrateActiveUntilRef.current = 0;
     lastWeaponCrateFireRef.current = 0;
     enemySpawnTimerRef.current = 0;
     timeRef.current = 0;
     backgroundNightRef.current = getCampaignLandscape(requestedLevel).night;
-    runElapsedMsRef.current = 0;
     protectPackageHpRef.current = PROTECT_PACKAGE_MAX_HP;
     protectPackageHitCooldownRef.current = 0;
     protectPackageRef.current = { x: 150, y: CANVAS_H / 2 - PROTECT_PACKAGE_HEIGHT / 2, direction: 1 };
@@ -4449,7 +4457,7 @@ export default function Game() {
     lastDroneFireRef.current = 0;
     lastWingmanFireRef.current = 0;
     lastMissileRef.current = 0;
-    nextFireSwordLightningRef.current = 10_000;
+    nextFireSwordLightningRef.current = runElapsedMsRef.current + 10_000;
     fireSwordLightningRef.current = null;
     lightningJumpsRef.current = [];
     shieldTimerRef.current = 0;
@@ -4491,7 +4499,8 @@ export default function Game() {
     saveExistsRef.current = !!loadSave();
     if (mode === "classic") {
       saveGame(stateRef.current, routeModifiersRef.current, sectorChoiceLevelsRef.current,
-        fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current);
+        fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current,
+        runElapsedMsRef.current, campaignBossDefeatedRef.current);
       saveExistsRef.current = true;
     }
     setPauseView("menu");
@@ -4512,9 +4521,10 @@ export default function Game() {
       writeStoredJson(HANGAR_SLOTS_KEY, next);
       return next;
     });
-    if (gs.score > 0 && !gs.gameOver && activeModeRef.current === "classic") {
+    if (gs.started && !gs.gameOver && activeModeRef.current === "classic") {
       saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
-        fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current);
+        fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current,
+        runElapsedMsRef.current, campaignBossDefeatedRef.current);
     }
     gs.started = false;
     gs.paused = false;
@@ -5485,7 +5495,7 @@ export default function Game() {
 
       // Scheduled bosses own the arena until the entire encounter is defeated.
       const scheduledBoss = getBossForLevel(gs.level);
-      if (activeModeRef.current !== "boss_fight" && scheduledBoss &&
+      if (activeModeRef.current !== "boss_fight" && !campaignBossDefeatedRef.current && scheduledBoss &&
           !encounterActive && !encounterLevelsSpawnedRef.current.has(gs.level)) {
         enemiesRef.current = [];
         bulletsRef.current = bulletsRef.current.filter(b => b.fromPlayer);
@@ -5557,7 +5567,7 @@ export default function Game() {
       }
 
       // ── Milestone boss: spawn a mega-boss when entering key levels ──
-      if (activeModeRef.current !== "boss_fight" && !scheduledBossActive && gs.level < 20 && isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
+      if (activeModeRef.current !== "boss_fight" && !campaignBossDefeatedRef.current && !scheduledBossActive && gs.level < 20 && isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
           enemiesRef.current.length < getActiveEnemyLimit(gs.level) &&
           enemiesRef.current.filter(isBossEnemy).length === 0) {
         milestoneBossFiredRef.current.add(gs.level);
