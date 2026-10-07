@@ -14,6 +14,7 @@ import {
   applyPlayerHitProtection,
   applyPlayerDamage,
   getNextHangarAfterDamage,
+  getHangarLives,
   calculateCoinReward,
   formatLockedSkinPrice,
   getCrossedMilestoneLevels,
@@ -113,6 +114,20 @@ assert.deepEqual(applyPlayerDamage(damagedOnLastLife, 3), {
 });
 
 // A destroyed aircraft hands the ongoing mission to the next owned hangar.
+assert.equal(getHangarLives(1), 1);
+assert.equal(getHangarLives(2), 2);
+assert.equal(getHangarLives(4), 4);
+assert.equal(getHangarLives(1, 4), 1, "Legacy saves cannot grant unowned hangars");
+assert.equal(getHangarLives(4, 2), 2, "Resuming preserves lost aircraft");
+assert.equal(getHangarLives(4, 1), 1, "One-life missions retain their limit");
+assert.equal(getHangarLives(1, 3), 1, "Mission limits cannot grant unowned hangars");
+assert.deepEqual(applyPlayerDamage({ ...damagedWithSpareLife, lives: getHangarLives(1, 4) }, 3), {
+  hp: 0, maxHp: 10, lives: 0, gameOver: true,
+});
+const twoHangarStart = { ...damagedWithSpareLife, lives: getHangarLives(2) };
+const secondAircraft = applyPlayerDamage(twoHangarStart, 3);
+assert.equal(getNextHangarAfterDamage(twoHangarStart, secondAircraft, 0, 2), 1);
+assert.equal(applyPlayerDamage(secondAircraft, secondAircraft.maxHp).gameOver, true);
 const respawned = applyPlayerDamage(damagedWithSpareLife, 3);
 assert.equal(getNextHangarAfterDamage(damagedWithSpareLife, respawned, 0, 4), 1);
 assert.equal(getNextHangarAfterDamage(damagedWithSpareLife, respawned, 1, 2), 0);

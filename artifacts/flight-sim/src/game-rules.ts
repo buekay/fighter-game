@@ -471,6 +471,10 @@ export function applyPlayerHitProtection(state: PlayerHitProtectionState): Playe
   };
 }
 
+export function getHangarLives(unlockedHangars: number, lifeLimit?: number | null): number {
+  return Math.min(unlockedHangars, lifeLimit ?? unlockedHangars);
+}
+
 export function getNextHangarAfterDamage(
   previous: LifeState,
   next: LifeState,

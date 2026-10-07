@@ -35,6 +35,7 @@ import {
   applyEnemyDamage,
   applyPlayerHitProtection,
   getNextHangarAfterDamage,
+  getHangarLives,
   calculateCoinReward,
   formatLockedSkinPrice,
   getDroneStats,
@@ -3519,7 +3520,7 @@ export default function Game() {
   const stateRef = useRef<GameState>({
     score: 0, level: 1, hp: 10, maxHp: 10,
     shield: 0, speed: 3.2, weaponTier: 0,
-    lives: 4, gameOver: false, started: false, paused: false,
+    lives: loadUnlockedHangars(), gameOver: false, started: false, paused: false,
   });
   const [displayState, setDisplayState] = useState({ ...stateRef.current });
   const keysRef = useRef<Set<string>>(new Set());
@@ -4577,7 +4578,7 @@ export default function Game() {
       shield:     0,
       speed:      baseSpeed,
       weaponTier: unlocks.includes("weapon_head") ? 2 : 0,
-      lives:      save?.lives  ?? modeRules.startingLives ?? 4,
+      lives:      getHangarLives(loadUnlockedHangars(), save?.lives ?? modeRules.startingLives),
       gameOver: false, started: true, paused: false,
     };
     playerRef.current = { x: 60, y: CANVAS_H / 2 - PLAYER_H / 2 };
