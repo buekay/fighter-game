@@ -25,6 +25,7 @@ import { applyFlightBank, drawDepthClouds, drawEnginePlume, drawFlightShadow, dr
 import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from "react";
 import {
   MAX_LEVEL,
+  getAircraftUltiChargeMultiplier,
   getActiveEnemyLimit,
   BOSS_FIGHT_COUNT,
   addSpawnedEnemy,
@@ -5847,7 +5848,7 @@ export default function Game() {
         const cloneMult = activeUnlocksRef.current.includes("ulti_boost") ? 1.5 : 1;
         const cloneBonus = activeUnlocksRef.current.includes("clone_upgrade") ? 1.25 : 1;
         const fluxBonus = 1 + routeModifiersRef.current.flux_capacitor * .25;
-        ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + 0.09 * cloneMult * cloneBonus * fluxBonus * dtScale);
+        ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + 0.09 * cloneMult * cloneBonus * fluxBonus * dtScale * getAircraftUltiChargeMultiplier(gs.level));
       }
       // ── Laser charge & countdown ──
       if (laserActiveRef.current > 0) {
@@ -6948,7 +6949,7 @@ export default function Game() {
             registerKill(e);
             audioRef.current.effect("explosion", settingsRef.current.soundVolume);
             ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current +
-              (isBossEnemy(e) ? 45 : e.type === "bomber" ? 20 : e.type === "fighter" ? 11 : 6));
+              (isBossEnemy(e) ? 45 : e.type === "bomber" ? 20 : e.type === "fighter" ? 11 : 6) * getAircraftUltiChargeMultiplier(gs.level));
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current +
               (isBossEnemy(e) ? 60 : e.type === "bomber" ? 28 : e.type === "fighter" ? 14 : 8));
             e.dead = true;
@@ -7031,7 +7032,7 @@ export default function Game() {
             comboTimerRef.current = Math.max(comboTimerRef.current, 100);
             gs.score += 25 * Math.max(1, Math.floor(comboRef.current / 10) + 1);
             const charge = 4 + routeModifiersRef.current.graze_core * 8;
-            ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + charge);
+            ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + charge * getAircraftUltiChargeMultiplier(gs.level));
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + charge);
             floatingTextsRef.current.push({
               x: playerRef.current.x + PLAYER_W, y: playerRef.current.y,
@@ -7221,7 +7222,7 @@ export default function Game() {
             gs.score += e.points * (ultimaActiveRef.current > 0 && aircraftUltiIds.has("gold") ? 2 : 1);
             registerKill(e);
             audioRef.current.effect("explosion", settingsRef.current.soundVolume);
-            ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (isBossEnemy(e) ? 25 : 4));
+            ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (isBossEnemy(e) ? 25 : 4) * getAircraftUltiChargeMultiplier(gs.level));
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + (isBossEnemy(e) ? 30 : 5));
             stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + (isBossEnemy(e) ? 30 : 4));
             e.dead = true;
@@ -7254,7 +7255,7 @@ export default function Game() {
             gs.score += target.points * (ultimaActiveRef.current > 0 && aircraftUltiIds.has("gold") ? 2 : 1);
             registerKill(target);
             audioRef.current.effect("explosion", settingsRef.current.soundVolume);
-            ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (isBossEnemy(target) ? 25 : 4));
+            ultimaChargeRef.current = Math.min(ULTI_MAX, ultimaChargeRef.current + (isBossEnemy(target) ? 25 : 4) * getAircraftUltiChargeMultiplier(gs.level));
             laserChargeRef.current = Math.min(LASER_MAX, laserChargeRef.current + (isBossEnemy(target) ? 30 : 5));
             stealthChargeRef.current = Math.min(STEALTH_MAX, stealthChargeRef.current + (isBossEnemy(target) ? 30 : 4));
             syncDisplay();

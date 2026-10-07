@@ -44,6 +44,10 @@ export const HEAL_ULTI_RESTORE = 5;
 export const MAX_AIRCRAFT_LEVEL = 10;
 export const MAX_DRONE_LEVEL = 10;
 
+export function getAircraftUltiChargeMultiplier(level: number): number {
+  return level >= 21 ? 0.5 : 1;
+}
+
 // A Titan may leave the playfield temporarily during its dash return path.
 export function isEnemyReturningToPlayfield(enemy: { type: string; titanDashTimer?: number }): boolean {
   return enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0;

@@ -8,6 +8,7 @@ import {
   isEnemyReturningToPlayfield,
   rechargeGuardianShield,
   getWaveClearReward,
+  getAircraftUltiChargeMultiplier,
   BOSS_FIGHT_COUNT,
   MAX_ACTIVE_ENEMIES,
   applyEnemyDamage,
@@ -53,6 +54,11 @@ import {
   type EnemyDamageState,
   type LifeState,
 } from "./game-rules";
+
+assert.equal(getAircraftUltiChargeMultiplier(1), 1);
+assert.equal(getAircraftUltiChargeMultiplier(20), 1);
+assert.equal(getAircraftUltiChargeMultiplier(21), 0.5);
+assert.equal(getAircraftUltiChargeMultiplier(50), 0.5);
 import {
   SECTOR_CHOICES,
   formatRunDuration,
