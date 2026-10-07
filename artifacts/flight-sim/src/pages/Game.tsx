@@ -1016,7 +1016,7 @@ function loadSavedAircraftBuilds(): AircraftBuild[] {
         bodySkin: typeof item.bodySkin === "string" ? item.bodySkin : loadSkin(),
         wingSkin: typeof item.wingSkin === "string" ? item.wingSkin : loadSkin(),
         engineSkin: typeof item.engineSkin === "string" ? item.engineSkin : loadSkin(),
-      })).filter(build => JET_SKINS.some(skin => skin.id === build.bodySkin) && JET_SKINS.some(skin => skin.id === build.wingSkin));
+      })).filter(build => [build.bodySkin, build.wingSkin, build.engineSkin].every(id => JET_SKINS.some(skin => skin.id === id)));
     }
   } catch {}
   return loadHybridActive() ? [loadAircraftBuild()] : [];
@@ -1030,7 +1030,7 @@ function loadSavedDroneBuilds(): DroneBuild[] {
         bodySkin: typeof item.bodySkin === "string" ? item.bodySkin : loadDroneSkin(),
         coreSkin: typeof item.coreSkin === "string" ? item.coreSkin : loadDroneSkin(),
         weaponSkin: typeof item.weaponSkin === "string" ? item.weaponSkin : loadDroneSkin(),
-      })).filter(build => isCombinedDroneBuild(build) && DRONE_SKINS.some(skin => skin.id === build.bodySkin) && DRONE_SKINS.some(skin => skin.id === build.weaponSkin));
+      })).filter(build => isCombinedDroneBuild(build) && [build.bodySkin, build.coreSkin, build.weaponSkin].every(id => DRONE_SKINS.some(skin => skin.id === id)));
     }
   } catch {}
   const current = loadDroneBuild();
@@ -1287,9 +1287,9 @@ function markDailyChestClaimed() {
   writeStoredText(DAILY_CHEST_KEY, getLocalDateKey());
 }
 function saveSkin(id: string)     { writeStoredText(SKIN_KEY, id); }
-function loadSkin(): string       { return readStoredText(SKIN_KEY) ?? "steel"; }
+function loadSkin(): string       { const id = readStoredText(SKIN_KEY); return JET_SKINS.find(skin => skin.id === id)?.id ?? "steel"; }
 function saveDroneSkin(id: string) { writeStoredText(DRONE_SKIN_KEY, id); }
-function loadDroneSkin(): string   { return readStoredText(DRONE_SKIN_KEY) ?? "drone_violet"; }
+function loadDroneSkin(): string   { const id = readStoredText(DRONE_SKIN_KEY); return DRONE_SKINS.find(skin => skin.id === id)?.id ?? "drone_violet"; }
 function saveWeaponCrate(id: string) { writeStoredText(WEAPON_CRATE_KEY, id); }
 
 interface HangarSlot {
@@ -1334,7 +1334,7 @@ function currentHangarSlot(level = 1): HangarSlot {
     ultis: loadUltiLoadout(), aircraftLevels: loadAircraftLevels(), droneLevels: loadDroneLevels(),
     weaponLevels: loadWeaponLevels(), level };
 }
-function loadHangarSlots(): HangarSlot[] {
+export function loadHangarSlots(): HangarSlot[] {
   const saved = readStoredJson(HANGAR_SLOTS_KEY, null);
   const fallback = currentHangarSlot();
   return Array.from({ length: 4 }, (_, index) => {
@@ -1344,13 +1344,45 @@ function loadHangarSlots(): HangarSlot[] {
       hybridActive: false, droneBuild: { bodySkin: DRONE_SKINS[0].id, coreSkin: DRONE_SKINS[0].id, weaponSkin: DRONE_SKINS[0].id },
       droneWeapon: DRONE_WEAPONS[0].id, weaponCrate: WEAPON_CRATES[0].id, weapons: [WEAPONS[0].id],
       aircraftLevels: {}, droneLevels: {}, weaponLevels: {}, level: 1 };
+    const validId = <T extends string>(value: unknown, catalog: readonly { id: T }[], defaultId: T): T =>
+      catalog.find(item => item.id === value)?.id ?? defaultId;
+    const skin = validId(slot.skin, JET_SKINS, fallback.skin);
+    const droneSkin = validId(slot.droneSkin, DRONE_SKINS, fallback.droneSkin);
+    const aircraft = isRecord(slot.aircraftBuild) ? slot.aircraftBuild : {};
+    const drone = isRecord(slot.droneBuild) ? slot.droneBuild : {};
+    const levels = (value: unknown): Record<string, number> => isRecord(value)
+      ? Object.fromEntries(Object.entries(value).map(([id, level]) => [id, Math.max(1, Math.min(10, Math.floor(finiteNumber(level) ?? 1)))]))
+      : {};
+    const weapons = Array.isArray(slot.weapons)
+      ? [...new Set(slot.weapons.filter((id): id is string => typeof id === "string" && WEAPONS.some(item => item.id === id)))].slice(0, 2)
+      : fallback.weapons;
     return {
-      ...fallback, ...slot,
-      skin: JET_SKINS.some(item => item.id === slot.skin) ? slot.skin as string : fallback.skin,
-      droneSkin: DRONE_SKINS.some(item => item.id === slot.droneSkin) ? slot.droneSkin as string : fallback.droneSkin,
-      weapons: Array.isArray(slot.weapons) ? slot.weapons.filter((id): id is string => typeof id === "string" && WEAPONS.some(item => item.id === id)).slice(0, 2) : fallback.weapons,
-      level: Math.max(1, Math.floor(finiteNumber(slot.level) ?? 1)),
-    } as HangarSlot;
+      skin, droneSkin,
+      aircraftBuild: {
+        wing: validId(aircraft.wing, WING_MODULES, "balanced"),
+        engine: validId(aircraft.engine, ENGINE_MODULES, "ion"),
+        bodySkin: validId(aircraft.bodySkin, JET_SKINS, skin),
+        wingSkin: validId(aircraft.wingSkin, JET_SKINS, skin),
+        engineSkin: validId(aircraft.engineSkin, JET_SKINS, skin),
+      },
+      hybridActive: slot.hybridActive === true,
+      droneBuild: {
+        bodySkin: validId(drone.bodySkin, DRONE_SKINS, droneSkin),
+        coreSkin: validId(drone.coreSkin, DRONE_SKINS, droneSkin),
+        weaponSkin: validId(drone.weaponSkin, DRONE_SKINS, droneSkin),
+      },
+      droneRole: validId(slot.droneRole, DRONE_ROLES, fallback.droneRole),
+      droneWeapon: validId(slot.droneWeapon, DRONE_WEAPONS, fallback.droneWeapon),
+      weaponCrate: validId(slot.weaponCrate, WEAPON_CRATES, fallback.weaponCrate),
+      weapons: weapons.length ? weapons : [WEAPONS[0].id],
+      ultis: Array.isArray(slot.ultis)
+        ? slot.ultis.filter((id): id is UltiLoadoutId => ULTI_LOADOUT_OPTIONS.some(option => option.id === id)).slice(0, ULTI_LOADOUT_SLOTS)
+        : fallback.ultis,
+      aircraftLevels: levels(slot.aircraftLevels),
+      droneLevels: levels(slot.droneLevels),
+      weaponLevels: levels(slot.weaponLevels),
+      level: Math.max(1, Math.min(MAX_LEVEL, Math.floor(finiteNumber(slot.level) ?? 1))),
+    };
   });
 }
 function loadActiveHangar(): number {

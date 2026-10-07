@@ -63,6 +63,7 @@ import {
   LEVELS_PER_BIOME,
   NIGHT_BACKGROUND_CHANCE,
   getBiomeForLevel,
+  getBiomeEnemyDefinition,
   selectBiomeTimeOfDay,
 } from "./biomes";
 
@@ -221,6 +222,22 @@ assert.equal(getBiomeForLevel(51).id, "city");
 assert.equal(getBiomeForLevel(500).id, "space");
 assert.equal(BIOMES.every(biome => biome.enemies.length === 8), true);
 assert.equal(new Set(BIOMES.flatMap(biome => biome.enemies.map(enemy => enemy.id))).size, BIOMES.length * 8);
+for (const biome of BIOMES) {
+  for (const enemy of biome.enemies) {
+    assert.equal(enemy.id.startsWith(`${biome.id}_`), true, "Enemies belong to their landscape");
+    assert.equal(getBiomeEnemyDefinition(enemy.id), enemy, "Every spawn can resolve its model and fire interval");
+    for (const value of [enemy.baseHp, enemy.hpPerLevel, enemy.width, enemy.height,
+      enemy.minSpeed, enemy.maxSpeed, enemy.points, ...enemy.fireCooldown]) {
+      assert.ok(Number.isFinite(value) && value > 0, `${enemy.id} has valid combat stats`);
+    }
+    assert.ok(enemy.minSpeed <= enemy.maxSpeed);
+    assert.ok(enemy.fireCooldown[0] <= enemy.fireCooldown[1]);
+    if (biome.id === "space" || biome.id === "storm") assert.equal(enemy.band, "air");
+    if (biome.id === "ocean") assert.notEqual(enemy.band, "ground");
+  }
+}
+assert.equal(getBiomeEnemyDefinition("missing_enemy"), null);
+assert.equal(getBiomeEnemyDefinition(undefined), null);
 assert.equal(NIGHT_BACKGROUND_CHANCE, .2);
 assert.equal(selectBiomeTimeOfDay(0), "night");
 assert.equal(selectBiomeTimeOfDay(.1999), "night");
