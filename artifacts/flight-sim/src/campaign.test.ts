@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { MAX_LEVEL, getLevelThreshold } from './game-rules';
+import { BIOMES, getAvailableBiomeEnemies } from './biomes';
 import { normalizeCompleted, isLevelUnlocked, getCampaignTarget, canCompleteCampaignLevel, getCampaignLandscape, completeCampaignLevel, loadCompletedLevels, getCampaignMode, isCampaignProtectLevel, isCampaignBossLevel } from './campaign';
 assert.equal(isLevelUnlocked(1, 0), true);
 assert.equal(isLevelUnlocked(2, 0), false);
@@ -19,6 +20,24 @@ assert.equal(canCompleteCampaignLevel(3, getCampaignTarget(3), true), true);
 assert.equal(canCompleteCampaignLevel(MAX_LEVEL, getCampaignTarget(MAX_LEVEL), true), true);
 const signatures = new Set(Array.from({length:MAX_LEVEL},(_,i)=>JSON.stringify(getCampaignLandscape(i+1))));
 assert.equal(signatures.size, MAX_LEVEL);
+// Each return to a landscape unlocks one additional enemy, starting on visit two.
+for (let level = 1; level <= MAX_LEVEL; level++) {
+  const biome = getCampaignLandscape(level).biome;
+  const available = getAvailableBiomeEnemies(biome, level);
+  assert.equal(available.length, Math.min(8, 3 + Math.floor((level - 1) / 10)));
+  assert.ok(available.every(enemy => enemy.minLevel <= level));
+}
+for (const [index, biome] of BIOMES.entries()) {
+  assert.ok(biome.enemies.slice(0, 3).every(enemy => enemy.minLevel === 1));
+  for (const [tier, enemy] of biome.enemies.slice(3).entries()) {
+    const unlock = index + 11 + tier * 10;
+    assert.equal(enemy.minLevel, unlock);
+    assert.equal(getCampaignLandscape(unlock).biome.id, biome.id);
+    assert.ok(!getAvailableBiomeEnemies(biome, unlock - 1).includes(enemy));
+    assert.ok(getAvailableBiomeEnemies(biome, unlock).includes(enemy));
+    assert.ok(getAvailableBiomeEnemies(biome, unlock + 10).includes(enemy));
+  }
+}
 const values = new Map<string,string>();
 Object.defineProperty(globalThis,'localStorage',{ configurable:true,value:{getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>values.set(key,value)} });
 assert.equal(completeCampaignLevel(2),0);

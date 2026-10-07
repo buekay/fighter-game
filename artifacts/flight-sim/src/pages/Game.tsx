@@ -1,3 +1,4 @@
+import { ACHIEVEMENTS, achievementProgress, loadAchievements, saveAchievements, newlyUnlockedAchievements, normalizeRunStats, type Achievement, type RunStats } from "../achievements";
 import { drawCombatExtras } from "../rendering/combat-extras";
 import { drawExtendedBiomeEnemy } from "../rendering/biome-enemies";
 import { EXTRA_ITEMS, EXTRA_ACTIONS, isCombatUlti, combatUltiStates, type CombatExtras, CHAOS_LABELS, createCombatExtras, tickCombatExtras, activateExtra, blockWithExtra, consumeCounter, applyExtraDamage, collectChaos, createShadowDecoy, getMagnetTarget, magnetStep, distanceToTrail, type ExtraAction } from "../combat-extras";
@@ -63,6 +64,7 @@ import {
 } from "../game-rules";
 import {
   getBiomeEnemyDefinition,
+  getAvailableBiomeEnemies,
   getBiomeForLevel,
   selectBiomeTimeOfDay,
   type BiomeDefinition,
@@ -296,20 +298,6 @@ type RouteModifierId = "rapid_fire" | "damage" | "max_hp" | "drone" | "critical"
   "missile_mastery" | "chain_lightning" | "cryo_rounds" | "glass_cannon" | "vampiric" | "graze_core" |
   "afterburner" | "extra_life" | "repair_nanites" | "bounty_hunter" | "boss_hunter" |
   "kinetic_accelerator" | "reactive_armor" | "salvager" | "flux_capacitor" | "shield_matrix";
-interface RunStats {
-  kills: number;
-  bosses: number;
-  damageTaken: number;
-  powerUps: number;
-  flawlessKills: number;
-  perfectBosses: number;
-  fullHealthPickups: number;
-  maxCombo: number;
-  nearMisses: number;
-  missions: number;
-  damageDealt: number;
-}
-interface Achievement { id: string; icon: string; name: string; description: string; target: number; reward: number; stat: keyof RunStats }
 interface FloatingText { x: number; y: number; text: string; color: string; life: number; maxLife: number }
 interface ActiveWave { id: number; name: string; active: boolean; isMajor: boolean; damageAtStart: number; spawned: number; defeated: Set<Enemy> }
 interface RunSummary {
@@ -708,6 +696,7 @@ function getWeaponStats(weapon: WeaponDefinition, level: number) {
 const SAVE_KEY = "fighter-command-save";
 
 interface SaveData {
+  runStats?: RunStats;
   sparkUsed?: boolean;
   chaosKills?: number;
   score: number; level: number; hp: number; maxHp: number;
@@ -749,6 +738,7 @@ function saveGame(
   mutatorId: MutatorDefinition["id"] = "none",
   sparkUsed = false,
   chaosKills = 0,
+  runStats: RunStats = normalizeRunStats(undefined),
 ) {
   try {
     const aircraftBuild = loadAircraftBuild();
@@ -764,7 +754,7 @@ function saveGame(
         .sort((a, b) => a - b),
       fireRatePenalty: Math.max(1, Math.min(10, fireRatePenalty)),
       mutatorId,
-      sparkUsed, chaosKills,
+      sparkUsed, chaosKills, runStats: { ...runStats },
       savedAt: Date.now(),
     };
     writeStoredJson(SAVE_KEY, data);
@@ -829,6 +819,7 @@ function loadSave(): SaveData | null {
       speed: Math.max(0.1, speed!),
       lives: Math.max(0, Math.floor(lives!)),
       savedAt: Math.max(0, savedAt!),
+      runStats: normalizeRunStats(saved.runStats),
       sparkUsed: saved.sparkUsed === true,
       chaosKills: Math.max(0, Math.floor(finiteNumber(saved.chaosKills) ?? 0)),
       routeModifiers,
@@ -1182,72 +1173,6 @@ function formatKeyCode(code: string): string {
   return code;
 }
 
-const ACHIEVEMENT_KEY = "fighter-command-achievements";
-const ACHIEVEMENTS: Achievement[] = [
-  { id: "first_sortie", icon: "✈", name: "Erster Einsatz", description: "Besiege 10 Gegner", target: 10, reward: 500, stat: "kills" },
-  { id: "on_a_roll", icon: "🔥", name: "Nicht zu stoppen", description: "Besiege 25 Gegner in einem Einsatz", target: 25, reward: 1000, stat: "kills" },
-  { id: "sky_sweeper", icon: "⚡", name: "Himmelsfeger", description: "Besiege 50 Gegner in einem Einsatz", target: 50, reward: 1800, stat: "kills" },
-  { id: "ace", icon: "🎯", name: "Fliegerass", description: "Besiege 100 Gegner in einem Einsatz", target: 100, reward: 3000, stat: "kills" },
-  { id: "elite_ace", icon: "🦅", name: "Elite-Ass", description: "Besiege 250 Gegner in einem Einsatz", target: 250, reward: 7500, stat: "kills" },
-  { id: "legend_of_the_skies", icon: "🌌", name: "Legende der Lüfte", description: "Besiege 500 Gegner in einem Einsatz", target: 500, reward: 15000, stat: "kills" },
-  { id: "air_superiority", icon: "🛩", name: "Luftüberlegenheit", description: "Besiege 750 Gegner in einem Einsatz", target: 750, reward: 22000, stat: "kills" },
-  { id: "thousand_down", icon: "💯", name: "Tausendfacher Abschuss", description: "Besiege 1.000 Gegner in einem Einsatz", target: 1000, reward: 30000, stat: "kills" },
-  { id: "storm_of_lead", icon: "🌪", name: "Sturm aus Stahl", description: "Besiege 1.500 Gegner in einem Einsatz", target: 1500, reward: 42000, stat: "kills" },
-  { id: "enemy_extinction", icon: "☄", name: "Auslöschung", description: "Besiege 2.000 Gegner in einem Einsatz", target: 2000, reward: 55000, stat: "kills" },
-  { id: "untouchable_hunter", icon: "🔱", name: "Jäger ohne Grenzen", description: "Besiege 3.000 Gegner in einem Einsatz", target: 3000, reward: 75000, stat: "kills" },
-  { id: "sky_legend", icon: "👑", name: "Herrscher des Himmels", description: "Besiege 4.000 Gegner in einem Einsatz", target: 4000, reward: 100000, stat: "kills" },
-  { id: "five_thousand", icon: "🌠", name: "Die glorreichen 5.000", description: "Besiege 5.000 Gegner in einem Einsatz", target: 5000, reward: 125000, stat: "kills" },
-  { id: "endless_barrage", icon: "♾", name: "Endloses Sperrfeuer", description: "Besiege 7.500 Gegner in einem Einsatz", target: 7500, reward: 175000, stat: "kills" },
-  { id: "ten_thousand", icon: "🏆", name: "Unsterbliche Legende", description: "Besiege 10.000 Gegner in einem Einsatz", target: 10000, reward: 250000, stat: "kills" },
-  { id: "first_boss", icon: "💥", name: "David gegen Goliath", description: "Besiege einen Boss", target: 1, reward: 1500, stat: "bosses" },
-  { id: "boss_hunter", icon: "☠", name: "Bossjäger", description: "Besiege 3 Bosse in einem Einsatz", target: 3, reward: 5000, stat: "bosses" },
-  { id: "boss_breaker", icon: "🔨", name: "Bossbrecher", description: "Besiege 5 Bosse in einem Einsatz", target: 5, reward: 8000, stat: "bosses" },
-  { id: "boss_nemesis", icon: "👹", name: "Erzfeind der Bosse", description: "Besiege 10 Bosse in einem Einsatz", target: 10, reward: 16000, stat: "bosses" },
-  { id: "boss_apocalypse", icon: "🌋", name: "Boss-Apokalypse", description: "Besiege 20 Bosse in einem Einsatz", target: 20, reward: 30000, stat: "bosses" },
-  { id: "boss_annihilator", icon: "⚔", name: "Titanenbezwinger", description: "Besiege 30 Bosse in einem Einsatz", target: 30, reward: 45000, stat: "bosses" },
-  { id: "boss_nightmare", icon: "🌑", name: "Albtraum der Bosse", description: "Besiege 40 Bosse in einem Einsatz", target: 40, reward: 60000, stat: "bosses" },
-  { id: "boss_half_century", icon: "🎖", name: "Halbes Jahrhundert", description: "Besiege 50 Bosse in einem Einsatz", target: 50, reward: 80000, stat: "bosses" },
-  { id: "boss_dominator", icon: "🦾", name: "Boss-Dominator", description: "Besiege 75 Bosse in einem Einsatz", target: 75, reward: 110000, stat: "bosses" },
-  { id: "boss_centurion", icon: "🏛", name: "Boss-Zenturio", description: "Besiege 100 Bosse in einem Einsatz", target: 100, reward: 150000, stat: "bosses" },
-  { id: "boss_reaper", icon: "🗡", name: "Titanenschnitter", description: "Besiege 150 Bosse in einem Einsatz", target: 150, reward: 220000, stat: "bosses" },
-  { id: "boss_final_judgment", icon: "⚖", name: "Jüngstes Gericht", description: "Besiege 200 Bosse in einem Einsatz", target: 200, reward: 300000, stat: "bosses" },
-  { id: "scavenger", icon: "🧲", name: "Bergungsexperte", description: "Sammle 3 Power-ups in einem Einsatz", target: 3, reward: 750, stat: "powerUps" },
-  { id: "collector", icon: "💎", name: "Sammler", description: "Sammle 10 Power-ups in einem Einsatz", target: 10, reward: 2000, stat: "powerUps" },
-  { id: "power_hungry", icon: "🔋", name: "Energiehungrig", description: "Sammle 20 Power-ups in einem Einsatz", target: 20, reward: 4500, stat: "powerUps" },
-  { id: "arsenal_master", icon: "🚀", name: "Arsenalmeister", description: "Sammle 35 Power-ups in einem Einsatz", target: 35, reward: 8000, stat: "powerUps" },
-  { id: "overcharged", icon: "✨", name: "Voll aufgeladen", description: "Sammle 50 Power-ups in einem Einsatz", target: 50, reward: 14000, stat: "powerUps" },
-  { id: "power_stockpile", icon: "📦", name: "Energievorrat", description: "Sammle 75 Power-ups in einem Einsatz", target: 75, reward: 20000, stat: "powerUps" },
-  { id: "power_century", icon: "💯", name: "Power-Jubiläum", description: "Sammle 100 Power-ups in einem Einsatz", target: 100, reward: 28000, stat: "powerUps" },
-  { id: "power_magnet", icon: "🧲", name: "Supermagnet", description: "Sammle 150 Power-ups in einem Einsatz", target: 150, reward: 40000, stat: "powerUps" },
-  { id: "power_overflow", icon: "🌈", name: "Energieüberfluss", description: "Sammle 200 Power-ups in einem Einsatz", target: 200, reward: 55000, stat: "powerUps" },
-  { id: "power_vault", icon: "🏦", name: "Power-Tresor", description: "Sammle 300 Power-ups in einem Einsatz", target: 300, reward: 75000, stat: "powerUps" },
-  { id: "power_core", icon: "☀", name: "Lebender Reaktor", description: "Sammle 400 Power-ups in einem Einsatz", target: 400, reward: 100000, stat: "powerUps" },
-  { id: "power_master", icon: "🪄", name: "Meister der Energie", description: "Sammle 500 Power-ups in einem Einsatz", target: 500, reward: 140000, stat: "powerUps" },
-  { id: "power_infinite", icon: "♾", name: "Unendliche Energie", description: "Sammle 750 Power-ups in einem Einsatz", target: 750, reward: 200000, stat: "powerUps" },
-  { id: "tough_hide", icon: "🩹", name: "Nur ein Kratzer", description: "Überstehe 5 Schadenspunkte in einem Einsatz", target: 5, reward: 750, stat: "damageTaken" },
-  { id: "battle_worn", icon: "🪖", name: "Kampferprobt", description: "Überstehe 10 Schadenspunkte in einem Einsatz", target: 10, reward: 1500, stat: "damageTaken" },
-  { id: "hard_to_kill", icon: "🛡", name: "Nicht kleinzukriegen", description: "Überstehe 20 Schadenspunkte in einem Einsatz", target: 20, reward: 3000, stat: "damageTaken" },
-  { id: "iron_wings", icon: "🪽", name: "Eiserne Schwingen", description: "Überstehe 35 Schadenspunkte in einem Einsatz", target: 35, reward: 5500, stat: "damageTaken" },
-  { id: "survivor", icon: "❤", name: "Überlebenskünstler", description: "Überstehe 50 Schadenspunkte in einem Einsatz", target: 50, reward: 8500, stat: "damageTaken" },
-  { id: "scarred_veteran", icon: "🦿", name: "Narben des Krieges", description: "Überstehe 75 Schadenspunkte in einem Einsatz", target: 75, reward: 13000, stat: "damageTaken" },
-  { id: "indestructible", icon: "💪", name: "Unzerstörbar", description: "Überstehe 100 Schadenspunkte in einem Einsatz", target: 100, reward: 20000, stat: "damageTaken" },
-  { id: "flying_fortress", icon: "🏰", name: "Fliegende Festung", description: "Überstehe 150 Schadenspunkte in einem Einsatz", target: 150, reward: 32000, stat: "damageTaken" },
-  { id: "damage_sponge", icon: "🔧", name: "Stahlgewitter überlebt", description: "Überstehe 200 Schadenspunkte in einem Einsatz", target: 200, reward: 50000, stat: "damageTaken" },
-  { id: "phoenix", icon: "🔥", name: "Phönix", description: "Überstehe 300 Schadenspunkte in einem Einsatz", target: 300, reward: 80000, stat: "damageTaken" },
-  { id: "clean_sweep", icon: "✨", name: "Saubere Arbeit", description: "Besiege 25 Gegner in Folge, ohne Schaden zu nehmen", target: 25, reward: 3500, stat: "flawlessKills" },
-  { id: "untouchable_ace", icon: "🦅", name: "Unberührbares Ass", description: "Besiege 100 Gegner in Folge, ohne Schaden zu nehmen", target: 100, reward: 12000, stat: "flawlessKills" },
-  { id: "perfect_boss", icon: "💎", name: "Perfekter Bosskampf", description: "Besiege einen Boss, ohne im Kampf Schaden zu nehmen", target: 1, reward: 6000, stat: "perfectBosses" },
-  { id: "perfect_boss_trio", icon: "👑", name: "Makelloser Bossjäger", description: "Gewinne drei Bosskämpfe in einem Einsatz ohne Schaden", target: 3, reward: 18000, stat: "perfectBosses" },
-  { id: "full_health_salvage", icon: "🧲", name: "Mutige Bergung", description: "Sammle fünf Power-ups bei voller Gesundheit", target: 5, reward: 4000, stat: "fullHealthPickups" },
-  { id: "combo_25", icon: "🔥", name: "Kettenreaktion", description: "Erreiche eine 25er-Combo", target: 25, reward: 5000, stat: "maxCombo" },
-  { id: "combo_75", icon: "🌋", name: "Unaufhaltsam", description: "Erreiche eine 75er-Combo", target: 75, reward: 18000, stat: "maxCombo" },
-  { id: "near_miss_10", icon: "🌀", name: "Haarscharf", description: "Schaffe 10 Near Misses in einem Einsatz", target: 10, reward: 4500, stat: "nearMisses" },
-  { id: "near_miss_50", icon: "🪽", name: "Projektiltänzer", description: "Schaffe 50 Near Misses in einem Einsatz", target: 50, reward: 18000, stat: "nearMisses" },
-  { id: "mission_first", icon: "📡", name: "Befehl ausgeführt", description: "Schließe ein Missionsziel ab", target: 1, reward: 4000, stat: "missions" },
-  { id: "mission_five", icon: "🎖", name: "Elite-Einsatzkraft", description: "Schließe fünf Missionsziele in einem Einsatz ab", target: 5, reward: 20000, stat: "missions" },
-];
-function loadAchievements(): string[] { return loadStringArray(ACHIEVEMENT_KEY); }
-function saveAchievements(ids: string[]) { writeStoredJson(ACHIEVEMENT_KEY, ids); }
 function saveHighScore(s: number) { if (s > loadHighScore()) writeStoredText(HS_KEY, String(s)); }
 function loadHighScore(): number  { return parseInt(readStoredText(HS_KEY) ?? "0", 10) || 0; }
 function addCoins(n: number)      { writeStoredText(COINS_KEY, String(loadCoins() + n)); }
@@ -3674,17 +3599,14 @@ export default function Game() {
   const isPortraitPhoneRef = useRef(false);
   const audioRef = useRef(new GameAudio());
   const routeModifiersRef = useRef<Record<RouteModifierId, number>>({ ...EMPTY_ROUTE_MODIFIERS });
-  const runStatsRef = useRef<RunStats>({
-    kills: 0, bosses: 0, damageTaken: 0, powerUps: 0,
-    flawlessKills: 0, perfectBosses: 0, fullHealthPickups: 0,
-    maxCombo: 0, nearMisses: 0, missions: 0, damageDealt: 0,
-  });
+  const runStatsRef = useRef<RunStats>(normalizeRunStats(loadSave()?.runStats));
   const bossDamageStartRef = useRef(0);
   const activeModeRef = useRef<GameMode>("classic");
   const runResultRef = useRef<"game_over" | "complete">("game_over");
   const rewardGrantedRef = useRef(false);
   const [achievementToast, setAchievementToast] = useState<Achievement | null>(null);
   const [achievements, setAchievements] = useState<string[]>(() => loadAchievements());
+  const achievementsRef = useRef(achievements);
   const [runSummary, setRunSummary] = useState<RunSummary | null>(null);
   const tutorialStageRef = useRef(-1);
   const [fullscreenSupported] = useState(() => {
@@ -3719,10 +3641,11 @@ export default function Game() {
   }, []);
 
   const checkAchievements = useCallback(() => {
-    const owned = loadAchievements();
-    const unlocked = ACHIEVEMENTS.filter(a => !owned.includes(a.id) && runStatsRef.current[a.stat] >= a.target);
+    const owned = achievementsRef.current;
+    const unlocked = newlyUnlockedAchievements(runStatsRef.current, owned);
     if (unlocked.length === 0) return;
     const next = [...owned, ...unlocked.map(achievement => achievement.id)];
+    achievementsRef.current = next;
     saveAchievements(next);
     addCoins(unlocked.reduce((reward, achievement) => reward + achievement.reward, 0));
     setAchievements(next);
@@ -3822,6 +3745,7 @@ export default function Game() {
   const grantRunReward = useCallback(() => {
     if (rewardGrantedRef.current) return;
     rewardGrantedRef.current = true;
+    checkAchievements();
     const gs = stateRef.current;
     if (activeModeRef.current === "classic") {
       clearSave();
@@ -3850,7 +3774,7 @@ export default function Game() {
     addCoins(creditReward);
     addGems(Math.floor(creditReward / 100));
     syncDisplay();
-  }, [syncDisplay]);
+  }, [checkAchievements, syncDisplay]);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -4001,7 +3925,8 @@ export default function Game() {
       type = "laserdevice"; hp = (8 + level * 2) * 3; w = 52; h = 58; vx = -rand(1.1, 1.5); pts = 100; color = "#777c82";
     } else if (Math.random() < BIOME_ENEMY_CHANCE) {
       const biome = getCampaignLandscape(level).biome;
-      const definition = biome.enemies[Math.floor(Math.random() * biome.enemies.length)];
+      const availableEnemies = getAvailableBiomeEnemies(biome, level);
+      const definition = availableEnemies[Math.floor(Math.random() * availableEnemies.length)];
       type = "biome";
       biomeEnemyId = definition.id;
       biomeEnemyBand = definition.band;
@@ -4502,7 +4427,7 @@ export default function Game() {
     nextFireSwordLightningRef.current = runElapsedMsRef.current + 10_000;
     waveBannerRef.current = { text: `HANGAR ${nextHangar + 1} · ${activeSkinRef.current.name} ÜBERNIMMT`, timer: 150 };
     saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
-      fireRatePenaltyRef.current, activeMutatorRef.current.id);
+      fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current);
   }, [selectHangar]);
 
   const startGame = useCallback((fromSave = false, requestedLevel = campaignLevelRef.current) => {
@@ -4561,12 +4486,9 @@ export default function Game() {
     // Legacy mission upgrades must not carry over when resuming a save.
     routeModifiersRef.current = { ...EMPTY_ROUTE_MODIFIERS };
     sectorChoiceLevelsRef.current = new Set();
-    runStatsRef.current = {
-      kills: 0, bosses: 0, damageTaken: 0, powerUps: 0,
-      flawlessKills: 0, perfectBosses: 0, fullHealthPickups: 0,
-      maxCombo: 0, nearMisses: 0, missions: 0, damageDealt: 0,
-    };
-    bossDamageStartRef.current = 0;
+    runStatsRef.current = normalizeRunStats(save?.runStats);
+    bossDamageStartRef.current = runStatsRef.current.damageTaken;
+    checkAchievements();
     setRunSummary(null);
     const baseMaxHp = Math.max(3, (unlocks.includes("max_hp") ? 15 : 10) + aircraftStats.maxHpBonus + wingModule.hp);
     const baseSpeed = 3.2 + (unlocks.includes("speed_item") ? 0.5 : 0) + aircraftStats.speedBonus + engineModule.speed;
@@ -4633,7 +4555,7 @@ export default function Game() {
     rareEventTimerRef.current = 0;
     nextRareEventRef.current = rand(2100, 3300);
     titanWarningRef.current = 0;
-    missionRef.current = createMission(0);
+    missionRef.current = createMission(0, runStatsRef.current);
     ultimaChargeRef.current = ULTI_MAX;
     ultimaActiveRef.current = 0;
     laserChargeRef.current = LASER_MAX;
@@ -4649,7 +4571,7 @@ export default function Game() {
     saveExistsRef.current = !!loadSave();
     if (mode === "classic") {
       saveGame(stateRef.current, routeModifiersRef.current, sectorChoiceLevelsRef.current,
-        fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills);
+        fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current);
       saveExistsRef.current = true;
     }
     setPauseView("menu");
@@ -4657,7 +4579,7 @@ export default function Game() {
     tutorialStageRef.current = shouldTeach ? 0 : -1;
     setTutorialStage(shouldTeach ? 0 : -1);
     syncDisplay();
-  }, [syncDisplay]);
+  }, [checkAchievements, syncDisplay]);
 
   const returnToHangar = useCallback(() => {
     setMapOpen(false);
@@ -4671,7 +4593,7 @@ export default function Game() {
     });
     if (gs.score > 0 && !gs.gameOver && activeModeRef.current === "classic") {
       saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
-        fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills);
+        fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current);
     }
     gs.started = false;
     gs.paused = false;
@@ -8442,6 +8364,7 @@ export default function Game() {
             settings={settings}
             onSettingsChange={updateSettings}
             achievements={achievements}
+            achievementStats={{ ...runStatsRef.current }}
           />
         )}
         {displayState.started && displayState.paused && (
@@ -8727,7 +8650,7 @@ function HangarOverlay({
   hangarSlots, activeHangar, onHangarSelect, unlockedHangars, onHangarBuy,
   selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, hybridActive, droneBuild, savedAircraftBuilds, savedDroneBuilds, droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
   onStart, onNewGame, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onHybridSelect, onSavedAircraftBuildSelect, onSavedDroneBuildSelect, onHybridBuild, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onCrateOpen, onAdminActivate,
-  fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements,
+  fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements, achievementStats,
 }: {
   hangarSlots: HangarSlot[]; activeHangar: number; onHangarSelect: (index: number) => void;
   unlockedHangars: number; onHangarBuy: (index: number) => void;
@@ -8758,6 +8681,7 @@ function HangarOverlay({
   fullscreenSupported: boolean; isFullscreen: boolean; onFullscreenToggle: () => void;
   settings: GameSettings; onSettingsChange: (settings: GameSettings) => void;
   achievements: string[];
+  achievementStats: RunStats;
 }) {
   const language = settings.language;
   const [view, setView] = useState<"main" | "briefing" | "upgrades" | "settings" | "leaderboard" | "achievements">("main");
@@ -8868,7 +8792,7 @@ function HangarOverlay({
     );
   }
   if (view === "achievements") {
-    return <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}><AchievementsScreen unlocked={achievements} onBack={() => setView("main")} /></div>;
+    return <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}><AchievementsScreen unlocked={achievements} stats={achievementStats} onBack={() => setView("main")} /></div>;
   }
 
   return (
@@ -9929,12 +9853,12 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-function AchievementsScreen({ unlocked, onBack }: { unlocked: string[]; onBack: () => void }) {
+function AchievementsScreen({ unlocked, stats, onBack }: { unlocked: string[]; stats: RunStats; onBack: () => void }) {
   return <div className="flex h-full flex-col gap-4 overflow-y-auto p-4 text-white">
     <div className="flex items-center gap-3"><button onClick={onBack} className="min-h-11 min-w-11 text-xl text-slate-300">←</button><h2 className="text-xl font-black tracking-wide">MISSIONEN & ERFOLGE</h2><span className="ml-auto text-amber-300">{unlocked.length}/{ACHIEVEMENTS.length}</span></div>
-    <p className="text-sm text-slate-400">Erfülle diese Ziele innerhalb eines Einsatzes. Belohnungen werden sofort gutgeschrieben.</p>
-    <div className="grid gap-3 sm:grid-cols-2">{ACHIEVEMENTS.map(a => { const done = unlocked.includes(a.id); return <div key={a.id} className="rounded-2xl border p-4" style={{ borderColor: done ? "#facc15" : "#334155", background: done ? "rgba(120,85,0,.2)" : "rgba(15,23,42,.7)" }}>
-      <div className="flex items-start gap-3"><div className={`text-3xl ${done ? "" : "grayscale opacity-40"}`}>{a.icon}</div><div><div className="font-black">{a.name} {done && "✓"}</div><div className="text-sm text-slate-400">{a.description}</div><div className="mt-2 text-xs font-bold text-amber-300">Belohnung: {a.reward.toLocaleString("de-DE")} Credits</div></div></div>
+    <p className="text-sm text-slate-400">Erfülle diese Ziele innerhalb eines Einsatzes. Belohnungen werden sofort gutgeschrieben. Der Fortschritt gilt für den aktuellen oder letzten Einsatz und bleibt beim Fortsetzen erhalten.</p>
+    <div className="grid gap-3 sm:grid-cols-2">{ACHIEVEMENTS.map(a => { const done = unlocked.includes(a.id); const progress = achievementProgress(a, stats, done); return <div key={a.id} className="rounded-2xl border p-4" style={{ borderColor: done ? "#facc15" : "#334155", background: done ? "rgba(120,85,0,.2)" : "rgba(15,23,42,.7)" }}>
+      <div className="flex items-start gap-3"><div className={`text-3xl ${done ? "" : "grayscale opacity-40"}`}>{a.icon}</div><div><div className="font-black">{a.name} {done && "✓"}</div><div className="text-sm text-slate-400">{a.description}</div><div className="mt-3 text-xs text-slate-300">{done ? "Freigeschaltet" : "Fortschritt"}: {Math.floor(progress).toLocaleString("de-DE")} / {a.target.toLocaleString("de-DE")}</div><progress className="mt-1 h-2 w-full accent-amber-300" aria-label={`${a.name}: Fortschritt`} value={progress} max={a.target} /><div className="mt-2 text-xs font-bold text-amber-300">Belohnung: {a.reward.toLocaleString("de-DE")} Credits</div></div></div>
     </div>})}</div>
   </div>;
 }
