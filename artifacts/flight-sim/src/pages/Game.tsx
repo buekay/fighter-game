@@ -3595,6 +3595,9 @@ export default function Game() {
   const [tutorialStage, setTutorialStage] = useState(-1);
   const [introOpen, setIntroOpen] = useState(() => readStoredText(BRIEFING_KEY) !== "1");
   const introOpenRef = useRef(introOpen);
+  useEffect(() => {
+    if (introOpen) markBriefingSeen();
+  }, [introOpen]);
   const [showVirtualControls, setShowVirtualControls] = useState(false);
   const [isPortraitPhone, setIsPortraitPhone] = useState(false);
   const isPortraitPhoneRef = useRef(false);
@@ -4577,6 +4580,7 @@ export default function Game() {
     }
     setPauseView("menu");
     const shouldTeach = settingsRef.current.tutorial && !tutorialSeen() && !fromSave;
+    if (shouldTeach) markTutorialSeen();
     tutorialStageRef.current = shouldTeach ? 0 : -1;
     setTutorialStage(shouldTeach ? 0 : -1);
     syncDisplay();
