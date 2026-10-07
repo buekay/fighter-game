@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { BIOMES } from "../biomes";
-import { drawExtendedBiomeEnemy, getBiomeEnemyRenderTransform } from "./biome-enemies";
+import { drawBiomeEnemyBody, drawExtendedBiomeEnemy } from "./biome-enemies";
 
 type Bounds = [number, number, number, number];
 type Transform = { sx: number; sy: number; tx: number; ty: number };
@@ -40,20 +40,13 @@ class GeometryContext {
   }
 }
 
-const extended = new Set(["delta", "orbiter", "walker", "battery", "frigate"]);
 for (const enemy of BIOMES.flatMap(biome => biome.enemies)) {
-  if (!extended.has(enemy.visual)) continue;
   for (const pulse of [.54, .72, .90]) {
     const geometry = new GeometryContext();
     const ctx = geometry as unknown as CanvasRenderingContext2D;
     const outerScale = 1.22;
     geometry.scale(outerScale, outerScale);
-    const transform = getBiomeEnemyRenderTransform(enemy.visual, enemy.width / outerScale, enemy.height / outerScale);
-    geometry.save();
-    geometry.scale(transform.scaleX, transform.scaleY);
-    geometry.translate(transform.offsetX, transform.offsetY);
-    assert.equal(drawExtendedBiomeEnemy(ctx, enemy.visual, enemy.color, enemy.accent, {} as CanvasGradient, pulse), true);
-    geometry.restore();
+    drawBiomeEnemyBody(ctx, enemy.visual, enemy.color, enemy.accent, pulse, () => ({} as CanvasGradient), enemy.width / outerScale, enemy.height / outerScale);
     assert.deepEqual(geometry.transform, { sx: outerScale, sy: outerScale, tx: 0, ty: 0 });
     const [left, top, right, bottom] = geometry.bounds;
     const epsilon = 1e-8;

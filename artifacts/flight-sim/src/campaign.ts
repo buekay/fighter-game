@@ -1,5 +1,5 @@
 import { MAX_LEVEL, getLevelThreshold, isMilestoneBossLevel, getGameModeRules } from './game-rules';
-import { getBiomeForLevel } from './biomes';
+import { BIOMES, getBiomeForLevel } from './biomes';
 import { readStoredJson, writeStoredJson } from './storage';
 
 export const CAMPAIGN_KEY = 'fighter-command-campaign-v1';
