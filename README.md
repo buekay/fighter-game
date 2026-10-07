@@ -113,3 +113,12 @@ Die drei neuen Ultis nutzen die vorhandenen Ladebalken und Touch-Steuerung. Ulti
 
 Die Regeln werden in `src/combat-extras.test.ts` einschließlich 30/60/120-Hz-Timing,
 Einmal-Rettung, Fortsetzen, Chaos-Ablauf und Kombinationsgeometrie geprüft.
+
+## Erfolge
+
+Die Erfolgsübersicht zeigt den Fortschritt des aktuellen beziehungsweise letzten
+Einsatzes mit Zähler und Fortschrittsbalken. Einsatzstatistiken werden im
+Spielstand gespeichert und beim Fortsetzen wiederhergestellt. Ein neuer Einsatz
+beginnt bei null; freigeschaltete Erfolge bleiben erhalten und ihre Belohnungen
+werden nur einmal vergeben. Ältere Spielstände ohne Statistiken starten mit
+null Fortschritt.

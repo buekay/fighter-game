@@ -21,9 +21,9 @@ for (const achievement of ACHIEVEMENTS) {
 
 // Saving and restoring a partial run must keep its next unlock within reach.
 const restored = normalizeRunStats(JSON.parse(JSON.stringify({ ...empty, kills: 24, missions: 2, maxCombo: 19 })));
-assert.equal(newlyUnlockedAchievements(restored, ["first_sortie"]).length, 0);
+assert.equal(newlyUnlockedAchievements(restored, ["first_sortie", "mission_first"]).length, 0);
 restored.kills++;
-assert.deepEqual(newlyUnlockedAchievements(restored, ["first_sortie"]).map(a => a.id), ["on_a_roll"]);
+assert.deepEqual(newlyUnlockedAchievements(restored, ["first_sortie", "mission_first"]).map(a => a.id), ["on_a_roll"]);
 // Restored kills cannot immediately replay an already earned mission reward.
 assert.equal(missionProgress(createMission(0, restored), restored, 0), 0);
 assert.equal(achievementProgress(ACHIEVEMENTS[0], { ...empty, kills: 100 }, false), 10);
