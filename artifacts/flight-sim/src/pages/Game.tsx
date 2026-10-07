@@ -3592,8 +3592,8 @@ export default function Game() {
   const language = settings.language;
   const [pauseView, setPauseView] = useState<"menu" | "settings">("menu");
   const [tutorialStage, setTutorialStage] = useState(-1);
-  const [introOpen, setIntroOpen] = useState(true);
-  const introOpenRef = useRef(true);
+  const [introOpen, setIntroOpen] = useState(() => readStoredText(BRIEFING_KEY) !== "1");
+  const introOpenRef = useRef(introOpen);
   const [showVirtualControls, setShowVirtualControls] = useState(false);
   const [isPortraitPhone, setIsPortraitPhone] = useState(false);
   const isPortraitPhoneRef = useRef(false);
