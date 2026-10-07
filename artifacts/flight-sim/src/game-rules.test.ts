@@ -208,39 +208,40 @@ assert.ok(Math.abs(getNormalBossDamage(3, 9) - 0.6) < Number.EPSILON);
 assert.equal(getNormalBossDamage(1, 9), 0.2);
 assert.equal(getNormalBossDamage(3, 10), 3);
 
-assert.equal(shouldUseSpaceBackground(45), false);
-assert.equal(shouldUseSpaceBackground(46), true);
-assert.equal(shouldUseSpaceBackground(50), true);
-assert.equal(shouldUseSpaceBackground(51), false);
+assert.equal(shouldUseSpaceBackground(9), false);
+assert.equal(shouldUseSpaceBackground(10), true);
+assert.equal(shouldUseSpaceBackground(20), true);
+assert.equal(shouldUseSpaceBackground(21), false);
 assert.equal(shouldUseSpaceBackground(500), true);
 
-assert.equal(shouldUseAboveCloudsBackground(20), false);
-assert.equal(shouldUseAboveCloudsBackground(21), true);
-assert.equal(shouldUseAboveCloudsBackground(25), true);
-assert.equal(shouldUseAboveCloudsBackground(26), false);
-assert.equal(shouldUseAboveCloudsBackground(41), true);
+assert.equal(shouldUseAboveCloudsBackground(4), false);
+assert.equal(shouldUseAboveCloudsBackground(5), true);
+assert.equal(shouldUseAboveCloudsBackground(9), true);
+assert.equal(shouldUseAboveCloudsBackground(10), false);
+assert.equal(shouldUseAboveCloudsBackground(15), true);
 
-assert.equal(shouldUseCityBackground(5), true);
-assert.equal(shouldUseCityBackground(6), false);
-assert.equal(shouldUseCityBackground(51), true);
+assert.equal(shouldUseCityBackground(1), true);
+assert.equal(shouldUseCityBackground(5), false);
+assert.equal(shouldUseCityBackground(11), true);
 
-assert.equal(getBackgroundMusicTheme(1), "city");
-assert.equal(getBackgroundMusicTheme(6), "sky");
-assert.equal(getBackgroundMusicTheme(11), "clouds");
-assert.equal(getBackgroundMusicTheme(16), "sky");
-assert.equal(getBackgroundMusicTheme(31), "space");
-assert.equal(getBackgroundMusicTheme(36), "clouds");
-assert.equal(getBackgroundMusicTheme(46), "space");
+assert.deepEqual(
+  Array.from({ length: 10 }, (_, i) => getBackgroundMusicTheme(i + 1)),
+  ["city", "sky", "clouds", "sky", "clouds", "sky", "space", "clouds", "clouds", "space"],
+);
+assert.equal(getBackgroundMusicTheme(11), "city");
+assert.equal(getBackgroundMusicTheme(20), "space");
 assert.equal(getBackgroundMusicTheme(51), "city");
 assert.equal(getBackgroundMusicTheme(500), "space");
 
-assert.equal(LEVELS_PER_BIOME, 5);
+assert.equal(LEVELS_PER_BIOME, 1);
 assert.deepEqual(
-  [1, 6, 11, 16, 21, 26, 31, 36, 41, 46].map(level => getBiomeForLevel(level).id),
+  Array.from({ length: 10 }, (_, i) => getBiomeForLevel(i + 1).id),
   ["city", "desert", "ocean", "plains", "arctic", "canyon", "volcano", "jungle", "storm", "space"],
 );
+assert.equal(getBiomeForLevel(11).id, "city");
 assert.equal(getBiomeForLevel(51).id, "city");
 assert.equal(getBiomeForLevel(500).id, "space");
+for (const invalid of [NaN, Infinity, -Infinity, 0, -5]) assert.equal(getBiomeForLevel(invalid).id, "city");
 assert.equal(BIOMES.every(biome => biome.enemies.length === 8), true);
 assert.equal(new Set(BIOMES.flatMap(biome => biome.enemies.map(enemy => enemy.id))).size, BIOMES.length * 8);
 for (const biome of BIOMES) {

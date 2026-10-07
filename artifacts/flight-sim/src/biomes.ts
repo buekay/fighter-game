@@ -56,7 +56,7 @@ export interface BiomeDefinition {
   enemies: readonly BiomeEnemyDefinition[];
 }
 
-export const LEVELS_PER_BIOME = 5;
+export const LEVELS_PER_BIOME = 1;
 export const NIGHT_BACKGROUND_CHANCE = 0.2;
 
 export const BIOMES: readonly BiomeDefinition[] = [
@@ -203,7 +203,7 @@ export const BIOMES: readonly BiomeDefinition[] = [
 ] as const;
 
 export function getBiomeForLevel(level: number): BiomeDefinition {
-  const safeLevel = Math.max(1, Math.floor(level));
+  const safeLevel = Number.isFinite(level) ? Math.max(1, Math.floor(level)) : 1;
   const index = Math.floor((safeLevel - 1) / LEVELS_PER_BIOME) % BIOMES.length;
   return BIOMES[index];
 }

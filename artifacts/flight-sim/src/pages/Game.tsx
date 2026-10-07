@@ -1,6 +1,6 @@
 import { ACHIEVEMENTS, achievementProgress, loadAchievements, saveAchievements, newlyUnlockedAchievements, normalizeRunStats, type Achievement, type RunStats } from "../achievements";
 import { drawCombatExtras } from "../rendering/combat-extras";
-import { drawExtendedBiomeEnemy } from "../rendering/biome-enemies";
+import { drawExtendedBiomeEnemy, getBiomeEnemyRenderTransform } from "../rendering/biome-enemies";
 import { EXTRA_ITEMS, EXTRA_ACTIONS, isCombatUlti, combatUltiStates, type CombatExtras, CHAOS_LABELS, createCombatExtras, tickCombatExtras, activateExtra, blockWithExtra, consumeCounter, applyExtraDamage, collectChaos, createShadowDecoy, getMagnetTarget, magnetStep, distanceToTrail, type ExtraAction } from "../combat-extras";
 import { drawSkyFlame } from "../rendering/sky-fire";
 import { LevelMap } from "../components/LevelMap";
@@ -2069,6 +2069,14 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, reducedMotion = fals
       const accent = definition?.accent ?? "#ffffff";
       const visual = definition?.visual ?? "interceptor";
       const outline = "#ffffff88";
+      // Cancel the outer cosmetic enlargement and fit the solid model to its
+      // collision bounds, including asymmetric cannons and rotor overhangs.
+      const modelTransform = getBiomeEnemyRenderTransform(visual, e.width / visualScale, e.height / visualScale);
+      ctx.save();
+      ctx.scale(modelTransform.scaleX, modelTransform.scaleY);
+      ctx.translate(modelTransform.offsetX, modelTransform.offsetY);
+      ctx.lineWidth = 1;
+      ctx.lineCap = "butt";
       ctx.lineJoin = "round";
 
       if (drawExtendedBiomeEnemy(ctx, visual, body, accent, hullGradient("#111820", body, accent), pulse)) {
@@ -2154,6 +2162,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, reducedMotion = fals
         ctx.fillStyle = "#ffffff"; ctx.fillRect(20, -1.5, 14, 3);
       }
       ctx.shadowBlur = 0;
+      ctx.restore();
       break;
     }
     case "scout": {

@@ -1,5 +1,34 @@
 import type { BiomeEnemyVisual } from "../biomes";
 
+// Local hull bounds include barrels, feet, rotors and the outer stroke.
+// Exhaust and status indicators are cosmetic and keep their separate sizing.
+const MODEL_BOUNDS: Record<BiomeEnemyVisual, readonly [number, number, number, number]> = {
+  interceptor: [-24.75, -18.75, 34, 18.75],
+  drone: [-23.5, -24.5, 19.5, 24.5],
+  tank: [-25, -15, 36, 18],
+  skimmer: [-31.5, -7.5, 35, 17],
+  ship: [-34.5, -16.5, 34, 22],
+  submarine: [-34.5, -17.5, 34.5, 22],
+  helicopter: [-38, -12.5, 35, 20],
+  crawler: [-26.5, -23.5, 31, 12.5],
+  cruiser: [-34.75, -18.75, 40, 18.75],
+  delta: [-25.5, -17.5, 28.5, 17.5],
+  orbiter: [-22.5, -19.5, 22.5, 19.5],
+  walker: [-22.5, -21.5, 27, 18.5],
+  battery: [-27, -14, 30, 17.5],
+  frigate: [-31.5, -18.5, 32, 18.5],
+};
+
+export function getBiomeEnemyRenderTransform(visual: BiomeEnemyVisual, width: number, height: number) {
+  const [left, top, right, bottom] = MODEL_BOUNDS[visual];
+  return {
+    scaleX: width / (right - left),
+    scaleY: height / (bottom - top),
+    offsetX: -(left + right) / 2,
+    offsetY: -(top + bottom) / 2,
+  };
+}
+
 // Draw in the same left-facing local coordinates as the existing enemy models.
 export function drawExtendedBiomeEnemy(
   ctx: CanvasRenderingContext2D,

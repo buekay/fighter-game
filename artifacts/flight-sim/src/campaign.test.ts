@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { MAX_LEVEL, getLevelThreshold } from './game-rules';
-import { BIOMES, getAvailableBiomeEnemies } from './biomes';
+import { MAX_LEVEL, getLevelThreshold, getBackgroundMusicTheme, shouldUseSpaceBackground, shouldUseCityBackground, shouldUseAboveCloudsBackground } from './game-rules';
+import { BIOMES, getAvailableBiomeEnemies, getBiomeForLevel, type BiomeId } from './biomes';
 import { normalizeCompleted, isLevelUnlocked, getCampaignTarget, canCompleteCampaignLevel, getCampaignLandscape, completeCampaignLevel, loadCompletedLevels, getCampaignMode, isCampaignProtectLevel, isCampaignBossLevel } from './campaign';
 assert.equal(isLevelUnlocked(1, 0), true);
 assert.equal(isLevelUnlocked(2, 0), false);
@@ -21,8 +21,17 @@ assert.equal(canCompleteCampaignLevel(MAX_LEVEL, getCampaignTarget(MAX_LEVEL), t
 const signatures = new Set(Array.from({length:MAX_LEVEL},(_,i)=>JSON.stringify(getCampaignLandscape(i+1))));
 assert.equal(signatures.size, MAX_LEVEL);
 // Each return to a landscape unlocks one additional enemy, starting on visit two.
+const landscapeMusic: Record<BiomeId, string> = {
+  city: 'city', desert: 'sky', ocean: 'clouds', plains: 'sky', arctic: 'clouds',
+  canyon: 'sky', volcano: 'space', jungle: 'clouds', storm: 'clouds', space: 'space',
+};
 for (let level = 1; level <= MAX_LEVEL; level++) {
   const biome = getCampaignLandscape(level).biome;
+  assert.equal(biome, getBiomeForLevel(level), 'Landscape, shadows and music share one biome selection');
+  assert.equal(getBackgroundMusicTheme(level), landscapeMusic[biome.id]);
+  assert.equal(shouldUseSpaceBackground(level), biome.id === 'space');
+  assert.equal(shouldUseCityBackground(level), biome.id === 'city');
+  assert.equal(shouldUseAboveCloudsBackground(level), biome.id === 'arctic' || biome.id === 'storm');
   const available = getAvailableBiomeEnemies(biome, level);
   assert.equal(available.length, Math.min(8, 3 + Math.floor((level - 1) / 10)));
   assert.ok(available.every(enemy => enemy.minLevel <= level));
