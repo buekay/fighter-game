@@ -9854,13 +9854,47 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
 }
 
 function AchievementsScreen({ unlocked, stats, onBack }: { unlocked: string[]; stats: RunStats; onBack: () => void }) {
-  return <div className="flex h-full flex-col gap-4 overflow-y-auto p-4 text-white">
-    <div className="flex items-center gap-3"><button onClick={onBack} className="min-h-11 min-w-11 text-xl text-slate-300">←</button><h2 className="text-xl font-black tracking-wide">MISSIONEN & ERFOLGE</h2><span className="ml-auto text-amber-300">{unlocked.length}/{ACHIEVEMENTS.length}</span></div>
-    <p className="text-sm text-slate-400">Erfülle diese Ziele innerhalb eines Einsatzes. Belohnungen werden sofort gutgeschrieben. Der Fortschritt gilt für den aktuellen oder letzten Einsatz und bleibt beim Fortsetzen erhalten.</p>
-    <div className="grid gap-3 sm:grid-cols-2">{ACHIEVEMENTS.map(a => { const done = unlocked.includes(a.id); const progress = achievementProgress(a, stats, done); return <div key={a.id} className="rounded-2xl border p-4" style={{ borderColor: done ? "#facc15" : "#334155", background: done ? "rgba(120,85,0,.2)" : "rgba(15,23,42,.7)" }}>
-      <div className="flex items-start gap-3"><div className={`text-3xl ${done ? "" : "grayscale opacity-40"}`}>{a.icon}</div><div><div className="font-black">{a.name} {done && "✓"}</div><div className="text-sm text-slate-400">{a.description}</div><div className="mt-3 text-xs text-slate-300">{done ? "Freigeschaltet" : "Fortschritt"}: {Math.floor(progress).toLocaleString("de-DE")} / {a.target.toLocaleString("de-DE")}</div><progress className="mt-1 h-2 w-full accent-amber-300" aria-label={`${a.name}: Fortschritt`} value={progress} max={a.target} /><div className="mt-2 text-xs font-bold text-amber-300">Belohnung: {a.reward.toLocaleString("de-DE")} Credits</div></div></div>
-    </div>})}</div>
-  </div>;
+  return (
+    <div className="flex h-full flex-col gap-4 overflow-y-auto p-4 text-white">
+      <div className="flex items-center gap-3">
+        <button onClick={onBack} className="min-h-11 min-w-11 text-xl text-slate-300">←</button>
+        <h2 className="text-xl font-black tracking-wide">MISSIONEN & ERFOLGE</h2>
+        <span className="ml-auto text-amber-300">{unlocked.length}/{ACHIEVEMENTS.length}</span>
+      </div>
+      <p className="text-sm text-slate-400">
+        Erfülle diese Ziele innerhalb eines Einsatzes. Belohnungen werden sofort gutgeschrieben.
+        Der Fortschritt gilt für den aktuellen oder letzten Einsatz und bleibt beim Fortsetzen erhalten.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {ACHIEVEMENTS.map(achievement => {
+          const done = unlocked.includes(achievement.id);
+          const progress = achievementProgress(achievement, stats, done);
+          return (
+            <div key={achievement.id} className="rounded-2xl border p-4" style={{
+              borderColor: done ? "#facc15" : "#334155",
+              background: done ? "rgba(120,85,0,.2)" : "rgba(15,23,42,.7)",
+            }}>
+              <div className="flex items-start gap-3">
+                <div className={`text-3xl ${done ? "" : "grayscale opacity-40"}`}>{achievement.icon}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-black">{achievement.name} {done && "✓"}</div>
+                  <div className="text-sm text-slate-400">{achievement.description}</div>
+                  <div className="mt-3 text-xs text-slate-300">
+                    {done ? "Freigeschaltet" : "Fortschritt"}: {Math.floor(progress).toLocaleString("de-DE")} / {achievement.target.toLocaleString("de-DE")}
+                  </div>
+                  <progress className="mt-1 h-2 w-full accent-amber-300"
+                    aria-label={`${achievement.name}: Fortschritt`} value={progress} max={achievement.target} />
+                  <div className="mt-2 text-xs font-bold text-amber-300">
+                    Belohnung: {achievement.reward.toLocaleString("de-DE")} Credits
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ─── First-mission briefing ───────────────────────────────────────────────────
