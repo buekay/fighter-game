@@ -64,6 +64,7 @@ pnpm run build
 - Boss Fight mode has five encounters in order: Titan, tank, spider robot, submarine, and fortress city. Each encounter starts with 9,000 HP; the city splits this pool across six destructible flame, rocket, and cannon defenders. Destroy all defenders to complete the final encounter.
 - Boss encounters are available from level 3. Early milestone bosses appear at levels 3, 5, 8, 10, 12, 15, and 18. The five major bosses appear at levels 20 (Titan), 25 (tank), 30 (spider robot), 35 (submarine), and 40 (city). From level 50, this order repeats every ten levels: 50/60/70/80/90, then 100/110/120/130/140, and so on. Level progression waits for each major boss encounter to finish; large score gains cannot skip an encounter.
 - TIE fighters perform an evasive vertical dodge roughly every 1.5 seconds.
+- Each of the ten landscape types has eight themed enemies: the original three plus five additional opponents with their own colors and combat stats. New delta fighters, orbital probes, walkers, artillery batteries, and frigates add distinct silhouettes. Day and night variants share their landscape's enemy pool.
 - From level 20 onward, specialist enemies can appear: healers repair damaged allies, shield generators protect nearby ships, and kamikaze fighters rush the player.
 - From level 50 onward, enemies can also spawn as armored, swift, or frenzied elites with increased score rewards.
 - Near misses extend the current combo window, load ultimates, and award bonus score.

@@ -33,6 +33,7 @@ export interface PlayerHitProtectionResult {
 
 export const MAX_LEVEL = 500;
 export const MAX_ACTIVE_ENEMIES = 20;
+export const MAX_ACTIVE_PROJECTILES = 200;
 export const CITY_BACKGROUND_MAX_LEVEL = 5;
 export const ABOVE_CLOUDS_BACKGROUND_LEVEL = 41;
 export const SPACE_BACKGROUND_LEVEL = 46;
@@ -57,8 +58,20 @@ export function getWaveClearReward(spawned: number, defeated: number, flawless: 
   return flawless ? 1_500 : 500;
 }
 
-export function addEnemyWithinLimit<T>(enemies: T[], enemy: T): boolean {
-  if (enemies.length >= MAX_ACTIVE_ENEMIES) return false;
+/** Keep existing projectiles; admit new shots only while there is room. */
+export function addProjectilesWithinLimit<T>(projectiles: T[], ...shots: T[]): number {
+  const available = Math.max(0, MAX_ACTIVE_PROJECTILES - projectiles.length);
+  const added = Math.min(available, shots.length);
+  for (let i = 0; i < added; i++) projectiles.push(shots[i]);
+  return added;
+}
+
+export function getActiveEnemyLimit(level: number): number {
+  return level <= EARLY_GAME_LEVEL_LIMIT ? 10 : MAX_ACTIVE_ENEMIES;
+}
+
+export function addEnemyWithinLimit<T>(enemies: T[], enemy: T, level = MAX_LEVEL): boolean {
+  if (enemies.length >= getActiveEnemyLimit(level)) return false;
   enemies.push(enemy);
   return true;
 }
@@ -80,7 +93,7 @@ export function addSpawnedEnemy<T extends { type: string; hp: number; maxHp: num
     hp: enemy.hp * 1.3 * strength,
     maxHp: enemy.maxHp * 1.3 * strength,
     ...(enemy.shieldHp === undefined ? {} : { shieldHp: enemy.shieldHp * strength }),
-  });
+  }, level);
 }
 
 export const EARLY_GAME_LEVEL_LIMIT = 10;
@@ -361,8 +374,8 @@ export function isLaserDeviceEligibleLevel(level: number): boolean {
   return level >= LASER_DEVICE_MIN_LEVEL;
 }
 
-export function shouldSpawnEnemy(activeEnemies: number, elapsed: number, interval: number): boolean {
-  return activeEnemies < MAX_ACTIVE_ENEMIES && (activeEnemies === 0 || elapsed >= interval);
+export function shouldSpawnEnemy(activeEnemies: number, elapsed: number, interval: number, level = MAX_LEVEL): boolean {
+  return activeEnemies < getActiveEnemyLimit(level) && (activeEnemies === 0 || elapsed >= interval);
 }
 
 export function getEnemySpawnRate(level: number): number {

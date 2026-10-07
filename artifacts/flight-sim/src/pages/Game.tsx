@@ -1,4 +1,5 @@
 import { drawCombatExtras } from "../rendering/combat-extras";
+import { drawExtendedBiomeEnemy } from "../rendering/biome-enemies";
 import { EXTRA_ITEMS, EXTRA_ACTIONS, isCombatUlti, combatUltiStates, type CombatExtras, CHAOS_LABELS, createCombatExtras, tickCombatExtras, activateExtra, blockWithExtra, consumeCounter, applyExtraDamage, collectChaos, createShadowDecoy, getMagnetTarget, magnetStep, distanceToTrail, type ExtraAction } from "../combat-extras";
 import { drawSkyFlame } from "../rendering/sky-fire";
 import { LevelMap } from "../components/LevelMap";
@@ -23,9 +24,10 @@ import { applyFlightBank, drawDepthClouds, drawEnginePlume, drawFlightShadow, dr
 import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from "react";
 import {
   MAX_LEVEL,
-  MAX_ACTIVE_ENEMIES,
+  getActiveEnemyLimit,
   BOSS_FIGHT_COUNT,
   addSpawnedEnemy,
+  addProjectilesWithinLimit,
   isEnemyReturningToPlayfield,
   rechargeGuardianShield,
   getWaveClearReward,
@@ -2110,7 +2112,9 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, reducedMotion = fals
       const outline = "#ffffff88";
       ctx.lineJoin = "round";
 
-      if (visual === "tank") {
+      if (drawExtendedBiomeEnemy(ctx, visual, body, accent, hullGradient("#111820", body, accent), pulse)) {
+        // Additional silhouettes share the biome palette and metal finish.
+      } else if (visual === "tank") {
         // Local Y is inverted by the enemy-facing rotation above.
         ctx.fillStyle = "#111820";
         ctx.beginPath(); ctx.roundRect(-25, -15, 48, 12, 6); ctx.fill();
@@ -3996,7 +4000,7 @@ export default function Game() {
     // After level 5 enemies award bonus score so levels go faster
     if (level > 5) pts = Math.round(pts * (1 + (level - 5) * 0.18));
 
-    const activeBiome = getBiomeForLevel(level);
+    const activeBiome = getCampaignLandscape(level).biome;
     const surfaceY = activeBiome.id === "ocean" ? CANVAS_H * .57 : CANVAS_H * .8;
     const y = type === "laserdevice"
       ? CANVAS_H / 2 - h / 2
@@ -4143,7 +4147,7 @@ export default function Game() {
       defeated: new Set(),
     };
     if (isMajor) {
-      waveBannerRef.current = { text: `⚠ ${name} · ${count} GEGNER`, timer: 150 };
+      waveBannerRef.current = { text: `⚠ ${name} · ${activeWaveRef.current.spawned} GEGNER`, timer: 150 };
       audioRef.current.effect("boss", settingsRef.current.soundVolume * .6);
     }
   }, []);
@@ -4174,7 +4178,7 @@ export default function Game() {
       if (droneWeapon.meleeRange) {
         const damage = (drone.damage + routeModifiersRef.current.damage) * droneWeapon.damageMultiplier *
           droneDamageMultiplier * buildDamageMultiplier * (role === "assault" ? 1.35 : 1);
-        bulletsRef.current.push({
+        addProjectilesWithinLimit(bulletsRef.current, {
           x: droneX + 12,
           y: droneY,
           vx: 0,
@@ -4199,7 +4203,7 @@ export default function Game() {
       const weaponSpread = Array.from({ length: droneWeapon.shots }, (_, index) =>
         (index - (droneWeapon.shots - 1) / 2) * droneWeapon.spread,
       );
-      offsets.forEach(offset => weaponSpread.forEach(spread => bulletsRef.current.push({
+      offsets.forEach(offset => weaponSpread.forEach(spread => addProjectilesWithinLimit(bulletsRef.current, {
         x: droneX + 22, y: droneY + offset,
         vx: droneWeapon.projectileSpeed,
         vy: spread * droneWeapon.projectileSpeed,
@@ -4223,7 +4227,7 @@ export default function Game() {
         const wingY = clamp(playerRef.current.y + PLAYER_H / 2 + wingOffset, PLAYER_H, CANVAS_H - PLAYER_H);
         const target = [...livingTargets].sort((a, b) =>
           Math.hypot(a.x - px, a.y - wingY) - Math.hypot(b.x - px, b.y - wingY))[index % Math.max(1, livingTargets.length)] ?? null;
-        bulletsRef.current.push({
+        addProjectilesWithinLimit(bulletsRef.current, {
           x: px, y: wingY, vx: 8.5, vy: 0, fromPlayer: true,
           damage: 5 + aircraftUpgradeRef.current.damageBonus,
           color: "#ff6a20", isMissile: true, missileTarget: target,
@@ -4252,7 +4256,7 @@ export default function Game() {
         (extrasRef.current.chaos === "fire" ? 1.35 : 1) * consumeCounter(extrasRef.current);
 
       if (weapon.pattern === "melee" && weapon.meleeRange) {
-        bulletsRef.current.push({
+        addProjectilesWithinLimit(bulletsRef.current, {
           x: px - 2,
           y: py + slotOffset,
           vx: 0,
@@ -4279,7 +4283,7 @@ export default function Game() {
         const spread = (i - (offsets.length - 1) / 2) * 0.15;
         vy = spread * vx;
       }
-      bulletsRef.current.push({
+      addProjectilesWithinLimit(bulletsRef.current, {
         x: px, y: py + oy + slotOffset,
         vx, vy,
         fromPlayer: true,
@@ -4300,7 +4304,7 @@ export default function Game() {
           cvy = spread * BASE_BULLET_SPEED;
         }
         const wingY = clamp(playerRef.current.y + PLAYER_H / 2 + wingOffset, PLAYER_H, CANVAS_H - PLAYER_H);
-        bulletsRef.current.push({
+        addProjectilesWithinLimit(bulletsRef.current, {
           x: px, y: wingY + oy, vx: cvx, vy: cvy, fromPlayer: true,
           damage: weaponStats.damage + aircraftUpgradeRef.current.damageBonus,
           color: weapon.color,
@@ -4314,7 +4318,7 @@ export default function Game() {
       if (weapon.pattern === "missile" && now - lastMissileRef.current > missileCooldown) {
       lastMissileRef.current = now;
       const target = enemiesRef.current[0] ?? null;
-      bulletsRef.current.push({
+      addProjectilesWithinLimit(bulletsRef.current, {
         x: px, y: py,
         vx: 7, vy: 0,
         fromPlayer: true, damage: (weaponStats.damage * 1.8 + aircraftUpgradeRef.current.damageBonus + routeModifiersRef.current.missile_mastery * 4) * buildDamageMultiplier,
@@ -4335,17 +4339,17 @@ export default function Game() {
       .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0] ?? null;
 
     if (crate.kind === "rockets") {
-      [-5, 5].forEach(offset => bulletsRef.current.push({
+      [-5, 5].forEach(offset => addProjectilesWithinLimit(bulletsRef.current, {
         x, y: y + offset, vx: 7, vy: 0, fromPlayer: true,
         damage: crate.damage, color: crate.color, isMissile: true, missileTarget: target,
       }));
     } else if (crate.kind === "laser") {
-      bulletsRef.current.push({
+      addProjectilesWithinLimit(bulletsRef.current, {
         x, y, vx: 15, vy: 0, fromPlayer: true,
         damage: crate.damage, color: crate.color, lifetime: 55,
       });
     } else {
-      [-.22, 0, .22].forEach(spread => bulletsRef.current.push({
+      [-.22, 0, .22].forEach(spread => addProjectilesWithinLimit(bulletsRef.current, {
         x, y, vx: 11, vy: spread * 11, fromPlayer: true,
         damage: crate.damage, color: crate.color,
       }));
@@ -4693,7 +4697,7 @@ export default function Game() {
       Math.hypot(a.x - px, a.y - py) - Math.hypot(b.x - px, b.y - py),
     );
     [-10, 0, 10].forEach((offset, index) => {
-      bulletsRef.current.push({
+      addProjectilesWithinLimit(bulletsRef.current, {
         x: px,
         y: py + offset,
         vx: POISON_MISSILE_SPEED,
@@ -5336,7 +5340,7 @@ export default function Game() {
             const baseAngle = Math.atan2(aimY - originY, aimX - originX);
             [-.035, 0, .035].forEach((spread, index) => {
               const angle = baseAngle + spread;
-              bulletsRef.current.push({
+              addProjectilesWithinLimit(bulletsRef.current, {
                 x: originX,
                 y: originY + (index - 1) * 5,
                 vx: Math.cos(angle) * projectileSpeed,
@@ -5551,7 +5555,7 @@ export default function Game() {
           const targetX = enemy.x + enemy.width / 2;
           const targetY = enemy.y + enemy.height / 2;
           const angle = Math.atan2(targetY - originY, targetX - originX);
-          bulletsRef.current.push({
+          addProjectilesWithinLimit(bulletsRef.current, {
             x: originX,
             y: originY,
             vx: Math.cos(angle) * 14,
@@ -5674,7 +5678,7 @@ export default function Game() {
 
       // ── Milestone boss: spawn a mega-boss when entering key levels ──
       if (activeModeRef.current !== "boss_fight" && !scheduledBossActive && gs.level < 20 && isMilestoneBossLevel(gs.level) && !milestoneBossFiredRef.current.has(gs.level) &&
-          enemiesRef.current.length < MAX_ACTIVE_ENEMIES &&
+          enemiesRef.current.length < getActiveEnemyLimit(gs.level) &&
           enemiesRef.current.filter(isBossEnemy).length === 0) {
         milestoneBossFiredRef.current.add(gs.level);
         const ml = gs.level;
@@ -5712,7 +5716,7 @@ export default function Game() {
         bossFightSpawnTimerRef.current = 0;
       } else if (activeModeRef.current === "boss_fight") {
         bossFightSpawnTimerRef.current += dtScale;
-        if (enemiesRef.current.length < MAX_ACTIVE_ENEMIES &&
+        if (enemiesRef.current.length < getActiveEnemyLimit(gs.level) &&
             !enemiesRef.current.some(enemy => isBossEnemy(enemy) && !enemy.dead) && bossFightSpawnTimerRef.current >= 90) {
           bossFightSpawnTimerRef.current = 0;
           if (runStatsRef.current.bosses >= BOSS_FIGHT_COUNT) {
@@ -5729,13 +5733,13 @@ export default function Game() {
           activeMutatorRef.current.spawnRateMultiplier;
         enemySpawnTimerRef.current += dtScale;
         waveTimerRef.current += dtScale;
-        if (!scheduledBossActive && enemiesRef.current.length < MAX_ACTIVE_ENEMIES &&
+        if (!scheduledBossActive && enemiesRef.current.length < getActiveEnemyLimit(gs.level) &&
             waveTimerRef.current >= 390 && !activeWaveRef.current?.active) {
           waveTimerRef.current = 0;
           spawnFormationWave(gs.level);
         }
         if (!scheduledBossActive && shouldSpawnEnemy(
-            enemiesRef.current.filter(enemy => enemy.hp > 0).length, enemySpawnTimerRef.current, spawnRate)) {
+            enemiesRef.current.filter(enemy => enemy.hp > 0).length, enemySpawnTimerRef.current, spawnRate, gs.level)) {
           enemySpawnTimerRef.current = 0;
           spawnEnemy(gs.level);
         }
@@ -6031,7 +6035,7 @@ export default function Game() {
         const ratio = specialBosses.reduce((total, e) => total + e.hp, 0) / maxHp;
         const shots = advanceBossSpecial(special, dtScale, liveMounts, target, ratio,
           liveMounts.length === 0 || (leader.titanDashTimer ?? 0) > 0);
-        for (const shot of shots) bulletsRef.current.push({ ...shot, sourceEnemy: leader });
+        for (const shot of shots) addProjectilesWithinLimit(bulletsRef.current, { ...shot, sourceEnemy: leader });
         if (shots.length > 0) {
           screenShakeRef.current = Math.max(screenShakeRef.current, 3);
           audioRef.current.tone(85 + special.index * 40, .08, settingsRef.current.soundVolume * .35, "sawtooth");
@@ -6431,7 +6435,7 @@ export default function Game() {
               e.missileTimer = (e.missileTimer ?? 480) - dtScale;
               if (e.missileTimer <= 0) {
                 e.missileTimer = 480;
-                bulletsRef.current.push({
+                addProjectilesWithinLimit(bulletsRef.current, {
                   x: e.x, y: e.y + e.height / 2,
                   vx: -4, vy: 0,
                   fromPlayer: false,
@@ -6459,7 +6463,7 @@ export default function Game() {
                 const aim = Math.atan2(py - originY, px - originX);
                 for (let s = -3; s <= 3; s++) {
                   const angle = aim + s * .19;
-                  bulletsRef.current.push({
+                  addProjectilesWithinLimit(bulletsRef.current, {
                     x: originX, y: originY,
                     vx: Math.cos(angle) * 5.2, vy: Math.sin(angle) * 5.2,
                     fromPlayer: false, damage: 3,
@@ -6516,7 +6520,7 @@ export default function Game() {
                 { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT }, shadowTarget);
               const shots = createBossGunfire(e.encounterKind,
                 { x: e.x, y: e.y + e.height / 2 }, target, e.bossGunVolley ?? 0);
-              bulletsRef.current.push(...shots.map(shot => ({ ...shot, sourceEnemy: e })));
+              addProjectilesWithinLimit(bulletsRef.current, ...shots.map(shot => ({ ...shot, sourceEnemy: e })));
               e.bossGunVolley = (e.bossGunVolley ?? 0) + 1;
               e.bossGunCooldown += BOSS_GUN_INTERVAL[e.encounterKind];
             }
@@ -6541,7 +6545,7 @@ export default function Game() {
               for (let shot = 0; shot < count; shot++) {
                 const angle = aim + (shot - (count - 1) / 2) * (flame ? .10 : weapon === "web" ? .18 : .13);
                 const speed = flame ? 7 : weapon === "cannon" ? 6 : 3.8;
-                bulletsRef.current.push({ x: e.x, y: e.y + e.height / 2,
+                addProjectilesWithinLimit(bulletsRef.current, { x: e.x, y: e.y + e.height / 2,
                   vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
                   fromPlayer: false, damage: flame ? 1 : weapon === "cannon" ? 4 : 3,
                   color: flame ? (shot % 2 ? "#ff5500" : "#ffcc33") : e.color,
@@ -6559,7 +6563,7 @@ export default function Game() {
               const dx = px - e.x; const dy = py - (e.y + e.height / 2);
               const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
               const spd2 = ENEMY_BULLET_SPEED * (e.type === "plasmawing" ? 1.8 : 1.4);
-              bulletsRef.current.push({
+              addProjectilesWithinLimit(bulletsRef.current, {
                 x: e.x, y: e.y + e.height / 2,
                 vx: dx / d * spd2, vy: dy / d * spd2,
                 fromPlayer: false, damage: e.type === "plasmawing" ? 1 : 2,
@@ -6595,7 +6599,7 @@ export default function Game() {
                 const vy = tacticalTarget
                   ? Math.sin(aim + spread) * projectileSpeed
                   : spread * ENEMY_BULLET_SPEED;
-                bulletsRef.current.push({
+                addProjectilesWithinLimit(bulletsRef.current, {
                   x: originX, y: originY,
                   vx,
                   vy,
@@ -7018,7 +7022,7 @@ export default function Game() {
         return !e.dead;
       });
 
-      bulletsRef.current.push(...pendingLightningJumps);
+      addProjectilesWithinLimit(bulletsRef.current, ...pendingLightningJumps);
 
       // ── Bullet-player collision ──
       bulletsRef.current = bulletsRef.current.filter(b => {
@@ -7340,7 +7344,7 @@ export default function Game() {
             flameTarget.x + flameTarget.width / 2 - cx);
           for (let shot = 0; shot < 5; shot++) {
             const angle = aim + (shot - 2) * .10;
-            bulletsRef.current.push({ x: cx, y: cy,
+            addProjectilesWithinLimit(bulletsRef.current, { x: cx, y: cy,
               vx: Math.cos(angle) * 7, vy: Math.sin(angle) * 7,
               fromPlayer: true, damage: 1, weaponId: "sky_clone_flamethrower",
               color: shot % 2 ? "#ff5500" : "#ffcc33",

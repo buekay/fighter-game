@@ -2,6 +2,8 @@ import { getAircraftUltiIds, getDroneUltiIds, getDroneUltiBoosts } from "./combi
 import assert from "node:assert/strict";
 import {
   addEnemyWithinLimit,
+  addProjectilesWithinLimit,
+  MAX_ACTIVE_PROJECTILES,
   addSpawnedEnemy,
   isEnemyReturningToPlayfield,
   rechargeGuardianShield,
@@ -217,8 +219,8 @@ assert.deepEqual(
 );
 assert.equal(getBiomeForLevel(51).id, "city");
 assert.equal(getBiomeForLevel(500).id, "space");
-assert.equal(BIOMES.every(biome => biome.enemies.length === 3), true);
-assert.equal(new Set(BIOMES.flatMap(biome => biome.enemies.map(enemy => enemy.id))).size, BIOMES.length * 3);
+assert.equal(BIOMES.every(biome => biome.enemies.length === 8), true);
+assert.equal(new Set(BIOMES.flatMap(biome => biome.enemies.map(enemy => enemy.id))).size, BIOMES.length * 8);
 assert.equal(NIGHT_BACKGROUND_CHANCE, .2);
 assert.equal(selectBiomeTimeOfDay(0), "night");
 assert.equal(selectBiomeTimeOfDay(.1999), "night");
@@ -441,3 +443,35 @@ for (const mode of ["classic", "protect", "boss_fight"] as const) {
   assert.deepEqual(getEnemyAttackTarget(mode, player, objective, null),
     getEnemyAttackTarget(mode, player, objective), "normal target resumes when decoy expires");
 }
+
+for (let level = 1; level <= 11; level++) {
+  const enemies: { type: string; hp: number; maxHp: number }[] = [];
+  const limit = level <= 10 ? 10 : MAX_ACTIVE_ENEMIES;
+  for (let index = 0; index < limit; index++) {
+    assert.equal(addSpawnedEnemy(enemies, { type: index % 2 ? "boss" : "scout", hp: 1, maxHp: 1 }, level), true);
+  }
+  assert.equal(addSpawnedEnemy(enemies, { type: "fighter", hp: 1, maxHp: 1 }, level), false);
+  enemies.pop();
+  assert.equal(addSpawnedEnemy(enemies, { type: "fighter", hp: 1, maxHp: 1 }, level), true);
+  assert.equal(shouldSpawnEnemy(limit, 1000, 100, level), false);
+  assert.equal(shouldSpawnEnemy(limit - 1, 1000, 100, level), true);
+}
+
+
+// Every source shares the same budget, including volleys at the boundary.
+const activeProjectiles: { id: number; fromPlayer: boolean }[] = [];
+const volley = Array.from({ length: MAX_ACTIVE_PROJECTILES - 1 }, (_, id) => ({ id, fromPlayer: true }));
+assert.equal(addProjectilesWithinLimit(activeProjectiles, ...volley), MAX_ACTIVE_PROJECTILES - 1);
+const lastShot = { id: MAX_ACTIVE_PROJECTILES, fromPlayer: false };
+assert.equal(addProjectilesWithinLimit(activeProjectiles, lastShot, { id: 999, fromPlayer: true }), 1);
+assert.equal(activeProjectiles.length, MAX_ACTIVE_PROJECTILES);
+assert.equal(activeProjectiles.at(-1), lastShot);
+assert.deepEqual(activeProjectiles.slice(0, -1), volley);
+assert.equal(addProjectilesWithinLimit(activeProjectiles, { id: 1000, fromPlayer: false }), 0);
+activeProjectiles.shift();
+assert.equal(addProjectilesWithinLimit(activeProjectiles, { id: 1001, fromPlayer: true }), 1);
+assert.equal(activeProjectiles.length, MAX_ACTIVE_PROJECTILES);
+assert.equal(addProjectilesWithinLimit(activeProjectiles), 0);
+const oversizedVolley: number[] = [];
+assert.equal(addProjectilesWithinLimit(oversizedVolley, ...Array.from({ length: MAX_ACTIVE_PROJECTILES + 10 }, (_, id) => id)), MAX_ACTIVE_PROJECTILES);
+assert.equal(oversizedVolley.length, MAX_ACTIVE_PROJECTILES);
