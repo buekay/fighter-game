@@ -8419,9 +8419,9 @@ export default function Game() {
     <div
       ref={shellRef}
       className={`game-shell ${displayState.started && !displayState.gameOver ? "has-control-hint" : ""} flex flex-col items-center justify-center w-full bg-[#08080e] select-none ${settings.highContrast ? "high-contrast" : ""} ${settings.reducedMotion ? "reduced-motion" : ""}`}
-      style={{ touchAction: !displayState.started || displayState.paused || displayState.gameOver ? "auto" : "none" }}
+      style={{ touchAction: mapOpen || introOpen || flightLabOpen ? "pan-y" : "none" }}
     >
-      <div className={`game-frame ${!displayState.started ? "menu-frame" : ""} ${mapOpen ? "campaign-frame" : ""} ${settings.flightDirection === "up" ? "flight-up" : ""} relative rounded overflow-hidden shadow-lg`}
+      <div className={`game-frame ${mapOpen ? "campaign-frame" : ""} ${settings.flightDirection === "up" ? "flight-up" : ""} relative rounded overflow-hidden shadow-lg`}
         style={{ border: "1px solid rgba(0,207,255,0.15)" }}>
         <canvas
           ref={canvasRef}
@@ -8440,15 +8440,12 @@ export default function Game() {
             </div>
           </div>
         )}
-        {displayState.started && !displayState.paused && !displayState.gameOver && completedAnimation === null && isPortraitPhone && settings.flightDirection !== "up" && (
+        {displayState.started && isPortraitPhone && settings.flightDirection !== "up" && (
           <div className="orientation-gate fixed inset-0 z-[70] flex items-center justify-center bg-[#030814]/95 p-6 text-center text-white">
             <div className="max-w-sm rounded-3xl border border-cyan-400/60 bg-slate-950/95 p-7 shadow-lg">
               <div className="text-6xl" aria-hidden="true">📱↻</div>
               <h2 className="mt-4 text-2xl font-black">GERÄT DREHEN</h2>
-              <p className="mt-2 text-sm text-slate-300">Das Spielfeld ist im Querformat größer und leichter zu steuern. Drehe dein Gerät oder wechsle zum Hochformat-Flug.</p>
-              <button onClick={() => updateSettings({ ...settings, flightDirection: "up" })} className="pause-primary mt-5 min-h-12 w-full rounded-xl px-5 py-3 font-black">
-                ↑ IM HOCHFORMAT SPIELEN
-              </button>
+              <p className="mt-2 text-sm text-slate-300">Das Spielfeld ist im Querformat größer und leichter zu steuern. Die Mission wartet, bis du dein Gerät gedreht hast.</p>
               {fullscreenSupported && (
                 <button onClick={toggleFullscreen} className="pause-primary mt-5 min-h-12 w-full rounded-xl px-5 py-3 font-black">
                   ⛶ VOLLBILD ÖFFNEN
@@ -8457,6 +8454,7 @@ export default function Game() {
             </div>
           </div>
         )}
+        {!displayState.started && !mapOpen && !introOpen && <button className="flight-lab-entry" onClick={() => setFlightLabOpen(true)}>✦ Flugzentrum{coopEnabled ? ' · KOOP AN' : ''}</button>}
         {flightLabOpen && !displayState.started && <FlightFeaturesPanel completed={completedLevels} bosses={loadDefeatedBosses(completedLevels)} weapons={WEAPONS.filter(w => w.cost === 0 || unlockedItems.includes(`weapon_${w.id}`))} coop={coopEnabled} onCoop={enabled => { setCoopEnabled(enabled); coopEnabledRef.current = enabled; }} onClose={() => setFlightLabOpen(false)} onTraining={options => startGame(false, 1, options)} />}
         {mapOpen && !displayState.started && <LevelMap completed={completedLevels} onBack={() => setMapOpen(false)} onSelect={level => startGame(false, level)} />}
         {completedAnimation !== null && (
@@ -8507,7 +8505,7 @@ export default function Game() {
           </div>
         )}
         {displayState.started && !displayState.gameOver && (
-          <div className="gameplay-toolbar absolute right-2 z-10 flex gap-1.5">
+          <div className="absolute top-[90px] right-2 z-10 flex gap-1.5">
             <button onClick={returnToHangar} aria-label={translated(language, "Zum Hangar", "Return to hangar")}
               className="font-bold rounded px-2 py-1 text-sm"
               style={{ background: "rgba(4,10,24,0.85)", border: "1px solid #334466", color: "#79e5ff" }}>
@@ -8546,8 +8544,6 @@ export default function Game() {
         )}
         {!introOpen && !displayState.started && !mapOpen && (
           <HangarOverlay
-            onFlightLabOpen={() => setFlightLabOpen(true)}
-            coopEnabled={coopEnabled}
             hangarSlots={hangarSlots}
             activeHangar={activeHangar}
             onHangarSelect={selectHangar}
@@ -8615,7 +8611,7 @@ export default function Game() {
           />
         )}
         {displayState.started && displayState.paused && (
-          <div className="pause-layer absolute inset-0 z-30 flex items-center justify-center overflow-y-auto p-4 touch-pan-y" style={{ background: "rgba(2,8,20,0.86)" }}>
+          <div className="absolute inset-0 z-30 flex items-center justify-center p-4" style={{ background: "rgba(2,8,20,0.86)" }}>
             {pauseView === "settings" ? (
               <div className="pause-panel h-full w-full max-w-2xl overflow-hidden rounded-2xl" style={{ background: "#071126", border: "1px solid #285078" }}>
                 <SettingsScreen settings={settings} onChange={updateSettings} onBack={() => setPauseView("menu")} />
@@ -8894,13 +8890,11 @@ function WorkshopSection({ build, droneBuild, droneRole, selectedSkin, selectedD
 }
 
 function HangarOverlay({
-  onFlightLabOpen, coopEnabled,
   hangarSlots, activeHangar, onHangarSelect, unlockedHangars, onHangarBuy,
   selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, hybridActive, droneBuild, savedAircraftBuilds, savedDroneBuilds, droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
   onStart, onNewGame, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onHybridSelect, onSavedAircraftBuildSelect, onSavedDroneBuildSelect, onHybridBuild, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onCrateOpen, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements, achievementStats,
 }: {
-  onFlightLabOpen: () => void; coopEnabled: boolean;
   hangarSlots: HangarSlot[]; activeHangar: number; onHangarSelect: (index: number) => void;
   unlockedHangars: number; onHangarBuy: (index: number) => void;
   selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; aircraftBuild: AircraftBuild; hybridActive: boolean; droneBuild: DroneBuild; savedAircraftBuilds: AircraftBuild[]; savedDroneBuilds: DroneBuild[]; droneRole: DroneRoleId; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[]; coins: number; gems: number; highScore: number;
@@ -9047,7 +9041,6 @@ function HangarOverlay({
   return (
     <div className="facility-screen hangar-layer hangar-main absolute inset-0 flex flex-col items-center justify-between px-6 py-4 overflow-y-auto"
       >
-      <button className="flight-lab-entry" onClick={onFlightLabOpen}>✦ Flugzentrum{coopEnabled ? " · KOOP AN" : ""}</button>
       {pilotMilestone !== null && (
         <div className="pilot-level-celebration pointer-events-none fixed inset-0 z-[80] grid place-items-center overflow-hidden" role="status" aria-live="polite">
           <span className="pilot-level-spark pilot-level-spark-1">✦</span>
@@ -9528,7 +9521,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
           </div>
         </div>
       )}
-      <div className="shop-header relative z-10 flex flex-wrap items-center gap-3 shrink-0">
+      <div className="relative z-10 flex items-center gap-3 shrink-0">
         <button onClick={onBack} className="text-slate-400 hover:text-white text-xl font-bold px-2">←</button>
         <h2 className="font-bold text-xl tracking-wide" style={{ textShadow: "none" }}>SHOP</h2>
         <span className="rounded-full border border-cyan-400/50 bg-cyan-950/60 px-2.5 py-1 text-xs font-black text-cyan-300">PILOT-LEVEL {playerLevel}</span>
