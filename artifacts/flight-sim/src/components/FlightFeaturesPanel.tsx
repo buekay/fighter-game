@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { BOSS_NAMES, type EncounterKind } from '../boss-encounters';
 import { DEFAULT_FLIGHT_OPTIONS, MASTERY_KILLS, MASTERY_PRECISION, loadMasteries, masteryFor, masteryUnlocked, masteryVariant, saveMasteries, type FlightOptions } from '../flight-features';
 
@@ -9,16 +9,26 @@ interface Props {
   coop: boolean; onCoop: (enabled: boolean) => void;
 }
 export function FlightFeaturesPanel({ completed, bosses, weapons, onClose, onTraining, coop, onCoop }: Props) {
+  const panelRef = useRef<HTMLElement>(null);
+  useEffect(() => { panelRef.current?.querySelector<HTMLButtonElement>('button')?.focus(); }, []);
   const [target, setTarget] = useState<FlightOptions['target']>('dummy');
   const [difficulty, setDifficulty] = useState<FlightOptions['difficulty']>('normal');
   const [masteries, setMasteries] = useState(loadMasteries);
   return <div className="flight-lab-overlay">
-    <section className="flight-lab" role="dialog" aria-modal="true" aria-labelledby="flight-lab-title">
+    <section ref={panelRef} className="flight-lab" onKeyDown={e => {
+      if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
+      if (e.key === 'Tab') {
+        const controls = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select') ?? []);
+        const first = controls[0], last = controls[controls.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
+    }} role="dialog" aria-modal="true" aria-labelledby="flight-lab-title">
       <header><div><small>FIGHTER COMMAND / FLUGZENTRUM</small><h2 id="flight-lab-title">Neue Flugwege</h2></div><button onClick={onClose} aria-label="Flugzentrum schließen">✕</button></header>
       <section><h3>Zu zweit ins Gefecht</h3><label className="flight-toggle"><input type="checkbox" checked={coop} onChange={e => onCoop(e.target.checked)} /> Lokaler Koop für den nächsten Einsatz</label>
         <p>P1: WASD + Leertaste · P2: Pfeiltasten + Enter. Alternativ zwei Gamepads. Gemeinsamer Score, eigene Lebenspunkte.</p>
         <p>Zum Wiederbeleben 2,5 Sekunden im markierten Kreis bleiben. P2 hält die Team-Ulti mit rechter Umschalttaste (Gamepad: rechte Schultertaste) bereit; P1 löst innerhalb von 3 Sekunden eine ausgerüstete Ulti aus. Team-Abklingzeit: 20 Sekunden.</p>
-        <small>Koop benötigt eine Tastatur oder zwei Gamepads. Prüfe in den Einstellungen, dass P1 WASD verwendet.</small>
+        <small>Koop benötigt eine Tastatur oder zwei Gamepads. Im Koop steuert P1 immer mit WASD und Leertaste.</small>
       </section>
       <section><h3>Trainingsarena</h3><p>Teste deine aktuelle Ausrüstung mit laufender DPS-Anzeige. Besiegte Bosse lassen sich unbegrenzt üben. Training vergibt keine Credits, Erfolge oder Kampagnenfortschritte.</p>
         <div className="flight-lab-controls"><label>Ziel<select value={target} onChange={e => setTarget(e.target.value as FlightOptions['target'])}><option value="dummy">Unbewaffnete Übungsdrohne</option>{bosses.map(kind => <option key={kind} value={kind}>{BOSS_NAMES[kind]}</option>)}</select></label>

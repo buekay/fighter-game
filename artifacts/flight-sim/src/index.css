@@ -967,11 +967,12 @@ html, body, #root { width: 100%; height: 100%; min-width: 0; }
 }
 .menu-frame > .game-canvas { position: absolute; inset: 0; }
 .menu-frame .hangar-layer { position: absolute; inset: 0; }
-.hangar-layer, .flight-lab-overlay, .campaign-map, .run-summary-layer, .pause-layer {
+.flight-lab-overlay, .campaign-map, .run-summary-layer, .pause-layer {
   touch-action: pan-y;
 }
 .hangar-main { gap: 12px; justify-content: flex-start; }
-.menu-frame .hangar-main { padding-top: 64px; }
+.menu-frame .hangar-main { padding-top: 16px; }
+.hangar-main > .flight-lab-entry { position: static; align-self: flex-end; min-height: 44px; }
 .hangar-main > *, .hangar-bays > *, .hangar-pilot input,
 .settings-grid > *, .shop-header > * { min-width: 0; }
 .hangar-preview { max-width: 100%; }
@@ -1025,9 +1026,9 @@ html, body, #root { width: 100%; height: 100%; min-width: 0; }
   .run-summary-layer > div { padding: 16px; }
 }
 
-/* Keep every hangar section in document order on short landscape displays. */
-@media (max-height: 500px) and (orientation: landscape) {
-  .hangar-main { grid-template-columns: minmax(0, .8fr) minmax(0, 1.4fr); grid-template-rows: auto; }
+/* Place the preview beside the controls on wide and short landscape displays. */
+@media (min-width: 900px), (max-height: 500px) and (orientation: landscape) {
+  .hangar-main { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.4fr); grid-template-rows: auto; align-items: center; align-content: start; column-gap: 20px; }
   .hangar-main > * { grid-column: 2; grid-row: auto; }
   .hangar-main > .hangar-preview { grid-column: 1; grid-row: 1 / span 6; }
   .hangar-main > .hangar-topbar { grid-column: 2; grid-row: 1; }
@@ -1035,6 +1036,23 @@ html, body, #root { width: 100%; height: 100%; min-width: 0; }
   .hangar-main > .hangar-pilot { grid-column: 2; grid-row: 3; }
   .hangar-main > .hangar-actions { grid-column: 2; grid-row: 4; }
   .hangar-main > .hangar-footer { grid-column: 2; grid-row: 5; }
+}
+
+@media (max-height: 500px) {
   .pause-layer { align-items: flex-start; }
   .pause-panel { margin-block: auto; }
+}
+
+.hangar-layer { touch-action: auto; }
+.hangar-skins, .hangar-crate-skins { touch-action: pan-x pan-y; }
+@media (min-width: 601px) {
+  .hangar-topbar > div:first-child { flex: 1 1 180px; }
+  .hangar-topbar > div:last-child {
+    flex: 1 1 320px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
 }

@@ -1,6 +1,6 @@
 import { FlightFeaturesPanel } from "../components/FlightFeaturesPanel";
 import { DEFAULT_FLIGHT_OPTIONS, TRAINING_DIFFICULTY, createBossParts, hitBossPart, createHazards, tickHazard, overlaps, createSecret, SECRET_NAMES, loadMasteries, saveMasteries, masteryFor, masteryUnlocked, recordMastery, loadDefeatedBosses, rememberBoss, createCoopPilot, damageCoop, tickCoop, rollingDps, type FlightOptions, type BossPart, type Hazard, type SecretSignal, type DamageSample } from "../flight-features";
-import { drawBossParts, drawHazards, drawSecret, drawCoopStatus } from "../rendering/flight-features";
+import { drawBossParts, drawHazards, drawSecret, drawCoopStatus, drawCoopRevival } from "../rendering/flight-features";
 import { canvasResolution } from "../rendering/canvas-resolution";
 import { ACHIEVEMENTS, achievementProgress, loadAchievements, saveAchievements, newlyUnlockedAchievements, normalizeRunStats, type Achievement, type RunStats } from "../achievements";
 import { drawCombatExtras } from "../rendering/combat-extras";
@@ -5663,7 +5663,7 @@ export default function Game() {
       const firing = settingsRef.current.autoFire || keyPressed("fire") || touchFireRef.current.active || gamepad.firing;
       if (firing && !leaderDownRef.current) fireBullets(timestamp);
 
-      const fireSword = activeWeaponsRef.current.find(weapon => weapon.id === "fire_sword");
+      const fireSword = leaderDownRef.current ? undefined : activeWeaponsRef.current.find(weapon => weapon.id === "fire_sword");
       if (fireSword?.lightningRange && fireSword.lightningIntervalMs &&
           runElapsedMsRef.current >= nextFireSwordLightningRef.current) {
         while (nextFireSwordLightningRef.current <= runElapsedMsRef.current) {
@@ -5724,7 +5724,7 @@ export default function Game() {
         audioRef.current.effect("upgrade", settingsRef.current.soundVolume * .7);
       }
       const weaponCrateActive = runElapsedMsRef.current < weaponCrateActiveUntilRef.current;
-      if (weaponCrateActive) fireWeaponCrate(timestamp);
+      if (weaponCrateActive && !leaderDownRef.current) fireWeaponCrate(timestamp);
 
       // Map missions stay on their selected level until the full objective is met.
       const encounterActive = enemiesRef.current.some(e => e.encounterKind && !e.dead && e.hp > 0);
@@ -7885,6 +7885,14 @@ export default function Game() {
         drawProtectPackage(ctx, protectPackageRef.current, protectPackageHpRef.current, timeRef.current);
       }
 
+      if (flightOptionsRef.current.coop) {
+        const partner = partnerRef.current;
+        ctx.save(); ctx.globalAlpha = partner.down ? .35 : partner.invincibleMs > 0 ? .7 : 1;
+        drawPlayerJet(ctx, partner.x, partner.y, gs.weaponTier, false, JET_SKINS.find(s => s.id === 'jade') ?? activeSkinRef.current, undefined, aircraftUpgradeRef.current.level);
+        ctx.globalAlpha = 1; ctx.fillStyle = '#67e8f9'; ctx.font = 'bold 12px Inter, sans-serif'; ctx.fillText('P2', partner.x + 15, partner.y - 8); ctx.restore();
+      }
+      if (flightOptionsRef.current.coop) drawCoopRevival(ctx, partnerRef.current, { ...playerRef.current, width: PLAYER_W, height: PLAYER_H }, leaderDownRef.current);
+
       // ── HUD ──
       if (upwardFlight) ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
       // Keep the remaining duration of every active ultimate visible above the pilot.
@@ -7898,12 +7906,6 @@ export default function Game() {
         { key: "G", remaining: gravityActiveRef.current, color: "#d66bff" },
       ], upwardFlight);
 
-      if (flightOptionsRef.current.coop) {
-        const partner = partnerRef.current;
-        ctx.save(); ctx.globalAlpha = partner.down ? .35 : partner.invincibleMs > 0 ? .7 : 1;
-        drawPlayerJet(ctx, partner.x, partner.y, gs.weaponTier, false, JET_SKINS.find(s => s.id === 'jade') ?? activeSkinRef.current, undefined, aircraftUpgradeRef.current.level);
-        ctx.globalAlpha = 1; ctx.fillStyle = '#67e8f9'; ctx.font = 'bold 12px Inter, sans-serif'; ctx.fillText('P2', partner.x + 15, partner.y - 8); ctx.restore();
-      }
       const isAtOneHp = gs.hp > 0 && gs.hp <= 1;
       if (isAtOneHp && !wasAtOneHpRef.current) {
         lowHpWarningMsRef.current = 5000;
@@ -7942,10 +7944,11 @@ export default function Game() {
         if (damage > 0) dpsSamplesRef.current.push({ time: runElapsedMsRef.current, damage });
         damageSampledRef.current = runStatsRef.current.damageDealt;
         const dps = rollingDps(dpsSamplesRef.current, runElapsedMsRef.current);
-        ctx.save(); ctx.fillStyle = '#071126ee'; ctx.fillRect(16, CANVAS_H - 74, 395, 52);
+        const trainingHudHeight = upwardFlight ? CANVAS_W : CANVAS_H;
+        ctx.save(); ctx.fillStyle = '#071126ee'; ctx.fillRect(16, trainingHudHeight - 74, 395, 52);
         ctx.fillStyle = '#67e8f9'; ctx.font = 'bold 15px Inter, sans-serif';
-        ctx.fillText('TRAINING · ' + dps.toFixed(1) + ' DPS (letzte 5 s)', 28, CANVAS_H - 52);
-        ctx.font = '12px Inter, sans-serif'; ctx.fillText('Schaden gesamt: ' + Math.round(runStatsRef.current.damageDealt) + ' · Esc: Menü / Verlassen', 28, CANVAS_H - 32); ctx.restore();
+        ctx.fillText('TRAINING · ' + dps.toFixed(1) + ' DPS (letzte 5 s)', 28, trainingHudHeight - 52);
+        ctx.font = '12px Inter, sans-serif'; ctx.fillText('Schaden gesamt: ' + Math.round(runStatsRef.current.damageDealt) + ' · Esc: Menü / Verlassen', 28, trainingHudHeight - 32); ctx.restore();
       }
       const hudBosses = enemiesRef.current.filter(e => e.encounterKind && e.encounterKind !== "titan" && !e.dead && e.hp > 0);
       drawEncounterHealthBar(ctx, hudBosses, hudW, hudTop + 8, bossSpecialRef.current);
@@ -8416,7 +8419,7 @@ export default function Game() {
     <div
       ref={shellRef}
       className={`game-shell ${displayState.started && !displayState.gameOver ? "has-control-hint" : ""} flex flex-col items-center justify-center w-full bg-[#08080e] select-none ${settings.highContrast ? "high-contrast" : ""} ${settings.reducedMotion ? "reduced-motion" : ""}`}
-      style={{ touchAction: !displayState.started || displayState.paused || displayState.gameOver ? "pan-y" : "none" }}
+      style={{ touchAction: !displayState.started || displayState.paused || displayState.gameOver ? "auto" : "none" }}
     >
       <div className={`game-frame ${!displayState.started ? "menu-frame" : ""} ${mapOpen ? "campaign-frame" : ""} ${settings.flightDirection === "up" ? "flight-up" : ""} relative rounded overflow-hidden shadow-lg`}
         style={{ border: "1px solid rgba(0,207,255,0.15)" }}>
@@ -8454,7 +8457,6 @@ export default function Game() {
             </div>
           </div>
         )}
-        {!displayState.started && !mapOpen && !introOpen && <button className="flight-lab-entry" onClick={() => setFlightLabOpen(true)}>✦ Flugzentrum{coopEnabled ? ' · KOOP AN' : ''}</button>}
         {flightLabOpen && !displayState.started && <FlightFeaturesPanel completed={completedLevels} bosses={loadDefeatedBosses(completedLevels)} weapons={WEAPONS.filter(w => w.cost === 0 || unlockedItems.includes(`weapon_${w.id}`))} coop={coopEnabled} onCoop={enabled => { setCoopEnabled(enabled); coopEnabledRef.current = enabled; }} onClose={() => setFlightLabOpen(false)} onTraining={options => startGame(false, 1, options)} />}
         {mapOpen && !displayState.started && <LevelMap completed={completedLevels} onBack={() => setMapOpen(false)} onSelect={level => startGame(false, level)} />}
         {completedAnimation !== null && (
@@ -8544,6 +8546,8 @@ export default function Game() {
         )}
         {!introOpen && !displayState.started && !mapOpen && (
           <HangarOverlay
+            onFlightLabOpen={() => setFlightLabOpen(true)}
+            coopEnabled={coopEnabled}
             hangarSlots={hangarSlots}
             activeHangar={activeHangar}
             onHangarSelect={selectHangar}
@@ -8890,11 +8894,13 @@ function WorkshopSection({ build, droneBuild, droneRole, selectedSkin, selectedD
 }
 
 function HangarOverlay({
+  onFlightLabOpen, coopEnabled,
   hangarSlots, activeHangar, onHangarSelect, unlockedHangars, onHangarBuy,
   selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, hybridActive, droneBuild, savedAircraftBuilds, savedDroneBuilds, droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
   onStart, onNewGame, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onHybridSelect, onSavedAircraftBuildSelect, onSavedDroneBuildSelect, onHybridBuild, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onCrateOpen, onAdminActivate,
   fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements, achievementStats,
 }: {
+  onFlightLabOpen: () => void; coopEnabled: boolean;
   hangarSlots: HangarSlot[]; activeHangar: number; onHangarSelect: (index: number) => void;
   unlockedHangars: number; onHangarBuy: (index: number) => void;
   selectedSkin: string; ultiLoadout: UltiLoadoutId[]; selectedDroneSkin: string; aircraftBuild: AircraftBuild; hybridActive: boolean; droneBuild: DroneBuild; savedAircraftBuilds: AircraftBuild[]; savedDroneBuilds: DroneBuild[]; droneRole: DroneRoleId; selectedDroneWeapon: DroneWeaponId; selectedWeaponCrate: string; selectedWeapons: string[]; coins: number; gems: number; highScore: number;
@@ -9041,6 +9047,7 @@ function HangarOverlay({
   return (
     <div className="facility-screen hangar-layer hangar-main absolute inset-0 flex flex-col items-center justify-between px-6 py-4 overflow-y-auto"
       >
+      <button className="flight-lab-entry" onClick={onFlightLabOpen}>✦ Flugzentrum{coopEnabled ? " · KOOP AN" : ""}</button>
       {pilotMilestone !== null && (
         <div className="pilot-level-celebration pointer-events-none fixed inset-0 z-[80] grid place-items-center overflow-hidden" role="status" aria-live="polite">
           <span className="pilot-level-spark pilot-level-spark-1">✦</span>

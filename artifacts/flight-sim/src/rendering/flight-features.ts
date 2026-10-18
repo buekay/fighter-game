@@ -37,9 +37,13 @@ export function drawSecret(ctx: CanvasRenderingContext2D, signal: SecretSignal) 
   ctx.fillText(signal.phase === 'signal' ? 'Anfliegen · ' + Math.ceil(signal.remainingMs / 1000) + ' s' : 'In der Nähe bleiben · ' + Math.ceil(signal.progressMs / 1000) + '/3 s', signal.x, signal.y + 62);
   ctx.fillText(signal.kind === 'wreck' ? '▣' : signal.kind === 'rescue' ? '✚' : '✦', signal.x, signal.y + 5); ctx.restore();
 }
-export function drawCoopStatus(ctx: CanvasRenderingContext2D, partner: CoopPilot, leader: Bounds, leaderDown: boolean) {
+export function drawCoopStatus(ctx: CanvasRenderingContext2D, partner: CoopPilot, _leader: Bounds, _leaderDown: boolean) {
   ctx.save(); ctx.font = 'bold 12px Inter, sans-serif'; ctx.fillStyle = '#67e8f9';
   ctx.fillText(`P2 · ${Math.ceil(partner.hp)}/${partner.maxHp} HP · ${partner.armedMs > 0 ? 'TEAM-ULTI BEREIT!' : partner.ultiCooldownMs > 0 ? 'Team-Ulti ' + Math.ceil(partner.ultiCooldownMs / 1000) + ' s' : 'RShift: Team-Ulti'}`, 18, 115);
+  ctx.restore();
+}
+export function drawCoopRevival(ctx: CanvasRenderingContext2D, partner: CoopPilot, leader: Bounds, leaderDown: boolean) {
+  ctx.save(); ctx.font = 'bold 12px Inter, sans-serif';
   for (const p of [ ...(partner.down ? [partner] : []), ...(leaderDown ? [leader] : []) ]) {
     ctx.strokeStyle = '#4ade80'; ctx.beginPath(); ctx.arc(p.x + 26, p.y + 14, 80, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = '#4ade80'; ctx.fillText('RETTEN · ' + Math.floor(partner.reviveMs / 25) + '%', p.x, p.y - 12);
