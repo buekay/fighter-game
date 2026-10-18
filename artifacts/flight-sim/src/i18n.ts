@@ -47,7 +47,7 @@ function translateUncached(language: Language, source: string, fallback: string)
     }
   }
   // Icons and separators are presentation, not part of an item’s translated name.
-  const decorated = /^(.*?)([\p{L}\p{N}][\s\S]*?[\p{L}\p{N}])(.*?)$/u.exec(key);
+  const decorated = /^([^\p{L}\p{N}]*)([\s\S]*[\p{L}\p{N}])([^\p{L}\p{N}]*)$/u.exec(key);
   if (decorated && (decorated[1] || decorated[3])) {
     const inner = translate(language, decorated[2]);
     if (inner !== decorated[2]) return whitespace[1] + decorated[1] + inner + decorated[3] + whitespace[2];
@@ -91,5 +91,5 @@ export function localizeCanvas(ctx: CanvasRenderingContext2D, language: () => La
 }
 
 export function canvasLocale(ctx: CanvasRenderingContext2D) {
-  return languageLocale(localizedContexts.get(ctx)?.language() ?? "de");
+  return languageLocale(localizedContexts.get(ctx)?.language() ?? "en");
 }

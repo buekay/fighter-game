@@ -1171,7 +1171,7 @@ const DEFAULT_KEY_BINDINGS: KeyBindings = {
   ability3: "Digit3",
 };
 const DEFAULT_SETTINGS: GameSettings = {
-  language: "de",
+  language: "en",
   flightDirection: "right",
   tutorial: true,
   reducedMotion: false,
@@ -10216,7 +10216,7 @@ function KeyBindingSetting({ label, value, onChange }: { label: string; value: s
   return (
     <label className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2">
       <span className="text-sm font-bold text-slate-200">{localize(label)}</span>
-      <select aria-label={localize(`${label} belegen`)} value={value} onChange={event => onChange(event.target.value)} className="min-h-10 rounded-lg border border-slate-600 bg-slate-800 px-3 text-sm font-black text-cyan-200">
+      <select aria-label={localize("{0} belegen").replace("{0}", label)} value={value} onChange={event => onChange(event.target.value)} className="min-h-10 rounded-lg border border-slate-600 bg-slate-800 px-3 text-sm font-black text-cyan-200">
         {localize(!KEY_BINDING_OPTIONS.includes(value as typeof KEY_BINDING_OPTIONS[number]) && <option value={value}>{localize(formatKeyCode(value))}</option>)}
         {localize(KEY_BINDING_OPTIONS.map(code => <option key={code} value={code}>{localize(formatKeyCode(code))}</option>))}
       </select>
