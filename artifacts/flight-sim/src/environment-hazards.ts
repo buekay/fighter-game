@@ -75,6 +75,7 @@ function inside(x: number, y: number, points: readonly (readonly [number, number
 /** Terrain uses its visible outline; airborne bodies use an inset ellipse, never their empty corners. */
 export function hazardHits(h: Hazard, box: Bounds): boolean {
   if (h.warningMs > 0 || h.lifeMs <= 0 || box.x + box.width < h.x || box.x > h.x + h.width || box.y + box.height < h.y || box.y > h.y + h.height) return false;
+  if (h.kind === 'lightning') return box.x + box.width >= h.x + h.width * .15 && box.x <= h.x + h.width * .85 && box.y + box.height >= h.y + 24;
   if (h.outline) {
     const x0 = (box.x - h.x) / h.width, x1 = (box.x + box.width - h.x) / h.width;
     const y0 = (box.y - h.y) / h.height, y1 = (box.y + box.height - h.y) / h.height;

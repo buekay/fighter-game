@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { BOSS_SEQUENCE } from './boss-encounters';
 import { createBossSpecial, advanceBossSpecial } from './boss-specials';
-import { createBossParts, partBounds, hitBossPart, HAZARDS, createHazards, tickHazard, createSecret, loadMasteries, saveMasteries, masteryFor, masteryUnlocked, recordMastery, loadDefeatedBosses, rememberBoss, createCoopPilot, damageCoop, tickCoop, rollingDps } from './flight-features';
+import { createBossParts, partBounds, hitBossPart, HAZARDS, createHazards, tickHazard, hazardHits, hazardPush, createSecret, loadMasteries, saveMasteries, masteryFor, masteryUnlocked, recordMastery, loadDefeatedBosses, rememberBoss, createCoopPilot, damageCoop, tickCoop, rollingDps } from './flight-features';
 
 // Aimed parts are independent, finite, and cannot be damaged through the other region.
 for (const kind of BOSS_SEQUENCE) {
@@ -29,28 +29,63 @@ for (const kind of ['tank', 'spider', 'submarine'] as const) {
   special.origin = { x: 700, y: 300 }; special.target = { x: 50, y: 300 };
   assert.ok(advanceBossSpecial(special, 2, [{ x: 700, y: 300 }], { x: 50, y: 300 }, 1, false, [0]).length > 0);
 }
-// Every landscape has obstacles, warning time, and a traversable path.
+// Natural terrain stays anchored and airborne hazards have physically plausible motion.
 for (const biome of Object.keys(HAZARDS)) {
-  for (const random of [0, .5, 1]) {
+  for (const random of [0, .5, 1, NaN, Infinity]) {
     const hazards = createHazards(biome, random);
     assert.ok(hazards.length > 0 && hazards.length <= 3);
     for (const h of hazards) {
-      assert.ok(h.width > 0 && h.height > 0);
-      const x = h.x, y = h.y;
+      assert.ok(h.width > 0 && h.height > 0 && Number.isFinite(h.x) && Number.isFinite(h.y));
+      const original = { ...h };
+      const center = { x: h.x + h.width * .4, y: h.y + h.height * .4, width: 8, height: 8 };
+      assert.equal(hazardHits(h, center), false, 'Warnings never damage the pilot');
       tickHazard(h, 1000);
-      assert.equal(h.warningMs, 500); assert.equal(h.x, x); assert.equal(h.y, y);
-      tickHazard(h, 750);
-      assert.equal(h.warningMs, 0); assert.equal(h.x, x + h.vx * .25);
-      assert.equal(h.lifeMs, createHazards(biome, random)[0].lifeMs - 250);
+      assert.equal(h.warningMs, original.warningMs - 1000);
+      assert.equal(h.x, original.x); assert.equal(h.y, original.y);
+      tickHazard(h, original.warningMs - 1000 + 250);
+      assert.equal(h.warningMs, 0);
+      assert.equal(h.x, original.x + h.vx * .25);
+      assert.equal(h.y, original.y + original.vy * .25 + .5 * h.gravity * .25 ** 2);
+      assert.equal(h.lifeMs, original.lifeMs - 250);
+      assert.equal(hazardHits(h, { x: -200, y: -200, width: 10, height: 10 }), false);
+      h.lifeMs = 0; assert.equal(hazardHits(h, center), false);
     }
-    if (biome === 'canyon' || biome === 'jungle') assert.equal(hazards[1].y - (hazards[0].y + hazards[0].height), 130);
   }
 }
-// Obstacle motion remains stable at common frame rates, including warning crossover.
-for (const hz of [30, 60, 120]) {
-  const h = createHazards('space', .5)[0]; const x = h.x;
-  for (let i = 0; i < hz * 3; i++) tickHazard(h, 1000 / hz);
-  assert.ok(Math.abs(h.x - (x + h.vx * 1.5)) < 1e-8);
+for (const biome of ['canyon', 'jungle', 'arctic', 'space', 'city', 'volcano', 'storm']) {
+  const h = createHazards(biome, .5)[0];
+  tickHazard(h, h.warningMs);
+  if (h.outline) {
+    assert.equal(hazardHits(h, { x: h.x + h.width * .43, y: h.y + h.height * .65, width: 3, height: 3 }), true);
+    if (biome !== 'canyon') assert.equal(hazardHits(h, { x: h.x + 1, y: h.y + 1, width: 2, height: 2 }), false, 'Empty terrain corners are safe');
+  } else {
+    assert.equal(hazardHits(h, { x: h.x + h.width / 2, y: h.y + h.height / 2, width: 4, height: 4 }), true);
+    assert.equal(hazardHits(h, { x: h.x, y: h.y, width: 1, height: 1 }), false);
+  }
+}
+for (const r of [0, .5, 1]) {
+  const canyon = createHazards('canyon', r);
+  assert.equal(canyon[1].y - (canyon[0].y + canyon[0].height), 170);
+  for (const biome of ['arctic', 'jungle']) { const h = createHazards(biome, r)[0]; assert.equal(h.y + h.height, 600); }
+}
+for (const biome of ['space', 'city', 'volcano']) {
+  const reference = createHazards(biome, .5)[0]; tickHazard(reference, 4500);
+  for (const hz of [30, 60, 120]) {
+    const h = createHazards(biome, .5)[0];
+    for (let i = 0; i < hz * 4.5; i++) tickHazard(h, 1000 / hz);
+    for (const key of ['x', 'y', 'vy', 'rotation', 'lifeMs'] as const) assert.ok(Math.abs(h[key] - reference[key]) < 1e-7, `${biome} ${key} stable at ${hz}Hz`);
+  }
+}
+const meteor = createHazards('space', .5)[0]; assert.equal(meteor.gravity, 0);
+const lava = createHazards('volcano', .5)[0]; assert.ok(lava.vy < 0 && lava.gravity > 0);
+const debris = createHazards('city', .5)[0]; assert.ok(debris.vy > 0 && debris.gravity > 0);
+const bolt = createHazards('storm', .5)[0]; assert.equal(bolt.lifeMs, 220); assert.equal(bolt.warningMs, 2000);
+for (const r of [.2, .8]) {
+  const wind = createHazards('plains', r)[0]; assert.equal(hazardPush(wind), 0);
+  tickHazard(wind, wind.warningMs + 325);
+  assert.ok(Math.abs(hazardPush(wind)) <= 95 / 2 + 1e-8);
+  assert.equal(Math.sign(hazardPush(wind)), Math.sign(wind.vy));
+  const paused = { ...wind }; tickHazard(wind, 0); tickHazard(wind, NaN); assert.deepEqual(wind, paused);
 }
 assert.equal(createSecret(0).kind, 'wreck'); assert.equal(createSecret(.5).kind, 'rescue'); assert.equal(createSecret(.99).kind, 'ace');
 const values = new Map<string, string>();

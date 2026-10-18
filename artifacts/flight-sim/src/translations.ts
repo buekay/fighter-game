@@ -1,1676 +1,695 @@
-/** Display text in German, English, Turkish, French and Spanish. Keep every row complete. */
+/** Display text: German, English, Turkish, French, Spanish. */
 export const MESSAGES: readonly (readonly [string, string, string, string, string])[] = [
-  [
-    "EINSTELLUNGEN",
-    "SETTINGS",
-    "AYARLAR",
-    "PARAMÈTRES",
-    "AJUSTES"
-  ],
-  [
-    "Sprache",
-    "Language",
-    "Dil",
-    "Langue",
-    "Idioma"
-  ],
-  [
-    "Sprache auswählen",
-    "Select language",
-    "Dil seç",
-    "Choisir la langue",
-    "Elegir idioma"
-  ],
-  [
-    "Sprache der Menüs und Hinweise.",
-    "Language used for menus and hints.",
-    "Menülerde ve ipuçlarında kullanılan dil.",
-    "Langue des menus et des conseils.",
-    "Idioma de los menús y consejos."
-  ],
-  [
-    "Zurück",
-    "Back",
-    "Geri",
-    "Retour",
-    "Atrás"
-  ],
-  [
-    "← ZURÜCK",
-    "← BACK",
-    "← GERİ",
-    "← RETOUR",
-    "← ATRÁS"
-  ],
-  [
-    "← Zurück",
-    "← Back",
-    "← Geri",
-    "← Retour",
-    "← Atrás"
-  ],
-  [
-    "Zum Hangar",
-    "Return to hangar",
-    "Hangara dön",
-    "Retour au hangar",
-    "Volver al hangar"
-  ],
-  [
-    "Zurück zum Hangar",
-    "Back to hangar",
-    "Hangara dön",
-    "Retour au hangar",
-    "Volver al hangar"
-  ],
-  [
-    "⌂ ZUM HANGAR",
-    "⌂ RETURN TO HANGAR",
-    "⌂ HANGARA DÖN",
-    "⌂ RETOUR AU HANGAR",
-    "⌂ VOLVER AL HANGAR"
-  ],
-  [
-    "⌂ HANGAR",
-    "⌂ HANGAR",
-    "⌂ HANGAR",
-    "⌂ HANGAR",
-    "⌂ HANGAR"
-  ],
-  [
-    "▶ WEITERSPIELEN",
-    "▶ CONTINUE",
-    "▶ DEVAM ET",
-    "▶ CONTINUER",
-    "▶ CONTINUAR"
-  ],
-  [
-    "▶ WEITER",
-    "▶ RESUME",
-    "▶ DEVAM ET",
-    "▶ REPRENDRE",
-    "▶ REANUDAR"
-  ],
-  [
-    "▶ NEUES SPIEL",
-    "▶ NEW GAME",
-    "▶ YENİ OYUN",
-    "▶ NOUVELLE PARTIE",
-    "▶ NUEVA PARTIDA"
-  ],
-  [
-    "▶ START",
-    "▶ START",
-    "▶ BAŞLAT",
-    "▶ JOUER",
-    "▶ INICIAR"
-  ],
-  [
-    "↻ NEU STARTEN",
-    "↻ RESTART",
-    "↻ YENİDEN BAŞLAT",
-    "↻ RECOMMENCER",
-    "↻ REINICIAR"
-  ],
-  [
-    "⚙ EINSTELLUNGEN",
-    "⚙ SETTINGS",
-    "⚙ AYARLAR",
-    "⚙ PARAMÈTRES",
-    "⚙ AJUSTES"
-  ],
-  [
-    "■ TRAINING BEENDEN",
-    "■ END TRAINING",
-    "■ EĞİTİMİ BİTİR",
-    "■ TERMINER L’ENTRAÎNEMENT",
-    "■ TERMINAR ENTRENAMIENTO"
-  ],
-  [
-    "■ BEENDEN & SCORE HOLEN",
-    "■ END & CLAIM SCORE",
-    "■ BİTİR VE PUANI AL",
-    "■ TERMINER ET RÉCUPÉRER LE SCORE",
-    "■ TERMINAR Y COBRAR PUNTOS"
-  ],
-  [
-    "PAUSE",
-    "PAUSED",
-    "DURAKLATILDI",
-    "EN PAUSE",
-    "EN PAUSA"
-  ],
-  [
-    "Pause",
-    "Pause",
-    "Duraklat",
-    "Pause",
-    "Pausa"
-  ],
-  [
-    "Spiel fortsetzen",
-    "Resume game",
-    "Oyuna devam et",
-    "Reprendre la partie",
-    "Reanudar partida"
-  ],
-  [
-    "Spiel pausieren",
-    "Pause game",
-    "Oyunu duraklat",
-    "Mettre en pause",
-    "Pausar partida"
-  ],
-  [
-    "Mission unterbrochen",
-    "Mission paused",
-    "Görev duraklatıldı",
-    "Mission en pause",
-    "Misión en pausa"
-  ],
-  [
-    "Vollbild",
-    "Fullscreen",
-    "Tam ekran",
-    "Plein écran",
-    "Pantalla completa"
-  ],
-  [
-    "Vollbild öffnen",
-    "Enter fullscreen",
-    "Tam ekrana geç",
-    "Passer en plein écran",
-    "Abrir pantalla completa"
-  ],
-  [
-    "Vollbild beenden",
-    "Exit fullscreen",
-    "Tam ekrandan çık",
-    "Quitter le plein écran",
-    "Salir de pantalla completa"
-  ],
-  [
-    "⛶ Vollbild",
-    "⛶ Fullscreen",
-    "⛶ Tam ekran",
-    "⛶ Plein écran",
-    "⛶ Pantalla completa"
-  ],
-  [
-    "↙ Vollbild beenden",
-    "↙ Exit fullscreen",
-    "↙ Tam ekrandan çık",
-    "↙ Quitter le plein écran",
-    "↙ Salir de pantalla completa"
-  ],
-  [
-    "⛶ VOLLBILD ÖFFNEN",
-    "⛶ ENTER FULLSCREEN",
-    "⛶ TAM EKRANA GEÇ",
-    "⛶ PASSER EN PLEIN ÉCRAN",
-    "⛶ ABRIR PANTALLA COMPLETA"
-  ],
-  [
-    "Nach oben fliegen",
-    "Fly upward",
-    "Yukarı doğru uç",
-    "Voler vers le haut",
-    "Volar hacia arriba"
-  ],
-  [
-    "Dreht Spieler, Gegner, Schüsse und Spielwelt ins Hochformat.",
-    "Rotates the player, enemies, projectiles and playfield into portrait mode.",
-    "Oyuncuyu, düşmanları, mermileri ve oyun alanını dikey konuma çevirir.",
-    "Oriente le joueur, les ennemis, les tirs et le terrain en mode portrait.",
-    "Gira al jugador, los enemigos, los proyectiles y el campo al modo vertical."
-  ],
-  [
-    "Einführung anzeigen",
-    "Show tutorial",
-    "Eğitimi göster",
-    "Afficher le tutoriel",
-    "Mostrar tutorial"
-  ],
-  [
-    "Erklärt Bewegung und Schießen beim ersten Start.",
-    "Explains movement and shooting on the first start.",
-    "İlk başlangıçta hareketi ve ateş etmeyi açıklar.",
-    "Explique le déplacement et le tir au premier lancement.",
-    "Explica el movimiento y el disparo al empezar."
-  ],
-  [
-    "Automatisches Dauerfeuer",
-    "Automatic fire",
-    "Otomatik ateş",
-    "Tir automatique",
-    "Disparo automático"
-  ],
-  [
-    "Der Jet schießt selbstständig; FIRE bleibt optional.",
-    "The jet fires automatically; manual fire remains optional.",
-    "Uçak otomatik ateş eder; elle ateş etmek isteğe bağlıdır.",
-    "Le chasseur tire automatiquement ; le tir manuel reste facultatif.",
-    "El caza dispara automáticamente; el disparo manual es opcional."
-  ],
-  [
-    "Auto-Ulti",
-    "Auto ultimate",
-    "Otomatik özel yetenek",
-    "Pouvoir automatique",
-    "Habilidad automática"
-  ],
-  [
-    "Aktiviert ausgerüstete Ultis sofort automatisch, sobald sie bereit sind.",
-    "Automatically activates equipped ultimates as soon as they are ready.",
-    "Donatılan özel yetenekleri hazır olduklarında otomatik etkinleştirir.",
-    "Active automatiquement les pouvoirs équipés dès qu’ils sont prêts.",
-    "Activa automáticamente las habilidades equipadas cuando están listas."
-  ],
-  [
-    "Joystick anzeigen",
-    "Show joystick",
-    "Joystick’i göster",
-    "Afficher le joystick",
-    "Mostrar joystick"
-  ],
-  [
-    "Zeigt den Bewegungs-Joystick im Spielfeld an.",
-    "Displays the movement joystick in the play area.",
-    "Oyun alanında hareket joystick’ini gösterir.",
-    "Affiche le joystick de déplacement sur le terrain.",
-    "Muestra el joystick de movimiento en el campo de juego."
-  ],
-  [
-    "Bewegung reduzieren",
-    "Reduce motion",
-    "Hareketi azalt",
-    "Réduire les animations",
-    "Reducir movimiento"
-  ],
-  [
-    "Reduziert dekorative Effekte und Animationen.",
-    "Reduces decorative effects and animations.",
-    "Dekoratif efektleri ve animasyonları azaltır.",
-    "Réduit les effets décoratifs et les animations.",
-    "Reduce los efectos decorativos y las animaciones."
-  ],
-  [
-    "Hoher Kontrast",
-    "High contrast",
-    "Yüksek kontrast",
-    "Contraste élevé",
-    "Contraste alto"
-  ],
-  [
-    "Verstärkt Texte, Rahmen und Bedienelemente.",
-    "Strengthens text, borders and controls.",
-    "Metinleri, kenarlıkları ve kontrolleri belirginleştirir.",
-    "Renforce les textes, les bordures et les commandes.",
-    "Resalta los textos, los bordes y los controles."
-  ],
-  [
-    "Soundeffekte",
-    "Sound effects",
-    "Ses efektleri",
-    "Effets sonores",
-    "Efectos de sonido"
-  ],
-  [
-    "Musik",
-    "Music",
-    "Müzik",
-    "Musique",
-    "Música"
-  ],
-  [
-    "Touch-Steuerung",
-    "Touch controls",
-    "Dokunmatik kontroller",
-    "Commandes tactiles",
-    "Controles táctiles"
-  ],
-  [
-    "Virtuelle Steuerung im Spielfeld.",
-    "Virtual controls in the play area.",
-    "Oyun alanındaki sanal kontroller.",
-    "Commandes virtuelles sur le terrain.",
-    "Controles virtuales en el campo de juego."
-  ],
-  [
-    "Automatisch",
-    "Automatic",
-    "Otomatik",
-    "Automatique",
-    "Automático"
-  ],
-  [
-    "Immer anzeigen",
-    "Always show",
-    "Her zaman göster",
-    "Toujours afficher",
-    "Mostrar siempre"
-  ],
-  [
-    "Nie anzeigen",
-    "Never show",
-    "Asla gösterme",
-    "Ne jamais afficher",
-    "No mostrar nunca"
-  ],
-  [
-    "Tastaturbelegung",
-    "Key bindings",
-    "Tuş atamaları",
-    "Configuration des touches",
-    "Asignación de teclas"
-  ],
-  [
-    "Nach oben",
-    "Up",
-    "Yukarı",
-    "Haut",
-    "Arriba"
-  ],
-  [
-    "Nach unten",
-    "Down",
-    "Aşağı",
-    "Bas",
-    "Abajo"
-  ],
-  [
-    "Nach links",
-    "Left",
-    "Sol",
-    "Gauche",
-    "Izquierda"
-  ],
-  [
-    "Nach rechts",
-    "Right",
-    "Sağ",
-    "Droite",
-    "Derecha"
-  ],
-  [
-    "Feuern",
-    "Fire",
-    "Ateş et",
-    "Tirer",
-    "Disparar"
-  ],
-  [
-    "FIRE",
-    "FIRE",
-    "ATEŞ",
-    "TIR",
-    "FUEGO"
-  ],
-  [
-    "Fähigkeit {0}",
-    "Ability {0}",
-    "Yetenek {0}",
-    "Pouvoir {0}",
-    "Habilidad {0}"
-  ],
-  [
-    "FÄHIGKEIT 1 · 2 · 3:",
-    "ABILITY 1 · 2 · 3:",
-    "YETENEK 1 · 2 · 3:",
-    "POUVOIR 1 · 2 · 3 :",
-    "HABILIDAD 1 · 2 · 3:"
-  ],
-  [
-    "Gamepad & Touch",
-    "Gamepad & touch",
-    "Oyun kumandası ve dokunmatik",
-    "Manette et tactile",
-    "Mando y controles táctiles"
-  ],
-  [
-    "Gamepad:",
-    "Gamepad:",
-    "Oyun kumandası:",
-    "Manette :",
-    "Mando:"
-  ],
-  [
-    "Touch:",
-    "Touch:",
-    "Dokunmatik:",
-    "Tactile :",
-    "Táctil:"
-  ],
-  [
-    "linker Stick bewegt, A/RT feuert, LB/RB/LT nutzt Fähigkeit 1/2/3, Menü pausiert.",
-    "Left stick moves, A/RT fires, LB/RB/LT activates ability 1/2/3, Menu pauses.",
-    "Sol çubuk hareket eder, A/RT ateş eder, LB/RB/LT yetenek 1/2/3’ü etkinleştirir, Menü duraklatır.",
-    "Stick gauche : déplacement ; A/RT : tir ; LB/RB/LT : pouvoir 1/2/3 ; Menu : pause.",
-    "Palanca izquierda: mover; A/RT: disparar; LB/RB/LT: habilidad 1/2/3; Menú: pausa."
-  ],
-  [
-    "links ziehen zum Bewegen; die drei großen Fähigkeitsknöpfe rechts antippen.",
-    "Drag on the left to move; tap the three large ability buttons on the right.",
-    "Hareket için solda sürükle; sağdaki üç büyük yetenek düğmesine dokun.",
-    "Glissez à gauche pour bouger ; touchez les trois grands boutons de pouvoir à droite.",
-    "Arrastra a la izquierda para moverte; toca los tres botones grandes de habilidad a la derecha."
-  ],
-  [
-    "Piloten-Name",
-    "Pilot name",
-    "Pilot adı",
-    "Nom du pilote",
-    "Nombre del piloto"
-  ],
-  [
-    "Punkte → Credits:",
-    "Points → credits:",
-    "Puanlar → krediler:",
-    "Points → crédits :",
-    "Puntos → créditos:"
-  ],
-  [
-    "Am Ende einer Mission erhältst du für jeden Punkt einen Credit. Beispiel: 1.000 Punkte = 1.000 Credits.",
-    "At the end of a mission, you receive one credit for every point. Example: 1,000 points = 1,000 credits.",
-    "Görev sonunda her puan bir kredi eder. Örnek: 1.000 puan = 1.000 kredi.",
-    "À la fin d’une mission, chaque point rapporte un crédit. Exemple : 1 000 points = 1 000 crédits.",
-    "Al terminar una misión recibes un crédito por punto. Ejemplo: 1.000 puntos = 1.000 créditos."
-  ],
-  [
-    "Shop",
-    "Shop",
-    "Mağaza",
-    "Boutique",
-    "Tienda"
-  ],
-  [
-    "SHOP",
-    "SHOP",
-    "MAĞAZA",
-    "BOUTIQUE",
-    "TIENDA"
-  ],
-  [
-    "Dein Jet",
-    "Your jet",
-    "Uçağın",
-    "Votre chasseur",
-    "Tu caza"
-  ],
-  [
-    "2D Kampfjet-Simulator",
-    "2D fighter jet simulator",
-    "2B savaş uçağı simülatörü",
-    "Simulateur de chasseur 2D",
-    "Simulador de cazas 2D"
-  ],
-  [
-    "Höchstes erreichtes Spielerlevel",
-    "Highest player level reached",
-    "Ulaşılan en yüksek oyuncu seviyesi",
-    "Plus haut niveau atteint",
-    "Nivel de jugador más alto alcanzado"
-  ],
-  [
-    "Verfügbare Credits",
-    "Available credits",
-    "Mevcut krediler",
-    "Crédits disponibles",
-    "Créditos disponibles"
-  ],
-  [
-    "Juwelen für Flugzeug- und Drohnen-Upgrades",
-    "Gems for aircraft and drone upgrades",
-    "Uçak ve drone geliştirmeleri için mücevherler",
-    "Gemmes pour améliorer les avions et les drones",
-    "Gemas para mejorar aviones y drones"
-  ],
-  [
-    "Juwelen",
-    "Gems",
-    "Mücevherler",
-    "Gemmes",
-    "Gemas"
-  ],
-  [
-    "Credits",
-    "Credits",
-    "Krediler",
-    "Crédits",
-    "Créditos"
-  ],
-  [
-    "CREDITS",
-    "CREDITS",
-    "KREDİ",
-    "CRÉDITS",
-    "CRÉDITOS"
-  ],
-  [
-    "Highscore",
-    "High score",
-    "En yüksek puan",
-    "Meilleur score",
-    "Récord"
-  ],
-  [
-    "🛡 PILOT-LEVEL",
-    "🛡 PILOT LEVEL",
-    "🛡 PİLOT SEVİYESİ",
-    "🛡 NIVEAU DU PILOTE",
-    "🛡 NIVEL DEL PILOTO"
-  ],
-  [
-    "PILOT-LEVEL",
-    "PILOT LEVEL",
-    "PİLOT SEVİYESİ",
-    "NIVEAU DU PILOTE",
-    "NIVEL DEL PILOTO"
-  ],
-  [
-    "JET-LEVEL",
-    "JET LEVEL",
-    "UÇAK SEVİYESİ",
-    "NIVEAU DU CHASSEUR",
-    "NIVEL DEL CAZA"
-  ],
-  [
-    "Level",
-    "Level",
-    "Seviye",
-    "Niveau",
-    "Nivel"
-  ],
-  [
-    "LEVEL",
-    "LEVEL",
-    "SEVİYE",
-    "NIVEAU",
-    "NIVEL"
-  ],
-  [
-    "Pilot-Meilenstein",
-    "Pilot milestone",
-    "Pilot dönüm noktası",
-    "Étape du pilote",
-    "Hito del piloto"
-  ],
-  [
-    "Neuer Hangar-Rang erreicht",
-    "New hangar rank reached",
-    "Yeni hangar rütbesine ulaşıldı",
-    "Nouveau rang de hangar atteint",
-    "Nuevo rango de hangar alcanzado"
-  ],
-  [
-    "🏆 RANGLISTE",
-    "🏆 LEADERBOARD",
-    "🏆 LİDERLİK TABLOSU",
-    "🏆 CLASSEMENT",
-    "🏆 CLASIFICACIÓN"
-  ],
-  [
-    "🏅 ERFOLGE",
-    "🏅 ACHIEVEMENTS",
-    "🏅 BAŞARIMLAR",
-    "🏅 SUCCÈS",
-    "🏅 LOGROS"
-  ],
-  [
-    "Vier Hangars",
-    "Four hangars",
-    "Dört hangar",
-    "Quatre hangars",
-    "Cuatro hangares"
-  ],
-  [
-    "🧑‍✈️ Name:",
-    "🧑‍✈️ Name:",
-    "🧑‍✈️ Ad:",
-    "🧑‍✈️ Nom :",
-    "🧑‍✈️ Nombre:"
-  ],
-  [
-    "Gespeichert",
-    "Saved",
-    "Kaydedildi",
-    "Sauvegardé",
-    "Guardado"
-  ],
-  [
-    "Punkte",
-    "points",
-    "puan",
-    "points",
-    "puntos"
-  ],
-  [
-    "Nächstes Ziel",
-    "Next goal",
-    "Sonraki hedef",
-    "Prochain objectif",
-    "Siguiente objetivo"
-  ],
-  [
-    "? ANLEITUNG",
-    "? HOW TO PLAY",
-    "? NASIL OYNANIR",
-    "? COMMENT JOUER",
-    "? CÓMO JUGAR"
-  ],
-  [
-    "SUPER!",
-    "Great!",
-    "Harika!",
-    "Super !",
-    "¡Genial!"
-  ],
-  [
-    "Dein Score",
-    "Your score",
-    "Skorun",
-    "Votre score",
-    "Tu puntuación"
-  ],
-  [
-    "MISSION ABGESCHLOSSEN",
-    "MISSION COMPLETE",
-    "GÖREV TAMAMLANDI",
-    "MISSION TERMINÉE",
-    "MISIÓN COMPLETADA"
-  ],
-  [
-    "GESCHAFFT!",
-    "COMPLETED!",
-    "BAŞARDIN!",
-    "RÉUSSI !",
-    "¡CONSEGUIDO!"
-  ],
-  [
-    "Rückflug zum Hangar …",
-    "Returning to hangar …",
-    "Hangara dönülüyor …",
-    "Retour au hangar…",
-    "Volviendo al hangar…"
-  ],
-  [
-    "Zum Hangar →",
-    "Return to hangar →",
-    "Hangara dön →",
-    "Retour au hangar →",
-    "Volver al hangar →"
-  ],
-  [
-    "Erfolg freigeschaltet",
-    "Achievement unlocked",
-    "Başarım açıldı",
-    "Succès débloqué",
-    "Logro desbloqueado"
-  ],
-  [
-    "Einsatzbilanz",
-    "Mission results",
-    "Görev sonuçları",
-    "Bilan de mission",
-    "Resultados de misión"
-  ],
-  [
-    "GERÄT DREHEN",
-    "ROTATE DEVICE",
-    "CİHAZI DÖNDÜR",
-    "TOURNEZ L’APPAREIL",
-    "GIRA EL DISPOSITIVO"
-  ],
-  [
-    "Das Spielfeld ist im Querformat größer und leichter zu steuern. Die Mission wartet, bis du dein Gerät gedreht hast.",
-    "The playfield is larger and easier to control in landscape. The mission waits until you rotate your device.",
-    "Yatay konumda oyun alanı daha büyük ve kontrolü daha kolaydır. Görev, cihazını döndürene kadar bekler.",
-    "Le terrain est plus grand et plus facile à contrôler en paysage. La mission attend que vous tourniez l’appareil.",
-    "El campo es más grande y fácil de controlar en horizontal. La misión espera a que gires el dispositivo."
-  ],
-  [
-    "ESC oder",
-    "ESC or",
-    "ESC veya",
-    "Échap ou",
-    "ESC o"
-  ],
-  [
-    "drücken, um weiterzuspielen",
-    "to resume",
-    "ile devam et",
-    "pour reprendre",
-    "para continuar"
-  ],
-  [
-    "Training",
-    "Training",
-    "Eğitim",
-    "Entraînement",
-    "Entrenamiento"
-  ],
-  [
-    "Bewege deinen Jet",
-    "Move your jet",
-    "Uçağını hareket ettir",
-    "Déplacez votre chasseur",
-    "Mueve tu caza"
-  ],
-  [
-    "Jetzt schießen",
-    "Now fire",
-    "Şimdi ateş et",
-    "Tirez maintenant",
-    "Dispara ahora"
-  ],
-  [
-    "Bereit für die Mission!",
-    "Ready for the mission!",
-    "Göreve hazırsın!",
-    "Prêt pour la mission !",
-    "¡Listo para la misión!"
-  ],
-  [
-    "WASD-Tasten",
-    "WASD keys",
-    "WASD tuşları",
-    "Touches WASD",
-    "Teclas WASD"
-  ],
-  [
-    "Pfeiltasten",
-    "Arrow keys",
-    "Yön tuşları",
-    "Touches fléchées",
-    "Teclas de flecha"
-  ],
-  [
-    "ODER",
-    "OR",
-    "VEYA",
-    "OU",
-    "O"
-  ],
-  [
-    "GEDRÜCKT HALTEN",
-    "HOLD",
-    "BASILI TUT",
-    "MAINTENIR",
-    "MANTENER PULSADO"
-  ],
-  [
-    "HIER ZIEHEN",
-    "DRAG HERE",
-    "BURADA SÜRÜKLE",
-    "GLISSEZ ICI",
-    "ARRASTRA AQUÍ"
-  ],
-  [
-    "HIER HALTEN",
-    "HOLD HERE",
-    "BURADA BASILI TUT",
-    "MAINTENEZ ICI",
-    "MANTÉN AQUÍ"
-  ],
-  [
-    "Sicheres Training · Gegner warten",
-    "Safe training · enemies wait",
-    "Güvenli eğitim · düşmanlar bekler",
-    "Entraînement sécurisé · ennemis en attente",
-    "Entrenamiento seguro · enemigos en espera"
-  ],
-  [
-    "Training überspringen",
-    "Skip training",
-    "Eğitimi atla",
-    "Passer l’entraînement",
-    "Omitir entrenamiento"
-  ],
-  [
-    "Probiere es jetzt aus, um fortzufahren.",
-    "Try it now to continue.",
-    "Devam etmek için şimdi dene.",
-    "Essayez maintenant pour continuer.",
-    "Pruébalo ahora para continuar."
-  ],
-  [
-    "Ziehe deinen Finger links über das Spielfeld. Der Jet folgt ihm schnell.",
-    "Drag your finger across the left side. The jet follows it quickly.",
-    "Parmağını sol tarafta sürükle. Uçak parmağını hızla takip eder.",
-    "Glissez le doigt à gauche du terrain. Le chasseur le suit rapidement.",
-    "Arrastra el dedo por el lado izquierdo. El caza lo sigue rápidamente."
-  ],
-  [
-    "Halte rechts den roten FIRE-Knopf gedrückt.",
-    "Hold the red FIRE button on the right.",
-    "Sağdaki kırmızı ATEŞ düğmesini basılı tut.",
-    "Maintenez le bouton rouge TIR à droite.",
-    "Mantén el botón rojo FUEGO a la derecha."
-  ],
-  [
-    "Gut gemacht! Volle Spezialanzeigen leuchten auf. Nutze dann die angezeigte Taste oder den entsprechenden Touch-Knopf.",
-    "Well done! Full ability meters light up. Then use the displayed key or matching touch button.",
-    "Aferin! Dolu yetenek göstergeleri parlar. Gösterilen tuşu veya dokunmatik düğmeyi kullan.",
-    "Bravo ! Les jauges pleines s’illuminent. Utilisez la touche indiquée ou le bouton tactile correspondant.",
-    "¡Bien hecho! Los indicadores llenos se iluminan. Usa la tecla indicada o el botón táctil correspondiente."
-  ],
-  [
-    "Gut gemacht! Dein Jet feuert automatisch. Deine zwei ausgerüsteten Fähigkeiten nutzt du mit den eingeblendeten Tasten.",
-    "Well done! Your jet fires automatically. Use the displayed keys for your equipped abilities.",
-    "Aferin! Uçağın otomatik ateş eder. Donatılan yetenekler için gösterilen tuşları kullan.",
-    "Bravo ! Votre chasseur tire automatiquement. Utilisez les touches indiquées pour vos pouvoirs équipés.",
-    "¡Bien hecho! Tu caza dispara automáticamente. Usa las teclas indicadas para tus habilidades equipadas."
-  ],
-  [
-    "— Bewegen ·",
-    "— Move ·",
-    "— Hareket ·",
-    "— Déplacement ·",
-    "— Mover ·"
-  ],
-  [
-    "— Fähigkeiten · ESC — Pause",
-    "— Abilities · ESC — Pause",
-    "— Yetenekler · ESC — Duraklat",
-    "— Pouvoirs · Échap — Pause",
-    "— Habilidades · ESC — Pausa"
-  ],
-  [
-    "{0} — Schuss",
-    "{0} — Fire",
-    "{0} — Ateş",
-    "{0} — Tir",
-    "{0} — Disparo"
-  ],
-  [
-    "Baukasten",
-    "Builder",
-    "Oluşturucu",
-    "Atelier",
-    "Constructor"
-  ],
-  [
-    "Shop-Werkstatt",
-    "Shop workshop",
-    "Mağaza atölyesi",
-    "Atelier de la boutique",
-    "Taller de la tienda"
-  ],
-  [
-    "FLUGZEUG-BAUKASTEN",
-    "AIRCRAFT BUILDER",
-    "UÇAK OLUŞTURUCU",
-    "ATELIER D’AVIONS",
-    "CONSTRUCTOR DE AVIONES"
-  ],
-  [
-    "Wähle genau zwei vollständige Flugzeuge. Der Baukasten erzeugt daraus automatisch einen sichtbaren Hybrid-Jet.",
-    "Choose exactly two complete aircraft. The builder automatically combines them into a visible hybrid jet.",
-    "Tam olarak iki uçak seç. Oluşturucu bunları otomatik olarak görünür bir hibrit uçağa dönüştürür.",
-    "Choisissez exactement deux avions complets. L’atelier les combine automatiquement en un chasseur hybride visible.",
-    "Elige exactamente dos aviones completos. El constructor los combina automáticamente en un caza híbrido visible."
-  ],
-  [
-    "1 · FLUGZEUG A",
-    "1 · AIRCRAFT A",
-    "1 · UÇAK A",
-    "1 · AVION A",
-    "1 · AVIÓN A"
-  ],
-  [
-    "2 · FLUGZEUG B",
-    "2 · AIRCRAFT B",
-    "2 · UÇAK B",
-    "2 · AVION B",
-    "2 · AVIÓN B"
-  ],
-  [
-    "DROHNEN-BAUKASTEN",
-    "DRONE BUILDER",
-    "DRONE OLUŞTURUCU",
-    "ATELIER DE DRONES",
-    "CONSTRUCTOR DE DRONES"
-  ],
-  [
-    "Wähle genau zwei vollständige Drohnen. Gehäuse, Kern und Waffen werden automatisch gemischt.",
-    "Choose exactly two complete drones. Body, core and weapons are mixed automatically.",
-    "Tam olarak iki drone seç. Gövde, çekirdek ve silahlar otomatik birleştirilir.",
-    "Choisissez exactement deux drones complets. Châssis, noyau et armes sont mélangés automatiquement.",
-    "Elige exactamente dos drones completos. El cuerpo, el núcleo y las armas se mezclan automáticamente."
-  ],
-  [
-    "1 · DROHNE A",
-    "1 · DRONE A",
-    "1 · DRONE A",
-    "1 · DRONE A",
-    "1 · DRON A"
-  ],
-  [
-    "2 · DROHNE B",
-    "2 · DRONE B",
-    "2 · DRONE B",
-    "2 · DRONE B",
-    "2 · DRON B"
-  ],
-  [
-    "3 · DROHNENROLLE",
-    "3 · DRONE ROLE",
-    "3 · DRONE ROLÜ",
-    "3 · RÔLE DU DRONE",
-    "3 · FUNCIÓN DEL DRON"
-  ],
-  [
-    "Deine Kombinationen",
-    "Your combinations",
-    "Kombinasyonların",
-    "Vos combinaisons",
-    "Tus combinaciones"
-  ],
-  [
-    "Jet:",
-    "Jet:",
-    "Uçak:",
-    "Chasseur :",
-    "Caza:"
-  ],
-  [
-    "Drohne:",
-    "Drone:",
-    "Drone:",
-    "Drone :",
-    "Dron:"
-  ],
-  [
-    "HYBRID BAUEN · 💰",
-    "BUILD HYBRID · 💰",
-    "HİBRİT OLUŞTUR · 💰",
-    "CRÉER L’HYBRIDE · 💰",
-    "CREAR HÍBRIDO · 💰"
-  ],
-  [
-    "Noch",
-    "Still needed",
-    "Gereken",
-    "Encore",
-    "Faltan"
-  ],
-  [
-    "Credits benötigt",
-    "credits needed",
-    "kredi gerekli",
-    "crédits nécessaires",
-    "créditos necesarios"
-  ],
-  [
-    "Alle enthaltenen Ulti-Effekte werden gemeinsam aktiviert.",
-    "All included ultimate effects activate together.",
-    "İçerilen tüm özel yetenek etkileri birlikte etkinleşir.",
-    "Tous les effets des pouvoirs inclus s’activent ensemble.",
-    "Todos los efectos de las habilidades incluidas se activan juntos."
-  ],
-  [
-    "Hybrid-Jet auswählen",
-    "Select hybrid jet",
-    "Hibrit uçak seç",
-    "Choisir le chasseur hybride",
-    "Seleccionar caza híbrido"
-  ],
-  [
-    "Dein gespeicherter Hybrid-Jet",
-    "Your saved hybrid jet",
-    "Kaydedilmiş hibrit uçağın",
-    "Votre chasseur hybride sauvegardé",
-    "Tu caza híbrido guardado"
-  ],
-  [
-    "KOMBINIERT ·",
-    "COMBINED ·",
-    "BİRLEŞİK ·",
-    "COMBINÉ ·",
-    "COMBINADO ·"
-  ],
-  [
-    "Waffenmodul:",
-    "Weapon module:",
-    "Silah modülü:",
-    "Module d’arme :",
-    "Módulo de arma:"
-  ],
-  [
-    "Kisten",
-    "Crates",
-    "Kasalar",
-    "Caisses",
-    "Cajas"
-  ],
-  [
-    "Versiegelte Belohnungskisten öffnen",
-    "Open sealed reward crates",
-    "Mühürlü ödül kasalarını aç",
-    "Ouvrir des caisses de récompenses scellées",
-    "Abrir cajas de recompensas selladas"
-  ],
-  [
-    "Waffen",
-    "Weapons",
-    "Silahlar",
-    "Armes",
-    "Armas"
-  ],
-  [
-    "Kaufen, ausrüsten und verbessern",
-    "Buy, equip and upgrade",
-    "Satın al, donat ve geliştir",
-    "Acheter, équiper et améliorer",
-    "Comprar, equipar y mejorar"
-  ],
-  [
-    "Jet und Drohne verstärken",
-    "Strengthen jet and drone",
-    "Uçak ve drone’u güçlendir",
-    "Renforcer le chasseur et le drone",
-    "Reforzar caza y dron"
-  ],
-  [
-    "Skins",
-    "Skins",
-    "Görünümler",
-    "Apparences",
-    "Aspectos"
-  ],
-  [
-    "Aussehen auswählen",
-    "Choose appearance",
-    "Görünüm seç",
-    "Choisir l’apparence",
-    "Elegir apariencia"
-  ],
-  [
-    "Ultis",
-    "Ultimates",
-    "Özel yetenekler",
-    "Pouvoirs",
-    "Habilidades"
-  ],
-  [
-    "Loadout zusammenstellen",
-    "Build your loadout",
-    "Donanımını hazırla",
-    "Préparer l’équipement",
-    "Preparar equipamiento"
-  ],
-  [
-    "Flugzeuge und Drohnen kombinieren",
-    "Combine aircraft and drones",
-    "Uçak ve drone’ları birleştir",
-    "Combiner avions et drones",
-    "Combinar aviones y drones"
-  ],
-  [
-    "Extras",
-    "Extras",
-    "Ekstralar",
-    "Bonus",
-    "Extras"
-  ],
-  [
-    "Dauerhafte Verbesserungen",
-    "Permanent upgrades",
-    "Kalıcı geliştirmeler",
-    "Améliorations permanentes",
-    "Mejoras permanentes"
-  ],
-  [
-    "Kauf bestätigen",
-    "Confirm purchase",
-    "Satın almayı onayla",
-    "Confirmer l’achat",
-    "Confirmar compra"
-  ],
-  [
-    "Bist du sicher?",
-    "Are you sure?",
-    "Emin misin?",
-    "Confirmer ?",
-    "¿Estás seguro?"
-  ],
-  [
-    "Möchtest du",
-    "Do you want to buy",
-    "Satın almak istiyor musun:",
-    "Voulez-vous acheter",
-    "¿Quieres comprar"
-  ],
-  [
-    "für",
-    "for",
-    "karşılığında",
-    "pour",
-    "por"
-  ],
-  [
-    "kaufen?",
-    "?",
-    "?",
-    "?",
-    "?"
-  ],
-  [
-    "ABBRECHEN",
-    "CANCEL",
-    "İPTAL",
-    "ANNULER",
-    "CANCELAR"
-  ],
-  [
-    "KAUFEN",
-    "BUY",
-    "SATIN AL",
-    "ACHETER",
-    "COMPRAR"
-  ],
-  [
-    "Kauf erfolgreich",
-    "Purchase successful",
-    "Satın alma başarılı",
-    "Achat réussi",
-    "Compra realizada"
-  ],
-  [
-    "Shop-Bereiche",
-    "Shop categories",
-    "Mağaza bölümleri",
-    "Catégories de la boutique",
-    "Categorías de la tienda"
-  ],
-  [
-    "Sortiert nach Seltenheit und Preis.",
-    "Sorted by rarity and price.",
-    "Nadirlik ve fiyata göre sıralı.",
-    "Trié par rareté et prix.",
-    "Ordenado por rareza y precio."
-  ],
-  [
-    "GEWONNEN",
-    "WON",
-    "KAZANDIN",
-    "GAGNÉ",
-    "GANADO"
-  ],
-  [
-    "Versiegelt",
-    "Sealed",
-    "Mühürlü",
-    "Scellé",
-    "Sellada"
-  ],
-  [
-    "Waffenarsenal",
-    "Weapon arsenal",
-    "Silah cephaneliği",
-    "Arsenal",
-    "Arsenal de armas"
-  ],
-  [
-    "Kaufe Waffen mit Credits oder Juwelen, rüste bis zu zwei gleichzeitig aus und verbessere sie bis Level 10.",
-    "Buy weapons with credits or gems, equip up to two at once and upgrade them to level 10.",
-    "Kredi veya mücevherlerle silah satın al, aynı anda en fazla iki silah donat ve 10. seviyeye kadar geliştir.",
-    "Achetez des armes avec des crédits ou des gemmes, équipez-en deux et améliorez-les jusqu’au niveau 10.",
-    "Compra armas con créditos o gemas, equipa hasta dos a la vez y mejóralas hasta el nivel 10."
-  ],
-  [
-    "Waffenslots",
-    "Weapon slots",
-    "Silah yuvaları",
-    "Emplacements d’armes",
-    "Ranuras de armas"
-  ],
-  [
-    "/2 belegt",
-    "/2 equipped",
-    "/2 donatıldı",
-    "/2 équipés",
-    "/2 equipadas"
-  ],
-  [
-    "Schaden",
-    "Damage",
-    "Hasar",
-    "Dégâts",
-    "Daño"
-  ],
-  [
-    "Feuerrate",
-    "Fire rate",
-    "Atış hızı",
-    "Cadence de tir",
-    "Cadencia de disparo"
-  ],
-  [
-    "Drohnenwaffen",
-    "Drone weapons",
-    "Drone silahları",
-    "Armes de drone",
-    "Armas de dron"
-  ],
-  [
-    "Kaufe Drohnenwaffen mit Credits und rüste eine davon aus. Drohnenlevel und Rollen verstärken sie weiterhin.",
-    "Buy drone weapons with credits and equip one. Drone levels and roles continue to boost it.",
-    "Kredilerle drone silahları satın al ve birini donat. Drone seviyesi ve rolleri silahı güçlendirmeye devam eder.",
-    "Achetez des armes de drone avec des crédits et équipez-en une. Le niveau et le rôle du drone la renforcent.",
-    "Compra armas de dron con créditos y equipa una. El nivel y la función del dron la siguen reforzando."
-  ],
-  [
-    "Drohnen-Waffenslot 1/1 belegt",
-    "Drone weapon slot 1/1 equipped",
-    "Drone silah yuvası 1/1 donatıldı",
-    "Emplacement d’arme du drone 1/1 équipé",
-    "Ranura de arma de dron 1/1 equipada"
-  ],
-  [
-    "Waffenmodule",
-    "Weapon modules",
-    "Silah modülleri",
-    "Modules d’armes",
-    "Módulos de armas"
-  ],
-  [
-    "Kaufe ein Begleitmodul mit Credits. Das gewählte Modul aktiviert sich im Einsatz regelmäßig für fünf Sekunden.",
-    "Buy a support module with credits. During a mission, it activates regularly for five seconds.",
-    "Kredilerle destek modülü satın al. Seçilen modül görevde düzenli olarak beş saniye etkinleşir.",
-    "Achetez un module de soutien avec des crédits. Il s’active régulièrement pendant cinq secondes en mission.",
-    "Compra un módulo de apoyo con créditos. Se activa regularmente durante cinco segundos en la misión."
-  ],
-  [
-    "Schüsse",
-    "Shots",
-    "Atışlar",
-    "Tirs",
-    "Disparos"
-  ],
-  [
-    "Flugzeug verbessern",
-    "Upgrade aircraft",
-    "Uçağı geliştir",
-    "Améliorer l’avion",
-    "Mejorar avión"
-  ],
-  [
-    "Drohne verbessern",
-    "Upgrade drone",
-    "Drone’u geliştir",
-    "Améliorer le drone",
-    "Mejorar dron"
-  ],
-  [
-    "Tempo",
-    "Speed",
-    "Hız",
-    "Vitesse",
-    "Velocidad"
-  ],
-  [
-    "Kanonen",
-    "Cannons",
-    "Toplar",
-    "Canons",
-    "Cañones"
-  ],
-  [
-    "Jet-Skins",
-    "Jet skins",
-    "Uçak görünümleri",
-    "Apparences de chasseur",
-    "Aspectos de caza"
-  ],
-  [
-    "Drohnen-Skins",
-    "Drone skins",
-    "Drone görünümleri",
-    "Apparences de drone",
-    "Aspectos de dron"
-  ],
-  [
-    "Ulti-Loadout",
-    "Ultimate loadout",
-    "Özel yetenek donanımı",
-    "Équipement de pouvoirs",
-    "Equipamiento de habilidades"
-  ],
-  [
-    "belegt",
-    "equipped",
-    "donatıldı",
-    "équipés",
-    "equipados"
-  ],
-  [
-    "Neue Ultis werden beim Kauf sofort ausgerüstet. Sind alle Slots belegt, ersetzen sie die erste Ulti. Reihenfolge und Auswahl kannst du hier ändern.",
-    "New ultimates are equipped when purchased. If all slots are full, they replace the first ultimate. Change the order and selection here.",
-    "Yeni özel yetenekler satın alındığında donatılır. Tüm yuvalar doluysa ilk yeteneğin yerini alır. Sırayı ve seçimi burada değiştir.",
-    "Les nouveaux pouvoirs sont équipés à l’achat. Si tous les emplacements sont pleins, ils remplacent le premier. Modifiez l’ordre et le choix ici.",
-    "Las habilidades nuevas se equipan al comprarlas. Si no hay ranuras libres, sustituyen a la primera. Cambia el orden y la selección aquí."
-  ],
-  [
-    "SLOT",
-    "SLOT",
-    "YUVA",
-    "EMPLACEMENT",
-    "RANURA"
-  ],
-  [
-    "Leer",
-    "Empty",
-    "Boş",
-    "Vide",
-    "Vacío"
-  ],
-  [
-    "🔒 Pilot-Level",
-    "🔒 Pilot level",
-    "🔒 Pilot seviyesi",
-    "🔒 Niveau du pilote",
-    "🔒 Nivel del piloto"
-  ],
-  [
-    "erforderlich",
-    "required",
-    "gerekli",
-    "requis",
-    "requerido"
-  ],
-  [
-    "🔒 Vorstufe",
-    "🔒 Prerequisite",
-    "🔒 Ön koşul",
-    "🔒 Prérequis",
-    "🔒 Requisito previo"
-  ],
-  [
-    "SELTEN",
-    "RARE",
-    "NADİR",
-    "RARE",
-    "RARA"
-  ],
-  [
-    "EPISCH",
-    "EPIC",
-    "DESTANSI",
-    "ÉPIQUE",
-    "ÉPICA"
-  ],
-  [
-    "LEGENDÄR",
-    "LEGENDARY",
-    "EFSANEVİ",
-    "LÉGENDAIRE",
-    "LEGENDARIA"
-  ],
-  [
-    "ULTRA LEGENDÄR",
-    "ULTRA LEGENDARY",
-    "ULTRA EFSANEVİ",
-    "ULTRA LÉGENDAIRE",
-    "ULTRALEGENDARIA"
-  ],
-  [
-    "ULTIMATE",
-    "ULTIMATE",
-    "ÜSTÜN",
-    "ULTIME",
-    "SUPREMA"
-  ],
-  [
-    "Seltene Kiste",
-    "Rare crate",
-    "Nadir kasa",
-    "Caisse rare",
-    "Caja rara"
-  ],
-  [
-    "Epische Kiste",
-    "Epic crate",
-    "Destansı kasa",
-    "Caisse épique",
-    "Caja épica"
-  ],
-  [
-    "Legendäre Kiste",
-    "Legendary crate",
-    "Efsanevi kasa",
-    "Caisse légendaire",
-    "Caja legendaria"
-  ],
-  [
-    "Ultra-legendäre Kiste",
-    "Ultra-legendary crate",
-    "Ultra efsanevi kasa",
-    "Caisse ultra légendaire",
-    "Caja ultralegendaria"
-  ],
-  [
-    "Ultimate Kiste",
-    "Ultimate crate",
-    "Üstün kasa",
-    "Caisse ultime",
-    "Caja suprema"
-  ],
-  [
-    "(lokal – dieses Gerät)",
-    "(local – this device)",
-    "(yerel – bu cihaz)",
-    "(local – cet appareil)",
-    "(local – este dispositivo)"
-  ],
-  [
-    "Alle löschen",
-    "Delete all",
-    "Tümünü sil",
-    "Tout supprimer",
-    "Eliminar todo"
-  ],
-  [
-    "Löschen bestätigen",
-    "Confirm deletion",
-    "Silmeyi onayla",
-    "Confirmer la suppression",
-    "Confirmar eliminación"
-  ],
-  [
-    "Abbrechen",
-    "Cancel",
-    "İptal",
-    "Annuler",
-    "Cancelar"
-  ],
-  [
-    "Löschen",
-    "Delete",
-    "Sil",
-    "Supprimer",
-    "Eliminar"
-  ],
-  [
-    "Löschen konnte nicht gespeichert werden. Bitte erneut versuchen.",
-    "Could not save deletion. Please try again.",
-    "Silme işlemi kaydedilemedi. Tekrar dene.",
-    "Impossible d’enregistrer la suppression. Réessayez.",
-    "No se pudo guardar la eliminación. Inténtalo de nuevo."
-  ],
-  [
-    "Noch keine Einträge. Spiel beenden um deinen Score zu speichern!",
-    "No entries yet. Finish a game to save your score!",
-    "Henüz kayıt yok. Puanını kaydetmek için oyunu bitir!",
-    "Aucune entrée. Terminez une partie pour enregistrer votre score !",
-    "Aún no hay registros. ¡Termina una partida para guardar tu puntuación!"
-  ],
-  [
-    "Platzierung",
-    "Rank",
-    "Sıralama",
-    "Classement",
-    "Posición"
-  ],
-  [
-    "von",
-    "of",
-    "/",
-    "sur",
-    "de"
-  ],
-  [
-    "Abstand zu Platz 1",
-    "Gap to first place",
-    "Birinciyle fark",
-    "Écart avec la première place",
-    "Diferencia con el primer puesto"
-  ],
-  [
-    "Datum",
-    "Date",
-    "Tarih",
-    "Date",
-    "Fecha"
-  ],
-  [
-    "Uhrzeit",
-    "Time",
-    "Saat",
-    "Heure",
-    "Hora"
-  ],
-  [
-    "Erreichtes Level",
-    "Level reached",
-    "Ulaşılan seviye",
-    "Niveau atteint",
-    "Nivel alcanzado"
-  ],
-  [
-    "Einsatzdauer",
-    "Mission duration",
-    "Görev süresi",
-    "Durée de mission",
-    "Duración de misión"
-  ],
-  [
-    "Abschüsse",
-    "Kills",
-    "İmhalar",
-    "Ennemis abattus",
-    "Bajas"
-  ],
-  [
-    "Bosse besiegt",
-    "Bosses defeated",
-    "Yenilen patronlar",
-    "Boss vaincus",
-    "Jefes derrotados"
-  ],
-  [
-    "Beste Combo",
-    "Best combo",
-    "En iyi kombo",
-    "Meilleur combo",
-    "Mejor combo"
-  ],
-  [
-    "Near Misses",
-    "Near misses",
-    "Kıl payı kaçışlar",
-    "Esquives de justesse",
-    "Esquivas ajustadas"
-  ],
-  [
-    "MISSIONEN & ERFOLGE",
-    "MISSIONS & ACHIEVEMENTS",
-    "GÖREVLER VE BAŞARIMLAR",
-    "MISSIONS ET SUCCÈS",
-    "MISIONES Y LOGROS"
-  ],
-  [
-    "Erfülle diese Ziele innerhalb eines Einsatzes. Belohnungen werden sofort gutgeschrieben. Der Fortschritt gilt für den aktuellen oder letzten Einsatz und bleibt beim Fortsetzen erhalten.",
-    "Complete these goals in one mission. Rewards are credited immediately. Progress covers your current or latest mission and is kept when you resume.",
-    "Bu hedefleri tek görevde tamamla. Ödüller hemen eklenir. İlerleme mevcut veya son göreve aittir ve devam ederken korunur.",
-    "Accomplissez ces objectifs en une mission. Les récompenses sont immédiates. La progression concerne la mission actuelle ou la dernière et reste lors d’une reprise.",
-    "Completa estos objetivos en una misión. Las recompensas se abonan al instante. El progreso corresponde a la misión actual o la última y se conserva al continuar."
-  ],
-  [
-    "Belohnung:",
-    "Reward:",
-    "Ödül:",
-    "Récompense :",
-    "Recompensa:"
-  ],
-  [
-    "⚙ Admin",
-    "⚙ Admin",
-    "⚙ Yönetici",
-    "⚙ Administration",
-    "⚙ Administración"
-  ],
-  [
-    "ADMIN PANEL",
-    "ADMIN PANEL",
-    "YÖNETİCİ PANELİ",
-    "PANNEAU D’ADMINISTRATION",
-    "PANEL DE ADMINISTRACIÓN"
-  ],
-  [
-    "Pilot:",
-    "Pilot:",
-    "Pilot:",
-    "Pilote :",
-    "Piloto:"
-  ],
-  [
-    "Spieler aktiv:",
-    "Active players:",
-    "Aktif oyuncular:",
-    "Joueurs actifs :",
-    "Jugadores activos:"
-  ],
-  [
-    "1 (lokal)",
-    "1 (local)",
-    "1 (yerel)",
-    "1 (local)",
-    "1 (local)"
-  ],
-  [
-    "Admin-Code eingeben:",
-    "Enter admin code:",
-    "Yönetici kodunu gir:",
-    "Saisir le code administrateur :",
-    "Introduce el código de administrador:"
-  ],
-  [
-    "Code...",
-    "Code...",
-    "Kod...",
-    "Code…",
-    "Código..."
-  ],
-  [
-    "Aktivieren",
-    "Activate",
-    "Etkinleştir",
-    "Activer",
-    "Activar"
-  ],
-  [
-    "Schließen",
-    "Close",
-    "Kapat",
-    "Fermer",
-    "Cerrar"
-  ],
-  [
-    "{0} belegen",
-    "Bind {0}",
-    "{0} tuşunu ata",
-    "Configurer {0}",
-    "Asignar {0}"
-  ]
+  ["EINSTELLUNGEN","SETTINGS","AYARLAR","PARAMÈTRES","AJUSTES"],
+  ["Sprache","Language","Dil","Langue","Idioma"],
+  ["Sprache auswählen","Select language","Dil seç","Choisir la langue","Elegir idioma"],
+  ["Sprache der Menüs und Hinweise.","Language used for menus and hints.","Menülerde ve ipuçlarında kullanılan dil.","Langue des menus et des conseils.","Idioma de los menús y consejos."],
+  ["Zurück","Back","Geri","Retour","Atrás"],
+  ["← ZURÜCK","← BACK","← GERİ","← RETOUR","← ATRÁS"],
+  ["← Zurück","← Back","← Geri","← Retour","← Atrás"],
+  ["Zum Hangar","Return to hangar","Hangara dön","Retour au hangar","Volver al hangar"],
+  ["Zurück zum Hangar","Back to hangar","Hangara dön","Retour au hangar","Volver al hangar"],
+  ["⌂ ZUM HANGAR","⌂ RETURN TO HANGAR","⌂ HANGARA DÖN","⌂ RETOUR AU HANGAR","⌂ VOLVER AL HANGAR"],
+  ["⌂ HANGAR","⌂ HANGAR","⌂ HANGAR","⌂ HANGAR","⌂ HANGAR"],
+  ["▶ WEITERSPIELEN","▶ CONTINUE","▶ DEVAM ET","▶ CONTINUER","▶ CONTINUAR"],
+  ["▶ WEITER","▶ RESUME","▶ DEVAM ET","▶ REPRENDRE","▶ REANUDAR"],
+  ["▶ NEUES SPIEL","▶ NEW GAME","▶ YENİ OYUN","▶ NOUVELLE PARTIE","▶ NUEVA PARTIDA"],
+  ["▶ START","▶ START","▶ BAŞLAT","▶ JOUER","▶ INICIAR"],
+  ["↻ NEU STARTEN","↻ RESTART","↻ YENİDEN BAŞLAT","↻ RECOMMENCER","↻ REINICIAR"],
+  ["⚙ EINSTELLUNGEN","⚙ SETTINGS","⚙ AYARLAR","⚙ PARAMÈTRES","⚙ AJUSTES"],
+  ["■ TRAINING BEENDEN","■ END TRAINING","■ EĞİTİMİ BİTİR","■ TERMINER L’ENTRAÎNEMENT","■ TERMINAR ENTRENAMIENTO"],
+  ["■ BEENDEN & SCORE HOLEN","■ END & CLAIM SCORE","■ BİTİR VE PUANI AL","■ TERMINER ET RÉCUPÉRER LE SCORE","■ TERMINAR Y COBRAR PUNTOS"],
+  ["PAUSE","PAUSED","DURAKLATILDI","EN PAUSE","EN PAUSA"],
+  ["Pause","Pause","Duraklat","Pause","Pausa"],
+  ["Spiel fortsetzen","Resume game","Oyuna devam et","Reprendre la partie","Reanudar partida"],
+  ["Spiel pausieren","Pause game","Oyunu duraklat","Mettre en pause","Pausar partida"],
+  ["Mission unterbrochen","Mission paused","Görev duraklatıldı","Mission en pause","Misión en pausa"],
+  ["Vollbild","Fullscreen","Tam ekran","Plein écran","Pantalla completa"],
+  ["Vollbild öffnen","Enter fullscreen","Tam ekrana geç","Passer en plein écran","Abrir pantalla completa"],
+  ["Vollbild beenden","Exit fullscreen","Tam ekrandan çık","Quitter le plein écran","Salir de pantalla completa"],
+  ["⛶ Vollbild","⛶ Fullscreen","⛶ Tam ekran","⛶ Plein écran","⛶ Pantalla completa"],
+  ["↙ Vollbild beenden","↙ Exit fullscreen","↙ Tam ekrandan çık","↙ Quitter le plein écran","↙ Salir de pantalla completa"],
+  ["⛶ VOLLBILD ÖFFNEN","⛶ ENTER FULLSCREEN","⛶ TAM EKRANA GEÇ","⛶ PASSER EN PLEIN ÉCRAN","⛶ ABRIR PANTALLA COMPLETA"],
+  ["Nach oben fliegen","Fly upward","Yukarı doğru uç","Voler vers le haut","Volar hacia arriba"],
+  ["Dreht Spieler, Gegner, Schüsse und Spielwelt ins Hochformat.","Rotates the player, enemies, projectiles and playfield into portrait mode.","Oyuncuyu, düşmanları, mermileri ve oyun alanını dikey konuma çevirir.","Oriente le joueur, les ennemis, les tirs et le terrain en mode portrait.","Gira al jugador, los enemigos, los proyectiles y el campo al modo vertical."],
+  ["Einführung anzeigen","Show tutorial","Eğitimi göster","Afficher le tutoriel","Mostrar tutorial"],
+  ["Erklärt Bewegung und Schießen beim ersten Start.","Explains movement and shooting on the first start.","İlk başlangıçta hareketi ve ateş etmeyi açıklar.","Explique le déplacement et le tir au premier lancement.","Explica el movimiento y el disparo al empezar."],
+  ["Automatisches Dauerfeuer","Automatic fire","Otomatik ateş","Tir automatique","Disparo automático"],
+  ["Der Jet schießt selbstständig; FIRE bleibt optional.","The jet fires automatically; manual fire remains optional.","Uçak otomatik ateş eder; elle ateş etmek isteğe bağlıdır.","Le chasseur tire automatiquement ; le tir manuel reste facultatif.","El caza dispara automáticamente; el disparo manual es opcional."],
+  ["Auto-Ulti","Auto ultimate","Otomatik özel yetenek","Pouvoir automatique","Habilidad automática"],
+  ["Aktiviert ausgerüstete Ultis sofort automatisch, sobald sie bereit sind.","Automatically activates equipped ultimates as soon as they are ready.","Donatılan özel yetenekleri hazır olduklarında otomatik etkinleştirir.","Active automatiquement les pouvoirs équipés dès qu’ils sont prêts.","Activa automáticamente las habilidades equipadas cuando están listas."],
+  ["Joystick anzeigen","Show joystick","Joystick’i göster","Afficher le joystick","Mostrar joystick"],
+  ["Zeigt den Bewegungs-Joystick im Spielfeld an.","Displays the movement joystick in the play area.","Oyun alanında hareket joystick’ini gösterir.","Affiche le joystick de déplacement sur le terrain.","Muestra el joystick de movimiento en el campo de juego."],
+  ["Bewegung reduzieren","Reduce motion","Hareketi azalt","Réduire les animations","Reducir movimiento"],
+  ["Reduziert dekorative Effekte und Animationen.","Reduces decorative effects and animations.","Dekoratif efektleri ve animasyonları azaltır.","Réduit les effets décoratifs et les animations.","Reduce los efectos decorativos y las animaciones."],
+  ["Hoher Kontrast","High contrast","Yüksek kontrast","Contraste élevé","Contraste alto"],
+  ["Verstärkt Texte, Rahmen und Bedienelemente.","Strengthens text, borders and controls.","Metinleri, kenarlıkları ve kontrolleri belirginleştirir.","Renforce les textes, les bordures et les commandes.","Resalta los textos, los bordes y los controles."],
+  ["Soundeffekte","Sound effects","Ses efektleri","Effets sonores","Efectos de sonido"],
+  ["Musik","Music","Müzik","Musique","Música"],
+  ["Touch-Steuerung","Touch controls","Dokunmatik kontroller","Commandes tactiles","Controles táctiles"],
+  ["Virtuelle Steuerung im Spielfeld.","Virtual controls in the play area.","Oyun alanındaki sanal kontroller.","Commandes virtuelles sur le terrain.","Controles virtuales en el campo de juego."],
+  ["Automatisch","Automatic","Otomatik","Automatique","Automático"],
+  ["Immer anzeigen","Always show","Her zaman göster","Toujours afficher","Mostrar siempre"],
+  ["Nie anzeigen","Never show","Asla gösterme","Ne jamais afficher","No mostrar nunca"],
+  ["Tastaturbelegung","Key bindings","Tuş atamaları","Configuration des touches","Asignación de teclas"],
+  ["Nach oben","Up","Yukarı","Haut","Arriba"],
+  ["Nach unten","Down","Aşağı","Bas","Abajo"],
+  ["Nach links","Left","Sol","Gauche","Izquierda"],
+  ["Nach rechts","Right","Sağ","Droite","Derecha"],
+  ["Feuern","Fire","Ateş et","Tirer","Disparar"],
+  ["FIRE","FIRE","ATEŞ","TIR","FUEGO"],
+  ["Fähigkeit {0}","Ability {0}","Yetenek {0}","Pouvoir {0}","Habilidad {0}"],
+  ["FÄHIGKEIT 1 · 2 · 3:","ABILITY 1 · 2 · 3:","YETENEK 1 · 2 · 3:","POUVOIR 1 · 2 · 3 :","HABILIDAD 1 · 2 · 3:"],
+  ["Gamepad & Touch","Gamepad & touch","Oyun kumandası ve dokunmatik","Manette et tactile","Mando y controles táctiles"],
+  ["Gamepad:","Gamepad:","Oyun kumandası:","Manette :","Mando:"],
+  ["Touch:","Touch:","Dokunmatik:","Tactile :","Táctil:"],
+  ["linker Stick bewegt, A/RT feuert, LB/RB/LT nutzt Fähigkeit 1/2/3, Menü pausiert.","Left stick moves, A/RT fires, LB/RB/LT activates ability 1/2/3, Menu pauses.","Sol çubuk hareket eder, A/RT ateş eder, LB/RB/LT yetenek 1/2/3’ü etkinleştirir, Menü duraklatır.","Stick gauche : déplacement ; A/RT : tir ; LB/RB/LT : pouvoir 1/2/3 ; Menu : pause.","Palanca izquierda: mover; A/RT: disparar; LB/RB/LT: habilidad 1/2/3; Menú: pausa."],
+  ["links ziehen zum Bewegen; die drei großen Fähigkeitsknöpfe rechts antippen.","Drag on the left to move; tap the three large ability buttons on the right.","Hareket için solda sürükle; sağdaki üç büyük yetenek düğmesine dokun.","Glissez à gauche pour bouger ; touchez les trois grands boutons de pouvoir à droite.","Arrastra a la izquierda para moverte; toca los tres botones grandes de habilidad a la derecha."],
+  ["Piloten-Name","Pilot name","Pilot adı","Nom du pilote","Nombre del piloto"],
+  ["Punkte → Credits:","Points → credits:","Puanlar → krediler:","Points → crédits :","Puntos → créditos:"],
+  ["Am Ende einer Mission erhältst du für jeden Punkt einen Credit. Beispiel: 1.000 Punkte = 1.000 Credits.","At the end of a mission, you receive one credit for every point. Example: 1,000 points = 1,000 credits.","Görev sonunda her puan bir kredi eder. Örnek: 1.000 puan = 1.000 kredi.","À la fin d’une mission, chaque point rapporte un crédit. Exemple : 1 000 points = 1 000 crédits.","Al terminar una misión recibes un crédito por punto. Ejemplo: 1.000 puntos = 1.000 créditos."],
+  ["Shop","Shop","Mağaza","Boutique","Tienda"],
+  ["SHOP","SHOP","MAĞAZA","BOUTIQUE","TIENDA"],
+  ["Dein Jet","Your jet","Uçağın","Votre chasseur","Tu caza"],
+  ["2D Kampfjet-Simulator","2D fighter jet simulator","2B savaş uçağı simülatörü","Simulateur de chasseur 2D","Simulador de cazas 2D"],
+  ["Höchstes erreichtes Spielerlevel","Highest player level reached","Ulaşılan en yüksek oyuncu seviyesi","Plus haut niveau atteint","Nivel de jugador más alto alcanzado"],
+  ["Verfügbare Credits","Available credits","Mevcut krediler","Crédits disponibles","Créditos disponibles"],
+  ["Juwelen für Flugzeug- und Drohnen-Upgrades","Gems for aircraft and drone upgrades","Uçak ve drone geliştirmeleri için mücevherler","Gemmes pour améliorer les avions et les drones","Gemas para mejorar aviones y drones"],
+  ["Juwelen","Gems","Mücevherler","Gemmes","Gemas"],
+  ["Credits","Credits","Krediler","Crédits","Créditos"],
+  ["CREDITS","CREDITS","KREDİ","CRÉDITS","CRÉDITOS"],
+  ["Highscore","High score","En yüksek puan","Meilleur score","Récord"],
+  ["🛡 PILOT-LEVEL","🛡 PILOT LEVEL","🛡 PİLOT SEVİYESİ","🛡 NIVEAU DU PILOTE","🛡 NIVEL DEL PILOTO"],
+  ["PILOT-LEVEL","PILOT LEVEL","PİLOT SEVİYESİ","NIVEAU DU PILOTE","NIVEL DEL PILOTO"],
+  ["JET-LEVEL","JET LEVEL","UÇAK SEVİYESİ","NIVEAU DU CHASSEUR","NIVEL DEL CAZA"],
+  ["Level","Level","Seviye","Niveau","Nivel"],
+  ["LEVEL","LEVEL","SEVİYE","NIVEAU","NIVEL"],
+  ["Pilot-Meilenstein","Pilot milestone","Pilot dönüm noktası","Étape du pilote","Hito del piloto"],
+  ["Neuer Hangar-Rang erreicht","New hangar rank reached","Yeni hangar rütbesine ulaşıldı","Nouveau rang de hangar atteint","Nuevo rango de hangar alcanzado"],
+  ["🏆 RANGLISTE","🏆 LEADERBOARD","🏆 LİDERLİK TABLOSU","🏆 CLASSEMENT","🏆 CLASIFICACIÓN"],
+  ["🏅 ERFOLGE","🏅 ACHIEVEMENTS","🏅 BAŞARIMLAR","🏅 SUCCÈS","🏅 LOGROS"],
+  ["Vier Hangars","Four hangars","Dört hangar","Quatre hangars","Cuatro hangares"],
+  ["🧑‍✈️ Name:","🧑‍✈️ Name:","🧑‍✈️ Ad:","🧑‍✈️ Nom :","🧑‍✈️ Nombre:"],
+  ["Gespeichert","Saved","Kaydedildi","Sauvegardé","Guardado"],
+  ["Punkte","points","puan","points","puntos"],
+  ["Nächstes Ziel","Next goal","Sonraki hedef","Prochain objectif","Siguiente objetivo"],
+  ["? ANLEITUNG","? HOW TO PLAY","? NASIL OYNANIR","? COMMENT JOUER","? CÓMO JUGAR"],
+  ["SUPER!","Great!","Harika!","Super !","¡Genial!"],
+  ["Dein Score","Your score","Skorun","Votre score","Tu puntuación"],
+  ["MISSION ABGESCHLOSSEN","MISSION COMPLETE","GÖREV TAMAMLANDI","MISSION TERMINÉE","MISIÓN COMPLETADA"],
+  ["GESCHAFFT!","COMPLETED!","BAŞARDIN!","RÉUSSI !","¡CONSEGUIDO!"],
+  ["Rückflug zum Hangar …","Returning to hangar …","Hangara dönülüyor …","Retour au hangar…","Volviendo al hangar…"],
+  ["Zum Hangar →","Return to hangar →","Hangara dön →","Retour au hangar →","Volver al hangar →"],
+  ["Erfolg freigeschaltet","Achievement unlocked","Başarım açıldı","Succès débloqué","Logro desbloqueado"],
+  ["Einsatzbilanz","Mission results","Görev sonuçları","Bilan de mission","Resultados de misión"],
+  ["GERÄT DREHEN","ROTATE DEVICE","CİHAZI DÖNDÜR","TOURNEZ L’APPAREIL","GIRA EL DISPOSITIVO"],
+  ["Das Spielfeld ist im Querformat größer und leichter zu steuern. Die Mission wartet, bis du dein Gerät gedreht hast.","The playfield is larger and easier to control in landscape. The mission waits until you rotate your device.","Yatay konumda oyun alanı daha büyük ve kontrolü daha kolaydır. Görev, cihazını döndürene kadar bekler.","Le terrain est plus grand et plus facile à contrôler en paysage. La mission attend que vous tourniez l’appareil.","El campo es más grande y fácil de controlar en horizontal. La misión espera a que gires el dispositivo."],
+  ["ESC oder","ESC or","ESC veya","Échap ou","ESC o"],
+  ["drücken, um weiterzuspielen","to resume","ile devam et","pour reprendre","para continuar"],
+  ["Training","Training","Eğitim","Entraînement","Entrenamiento"],
+  ["Bewege deinen Jet","Move your jet","Uçağını hareket ettir","Déplacez votre chasseur","Mueve tu caza"],
+  ["Jetzt schießen","Now fire","Şimdi ateş et","Tirez maintenant","Dispara ahora"],
+  ["Bereit für die Mission!","Ready for the mission!","Göreve hazırsın!","Prêt pour la mission !","¡Listo para la misión!"],
+  ["WASD-Tasten","WASD keys","WASD tuşları","Touches WASD","Teclas WASD"],
+  ["Pfeiltasten","Arrow keys","Yön tuşları","Touches fléchées","Teclas de flecha"],
+  ["ODER","OR","VEYA","OU","O"],
+  ["GEDRÜCKT HALTEN","HOLD","BASILI TUT","MAINTENIR","MANTENER PULSADO"],
+  ["HIER ZIEHEN","DRAG HERE","BURADA SÜRÜKLE","GLISSEZ ICI","ARRASTRA AQUÍ"],
+  ["HIER HALTEN","HOLD HERE","BURADA BASILI TUT","MAINTENEZ ICI","MANTÉN AQUÍ"],
+  ["Sicheres Training · Gegner warten","Safe training · enemies wait","Güvenli eğitim · düşmanlar bekler","Entraînement sécurisé · ennemis en attente","Entrenamiento seguro · enemigos en espera"],
+  ["Training überspringen","Skip training","Eğitimi atla","Passer l’entraînement","Omitir entrenamiento"],
+  ["Probiere es jetzt aus, um fortzufahren.","Try it now to continue.","Devam etmek için şimdi dene.","Essayez maintenant pour continuer.","Pruébalo ahora para continuar."],
+  ["Ziehe deinen Finger links über das Spielfeld. Der Jet folgt ihm schnell.","Drag your finger across the left side. The jet follows it quickly.","Parmağını sol tarafta sürükle. Uçak parmağını hızla takip eder.","Glissez le doigt à gauche du terrain. Le chasseur le suit rapidement.","Arrastra el dedo por el lado izquierdo. El caza lo sigue rápidamente."],
+  ["Halte rechts den roten FIRE-Knopf gedrückt.","Hold the red FIRE button on the right.","Sağdaki kırmızı ATEŞ düğmesini basılı tut.","Maintenez le bouton rouge TIR à droite.","Mantén el botón rojo FUEGO a la derecha."],
+  ["Gut gemacht! Volle Spezialanzeigen leuchten auf. Nutze dann die angezeigte Taste oder den entsprechenden Touch-Knopf.","Well done! Full ability meters light up. Then use the displayed key or matching touch button.","Aferin! Dolu yetenek göstergeleri parlar. Gösterilen tuşu veya dokunmatik düğmeyi kullan.","Bravo ! Les jauges pleines s’illuminent. Utilisez la touche indiquée ou le bouton tactile correspondant.","¡Bien hecho! Los indicadores llenos se iluminan. Usa la tecla indicada o el botón táctil correspondiente."],
+  ["Gut gemacht! Dein Jet feuert automatisch. Deine zwei ausgerüsteten Fähigkeiten nutzt du mit den eingeblendeten Tasten.","Well done! Your jet fires automatically. Use the displayed keys for your equipped abilities.","Aferin! Uçağın otomatik ateş eder. Donatılan yetenekler için gösterilen tuşları kullan.","Bravo ! Votre chasseur tire automatiquement. Utilisez les touches indiquées pour vos pouvoirs équipés.","¡Bien hecho! Tu caza dispara automáticamente. Usa las teclas indicadas para tus habilidades equipadas."],
+  ["— Bewegen ·","— Move ·","— Hareket ·","— Déplacement ·","— Mover ·"],
+  ["— Fähigkeiten · ESC — Pause","— Abilities · ESC — Pause","— Yetenekler · ESC — Duraklat","— Pouvoirs · Échap — Pause","— Habilidades · ESC — Pausa"],
+  ["{0} — Schuss","{0} — Fire","{0} — Ateş","{0} — Tir","{0} — Disparo"],
+  ["Baukasten","Builder","Oluşturucu","Atelier","Constructor"],
+  ["Shop-Werkstatt","Shop workshop","Mağaza atölyesi","Atelier de la boutique","Taller de la tienda"],
+  ["FLUGZEUG-BAUKASTEN","AIRCRAFT BUILDER","UÇAK OLUŞTURUCU","ATELIER D’AVIONS","CONSTRUCTOR DE AVIONES"],
+  ["Wähle genau zwei vollständige Flugzeuge. Der Baukasten erzeugt daraus automatisch einen sichtbaren Hybrid-Jet.","Choose exactly two complete aircraft. The builder automatically combines them into a visible hybrid jet.","Tam olarak iki uçak seç. Oluşturucu bunları otomatik olarak görünür bir hibrit uçağa dönüştürür.","Choisissez exactement deux avions complets. L’atelier les combine automatiquement en un chasseur hybride visible.","Elige exactamente dos aviones completos. El constructor los combina automáticamente en un caza híbrido visible."],
+  ["1 · FLUGZEUG A","1 · AIRCRAFT A","1 · UÇAK A","1 · AVION A","1 · AVIÓN A"],
+  ["2 · FLUGZEUG B","2 · AIRCRAFT B","2 · UÇAK B","2 · AVION B","2 · AVIÓN B"],
+  ["DROHNEN-BAUKASTEN","DRONE BUILDER","DRONE OLUŞTURUCU","ATELIER DE DRONES","CONSTRUCTOR DE DRONES"],
+  ["Wähle genau zwei vollständige Drohnen. Gehäuse, Kern und Waffen werden automatisch gemischt.","Choose exactly two complete drones. Body, core and weapons are mixed automatically.","Tam olarak iki drone seç. Gövde, çekirdek ve silahlar otomatik birleştirilir.","Choisissez exactement deux drones complets. Châssis, noyau et armes sont mélangés automatiquement.","Elige exactamente dos drones completos. El cuerpo, el núcleo y las armas se mezclan automáticamente."],
+  ["1 · DROHNE A","1 · DRONE A","1 · DRONE A","1 · DRONE A","1 · DRON A"],
+  ["2 · DROHNE B","2 · DRONE B","2 · DRONE B","2 · DRONE B","2 · DRON B"],
+  ["3 · DROHNENROLLE","3 · DRONE ROLE","3 · DRONE ROLÜ","3 · RÔLE DU DRONE","3 · FUNCIÓN DEL DRON"],
+  ["Deine Kombinationen","Your combinations","Kombinasyonların","Vos combinaisons","Tus combinaciones"],
+  ["Jet:","Jet:","Uçak:","Chasseur :","Caza:"],
+  ["Drohne:","Drone:","Drone:","Drone :","Dron:"],
+  ["HYBRID BAUEN · 💰","BUILD HYBRID · 💰","HİBRİT OLUŞTUR · 💰","CRÉER L’HYBRIDE · 💰","CREAR HÍBRIDO · 💰"],
+  ["Noch","Still needed","Gereken","Encore","Faltan"],
+  ["Credits benötigt","credits needed","kredi gerekli","crédits nécessaires","créditos necesarios"],
+  ["Alle enthaltenen Ulti-Effekte werden gemeinsam aktiviert.","All included ultimate effects activate together.","İçerilen tüm özel yetenek etkileri birlikte etkinleşir.","Tous les effets des pouvoirs inclus s’activent ensemble.","Todos los efectos de las habilidades incluidas se activan juntos."],
+  ["Hybrid-Jet auswählen","Select hybrid jet","Hibrit uçak seç","Choisir le chasseur hybride","Seleccionar caza híbrido"],
+  ["Dein gespeicherter Hybrid-Jet","Your saved hybrid jet","Kaydedilmiş hibrit uçağın","Votre chasseur hybride sauvegardé","Tu caza híbrido guardado"],
+  ["KOMBINIERT ·","COMBINED ·","BİRLEŞİK ·","COMBINÉ ·","COMBINADO ·"],
+  ["Waffenmodul:","Weapon module:","Silah modülü:","Module d’arme :","Módulo de arma:"],
+  ["Kisten","Crates","Kasalar","Caisses","Cajas"],
+  ["Versiegelte Belohnungskisten öffnen","Open sealed reward crates","Mühürlü ödül kasalarını aç","Ouvrir des caisses de récompenses scellées","Abrir cajas de recompensas selladas"],
+  ["Waffen","Weapons","Silahlar","Armes","Armas"],
+  ["Kaufen, ausrüsten und verbessern","Buy, equip and upgrade","Satın al, donat ve geliştir","Acheter, équiper et améliorer","Comprar, equipar y mejorar"],
+  ["Jet und Drohne verstärken","Strengthen jet and drone","Uçak ve drone’u güçlendir","Renforcer le chasseur et le drone","Reforzar caza y dron"],
+  ["Skins","Skins","Görünümler","Apparences","Aspectos"],
+  ["Aussehen auswählen","Choose appearance","Görünüm seç","Choisir l’apparence","Elegir apariencia"],
+  ["Ultis","Ultimates","Özel yetenekler","Pouvoirs","Habilidades"],
+  ["Loadout zusammenstellen","Build your loadout","Donanımını hazırla","Préparer l’équipement","Preparar equipamiento"],
+  ["Flugzeuge und Drohnen kombinieren","Combine aircraft and drones","Uçak ve drone’ları birleştir","Combiner avions et drones","Combinar aviones y drones"],
+  ["Extras","Extras","Ekstralar","Bonus","Extras"],
+  ["Dauerhafte Verbesserungen","Permanent upgrades","Kalıcı geliştirmeler","Améliorations permanentes","Mejoras permanentes"],
+  ["Kauf bestätigen","Confirm purchase","Satın almayı onayla","Confirmer l’achat","Confirmar compra"],
+  ["Bist du sicher?","Are you sure?","Emin misin?","Confirmer ?","¿Estás seguro?"],
+  ["Möchtest du","Do you want to buy","Satın almak istiyor musun:","Voulez-vous acheter","¿Quieres comprar"],
+  ["für","for","karşılığında","pour","por"],
+  ["kaufen?","?","?","?","?"],
+  ["ABBRECHEN","CANCEL","İPTAL","ANNULER","CANCELAR"],
+  ["KAUFEN","BUY","SATIN AL","ACHETER","COMPRAR"],
+  ["Kauf erfolgreich","Purchase successful","Satın alma başarılı","Achat réussi","Compra realizada"],
+  ["Shop-Bereiche","Shop categories","Mağaza bölümleri","Catégories de la boutique","Categorías de la tienda"],
+  ["Sortiert nach Seltenheit und Preis.","Sorted by rarity and price.","Nadirlik ve fiyata göre sıralı.","Trié par rareté et prix.","Ordenado por rareza y precio."],
+  ["GEWONNEN","WON","KAZANDIN","GAGNÉ","GANADO"],
+  ["Versiegelt","Sealed","Mühürlü","Scellé","Sellada"],
+  ["Waffenarsenal","Weapon arsenal","Silah cephaneliği","Arsenal","Arsenal de armas"],
+  ["Kaufe Waffen mit Credits oder Juwelen, rüste bis zu zwei gleichzeitig aus und verbessere sie bis Level 10.","Buy weapons with credits or gems, equip up to two at once and upgrade them to level 10.","Kredi veya mücevherlerle silah satın al, aynı anda en fazla iki silah donat ve 10. seviyeye kadar geliştir.","Achetez des armes avec des crédits ou des gemmes, équipez-en deux et améliorez-les jusqu’au niveau 10.","Compra armas con créditos o gemas, equipa hasta dos a la vez y mejóralas hasta el nivel 10."],
+  ["Waffenslots","Weapon slots","Silah yuvaları","Emplacements d’armes","Ranuras de armas"],
+  ["/2 belegt","/2 equipped","/2 donatıldı","/2 équipés","/2 equipadas"],
+  ["Schaden","Damage","Hasar","Dégâts","Daño"],
+  ["Feuerrate","Fire rate","Atış hızı","Cadence de tir","Cadencia de disparo"],
+  ["Drohnenwaffen","Drone weapons","Drone silahları","Armes de drone","Armas de dron"],
+  ["Kaufe Drohnenwaffen mit Credits und rüste eine davon aus. Drohnenlevel und Rollen verstärken sie weiterhin.","Buy drone weapons with credits and equip one. Drone levels and roles continue to boost it.","Kredilerle drone silahları satın al ve birini donat. Drone seviyesi ve rolleri silahı güçlendirmeye devam eder.","Achetez des armes de drone avec des crédits et équipez-en une. Le niveau et le rôle du drone la renforcent.","Compra armas de dron con créditos y equipa una. El nivel y la función del dron la siguen reforzando."],
+  ["Drohnen-Waffenslot 1/1 belegt","Drone weapon slot 1/1 equipped","Drone silah yuvası 1/1 donatıldı","Emplacement d’arme du drone 1/1 équipé","Ranura de arma de dron 1/1 equipada"],
+  ["Waffenmodule","Weapon modules","Silah modülleri","Modules d’armes","Módulos de armas"],
+  ["Kaufe ein Begleitmodul mit Credits. Das gewählte Modul aktiviert sich im Einsatz regelmäßig für fünf Sekunden.","Buy a support module with credits. During a mission, it activates regularly for five seconds.","Kredilerle destek modülü satın al. Seçilen modül görevde düzenli olarak beş saniye etkinleşir.","Achetez un module de soutien avec des crédits. Il s’active régulièrement pendant cinq secondes en mission.","Compra un módulo de apoyo con créditos. Se activa regularmente durante cinco segundos en la misión."],
+  ["Schüsse","Shots","Atışlar","Tirs","Disparos"],
+  ["Flugzeug verbessern","Upgrade aircraft","Uçağı geliştir","Améliorer l’avion","Mejorar avión"],
+  ["Drohne verbessern","Upgrade drone","Drone’u geliştir","Améliorer le drone","Mejorar dron"],
+  ["Tempo","Speed","Hız","Vitesse","Velocidad"],
+  ["Kanonen","Cannons","Toplar","Canons","Cañones"],
+  ["Jet-Skins","Jet skins","Uçak görünümleri","Apparences de chasseur","Aspectos de caza"],
+  ["Drohnen-Skins","Drone skins","Drone görünümleri","Apparences de drone","Aspectos de dron"],
+  ["Ulti-Loadout","Ultimate loadout","Özel yetenek donanımı","Équipement de pouvoirs","Equipamiento de habilidades"],
+  ["belegt","equipped","donatıldı","équipés","equipados"],
+  ["Neue Ultis werden beim Kauf sofort ausgerüstet. Sind alle Slots belegt, ersetzen sie die erste Ulti. Reihenfolge und Auswahl kannst du hier ändern.","New ultimates are equipped when purchased. If all slots are full, they replace the first ultimate. Change the order and selection here.","Yeni özel yetenekler satın alındığında donatılır. Tüm yuvalar doluysa ilk yeteneğin yerini alır. Sırayı ve seçimi burada değiştir.","Les nouveaux pouvoirs sont équipés à l’achat. Si tous les emplacements sont pleins, ils remplacent le premier. Modifiez l’ordre et le choix ici.","Las habilidades nuevas se equipan al comprarlas. Si no hay ranuras libres, sustituyen a la primera. Cambia el orden y la selección aquí."],
+  ["SLOT","SLOT","YUVA","EMPLACEMENT","RANURA"],
+  ["Leer","Empty","Boş","Vide","Vacío"],
+  ["🔒 Pilot-Level","🔒 Pilot level","🔒 Pilot seviyesi","🔒 Niveau du pilote","🔒 Nivel del piloto"],
+  ["erforderlich","required","gerekli","requis","requerido"],
+  ["🔒 Vorstufe","🔒 Prerequisite","🔒 Ön koşul","🔒 Prérequis","🔒 Requisito previo"],
+  ["SELTEN","RARE","NADİR","RARE","RARA"],
+  ["EPISCH","EPIC","DESTANSI","ÉPIQUE","ÉPICA"],
+  ["LEGENDÄR","LEGENDARY","EFSANEVİ","LÉGENDAIRE","LEGENDARIA"],
+  ["ULTRA LEGENDÄR","ULTRA LEGENDARY","ULTRA EFSANEVİ","ULTRA LÉGENDAIRE","ULTRALEGENDARIA"],
+  ["ULTIMATE","ULTIMATE","ÜSTÜN","ULTIME","SUPREMA"],
+  ["Seltene Kiste","Rare crate","Nadir kasa","Caisse rare","Caja rara"],
+  ["Epische Kiste","Epic crate","Destansı kasa","Caisse épique","Caja épica"],
+  ["Legendäre Kiste","Legendary crate","Efsanevi kasa","Caisse légendaire","Caja legendaria"],
+  ["Ultra-legendäre Kiste","Ultra-legendary crate","Ultra efsanevi kasa","Caisse ultra légendaire","Caja ultralegendaria"],
+  ["Ultimate Kiste","Ultimate crate","Üstün kasa","Caisse ultime","Caja suprema"],
+  ["(lokal – dieses Gerät)","(local – this device)","(yerel – bu cihaz)","(local – cet appareil)","(local – este dispositivo)"],
+  ["Alle löschen","Delete all","Tümünü sil","Tout supprimer","Eliminar todo"],
+  ["Löschen bestätigen","Confirm deletion","Silmeyi onayla","Confirmer la suppression","Confirmar eliminación"],
+  ["Abbrechen","Cancel","İptal","Annuler","Cancelar"],
+  ["Löschen","Delete","Sil","Supprimer","Eliminar"],
+  ["Löschen konnte nicht gespeichert werden. Bitte erneut versuchen.","Could not save deletion. Please try again.","Silme işlemi kaydedilemedi. Tekrar dene.","Impossible d’enregistrer la suppression. Réessayez.","No se pudo guardar la eliminación. Inténtalo de nuevo."],
+  ["Noch keine Einträge. Spiel beenden um deinen Score zu speichern!","No entries yet. Finish a game to save your score!","Henüz kayıt yok. Puanını kaydetmek için oyunu bitir!","Aucune entrée. Terminez une partie pour enregistrer votre score !","Aún no hay registros. ¡Termina una partida para guardar tu puntuación!"],
+  ["Platzierung","Rank","Sıralama","Classement","Posición"],
+  ["von","of","/","sur","de"],
+  ["Abstand zu Platz 1","Gap to first place","Birinciyle fark","Écart avec la première place","Diferencia con el primer puesto"],
+  ["Datum","Date","Tarih","Date","Fecha"],
+  ["Uhrzeit","Time","Saat","Heure","Hora"],
+  ["Erreichtes Level","Level reached","Ulaşılan seviye","Niveau atteint","Nivel alcanzado"],
+  ["Einsatzdauer","Mission duration","Görev süresi","Durée de mission","Duración de misión"],
+  ["Abschüsse","Kills","İmhalar","Ennemis abattus","Bajas"],
+  ["Bosse besiegt","Bosses defeated","Yenilen patronlar","Boss vaincus","Jefes derrotados"],
+  ["Beste Combo","Best combo","En iyi kombo","Meilleur combo","Mejor combo"],
+  ["Near Misses","Near misses","Kıl payı kaçışlar","Esquives de justesse","Esquivas ajustadas"],
+  ["MISSIONEN & ERFOLGE","MISSIONS & ACHIEVEMENTS","GÖREVLER VE BAŞARIMLAR","MISSIONS ET SUCCÈS","MISIONES Y LOGROS"],
+  ["Erfülle diese Ziele innerhalb eines Einsatzes. Belohnungen werden sofort gutgeschrieben. Der Fortschritt gilt für den aktuellen oder letzten Einsatz und bleibt beim Fortsetzen erhalten.","Complete these goals in one mission. Rewards are credited immediately. Progress covers your current or latest mission and is kept when you resume.","Bu hedefleri tek görevde tamamla. Ödüller hemen eklenir. İlerleme mevcut veya son göreve aittir ve devam ederken korunur.","Accomplissez ces objectifs en une mission. Les récompenses sont immédiates. La progression concerne la mission actuelle ou la dernière et reste lors d’une reprise.","Completa estos objetivos en una misión. Las recompensas se abonan al instante. El progreso corresponde a la misión actual o la última y se conserva al continuar."],
+  ["Belohnung:","Reward:","Ödül:","Récompense :","Recompensa:"],
+  ["⚙ Admin","⚙ Admin","⚙ Yönetici","⚙ Administration","⚙ Administración"],
+  ["ADMIN PANEL","ADMIN PANEL","YÖNETİCİ PANELİ","PANNEAU D’ADMINISTRATION","PANEL DE ADMINISTRACIÓN"],
+  ["Pilot:","Pilot:","Pilot:","Pilote :","Piloto:"],
+  ["Spieler aktiv:","Active players:","Aktif oyuncular:","Joueurs actifs :","Jugadores activos:"],
+  ["1 (lokal)","1 (local)","1 (yerel)","1 (local)","1 (local)"],
+  ["Admin-Code eingeben:","Enter admin code:","Yönetici kodunu gir:","Saisir le code administrateur :","Introduce el código de administrador:"],
+  ["Code...","Code...","Kod...","Code…","Código..."],
+  ["Aktivieren","Activate","Etkinleştir","Activer","Activar"],
+  ["Schließen","Close","Kapat","Fermer","Cerrar"],
+  ["{0} belegen","Bind {0}","{0} tuşunu ata","Configurer {0}","Asignar {0}"],
+  ["Einführung ins Spiel","Game introduction","Oyun tanıtımı","Présentation du jeu","Introducción al juego"],
+  ["Willkommen bei Fighter Command","Welcome to Fighter Command","Fighter Command’a hoş geldin","Bienvenue dans Fighter Command","Bienvenido a Fighter Command"],
+  ["SO FUNKTIONIERT FIGHTER COMMAND","HOW FIGHTER COMMAND WORKS","FIGHTER COMMAND NASIL OYNANIR","COMMENT JOUER À FIGHTER COMMAND","CÓMO JUGAR A FIGHTER COMMAND"],
+  ["Steuere deinen Jet, weiche Geschossen aus und besiege Gegner und Bosse, um neue Level freizuschalten. Sammle Belohnungen und verbessere deine Ausrüstung im Hangar. Hier lernst du die Grundlagen, bevor du deinen ersten Einsatz startest.","Pilot your jet, dodge projectiles, and defeat enemies and bosses to unlock new levels. Collect rewards and upgrade your equipment in the hangar. Learn the basics here before launching your first mission.","Uçağını yönet, mermilerden kaç ve yeni seviyeler açmak için düşmanları ve patronları yen. Ödülleri topla ve hangarda donanımını geliştir. İlk görevinden önce temel bilgileri öğren.","Pilotez votre chasseur, esquivez les tirs et battez les ennemis et les boss pour débloquer des niveaux. Collectez des récompenses et améliorez votre équipement au hangar. Apprenez les bases avant votre première mission.","Pilota tu caza, esquiva proyectiles y derrota a enemigos y jefes para desbloquear niveles. Recoge recompensas y mejora tu equipo en el hangar. Aprende lo básico antes de tu primera misión."],
+  ["Tastatur","Keyboard","Klavye","Clavier","Teclado"],
+  ["Links ziehen:","Drag left:","Solda sürükle:","Glisser à gauche :","Arrastra a la izquierda:"],
+  ["Der Jet folgt deinem Finger schnell.","The jet follows your finger quickly.","Uçak parmağını hızla takip eder.","Le chasseur suit rapidement votre doigt.","El caza sigue tu dedo rápidamente."],
+  ["AUTO-FIRE:","AUTO-FIRE:","OTOMATİK ATEŞ:","TIR AUTOMATIQUE :","DISPARO AUTOMÁTICO:"],
+  ["Tippe einen ausgerüsteten Knopf erst an, wenn seine Anzeige voll ist.","Tap an equipped button only when its meter is full.","Donatılan düğmeye yalnızca göstergesi doluyken dokun.","Touchez un bouton équipé seulement quand sa jauge est pleine.","Toca un botón equipado solo cuando su indicador esté lleno."],
+  ["VERSTANDEN – ZUM HANGAR","GOT IT — GO TO HANGAR","ANLADIM — HANGARA GİT","COMPRIS — VERS LE HANGAR","ENTENDIDO — IR AL HANGAR"],
+  ["Die Anleitung ist im Hangar jederzeit wieder erreichbar.","You can reopen this guide from the hangar at any time.","Bu rehberi hangardan istediğin zaman açabilirsin.","Vous pouvez rouvrir ce guide à tout moment depuis le hangar.","Puedes volver a abrir esta guía desde el hangar cuando quieras."],
+  ["Im Hangar vorbereiten","Prepare in the hangar","Hangarda hazırlan","Se préparer au hangar","Prepárate en el hangar"],
+  ["Öffne im Shop den Bereich Baukasten, um Flugzeug und Drohne zusammenzustellen. Dort kannst du auch Skins, Waffen und bis zu drei Spezialfähigkeiten ausrüsten. „Start“ öffnet die Levelkarte. Level 1 ist offen; jeder Sieg schaltet das nächste Level frei. Wische auf der Karte nach unten, um weitere Level zu sehen. Totenköpfe markieren Bosslevel. Nach dem Sieg fliegst du automatisch zurück zum Hangar.","Open the shop’s builder to assemble your aircraft and drone. Equip skins, weapons and up to three abilities there. Start opens the level map. Level 1 is open; each victory unlocks the next level. Scroll down for more levels. Skulls mark boss levels. After winning, you return to the hangar automatically.","Uçağını ve drone’unu birleştirmek için mağazada oluşturucuyu aç. Görünümleri, silahları ve en fazla üç yeteneği donat. Başlat seviye haritasını açar. Seviye 1 açıktır; her zafer sonraki seviyeyi açar. Diğer seviyeler için aşağı kaydır. Kafatasları patron seviyelerini gösterir. Zaferden sonra hangara otomatik dönersin.","Ouvrez l’atelier de la boutique pour assembler votre avion et votre drone. Équipez apparences, armes et trois pouvoirs au maximum. Jouer ouvre la carte. Le niveau 1 est ouvert ; chaque victoire débloque le suivant. Faites défiler pour voir la suite. Les crânes indiquent les boss. Après une victoire, vous retournez au hangar automatiquement.","Abre el constructor de la tienda para montar tu avión y dron. Equipa aspectos, armas y hasta tres habilidades. Iniciar abre el mapa. El nivel 1 está abierto; cada victoria desbloquea el siguiente. Desliza hacia abajo para ver más niveles. Las calaveras indican jefes. Tras ganar vuelves al hangar automáticamente."],
+  ["Fliegen & feuern","Flying & firing","Uçuş ve ateş","Voler et tirer","Volar y disparar"],
+  ["Bewege den Jet in alle vier Richtungen. Der Bildschirm scrollt automatisch – du steuerst nur den Jet. Halte die Feuertaste gedrückt, sofern Auto-Fire ausgeschaltet ist. Weiche gegnerischen Flugzeugen, Hindernissen und ihren Geschossen aus und schieße Ziele ab, um Punkte zu erhalten.","Move your jet in all four directions. The screen scrolls automatically. Hold the fire button unless auto-fire is enabled. Dodge enemy aircraft, obstacles and projectiles, and destroy targets to earn points.","Uçağını dört yöne hareket ettir. Ekran otomatik kayar. Otomatik ateş kapalıysa ateş düğmesini basılı tut. Düşman uçaklarından, engellerden ve mermilerden kaç; puan için hedefleri vur.","Déplacez le chasseur dans les quatre directions. L’écran défile automatiquement. Maintenez le tir si le tir automatique est désactivé. Évitez avions ennemis, obstacles et projectiles, et détruisez les cibles pour gagner des points.","Mueve el caza en las cuatro direcciones. La pantalla avanza automáticamente. Mantén el disparo si el disparo automático está desactivado. Esquiva aviones enemigos, obstáculos y proyectiles, y destruye objetivos para ganar puntos."],
+  ["Schaden & Leben","Damage & lives","Hasar ve canlar","Dégâts et vies","Daño y vidas"],
+  ["Treffer reduzieren zuerst einen aktiven Schild, danach deine HP. Bei 0 HP verlierst du ein Leben und kehrst mit voller Energie zurück. Sind keine Leben mehr übrig, endet der Einsatz.","Hits drain an active shield first, then your HP. At zero HP you lose a life and return with full health. The mission ends when no lives remain.","İsabetler önce aktif kalkanı, sonra canını azaltır. Can sıfırlandığında bir can kaybeder ve tam sağlıkla dönersin. Can kalmadığında görev biter.","Les coups réduisent d’abord le bouclier actif, puis les PV. À zéro PV, vous perdez une vie et revenez en pleine santé. Sans vies restantes, la mission se termine.","Los impactos reducen primero el escudo activo y luego tu salud. Con cero de salud pierdes una vida y vuelves con salud completa. Sin vidas, termina la misión."],
+  ["Power-ups einsammeln","Collect power-ups","Güçlendirmeleri topla","Collecter les bonus","Recoger potenciadores"],
+  ["Zerstörte Gegner können Symbole hinterlassen. Fliege mit dem Jet darüber, bevor sie den Bildschirm verlassen: Herzen heilen HP, Schilde absorbieren Treffer und Tempo-Boosts erhöhen vorübergehend deine Fluggeschwindigkeit.","Destroyed enemies may leave pick-ups. Fly over them before they leave the screen: hearts restore health, shields absorb hits and speed boosts temporarily increase your speed.","Yok edilen düşmanlar simgeler bırakabilir. Ekrandan çıkmadan üzerlerinden uç: kalpler can yeniler, kalkanlar isabetleri emer ve hız bonusları geçici hız verir.","Les ennemis détruits peuvent laisser des bonus. Survolez-les avant leur sortie : les cœurs soignent, les boucliers absorbent les coups et les bonus de vitesse vous accélèrent temporairement.","Los enemigos destruidos pueden dejar objetos. Pasa sobre ellos antes de que salgan: los corazones curan, los escudos absorben impactos y los potenciadores de velocidad te aceleran temporalmente."],
+  ["Spezialfähigkeiten","Special abilities","Özel yetenekler","Pouvoirs spéciaux","Habilidades especiales"],
+  ["Du kannst im Shop bis zu drei Fähigkeiten für einen Einsatz ausrüsten. Jede besitzt im HUD eine eigene Ladeanzeige. Erst wenn die Anzeige voll leuchtet, löst du die Fähigkeit mit ihrer eingeblendeten Taste beziehungsweise dem Touch-Knopf aus.","Equip up to three abilities in the shop. Each has its own charge meter in the HUD. Once a meter is full, activate the ability with its displayed key or touch button.","Mağazada en fazla üç yetenek donat. Her birinin kendi dolum göstergesi vardır. Gösterge dolduğunda gösterilen tuşla veya dokunmatik düğmeyle etkinleştir.","Équipez jusqu’à trois pouvoirs dans la boutique. Chacun a sa jauge. Lorsqu’elle est pleine, activez le pouvoir avec la touche indiquée ou le bouton tactile.","Equipa hasta tres habilidades en la tienda. Cada una tiene su indicador de carga. Cuando esté lleno, actívala con la tecla indicada o el botón táctil."],
+  ["Belohnung & dauerhafte Stärke","Rewards & permanent upgrades","Ödüller ve kalıcı geliştirmeler","Récompenses et améliorations permanentes","Recompensas y mejoras permanentes"],
+  ["Am Missionsende wird dein Score in Credits umgerechnet; bestimmte Modi erhöhen den Credit-Ertrag. Je 100 verdiente Einsatz-Credits erhältst du außerdem ein Juwel. Credits kaufen Shopartikel, Juwelen verbessern dauerhaft die Level von Flugzeug und Drohne.","Your score becomes credits at mission end; some modes increase the reward. Every 100 mission credits also earn one gem. Buy shop items with credits and permanently upgrade aircraft and drone levels with gems.","Görev sonunda puanın krediye dönüşür; bazı modlar ödülü artırır. Her 100 görev kredisi bir mücevher kazandırır. Kredilerle eşya al, mücevherlerle uçak ve drone seviyesini kalıcı geliştir.","Votre score devient des crédits en fin de mission ; certains modes augmentent le gain. Chaque tranche de 100 crédits rapporte une gemme. Achetez des articles avec les crédits et améliorez durablement avions et drones avec les gemmes.","Tu puntuación se convierte en créditos al terminar; algunos modos aumentan la recompensa. Cada 100 créditos de misión dan una gema. Compra artículos con créditos y mejora permanentemente aviones y drones con gemas."],
+  ["Hoch / runter","Up / down","Yukarı / aşağı","Haut / bas","Arriba / abajo"],
+  ["Links / rechts","Left / right","Sol / sağ","Gauche / droite","Izquierda / derecha"],
+  ["Dauerfeuer ist aktiv","Auto-fire is active","Otomatik ateş açık","Le tir automatique est actif","Disparo automático activo"],
+  ["Gedrückt halten zum Feuern","Hold to fire","Ateş etmek için basılı tut","Maintenir pour tirer","Mantener para disparar"],
+  ["Pause / fortsetzen","Pause / resume","Duraklat / devam et","Pause / reprendre","Pausar / reanudar"],
+  ["Ist aktiv; der Jet feuert ohne Eingabe.","Active; the jet fires without input.","Açık; uçak otomatik ateş eder.","Actif ; le chasseur tire sans intervention.","Activo; el caza dispara sin intervención."],
+  ["Ist aus; halte rechts den roten FIRE-Knopf gedrückt.","Off; hold the red FIRE button on the right.","Kapalı; sağdaki kırmızı ATEŞ düğmesini basılı tut.","Désactivé ; maintenez le bouton rouge TIR à droite.","Desactivado; mantén el botón rojo FUEGO a la derecha."],
+  ["FIGHTER COMMAND / FLUGZENTRUM","FIGHTER COMMAND / FLIGHT CENTER","FIGHTER COMMAND / UÇUŞ MERKEZİ","FIGHTER COMMAND / CENTRE DE VOL","FIGHTER COMMAND / CENTRO DE VUELO"],
+  ["✦ Flugzentrum","✦ Flight center","✦ Uçuş merkezi","✦ Centre de vol","✦ Centro de vuelo"],
+  ["Neue Flugwege","New flight paths","Yeni uçuş rotaları","Nouveaux itinéraires","Nuevas rutas de vuelo"],
+  ["Flugzentrum schließen","Close flight center","Uçuş merkezini kapat","Fermer le centre de vol","Cerrar centro de vuelo"],
+  ["Zu zweit ins Gefecht","Fight together","Birlikte savaş","Combattre à deux","Luchar juntos"],
+  ["Lokaler Koop für den nächsten Einsatz","Local co-op for the next mission","Sonraki görev için yerel işbirliği","Coopération locale pour la prochaine mission","Cooperativo local para la próxima misión"],
+  ["P1: WASD + Leertaste · P2: Pfeiltasten + Enter. Alternativ zwei Gamepads. Gemeinsamer Score, eigene Lebenspunkte.","P1: WASD + Space · P2: arrow keys + Enter. Or use two gamepads. Shared score, separate health.","P1: WASD + Boşluk · P2: yön tuşları + Enter. İki kumanda da kullanılabilir. Ortak puan, ayrı sağlık.","J1 : WASD + Espace · J2 : flèches + Entrée. Ou deux manettes. Score commun, santé séparée.","J1: WASD + Espacio · J2: flechas + Intro. O dos mandos. Puntuación compartida, salud independiente."],
+  ["Zum Wiederbeleben 2,5 Sekunden im markierten Kreis bleiben. P2 hält die Team-Ulti mit rechter Umschalttaste (Gamepad: rechte Schultertaste) bereit; P1 löst innerhalb von 3 Sekunden eine ausgerüstete Ulti aus. Team-Abklingzeit: 20 Sekunden.","Stay in the marked circle for 2.5 seconds to revive. P2 readies the team ultimate with right Shift (gamepad: right shoulder); P1 activates an equipped ultimate within 3 seconds. Team cooldown: 20 seconds.","Canlandırmak için işaretli çemberde 2,5 saniye kal. P2 sağ Shift ile (kumanda: sağ omuz) takım yeteneğini hazırlar; P1 üç saniye içinde donatılan bir yeteneği etkinleştirir. Takım bekleme süresi: 20 saniye.","Restez 2,5 secondes dans le cercle pour réanimer. J2 prépare le pouvoir d’équipe avec Maj droite (manette : bouton d’épaule droit) ; J1 active un pouvoir sous 3 secondes. Recharge d’équipe : 20 secondes.","Permanece 2,5 segundos en el círculo para revivir. J2 prepara la habilidad de equipo con Mayús derecha (mando: botón superior derecho); J1 activa una habilidad en 3 segundos. Recarga de equipo: 20 segundos."],
+  ["Koop benötigt eine Tastatur oder zwei Gamepads. Im Koop steuert P1 immer mit WASD und Leertaste.","Co-op requires a keyboard or two gamepads. P1 always uses WASD and Space in co-op.","İşbirliği için klavye veya iki kumanda gerekir. P1 her zaman WASD ve Boşluk kullanır.","La coopération nécessite un clavier ou deux manettes. J1 utilise toujours WASD et Espace.","El cooperativo requiere un teclado o dos mandos. J1 usa siempre WASD y Espacio."],
+  ["Trainingsarena","Training arena","Eğitim arenası","Arène d’entraînement","Arena de entrenamiento"],
+  ["Teste deine aktuelle Ausrüstung mit laufender DPS-Anzeige. Besiegte Bosse lassen sich unbegrenzt üben. Training vergibt keine Credits, Erfolge oder Kampagnenfortschritte.","Test your equipment with live DPS. Practice defeated bosses without limits. Training awards no credits, achievements or campaign progress.","Canlı DPS ile donanımını dene. Yenilen patronlarla sınırsız alıştırma yap. Eğitim kredi, başarım veya kampanya ilerlemesi vermez.","Testez votre équipement avec les dégâts par seconde affichés. Entraînez-vous sans limite contre les boss vaincus. Aucun crédit, succès ou progrès de campagne en entraînement.","Prueba tu equipo con daño por segundo en directo. Practica sin límite contra jefes derrotados. El entrenamiento no da créditos, logros ni progreso de campaña."],
+  ["Ziel","Target","Hedef","Cible","Objetivo"],
+  ["Unbewaffnete Übungsdrohne","Unarmed training drone","Silahsız eğitim drone’u","Drone d’entraînement désarmé","Dron de entrenamiento desarmado"],
+  ["Schwierigkeit","Difficulty","Zorluk","Difficulté","Dificultad"],
+  ["Leicht · 60 % Tempo / Schaden","Easy · 60% speed / damage","Kolay · %60 hız / hasar","Facile · 60 % vitesse / dégâts","Fácil · 60 % velocidad / daño"],
+  ["Normal","Normal","Normal","Normal","Normal"],
+  ["Schwer · 150 % Tempo / Schaden","Hard · 150% speed / damage","Zor · %150 hız / hasar","Difficile · 150 % vitesse / dégâts","Difícil · 150 % velocidad / daño"],
+  ["Training starten →","Start training →","Eğitimi başlat →","Commencer l’entraînement →","Iniciar entrenamiento →"],
+  ["/5 Bosse freigeschaltet ·","/5 bosses unlocked ·","/5 patron açıldı ·","/5 boss débloqués ·","/5 jefes desbloqueados ·"],
+  ["Missionen abgeschlossen · Esc pausiert, dort zurück zum Hangar.","missions completed · Esc pauses; return to hangar from there.","görev tamamlandı · Esc duraklatır; oradan hangara dön.","missions terminées · Échap met en pause ; retour au hangar depuis ce menu.","misiones completadas · Esc pausa; vuelve al hangar desde allí."],
+  ["Waffen-Meisterschaft","Weapon mastery","Silah ustalığı","Maîtrise des armes","Maestría de armas"],
+  ["Pro Waffe:","Per weapon:","Silah başına:","Par arme :","Por arma:"],
+  ["Abschüsse und","kills and","imha ve","ennemis abattus et","bajas y"],
+  ["Präzisionstreffer auf Boss-Bauteile oder Abschüsse ab einer 10er-Combo. Freigeschaltete Varianten kannst du hier ein- und ausschalten.","precision hits on boss parts or kills with a combo of 10 or more. Toggle unlocked variants here.","patron parçalarına hassas isabet veya 10 ve üzeri komboda imha. Açılan varyantları burada değiştir.","coups précis sur les pièces des boss ou éliminations avec un combo de 10 ou plus. Activez les variantes débloquées ici.","impactos precisos en piezas de jefes o bajas con un combo de 10 o más. Activa aquí las variantes desbloqueadas."],
+  ["Abschüsse ·","kills ·","imha ·","ennemis abattus ·","bajas ·"],
+  ["Präzision","Precision","Hassasiyet","Précision","Precisión"],
+  ["Variante aktiv","Variant active","Varyant etkin","Variante active","Variante activa"],
+  ["Noch gesperrt","Still locked","Henüz kilitli","Encore verrouillé","Aún bloqueado"],
+  ["{0} Meisterschaft","{0} mastery","{0} ustalığı","Maîtrise de {0}","Maestría de {0}"],
+  ["Unterwegs entdecken","Discover on your journey","Yolculukta keşfet","Découvrir en chemin","Descubrir en el camino"],
+  ["Jede Landschaft hat eigene angekündigte Gefahren. Folge einem goldenen Funksignal, um Wracks zu bergen, Piloten zu retten oder ein geheimes Fliegerass herauszufordern. Orange Boss-Module sind Waffen; blaue Module steuern Antrieb oder Schutz.","Each landscape has announced hazards. Follow a golden radio signal to salvage wrecks, rescue pilots or challenge a secret ace. Orange boss modules are weapons; blue modules control propulsion or protection.","Her bölgenin önceden bildirilen tehlikeleri vardır. Enkaz kurtarmak, pilotları kurtarmak veya gizli bir asla savaşmak için altın radyo sinyalini takip et. Turuncu patron modülleri silah; maviler tahrik veya korumadır.","Chaque paysage annonce ses dangers. Suivez un signal doré pour récupérer des épaves, sauver des pilotes ou défier un as secret. Les modules orange sont des armes ; les bleus contrôlent propulsion ou protection.","Cada paisaje anuncia sus peligros. Sigue una señal dorada para recuperar restos, rescatar pilotos o desafiar a un as secreto. Los módulos naranjas son armas; los azules controlan propulsión o protección."],
+  ["Levelkarte","Level map","Seviye haritası","Carte des niveaux","Mapa de niveles"],
+  ["EINSATZGEBIET","MISSION AREA","GÖREV BÖLGESİ","ZONE DE MISSION","ZONA DE MISIÓN"],
+  ["Deine Flugroute","Your flight route","Uçuş rotan","Votre itinéraire","Tu ruta de vuelo"],
+  ["ABGESCHLOSSEN","COMPLETED","TAMAMLANDI","TERMINÉ","COMPLETADO"],
+  ["Nach unten scrollen für weitere Level","Scroll down for more levels","Diğer seviyeler için aşağı kaydır","Faites défiler pour voir d’autres niveaux","Desplázate hacia abajo para más niveles"],
+  ["MISSION WÄHLEN","SELECT MISSION","GÖREV SEÇ","CHOISIR UNE MISSION","ELEGIR MISIÓN"],
+  ["Folge der Route. Jeder Sieg öffnet das nächste Level.","Follow the route. Each victory unlocks the next level.","Rotayı takip et. Her zafer sonraki seviyeyi açar.","Suivez l’itinéraire. Chaque victoire débloque le niveau suivant.","Sigue la ruta. Cada victoria desbloquea el siguiente nivel."],
+  ["↓ Wischen oder scrollen · ☠ Bosslevel · 📦 Beschützen","↓ Swipe or scroll · ☠ Boss level · 📦 Protect","↓ Kaydır · ☠ Patron seviyesi · 📦 Koru","↓ Glisser ou défiler · ☠ Boss · 📦 Protéger","↓ Desliza o desplaza · ☠ Jefe · 📦 Proteger"],
+  ["ENDE DER FLUGROUTE","END OF FLIGHT ROUTE","UÇUŞ ROTASININ SONU","FIN DE L’ITINÉRAIRE","FIN DE LA RUTA"],
+  ["Das beschützte Paket sinkt auf einen beleuchteten Landeplatz und setzt sicher auf.","The protected package descends onto a lit landing pad and lands safely.","Korunan paket aydınlatılmış iniş alanına alçalır ve güvenle iner.","Le colis protégé descend sur une aire éclairée et atterrit en sécurité.","El paquete protegido desciende sobre una plataforma iluminada y aterriza a salvo."],
+  ["✓ PAKET SICHER GELANDET","✓ PACKAGE LANDED SAFELY","✓ PAKET GÜVENLE İNDİ","✓ COLIS EN SÉCURITÉ","✓ PAQUETE A SALVO"],
+  ["SCORE","SCORE","PUAN","SCORE","PUNTOS"],
+  ["BEST {0}","BEST {0}","REKOR {0}","RECORD {0}","RÉCORD {0}"],
+  ["BEST: {0}","BEST: {0}","REKOR: {0}","RECORD : {0}","RÉCORD: {0}"],
+  ["PILOT {0}","PILOT {0}","PİLOT {0}","PILOTE {0}","PILOTO {0}"],
+  ["PILOT-LEVEL {0}","PILOT LEVEL {0}","PİLOT SEVİYESİ {0}","NIVEAU DU PILOTE {0}","NIVEL DEL PILOTO {0}"],
+  ["LEVEL {0}","LEVEL {0}","SEVİYE {0}","NIVEAU {0}","NIVEL {0}"],
+  ["Level {0}","Level {0}","Seviye {0}","Niveau {0}","Nivel {0}"],
+  ["ZIEL {0} / {1}","TARGET {0} / {1}","HEDEF {0} / {1}","OBJECTIF {0} / {1}","OBJETIVO {0} / {1}"],
+  ["BESCHÜTZEN {0}","PROTECT {0}","KORU {0}","PROTÉGER {0}","PROTEGER {0}"],
+  ["HANGARS: {0}","HANGARS: {0}","HANGARLAR: {0}","HANGARS : {0}","HANGARES: {0}"],
+  ["ACTIVE","ACTIVE","ETKİN","ACTIF","ACTIVA"],
+  ["BESCHÜTZEN","PROTECT","KORU","PROTÉGER","PROTEGER"],
+  ["NÄCHSTER EINSATZ","NEXT MISSION","SONRAKİ GÖREV","PROCHAINE MISSION","SIGUIENTE MISIÓN"],
+  ["BOSSGEBIET","BOSS AREA","PATRON BÖLGESİ","ZONE DE BOSS","ZONA DE JEFE"],
+  [", Bosslevel",", boss level",", patron seviyesi",", niveau de boss",", nivel de jefe"],
+  [", Beschützen",", protect",", koru",", protéger",", proteger"],
+  [", abgeschlossen",", completed",", tamamlandı",", terminé",", completado"],
+  [", verfügbar",", available",", açık",", disponible",", disponible"],
+  [", gesperrt",", locked",", kilitli",", verrouillé",", bloqueado"],
+  ["Beschütze das Paket drei Minuten lang","Protect the package for three minutes","Paketi üç dakika koru","Protégez le colis pendant trois minutes","Protege el paquete durante tres minutos"],
+  ["und Boss besiegen","and defeat the boss","ve patronu yen","et vaincre le boss","y derrota al jefe"],
+  ["ZU ZWEIT SPIELEN","PLAY TOGETHER","BİRLİKTE OYNA","JOUER À DEUX","JUGAR JUNTOS"],
+  ["KOOP AN ✓","CO-OP ON ✓","İŞBİRLİĞİ AÇIK ✓","COOP ACTIVÉE ✓","COOPERATIVO ACTIVO ✓"],
+  ["KOOP AUS","CO-OP OFF","İŞBİRLİĞİ KAPALI","COOP DÉSACTIVÉE","COOPERATIVO DESACTIVADO"],
+  ["Eine Tastatur reicht · WASD + Pfeiltasten","One keyboard is enough · WASD + arrow keys","Bir klavye yeterli · WASD + yön tuşları","Un clavier suffit · WASD + flèches","Basta un teclado · WASD + flechas"],
+  ["Du hast die gesamte Flugroute abgeschlossen!","You completed the entire flight route!","Tüm uçuş rotasını tamamladın!","Vous avez terminé tout l’itinéraire !","¡Has completado toda la ruta!"],
+  ["🏆 NEUER REKORD","🏆 NEW RECORD","🏆 YENİ REKOR","🏆 NOUVEAU RECORD","🏆 NUEVO RÉCORD"],
+  ["MISSION GESCHAFFT","MISSION COMPLETE","GÖREV TAMAMLANDI","MISSION RÉUSSIE","MISIÓN SUPERADA"],
+  ["EINSATZ BEENDET","MISSION ENDED","GÖREV BİTTİ","MISSION TERMINÉE","MISIÓN TERMINADA"],
+  ["Dauer","Duration","Süre","Durée","Duración"],
+  ["Max. Combo","Max combo","En yüksek kombo","Combo maximal","Combo máximo"],
+  ["Bosse","Bosses","Patronlar","Boss","Jefes"],
+  ["Vorherigen Hangar freischalten","Unlock previous hangar","Önceki hangarı aç","Débloquer le hangar précédent","Desbloquear el hangar anterior"],
+  ["und","and","ve","et","y"],
+  ["✓ Admin-Modus aktiv! Alle Inhalte freigeschaltet.","✓ Admin mode active! All content unlocked.","✓ Yönetici modu açık! Tüm içerik açıldı.","✓ Mode administrateur actif ! Tout est débloqué.","✓ ¡Modo administrador activo! Todo desbloqueado."],
+  ["✗ Falscher Code.","✗ Incorrect code.","✗ Yanlış kod.","✗ Code incorrect.","✗ Código incorrecto."],
+  ["Reichweite","Range","Menzil","Portée","Alcance"],
+  ["AUSRÜSTEN","EQUIP","DONAT","ÉQUIPER","EQUIPAR"],
+  ["ABLEGEN","UNEQUIP","ÇIKAR","RETIRER","DESEQUIPAR"],
+  ["SLOT 2 ERSETZEN","REPLACE SLOT 2","2. YUVAYI DEĞİŞTİR","REMPLACER L’EMPLACEMENT 2","SUSTITUIR RANURA 2"],
+  ["✓ AUSGERÜSTET","✓ EQUIPPED","✓ DONATILDI","✓ ÉQUIPÉ","✓ EQUIPADA"],
+  ["✓ Aktiv","✓ Active","✓ Etkin","✓ Actif","✓ Activo"],
+  ["Wählen","Select","Seç","Choisir","Elegir"],
+  ["Ultis & Ulti-Verbesserungen","Ultimates & upgrades","Özel yetenekler ve geliştirmeler","Pouvoirs et améliorations","Habilidades y mejoras"],
+  ["Dauerhafte Upgrades","Permanent upgrades","Kalıcı geliştirmeler","Améliorations permanentes","Mejoras permanentes"],
+  ["Alle Einträge aus der Rangliste löschen?","Delete all leaderboard entries?","Tüm sıralama kayıtları silinsin mi?","Supprimer tout le classement ?","¿Eliminar todos los registros de la clasificación?"],
+  ["Spitzenplatz","Top position","Birincilik","Première place","Primer puesto"],
+  ["Unbekannt","Unknown","Bilinmiyor","Inconnu","Desconocido"],
+  ["Freigeschaltet","Unlocked","Açıldı","Débloqué","Desbloqueado"],
+  ["Fortschritt","Progress","İlerleme","Progression","Progreso"],
+  ["verbraucht","used","kullanıldı","utilisé","usado"],
+  ["bereit","ready","hazır","prêt","lista"],
+  ["Upgrade-Status","Upgrade status","Geliştirme durumu","État des améliorations","Estado de mejoras"],
+  ["Funke:","Spark:","Kıvılcım:","Étincelle :","Chispa:"],
+  ["Konter: 2× Salve","Counter: 2× volley","Karşı saldırı: 2× salvo","Contre : salve ×2","Contraataque: salva ×2"],
+  ["WAFFEN-MEISTERSCHAFT FREIGESCHALTET","WEAPON MASTERY UNLOCKED","SİLAH USTALIĞI AÇILDI","MAÎTRISE D’ARME DÉBLOQUÉE","MAESTRÍA DE ARMA DESBLOQUEADA"],
+  ["GEHEIMES FLIEGERASS BESIEGT · +7.500 CREDITS","SECRET ACE DEFEATED · +7,500 CREDITS","GİZLİ AS YENİLDİ · +7.500 KREDİ","AS SECRET VAINCU · +7 500 CRÉDITS","AS SECRETO DERROTADO · +7.500 CRÉDITOS"],
+  ["+HP ENERGIEERNTE","+HP ENERGY HARVEST","+CAN ENERJİ HASADI","+PV RÉCOLTE D’ÉNERGIE","+SALUD COSECHA DE ENERGÍA"],
+  ["+HP NANITEN","+HP NANITES","+CAN NANİTLER","+PV NANITES","+SALUD NANITOS"],
+  ["✹ KERNEXPLOSION","✹ CORE EXPLOSION","✹ ÇEKİRDEK PATLAMASI","✹ EXPLOSION DU NOYAU","✹ EXPLOSIÓN DEL NÚCLEO"],
+  ["LETZTER FUNKE · GERETTET!","LAST SPARK · SAVED!","SON KIVILCIM · KURTULDUN!","DERNIÈRE ÉTINCELLE · SAUVÉ !","ÚLTIMA CHISPA · ¡A SALVO!"],
+  ["GRAVITATIONSKERN AKTIV · 5 SEKUNDEN","GRAVITY CORE ACTIVE · 5 SECONDS","YERÇEKİMİ ÇEKİRDEĞİ ETKİN · 5 SANİYE","NOYAU GRAVITATIONNEL ACTIF · 5 SECONDES","NÚCLEO GRAVITATORIO ACTIVO · 5 SEGUNDOS"],
+  ["🏆 Score gespeichert — Rangliste im Hangar!","🏆 Score saved — leaderboard in the hangar!","🏆 Puan kaydedildi — sıralama hangarda!","🏆 Score enregistré — classement au hangar !","🏆 ¡Puntuación guardada — clasificación en el hangar!"],
+  ["Einsatzbilanz wird geöffnet …","Opening mission results …","Görev sonuçları açılıyor …","Ouverture du bilan…","Abriendo resultados de misión…"],
+  ["ZIEL ERFASST","TARGET LOCKED","HEDEF KİLİTLENDİ","CIBLE VERROUILLÉE","OBJETIVO FIJADO"],
+  ["NEUES MISSIONSZIEL","NEW MISSION OBJECTIVE","YENİ GÖREV HEDEFİ","NOUVEL OBJECTIF","NUEVO OBJETIVO DE MISIÓN"],
+  ["PERFEKTER KONTER · 2× SALVE","PERFECT COUNTER · 2× VOLLEY","KUSURSUZ KARŞI SALDIRI · 2× SALVO","CONTRE PARFAIT · SALVE ×2","CONTRAATAQUE PERFECTO · SALVA ×2"],
+  ["WINGMAN GERETTET!","WINGMAN RESCUED!","KANAT ARKADAŞI KURTARILDI!","AILIER SAUVÉ !","¡COMPAÑERO RESCATADO!"],
+  ["TEAM-ULTI · DOPPELSCHLAG!","TEAM ULTIMATE · DOUBLE STRIKE!","TAKIM YETENEĞİ · ÇİFTE VURUŞ!","POUVOIR D’ÉQUIPE · DOUBLE FRAPPE !","HABILIDAD DE EQUIPO · ¡GOLPE DOBLE!"],
+  ["◇ UNBEKANNTES FUNKSIGNAL · GOLDENE MARKIERUNG ANFLIEGEN","◇ UNKNOWN RADIO SIGNAL · FLY TO THE GOLD MARKER","◇ BİLİNMEYEN RADYO SİNYALİ · ALTIN İŞARETE UÇ","◇ SIGNAL INCONNU · REJOINDRE LA BALISE DORÉE","◇ SEÑAL DESCONOCIDA · VUELA A LA MARCA DORADA"],
+  ["⚡ FEUERSCHWERT · BLITZENTLADUNG","⚡ FIRE SWORD · LIGHTNING DISCHARGE","⚡ ATEŞ KILICI · YILDIRIM DEŞARJI","⚡ ÉPÉE DE FEU · DÉCHARGE ÉLECTRIQUE","⚡ ESPADA DE FUEGO · DESCARGA ELÉCTRICA"],
+  ["🛡 WÄCHTERDROHNE · SCHILD +1","🛡 GUARDIAN DRONE · SHIELD +1","🛡 MUHAFIZ DRONE · KALKAN +1","🛡 DRONE GARDIEN · BOUCLIER +1","🛡 DRON GUARDIÁN · ESCUDO +1"],
+  ["✚ SANITÄTERDROHNE · +1 HP","✚ MEDIC DRONE · +1 HP","✚ SIHHİYE DRONE · +1 CAN","✚ DRONE MÉDICAL · +1 PV","✚ DRON MÉDICO · +1 SALUD"],
+  ["☄ SELTENES EREIGNIS · METEORSTURM","☄ RARE EVENT · METEOR STORM","☄ NADİR OLAY · METEOR FIRTINASI","☄ ÉVÉNEMENT RARE · PLUIE DE MÉTÉORES","☄ EVENTO RARO · LLUVIA DE METEOROS"],
+  ["✦ SELTENES EREIGNIS · REPARATURNEBEL · +3 HP","✦ RARE EVENT · REPAIR MIST · +3 HP","✦ NADİR OLAY · ONARIM SİSİ · +3 CAN","✦ ÉVÉNEMENT RARE · BRUME RÉPARATRICE · +3 PV","✦ EVENTO RARO · NIEBLA REPARADORA · +3 SALUD"],
+  ["GRAVITATIONSKERN DETONIERT · 30 SCHADEN","GRAVITY CORE DETONATED · 30 DAMAGE","YERÇEKİMİ ÇEKİRDEĞİ PATLADI · 30 HASAR","NOYAU GRAVITATIONNEL EXPLOSÉ · 30 DÉGÂTS","NÚCLEO GRAVITATORIO DETONADO · 30 DE DAÑO"],
+  ["SCHILD","SHIELD","KALKAN","BOUCLIER","ESCUDO"],
+  ["⚠ KAMIKAZE IM ANFLUG","⚠ KAMIKAZE INCOMING","⚠ KAMİKAZE YAKLAŞIYOR","⚠ KAMIKAZE EN APPROCHE","⚠ KAMIKAZE EN CAMINO"],
+  ["ANGRIFF LÄDT","ATTACK CHARGING","SALDIRI DOLUYOR","ATTAQUE EN CHARGE","ATAQUE CARGANDO"],
+  ["BOSS-KANONEN ZERSTÖRT","BOSS CANNONS DESTROYED","PATRON TOPLARI YOK EDİLDİ","CANONS DU BOSS DÉTRUITS","CAÑONES DEL JEFE DESTRUIDOS"],
+  ["BOSS-ANTRIEB ZERSTÖRT","BOSS ENGINE DESTROYED","PATRON MOTORU YOK EDİLDİ","MOTEUR DU BOSS DÉTRUIT","MOTOR DEL JEFE DESTRUIDO"],
+  ["🧊 KRYO-EXPLOSION","🧊 CRYO EXPLOSION","🧊 KRİYO PATLAMASI","🧊 EXPLOSION CRYO","🧊 EXPLOSIÓN CRIOGÉNICA"],
+  ["BEWEGUNG BLOCKIERT","MOVEMENT BLOCKED","HAREKET ENGELLENDİ","DÉPLACEMENT BLOQUÉ","MOVIMIENTO BLOQUEADO"],
+  ["50 % SCHUTZ · 20 % REFLEX","50% PROTECTION · 20% REFLECT","%50 KORUMA · %20 YANSITMA","50 % PROTECTION · 20 % RENVOI","50 % PROTECCIÓN · 20 % REFLEJO"],
+  ["⚠ WARNING: TITAN APPROACHING ⚠","⚠ WARNING: TITAN APPROACHING ⚠","⚠ UYARI: TİTAN YAKLAŞIYOR ⚠","⚠ ATTENTION : TITAN EN APPROCHE ⚠","⚠ AVISO: TITÁN EN CAMINO ⚠"],
+  ["STEALTH","STEALTH","GİZLİLİK","FURTIF","SIGILO"],
+  ["HEAL","HEAL","İYİLEŞTİR","SOIN","CURAR"],
+  ["GIFT","POISON","ZEHİR","POISON","VENENO"],
+  ["JET","JET","UÇAK","CHASSEUR","CAZA"],
+  ["JET ULTI","JET ULTIMATE","UÇAK YETENEĞİ","POUVOIR DU CHASSEUR","HABILIDAD DEL CAZA"],
+  ["GRAVITATION","GRAVITY","YERÇEKİMİ","GRAVITÉ","GRAVEDAD"],
+  ["CARGO","CARGO","KARGO","CARGAISON","CARGA"],
+  ["Einzelkanone","Single Cannon","Tek Top","Canon simple","Cañón simple"],
+  ["Zwillingskanonen","Twin Cannons","İkiz Toplar","Canons doubles","Cañones dobles"],
+  ["Dreifachsalve","Triple Burst","Üçlü Salvo","Rafale triple","Ráfaga triple"],
+  ["Vierfachkanonen","Quad Cannons","Dörtlü Toplar","Canons quadruples","Cañones cuádruples"],
+  ["Raketenaufschaltung","Missile Lock","Füze Kilidi","Verrouillage missile","Fijación de misiles"],
+  ["Superwaffe","Superweapon","Süper Silah","Superarme","Superarma"],
+  ["Plasmabatterie","Plasma Array","Plazma Dizisi","Batterie plasma","Batería de plasma"],
+  ["Verwüster","Devastator","Yıkıcı","Dévastateur","Devastador"],
+  ["Zuverlässige, präzise Einzelkanone.","Reliable, precise single cannon.","Güvenilir ve hassas tek top.","Canon simple fiable et précis.","Cañón simple fiable y preciso."],
+  ["Zwei parallele Läufe für konstanten Schaden.","Two parallel barrels for steady damage.","Sabit hasar için iki paralel namlu.","Deux canons parallèles pour des dégâts constants.","Dos cañones paralelos para daño constante."],
+  ["Leichte Kanone mit hoher Kadenz.","Light cannon with a high fire rate.","Yüksek atış hızlı hafif top.","Canon léger à cadence élevée.","Cañón ligero de alta cadencia."],
+  ["Eng geführtes Doppelfeuer für schnelle Ziele.","Tightly focused twin fire for fast targets.","Hızlı hedefler için odaklı çift ateş.","Tir double concentré pour cibles rapides.","Disparo doble concentrado para objetivos rápidos."],
+  ["Sehr schneller Nahkampfstich für wendige Piloten.","Very fast melee thrust for agile pilots.","Çevik pilotlar için çok hızlı yakın dövüş darbesi.","Estocade très rapide pour pilotes agiles.","Estocada muy rápida para pilotos ágiles."],
+  ["Breite Fächersalve gegen Gegnergruppen.","Wide spread volley against groups of enemies.","Düşman gruplarına karşı geniş salvo.","Salve en éventail contre les groupes.","Salva amplia contra grupos de enemigos."],
+  ["Vier geladene Bolzen in engem Fächer.","Four charged bolts in a tight spread.","Dar açıda dört yüklü enerji atışı.","Quatre projectiles chargés en éventail serré.","Cuatro proyectiles cargados en abanico cerrado."],
+  ["Durchgehender Strom schneller Energieschüsse.","Continuous stream of fast energy shots.","Kesintisiz hızlı enerji atışları.","Flux continu de tirs d’énergie rapides.","Flujo continuo de disparos rápidos de energía."],
+  ["Ein kompakter Schockstoß mit hohem Nahkampfschaden.","Compact shock burst with high melee damage.","Yüksek yakın dövüş hasarlı kompakt şok darbesi.","Onde de choc compacte infligeant de lourds dégâts de mêlée.","Onda de choque compacta con gran daño cuerpo a cuerpo."],
+  ["Extrem schnelle Ionenprojektile.","Extremely fast ion projectiles.","Son derece hızlı iyon mermileri.","Projectiles ioniques extrêmement rapides.","Proyectiles de iones extremadamente rápidos."],
+  ["Langsame, gebündelte Schüsse mit enormem Schaden.","Slow, focused shots with enormous damage.","Muazzam hasarlı yavaş ve odaklı atışlar.","Tirs lents et concentrés aux dégâts énormes.","Disparos lentos y concentrados de enorme daño."],
+  ["Zielsuchende Raketen mit schwerem Einschlag.","Homing missiles with heavy impact.","Ağır darbeli güdümlü füzeler.","Missiles guidés à impact puissant.","Misiles guiados de gran impacto."],
+  ["Versetzte Zwillingssalven mit hoher Präzision.","Staggered twin volleys with high precision.","Yüksek hassasiyetli ardışık ikiz salvolar.","Salves doubles décalées très précises.","Salvas dobles alternadas de alta precisión."],
+  ["Kurzer, schneller Energieschnitt direkt vor dem Flugzeug.","Short, fast energy slash directly ahead of the aircraft.","Uçağın önünde kısa ve hızlı enerji kesiği.","Entaille d’énergie courte et rapide devant l’avion.","Corte de energía corto y rápido delante del avión."],
+  ["Lenkraketen und Dreifachfeuer in einer Waffe.","Guided missiles and triple fire in one weapon.","Tek silahta güdümlü füzeler ve üçlü ateş.","Missiles guidés et tir triple dans une seule arme.","Misiles guiados y fuego triple en un arma."],
+  ["Phasenbolzen mit extremer Feuerrate.","Phase bolts with an extreme fire rate.","Aşırı atış hızlı faz mermileri.","Projectiles de phase à cadence extrême.","Proyectiles de fase de cadencia extrema."],
+  ["Ein konzentrierter Schuss zerreißt schwere Panzerung.","A focused shot tears through heavy armor.","Odaklı atış ağır zırhı parçalar.","Un tir concentré déchire les blindages lourds.","Un disparo concentrado atraviesa blindaje pesado."],
+  ["Breiter Nahkampfschwung, der mehrere Gegner vor dem Flugzeug trifft.","Wide melee sweep hitting multiple enemies ahead.","Öndeki birden fazla düşmanı vuran geniş yakın dövüş savuruşu.","Large balayage de mêlée touchant plusieurs ennemis devant l’avion.","Barrido amplio cuerpo a cuerpo que golpea a varios enemigos delante."],
+  ["Ultimate Energiestreuer mit sieben Strahlen.","Ultimate energy spreader with seven beams.","Yedi ışınlı üstün enerji dağıtıcı.","Diffuseur d’énergie ultime à sept rayons.","Dispersor de energía supremo de siete rayos."],
+  ["Neun Energielanzen füllen den gesamten Feuerkorridor.","Nine energy lances fill the entire firing corridor.","Dokuz enerji mızrağı tüm ateş koridorunu doldurur.","Neuf lances d’énergie remplissent tout le couloir de tir.","Nueve lanzas de energía cubren todo el corredor de tiro."],
+  ["Eine gewaltige Lichtklinge mit großer Nahkampfreichweite.","A massive light blade with long melee reach.","Uzun yakın dövüş menzilli dev ışık kılıcı.","Une immense lame de lumière à longue portée de mêlée.","Una enorme hoja de luz de gran alcance cuerpo a cuerpo."],
+  ["Extrem starke Ultimate-Klinge. Entlädt alle 10 Sekunden gelbe Blitze auf alle Gegner im Umkreis von 300 Pixeln. Treffer frieren Gegner 1 Sekunde ein und springen auf Gegner innerhalb von 100 Pixeln über.","Extremely powerful ultimate blade. Every 10 seconds it strikes all enemies within 300 pixels with yellow lightning. Hits freeze enemies for 1 second and chain to enemies within 100 pixels.","Çok güçlü üstün kılıç. Her 10 saniyede 300 piksel içindeki tüm düşmanlara sarı yıldırım gönderir. İsabetler düşmanları 1 saniye dondurur ve 100 piksel içindeki düşmanlara sıçrar.","Lame ultime très puissante. Toutes les 10 secondes, des éclairs jaunes frappent les ennemis à 300 pixels. Ils les gèlent 1 seconde et rebondissent sur ceux à 100 pixels.","Hoja suprema muy potente. Cada 10 segundos lanza rayos amarillos a enemigos a 300 píxeles. Los congela 1 segundo y salta a enemigos a 100 píxeles."],
+  ["Ultimate Lenkraketen suchen selbstständig neue Ziele.","Ultimate guided missiles automatically seek new targets.","Üstün güdümlü füzeler otomatik yeni hedef arar.","Les missiles guidés ultimes cherchent automatiquement de nouvelles cibles.","Los misiles guiados supremos buscan nuevos objetivos automáticamente."],
+  ["Ausgewogen und ohne Nachteile.","Balanced with no drawbacks.","Dengeli ve dezavantajsız.","Équilibré sans inconvénients.","Equilibrado y sin desventajas."],
+  ["+25 % Schaden, aber −2 maximale HP.","+25% damage, but −2 maximum HP.","%25 hasar, ancak −2 azami can.","+25 % de dégâts, mais −2 PV maximum.","+25 % de daño, pero −2 de salud máxima."],
+  ["+5 maximale HP, aber 12 % langsameres Feuer.","+5 maximum HP, but 12% slower fire.","+5 azami can, ancak %12 daha yavaş ateş.","+5 PV maximum, mais tir 12 % plus lent.","+5 de salud máxima, pero disparo un 12 % más lento."],
+  ["Stabiler Standardantrieb.","Stable standard engine.","Dengeli standart motor.","Moteur standard stable.","Motor estándar estable."],
+  ["+0,8 Tempo, aber 8 % langsameres Feuer.","+0.8 speed, but 8% slower fire.","+0,8 hız, ancak %8 daha yavaş ateş.","+0,8 de vitesse, mais tir 8 % plus lent.","+0,8 de velocidad, pero disparo un 8 % más lento."],
+  ["+0,35 Tempo und 10 % schnelleres Feuer.","+0.35 speed and 10% faster fire.","+0,35 hız ve %10 daha hızlı ateş.","+0,35 de vitesse et tir 10 % plus rapide.","+0,35 de velocidad y disparo un 10 % más rápido."],
+  ["Angriff","Attack","Saldırı","Attaque","Ataque"],
+  ["Schnelles Feuer und 35 % mehr Drohnenschaden.","Fast fire and 35% more drone damage.","Hızlı ateş ve %35 daha fazla drone hasarı.","Tir rapide et +35 % de dégâts du drone.","Disparo rápido y un 35 % más de daño de dron."],
+  ["Wächter","Guardian","Muhafız","Gardien","Guardián"],
+  ["Lädt regelmäßig einen Schutzpunkt nach.","Regularly recharges one shield point.","Düzenli olarak bir kalkan puanı yeniler.","Recharge régulièrement un point de bouclier.","Recarga regularmente un punto de escudo."],
+  ["Sanitäter","Medic","Sıhhiye","Médecin","Médico"],
+  ["Repariert alle 12 Sekunden einen HP.","Repairs one HP every 12 seconds.","Her 12 saniyede bir can onarır.","Restaure un PV toutes les 12 secondes.","Repara un punto de salud cada 12 segundos."],
+  ["Sammler","Collector","Toplayıcı","Collecteur","Recolector"],
+  ["Zielsuchende Schüsse und 25 % mehr Credits aus Ereignissen.","Homing shots and 25% more credits from events.","Güdümlü atışlar ve olaylardan %25 daha fazla kredi.","Tirs guidés et +25 % de crédits lors des événements.","Disparos guiados y un 25 % más de créditos de eventos."],
+  ["Schnelle, präzise Standardschüsse.","Fast, precise standard shots.","Hızlı ve hassas standart atışlar.","Tirs standards rapides et précis.","Disparos estándar rápidos y precisos."],
+  ["Zwei leichte Energieschüsse pro Salve.","Two light energy shots per volley.","Salvo başına iki hafif enerji atışı.","Deux tirs d’énergie légers par salve.","Dos disparos ligeros de energía por salva."],
+  ["Schnelles Präzisionsgeschoss mit verstärktem Kern.","Fast precision projectile with a reinforced core.","Güçlendirilmiş çekirdekli hızlı hassas mermi.","Projectile précis et rapide au noyau renforcé.","Proyectil preciso y rápido de núcleo reforzado."],
+  ["Extrem schnelle Präzisionsschüsse mit hohem Schaden.","Extremely fast precision shots with high damage.","Yüksek hasarlı son derece hızlı hassas atışlar.","Tirs précis extrêmement rapides aux dégâts élevés.","Disparos precisos extremadamente rápidos de gran daño."],
+  ["Drei Energieschüsse decken einen breiten Bereich ab.","Three energy shots cover a wide area.","Üç enerji atışı geniş alanı kaplar.","Trois tirs d’énergie couvrent une large zone.","Tres disparos de energía cubren una zona amplia."],
+  ["Nahkampfwaffe: Die Drohne zerlegt Gegner mit einer kreisenden Energieklinge.","Melee weapon: the drone shreds enemies with a spinning energy blade.","Yakın dövüş silahı: drone dönen enerji kılıcıyla düşmanları parçalar.","Arme de mêlée : le drone déchiquette les ennemis avec une lame d’énergie tournante.","Arma cuerpo a cuerpo: el dron destroza enemigos con una hoja de energía giratoria."],
+  ["Fünf kurze Plasmabolzen räumen Gegnergruppen.","Five short plasma bolts clear enemy groups.","Beş kısa plazma atışı düşman gruplarını temizler.","Cinq courts projectiles plasma éliminent les groupes.","Cinco proyectiles cortos de plasma eliminan grupos."],
+  ["Schwere Doppelsalve für robuste Ziele.","Heavy twin volley for tough targets.","Dayanıklı hedefler için ağır ikiz salvo.","Lourde salve double pour cibles résistantes.","Salva doble pesada para objetivos resistentes."],
+  ["Nahkampfwaffe: Drei Energieklingen schlagen vor der Drohne zu.","Melee weapon: three energy blades strike ahead of the drone.","Yakın dövüş silahı: üç enerji kılıcı drone’un önünde vurur.","Arme de mêlée : trois lames d’énergie frappent devant le drone.","Arma cuerpo a cuerpo: tres hojas de energía golpean delante del dron."],
+  ["Drei schnelle Strahlen mit engem Fokus.","Three fast, tightly focused beams.","Dar odaklı üç hızlı ışın.","Trois rayons rapides très concentrés.","Tres rayos rápidos de enfoque estrecho."],
+  ["Langsame Einzelsalve mit enormem Schaden.","Slow single volley with enormous damage.","Muazzam hasarlı yavaş tek salvo.","Salve simple lente aux dégâts énormes.","Salva simple lenta de enorme daño."],
+  ["Sieben Phasenbolzen erzeugen einen Energiekorridor.","Seven phase bolts create an energy corridor.","Yedi faz atışı enerji koridoru oluşturur.","Sept projectiles de phase créent un couloir d’énergie.","Siete proyectiles de fase crean un corredor de energía."],
+  ["Ultraschnelles Geschoss mit konzentrierter Leerenenergie.","Ultra-fast projectile with concentrated void energy.","Yoğun boşluk enerjili ultra hızlı mermi.","Projectile ultrarapide à énergie du vide concentrée.","Proyectil ultrarrápido de energía del vacío concentrada."],
+  ["Neun symmetrische Lichtbolzen überziehen das Schlachtfeld.","Nine symmetric light bolts cover the battlefield.","Dokuz simetrik ışık atışı savaş alanını kaplar.","Neuf projectiles lumineux symétriques couvrent le champ de bataille.","Nueve proyectiles simétricos de luz cubren el campo de batalla."],
+  ["Nahkampfwaffe: Ein riesiger Lichtkreis trifft Gegner im Nahbereich.","Melee weapon: a huge ring of light hits nearby enemies.","Yakın dövüş silahı: dev ışık halkası yakındaki düşmanları vurur.","Arme de mêlée : un immense cercle lumineux frappe les ennemis proches.","Arma cuerpo a cuerpo: un enorme anillo de luz golpea a enemigos cercanos."],
+  ["laser-waffe","laser weapon","lazer silahı","arme laser","arma láser"],
+  ["Feuert automatisch einen durchgehenden roten Laser auf jeweils einen Gegner. Verursacht konstant 50 HP Schaden pro Sekunde, unabhängig von Upgrades.","Automatically fires a continuous red laser at one enemy at a time. Deals a constant 50 HP damage per second, independent of upgrades.","Her seferinde bir düşmana kesintisiz kırmızı lazer ateşler. Geliştirmelerden bağımsız saniyede sabit 50 can hasarı verir.","Tire automatiquement un laser rouge continu sur un ennemi à la fois. Inflige 50 PV de dégâts par seconde, indépendamment des améliorations.","Dispara automáticamente un láser rojo continuo a un enemigo a la vez. Causa 50 de daño por segundo, sin depender de mejoras."],
+  ["Fünf schwere Energiesalven mit maximaler Wirkung.","Five heavy energy volleys with maximum impact.","Azami etkili beş ağır enerji salvosu.","Cinq lourdes salves d’énergie à effet maximal.","Cinco salvas pesadas de energía de máximo efecto."],
+  ["Zielsuchende Raketen","Homing missiles","Güdümlü füzeler","Missiles guidés","Misiles guiados"],
+  ["Schnelle Präzisionsstrahlen","Fast precision beams","Hızlı hassas ışınlar","Rayons précis et rapides","Rayos precisos y rápidos"],
+  ["Breite Plasmafächer","Wide plasma spreads","Geniş plazma salvoları","Larges éventails plasma","Abanicos amplios de plasma"],
+  ["Falken-Raketen","Falcon missiles","Şahin füzeleri","Missiles faucon","Misiles halcón"],
+  ["Nova-Laser","Nova laser","Nova lazeri","Laser nova","Láser nova"],
+  ["Sonnen-Plasma","Solar plasma","Güneş plazması","Plasma solaire","Plasma solar"],
+  ["Vipern-Raketen","Viper missiles","Engerek füzeleri","Missiles vipère","Misiles víbora"],
+  ["Frost-Laser","Frost laser","Buz lazeri","Laser de givre","Láser de escarcha"],
+  ["Glut-Plasma","Ember plasma","Kor plazması","Plasma de braise","Plasma de brasas"],
+  ["Sturm-Raketen","Storm missiles","Fırtına füzeleri","Missiles de tempête","Misiles de tormenta"],
+  ["Phantom-Laser","Phantom laser","Hayalet lazeri","Laser fantôme","Láser fantasma"],
+  ["Titan-Plasma","Titan plasma","Titan plazması","Plasma titan","Plasma titán"],
+  ["Quanten-Raketen","Quantum missiles","Kuantum füzeleri","Missiles quantiques","Misiles cuánticos"],
+  ["Leeren-Laser","Void laser","Boşluk lazeri","Laser du vide","Láser del vacío"],
+  ["Seraph-Plasma","Seraph plasma","Seraf plazması","Plasma séraphin","Plasma serafín"],
+  ["Omega-Raketen","Omega missiles","Omega füzeleri","Missiles oméga","Misiles omega"],
+  ["Falke MK-I","Falcon MK-I","Şahin MK-I","Faucon MK-I","Halcón MK-I"],
+  ["Doppelzahn","Twin fang","İkiz diş","Double croc","Colmillo doble"],
+  ["Kometenblaster","Comet blaster","Kuyrukluyıldız patlatıcısı","Blaster comète","Bláster cometa"],
+  ["Skarabäus-Zwillinge","Scarab twins","Bokböceği ikizleri","Scarabées jumeaux","Escarabajos gemelos"],
+  ["Ionen-Dolch","Ion dagger","İyon hançeri","Dague ionique","Daga de iones"],
+  ["Nova-Streuer","Nova spreader","Nova dağıtıcı","Diffuseur nova","Dispersor nova"],
+  ["Ark-Streuer","Arc spreader","Ark dağıtıcı","Diffuseur d’arc","Dispersor de arco"],
+  ["Ionenbohrer","Ion drill","İyon matkabı","Foreuse ionique","Taladro de iones"],
+  ["Donner-Ramme","Thunder ram","Gök gürültüsü koçbaşı","Bélier du tonnerre","Ariete del trueno"],
+  ["Volt-Repetierer","Volt repeater","Volt tekrarlayıcı","Répétiteur volt","Repetidor volt"],
+  ["Titanenlanze","Titan lance","Titan mızrağı","Lance titan","Lanza titán"],
+  ["Meteor-Schwarm","Meteor swarm","Meteor sürüsü","Essaim de météores","Enjambre de meteoros"],
+  ["Helix-Kanone","Helix cannon","Sarmal top","Canon hélice","Cañón hélice"],
+  ["Plasma-Säbel","Plasma saber","Plazma kılıcı","Sabre plasma","Sable de plasma"],
+  ["Seraph-Salve","Seraph volley","Seraf salvosu","Salve séraphin","Salva serafín"],
+  ["Quanten-Salve","Quantum volley","Kuantum salvosu","Salve quantique","Salva cuántica"],
+  ["Leerenhammer","Void hammer","Boşluk çekici","Marteau du vide","Martillo del vacío"],
+  ["Leeren-Sense","Void scythe","Boşluk tırpanı","Faux du vide","Guadaña del vacío"],
+  ["Omega-Prisma","Omega prism","Omega prizması","Prisme oméga","Prisma omega"],
+  ["Himmelssturm","Sky storm","Gökyüzü fırtınası","Tempête céleste","Tormenta celeste"],
+  ["Solar-Gleve","Solar glaive","Güneş kargısı","Glaive solaire","Guja solar"],
+  ["Feuerschwert","Fire sword","Ateş kılıcı","Épée de feu","Espada de fuego"],
+  ["Apokalypse-Schwarm","Apocalypse swarm","Kıyamet sürüsü","Essaim apocalyptique","Enjambre apocalíptico"],
+  ["Naboo-Sternjäger","Naboo starfighter","Naboo yıldız savaşçısı","Chasseur Naboo","Caza estelar Naboo"],
+  ["Amethyst-Wächter","Amethyst guardian","Ametist muhafızı","Gardien d’améthyste","Guardián de amatista"],
+  ["Aschenfalke","Ash falcon","Kül şahini","Faucon de cendre","Halcón de ceniza"],
+  ["Ionensturm","Ion storm","İyon fırtınası","Tempête ionique","Tormenta de iones"],
+  ["Nachtgeist","Night spirit","Gece ruhu","Esprit nocturne","Espíritu nocturno"],
+  ["Sonnenlanze","Sun lance","Güneş mızrağı","Lance solaire","Lanza solar"],
+  ["Frostklinge","Frost blade","Buz kılıcı","Lame de givre","Hoja de escarcha"],
+  ["Vipernauge","Viper eye","Engerek gözü","Œil de vipère","Ojo de víbora"],
+  ["Nova-Kern","Nova core","Nova çekirdeği","Noyau nova","Núcleo nova"],
+  ["Leerenläufer","Void runner","Boşluk koşucusu","Coureur du vide","Corredor del vacío"],
+  ["Aegis-Flügel","Aegis wings","Aegis kanatları","Ailes Aegis","Alas Aegis"],
+  ["Jäger-Flügel","Hunter wings","Avcı kanatları","Ailes de chasseur","Alas de cazador"],
+  ["Bollwerk-Flügel","Bulwark wings","Siper kanatları","Ailes rempart","Alas baluarte"],
+  ["Ionenantrieb","Ion engine","İyon motoru","Moteur ionique","Motor de iones"],
+  ["Nachbrenner","Afterburner","Art yakıcı","Postcombustion","Posquemador"],
+  ["Phasenantrieb","Phase engine","Faz motoru","Moteur de phase","Motor de fase"],
+  ["Impulskanone","Pulse cannon","Darbe topu","Canon à impulsion","Cañón de pulsos"],
+  ["Funken-Zwilling","Spark twin","Kıvılcım ikizi","Étincelles jumelles","Chispa gemela"],
+  ["Frostnadel","Frost needle","Buz iğnesi","Aiguille de givre","Aguja de escarcha"],
+  ["Rail-Lanze","Rail lance","Ray mızrağı","Lance électromagnétique","Lanza electromagnética"],
+  ["Ionenstreuer","Ion spreader","İyon dağıtıcı","Diffuseur ionique","Dispersor de iones"],
+  ["Rotor-Klinge","Rotor blade","Rotor kılıcı","Lame rotative","Hoja rotatoria"],
+  ["Glutfächer","Ember fan","Kor yelpazesi","Éventail de braise","Abanico de brasas"],
+  ["Jäger-Raketen","Hunter missiles","Avcı füzeleri","Missiles de chasseur","Misiles de cazador"],
+  ["Ionen-Kralle","Ion claw","İyon pençesi","Griffe ionique","Garra de iones"],
+  ["Phantomstrahl","Phantom beam","Hayalet ışını","Rayon fantôme","Rayo fantasma"],
+  ["Titanenbrecher","Titan breaker","Titan kırıcı","Briseur de titans","Rompetitanes"],
+  ["Quantenspirale","Quantum spiral","Kuantum spirali","Spirale quantique","Espiral cuántica"],
+  ["Leerenspitze","Void tip","Boşluk ucu","Pointe du vide","Punta del vacío"],
+  ["Seraph-Krone","Seraph crown","Seraf tacı","Couronne séraphin","Corona serafín"],
+  ["Seraph-Halo","Seraph halo","Seraf halesi","Halo séraphin","Halo serafín"],
+  ["Omega-Schwarm","Omega swarm","Omega sürüsü","Essaim oméga","Enjambre omega"],
+  ["Geschossbrecher","Projectile breaker","Mermi kırıcı","Briseur de projectiles","Rompeproyectiles"],
+  ["Drohne MK {0}","Drone MK {0}","Drone MK {0}","Drone MK {0}","Dron MK {0}"],
+  ["Ulti-Boost","Ultimate boost","Özel yetenek desteği","Bonus de pouvoir","Potenciador de habilidad"],
+  ["Waffen-Vorstart","Weapon head start","Silah ön başlangıcı","Avance d’armement","Ventaja de armamento"],
+  ["Flugzeug-Ulti","Aircraft ultimate","Uçak yeteneği","Pouvoir d’avion","Habilidad de avión"],
+  ["Laser-Ulti","Laser ultimate","Lazer yeteneği","Pouvoir laser","Habilidad láser"],
+  ["Stealth-Ulti","Stealth ultimate","Gizlilik yeteneği","Pouvoir furtif","Habilidad de sigilo"],
+  ["Heil-Ulti","Healing ultimate","İyileştirme yeteneği","Pouvoir de soin","Habilidad de curación"],
+  ["Gift-Raketen-Ulti","Poison missile ultimate","Zehirli füze yeteneği","Pouvoir de missiles toxiques","Habilidad de misiles venenosos"],
+  ["Absorber-Ulti","Absorber ultimate","Emici yeteneği","Pouvoir d’absorption","Habilidad de absorción"],
+  ["Ultimate Ulti","Supreme ultimate","Üstün yetenek","Pouvoir suprême","Habilidad suprema"],
+  ["Gravitations-Ulti","Gravity ultimate","Yerçekimi yeteneği","Pouvoir gravitationnel","Habilidad gravitatoria"],
+  ["EMP-Ulti","EMP ultimate","EMP yeteneği","Pouvoir IEM","Habilidad PEM"],
+  ["Flügelmann-Laser","Wingman laser","Kanat arkadaşı lazeri","Laser d’ailier","Láser de compañero"],
+  ["Panzer-HP","Armor HP","Zırh canı","PV de blindage","Salud de blindaje"],
+  ["Speed-Triebwerk","Speed engine","Hız motoru","Moteur rapide","Motor de velocidad"],
+  ["Schatten-Dash-Ulti","Shadow dash ultimate","Gölge atılımı yeteneği","Pouvoir de ruée d’ombre","Habilidad de impulso sombrío"],
+  ["Konter-Ulti","Counter ultimate","Karşı saldırı yeteneği","Pouvoir de contre","Habilidad de contraataque"],
+  ["Magnetfaust-Ulti","Magnetic fist ultimate","Manyetik yumruk yeteneği","Pouvoir de poing magnétique","Habilidad de puño magnético"],
+  ["Letzter Funke","Last spark","Son kıvılcım","Dernière étincelle","Última chispa"],
+  ["Chaos-Pickup","Chaos pickup","Kaos güçlendirmesi","Bonus chaos","Potenciador de caos"],
+  ["Feuerkern","Fire core","Ateş çekirdeği","Noyau de feu","Núcleo de fuego"],
+  ["Erster Einsatz","First sortie","İlk görev","Première sortie","Primera misión"],
+  ["Nicht zu stoppen","Unstoppable","Durdurulamaz","Inarrêtable","Imparable"],
+  ["Himmelsfeger","Sky sweeper","Gökyüzü süpürücü","Nettoyeur du ciel","Barredor del cielo"],
+  ["Fliegerass","Ace pilot","Usta pilot","As du ciel","As del aire"],
+  ["Elite-Ass","Elite ace","Elit as","As d’élite","As de élite"],
+  ["Legende der Lüfte","Legend of the skies","Göklerin efsanesi","Légende des airs","Leyenda de los cielos"],
+  ["Luftüberlegenheit","Air superiority","Hava üstünlüğü","Supériorité aérienne","Superioridad aérea"],
+  ["Tausendfacher Abschuss","A thousand down","Bin imha","Mille ennemis abattus","Mil derribos"],
+  ["Sturm aus Stahl","Storm of steel","Çelik fırtınası","Tempête d’acier","Tormenta de acero"],
+  ["Auslöschung","Extinction","Yok oluş","Anéantissement","Extinción"],
+  ["Jäger ohne Grenzen","Hunter without limits","Sınırsız avcı","Chasseur sans limites","Cazador sin límites"],
+  ["Herrscher des Himmels","Ruler of the skies","Göklerin hükümdarı","Maître du ciel","Señor de los cielos"],
+  ["Die glorreichen 5.000","The glorious 5,000","Şanlı 5.000","Les glorieux 5 000","Los gloriosos 5.000"],
+  ["Endloses Sperrfeuer","Endless barrage","Sonsuz yaylım","Barrage sans fin","Fuego interminable"],
+  ["Unsterbliche Legende","Immortal legend","Ölümsüz efsane","Légende immortelle","Leyenda inmortal"],
+  ["David gegen Goliath","David versus Goliath","Davut ve Golyat","David contre Goliath","David contra Goliat"],
+  ["Bossjäger","Boss hunter","Patron avcısı","Chasseur de boss","Cazajefes"],
+  ["Bossbrecher","Boss breaker","Patron kırıcı","Briseur de boss","Rompejefes"],
+  ["Erzfeind der Bosse","Nemesis of bosses","Patronların baş düşmanı","Némésis des boss","Némesis de los jefes"],
+  ["Boss-Apokalypse","Boss apocalypse","Patron kıyameti","Apocalypse des boss","Apocalipsis de jefes"],
+  ["Titanenbezwinger","Titan slayer","Titan avcısı","Vainqueur de titans","Matatitanes"],
+  ["Albtraum der Bosse","Boss nightmare","Patronların kâbusu","Cauchemar des boss","Pesadilla de jefes"],
+  ["Halbes Jahrhundert","Half a century","Yarım yüzyıl","Un demi-siècle","Medio siglo"],
+  ["Boss-Dominator","Boss dominator","Patron hâkimi","Dominateur de boss","Dominador de jefes"],
+  ["Boss-Zenturio","Boss centurion","Patron yüzbaşısı","Centurion des boss","Centurión de jefes"],
+  ["Titanenschnitter","Titan reaper","Titan biçici","Faucheur de titans","Segador de titanes"],
+  ["Jüngstes Gericht","Final judgment","Son yargı","Jugement dernier","Juicio final"],
+  ["Bergungsexperte","Salvage expert","Kurtarma uzmanı","Expert en récupération","Experto en recuperación"],
+  ["Energiehungrig","Power hungry","Enerji açlığı","Avide d’énergie","Ansia de energía"],
+  ["Arsenalmeister","Arsenal master","Cephanelik ustası","Maître de l’arsenal","Maestro del arsenal"],
+  ["Voll aufgeladen","Fully charged","Tam dolu","Charge maximale","Carga completa"],
+  ["Energievorrat","Power stockpile","Enerji deposu","Réserve d’énergie","Reserva de energía"],
+  ["Power-Jubiläum","Power anniversary","Enerji yıldönümü","Centenaire d’énergie","Aniversario de energía"],
+  ["Supermagnet","Super magnet","Süper mıknatıs","Superaimant","Superimán"],
+  ["Energieüberfluss","Power overflow","Enerji taşması","Débordement d’énergie","Desbordamiento de energía"],
+  ["Power-Tresor","Power vault","Enerji kasası","Coffre d’énergie","Cámara de energía"],
+  ["Lebender Reaktor","Living reactor","Canlı reaktör","Réacteur vivant","Reactor viviente"],
+  ["Meister der Energie","Master of energy","Enerji ustası","Maître de l’énergie","Maestro de la energía"],
+  ["Unendliche Energie","Infinite energy","Sonsuz enerji","Énergie infinie","Energía infinita"],
+  ["Nur ein Kratzer","Just a scratch","Sadece çizik","Une simple égratignure","Solo un rasguño"],
+  ["Kampferprobt","Battle tested","Savaş tecrübeli","Aguerri","Curtido en combate"],
+  ["Nicht kleinzukriegen","Hard to kill","Kolay ölmez","Dur à tuer","Duro de matar"],
+  ["Eiserne Schwingen","Iron wings","Demir kanatlar","Ailes de fer","Alas de hierro"],
+  ["Überlebenskünstler","Survivor","Hayatta kalan","Survivant","Superviviente"],
+  ["Narben des Krieges","Scars of war","Savaş izleri","Cicatrices de guerre","Cicatrices de guerra"],
+  ["Unzerstörbar","Indestructible","Yok edilemez","Indestructible","Indestructible"],
+  ["Fliegende Festung","Flying fortress","Uçan kale","Forteresse volante","Fortaleza voladora"],
+  ["Stahlgewitter überlebt","Survived the steel storm","Çelik fırtınasından sağ çıktı","Survivant de la tempête d’acier","Superviviente de la tormenta de acero"],
+  ["Phönix","Phoenix","Anka","Phénix","Fénix"],
+  ["Saubere Arbeit","Clean sweep","Temiz iş","Travail impeccable","Trabajo limpio"],
+  ["Unberührbares Ass","Untouchable ace","Dokunulmaz as","As intouchable","As intocable"],
+  ["Perfekter Bosskampf","Perfect boss fight","Kusursuz patron savaşı","Combat de boss parfait","Combate de jefe perfecto"],
+  ["Makelloser Bossjäger","Flawless boss hunter","Kusursuz patron avcısı","Chasseur de boss impeccable","Cazajefes impecable"],
+  ["Mutige Bergung","Brave salvage","Cesur kurtarma","Récupération audacieuse","Recuperación valiente"],
+  ["Kettenreaktion","Chain reaction","Zincirleme tepki","Réaction en chaîne","Reacción en cadena"],
+  ["Unaufhaltsam","Relentless","Amansız","Implacable","Incontenible"],
+  ["Haarscharf","By a hair","Kıl payı","À un cheveu","Por los pelos"],
+  ["Projektiltänzer","Projectile dancer","Mermi dansçısı","Danseur de projectiles","Bailarín de proyectiles"],
+  ["Befehl ausgeführt","Order completed","Emir yerine getirildi","Ordre exécuté","Orden cumplida"],
+  ["Elite-Einsatzkraft","Elite operative","Elit görevli","Agent d’élite","Agente de élite"],
+  ["Besiege {0} Gegner","Defeat {0} enemies","{0} düşmanı yen","Vaincre {0} ennemis","Derrota a {0} enemigos"],
+  ["Besiege {0} Gegner in einem Einsatz","Defeat {0} enemies in one mission","Bir görevde {0} düşmanı yen","Vaincre {0} ennemis en une mission","Derrota a {0} enemigos en una misión"],
+  ["Besiege einen Boss","Defeat a boss","Bir patronu yen","Vaincre un boss","Derrota a un jefe"],
+  ["Besiege {0} Bosse in einem Einsatz","Defeat {0} bosses in one mission","Bir görevde {0} patronu yen","Vaincre {0} boss en une mission","Derrota a {0} jefes en una misión"],
+  ["Sammle {0} Power-ups in einem Einsatz","Collect {0} power-ups in one mission","Bir görevde {0} güçlendirme topla","Collecter {0} bonus en une mission","Recoge {0} potenciadores en una misión"],
+  ["Überstehe {0} Schadenspunkte in einem Einsatz","Survive {0} damage in one mission","Bir görevde {0} hasardan sağ çık","Survivre à {0} dégâts en une mission","Sobrevive a {0} de daño en una misión"],
+  ["Besiege {0} Gegner in Folge, ohne Schaden zu nehmen","Defeat {0} enemies in a row without taking damage","Hasar almadan art arda {0} düşmanı yen","Vaincre {0} ennemis de suite sans subir de dégâts","Derrota a {0} enemigos seguidos sin recibir daño"],
+  ["Besiege einen Boss, ohne im Kampf Schaden zu nehmen","Defeat a boss without taking damage","Hasar almadan bir patronu yen","Vaincre un boss sans subir de dégâts","Derrota a un jefe sin recibir daño"],
+  ["Gewinne drei Bosskämpfe in einem Einsatz ohne Schaden","Win three boss fights in one mission without taking damage","Bir görevde hasar almadan üç patron savaşı kazan","Gagner trois combats de boss en une mission sans dégâts","Gana tres combates de jefe en una misión sin recibir daño"],
+  ["Sammle fünf Power-ups bei voller Gesundheit","Collect five power-ups at full health","Tam canla beş güçlendirme topla","Collecter cinq bonus en pleine santé","Recoge cinco potenciadores con salud completa"],
+  ["Erreiche eine {0}er-Combo","Reach a {0} combo","{0} kombo yap","Atteindre un combo de {0}","Alcanza un combo de {0}"],
+  ["Schaffe {0} Near Misses in einem Einsatz","Perform {0} near misses in one mission","Bir görevde {0} kıl payı kaçış yap","Réussir {0} esquives de justesse en une mission","Logra {0} esquivas ajustadas en una misión"],
+  ["Schließe ein Missionsziel ab","Complete a mission objective","Bir görev hedefini tamamla","Accomplir un objectif de mission","Completa un objetivo de misión"],
+  ["Schließe fünf Missionsziele in einem Einsatz ab","Complete five mission objectives in one mission","Bir görevde beş görev hedefi tamamla","Accomplir cinq objectifs en une mission","Completa cinco objetivos en una misión"],
+  ["Zerstöre {0} Gegner","Destroy {0} enemies","{0} düşmanı yok et","Détruire {0} ennemis","Destruye a {0} enemigos"],
+  ["Schaffe {0} Near Misses","Perform {0} near misses","{0} kıl payı kaçış yap","Réussir {0} esquives de justesse","Logra {0} esquivas ajustadas"],
+  ["Besiege einen Boss ohne Treffer","Defeat a boss without being hit","İsabet almadan bir patronu yen","Vaincre un boss sans être touché","Derrota a un jefe sin recibir impactos"],
+  ["{0} Flugzeug","{0} aircraft","{0} uçak","{0} avion","{0} avión"],
+  ["Level {0} ist jetzt freigeschaltet.","Level {0} is now unlocked.","Seviye {0} açıldı.","Le niveau {0} est débloqué.","El nivel {0} está desbloqueado."],
+  ["KAUFEN · 💰 {0}","BUY · 💰 {0}","SATIN AL · 💰 {0}","ACHETER · 💰 {0}","COMPRAR · 💰 {0}"],
+  ["Hybrid · {0} + {1}","Hybrid · {0} + {1}","Hibrit · {0} + {1}","Hybride · {0} + {1}","Híbrido · {0} + {1}"],
+  ["{0} auswählen","Select {0}","{0} seç","Choisir {0}","Elegir {0}"],
+  ["Gespeicherten Hybrid {0} und {1} auswählen","Select saved hybrid {0} and {1}","Kaydedilen {0} ve {1} hibritini seç","Choisir l’hybride sauvegardé {0} et {1}","Elegir híbrido guardado {0} y {1}"],
+  ["{0} + {1} · Level {2}","{0} + {1} · Level {2}","{0} + {1} · Seviye {2}","{0} + {1} · Niveau {2}","{0} + {1} · Nivel {2}"],
+  ["{0} Drohnen-Skin auswählen","Select {0} drone skin","{0} drone görünümünü seç","Choisir l’apparence de drone {0}","Elegir aspecto de dron {0}"],
+  ["Kombinierte Drohne {0}","Combined drone {0}","Birleşik drone {0}","Drone combiné {0}","Dron combinado {0}"],
+  ["Kombiniert · {0}","Combined · {0}","Birleşik · {0}","Combiné · {0}","Combinado · {0}"],
+  ["Gespeicherte kombinierte Drohne {0} auswählen","Select saved combined drone {0}","Kaydedilen birleşik drone {0} seç","Choisir le drone combiné sauvegardé {0}","Elegir dron combinado guardado {0}"],
+  ["{0} · Level {1}","{0} · Level {1}","{0} · Seviye {1}","{0} · Niveau {1}","{0} · Nivel {1}"],
+  ["{0} als Waffenmodul auswählen","Select {0} as weapon module","Silah modülü olarak {0} seç","Choisir {0} comme module d’arme","Elegir {0} como módulo de arma"],
+  ["WIRD GEÖFFNET …","OPENING …","AÇILIYOR …","OUVERTURE…","ABRIENDO…"],
+  ["💰 {0} · KAUFEN & ÖFFNEN","💰 {0} · BUY & OPEN","💰 {0} · SATIN AL VE AÇ","💰 {0} · ACHETER ET OUVRIR","💰 {0} · COMPRAR Y ABRIR"],
+  ["🎁 TÄGLICHE GRATIS-KISTE","🎁 DAILY FREE CRATE","🎁 GÜNLÜK ÜCRETSİZ KASA","🎁 CAISSE GRATUITE QUOTIDIENNE","🎁 CAJA GRATIS DIARIA"],
+  ["✓ HEUTE BEREITS GEÖFFNET","✓ ALREADY OPENED TODAY","✓ BUGÜN ZATEN AÇILDI","✓ DÉJÀ OUVERTE AUJOURD’HUI","✓ YA ABIERTA HOY"],
+  ["🔒 Pilot-Level {0} erforderlich","🔒 Pilot level {0} required","🔒 Pilot seviyesi {0} gerekli","🔒 Niveau de pilote {0} requis","🔒 Se requiere nivel de piloto {0}"],
+  ["✓ SLOT {0} · ABLEGEN","✓ SLOT {0} · UNEQUIP","✓ YUVA {0} · ÇIKAR","✓ EMPLACEMENT {0} · RETIRER","✓ RANURA {0} · DESEQUIPAR"],
+  ["LVL {0} → {1} · 💎 {2}","LVL {0} → {1} · 💎 {2}","SV {0} → {1} · 💎 {2}","NIV {0} → {1} · 💎 {2}","NIV {0} → {1} · 💎 {2}"],
+  ["🔒 PILOT-LEVEL {0}","🔒 PILOT LEVEL {0}","🔒 PİLOT SEVİYESİ {0}","🔒 NIVEAU DU PILOTE {0}","🔒 NIVEL DEL PILOTO {0}"],
+  ["{0} {1} CREDITS","{0} {1} CREDITS","{0} {1} KREDİ","{0} {1} CRÉDITS","{0} {1} CRÉDITOS"],
+  ["{0} entfernen","Remove {0}","{0} kaldır","Retirer {0}","Quitar {0}"],
+  ["Eintrag von „{0}“ ({1} Punkte) löschen?","Delete entry by “{0}” ({1} points)?","“{0}” kaydı ({1} puan) silinsin mi?","Supprimer l’entrée de « {0} » ({1} points) ?","¿Eliminar registro de «{0}» ({1} puntos)?"],
+  ["Eintrag von {0} löschen","Delete entry by {0}","{0} kaydını sil","Supprimer l’entrée de {0}","Eliminar registro de {0}"],
+  ["{0}: Fortschritt","{0}: progress","{0}: ilerleme","{0} : progression","{0}: progreso"],
+  ["{0} Punkte{1}","{0} points{1}","{0} puan{1}","{0} points{1}","{0} puntos{1}"],
+  ["Schließe zuerst Level {0} ab","Complete level {0} first","Önce seviye {0} tamamla","Terminez d’abord le niveau {0}","Completa primero el nivel {0}"],
+  ["Nur mit Nahkampfwaffen: Vier Treffer zerstören ein gegnerisches Geschoss. Jeder Schlag zählt einmal pro Geschoss, unabhängig vom Schaden. Dauerhaft aktiv.","Melee weapons only: four hits destroy an enemy projectile. Each strike counts once per projectile, regardless of damage. Always active.","Yalnızca yakın dövüş silahları: dört vuruş düşman mermisini yok eder. Hasardan bağımsız her darbe mermi başına bir kez sayılır. Sürekli etkin.","Armes de mêlée uniquement : quatre coups détruisent un projectile ennemi. Chaque frappe compte une fois par projectile, indépendamment des dégâts. Toujours actif.","Solo armas cuerpo a cuerpo: cuatro golpes destruyen un proyectil enemigo. Cada golpe cuenta una vez por proyectil, sin importar el daño. Siempre activo."],
+  ["+1 Drohnenschaden und 12% schnelleres Feuer","+1 drone damage and 12% faster fire","+1 drone hasarı ve %12 daha hızlı ateş","+1 dégât du drone et tir 12 % plus rapide","+1 de daño de dron y disparo un 12 % más rápido"],
+  ["Zwei Kanonen und nochmals 12% schnelleres Feuer","Two cannons and another 12% faster fire","İki top ve ek %12 daha hızlı ateş","Deux canons et tir encore 12 % plus rapide","Dos cañones y otro 12 % más de cadencia"],
+  ["+1 Drohnenschaden und nochmals 12% schneller","+1 drone damage and another 12% faster fire","+1 drone hasarı ve ek %12 daha hızlı ateş","+1 dégât du drone et encore 12 % plus rapide","+1 de daño de dron y otro 12 % más de velocidad"],
+  ["Hochleistungsantrieb: nochmals 12% schneller","High-performance engine: another 12% faster","Yüksek performanslı motor: ek %12 hız","Moteur haute performance : encore 12 % plus rapide","Motor de alto rendimiento: otro 12 % más rápido"],
+  ["Drei Kanonen, +1 Schaden und nochmals 12% schneller","Three cannons, +1 damage and another 12% faster fire","Üç top, +1 hasar ve ek %12 daha hızlı ateş","Trois canons, +1 dégât et encore 12 % plus rapide","Tres cañones, +1 de daño y otro 12 % más de velocidad"],
+  ["Quantenkühlung: nochmals 12% schnelleres Feuer","Quantum cooling: another 12% faster fire","Kuantum soğutma: ek %12 daha hızlı ateş","Refroidissement quantique : tir encore 12 % plus rapide","Refrigeración cuántica: otro 12 % más de cadencia"],
+  ["+1 Drohnenschaden bei maximaler Feuerrate","+1 drone damage at maximum fire rate","Azami atış hızında +1 drone hasarı","+1 dégât du drone à cadence maximale","+1 de daño de dron a cadencia máxima"],
+  ["Ultis laden 50% schneller","Ultimates charge 50% faster","Özel yetenekler %50 daha hızlı dolar","Les pouvoirs se chargent 50 % plus vite","Las habilidades cargan un 50 % más rápido"],
+  ["Starte auf Waffentier 2","Start at weapon tier 2","Silah kademesi 2 ile başla","Commencez au palier d’arme 2","Empieza en la categoría de arma 2"],
+  ["Die Flugzeug-Ulti lädt 25% schneller","Aircraft ultimate charges 25% faster","Uçak yeteneği %25 daha hızlı dolar","Le pouvoir d’avion se charge 25 % plus vite","La habilidad de avión carga un 25 % más rápido"],
+  ["Laser macht 2× Schaden & hält 25% länger","Laser deals 2× damage and lasts 25% longer","Lazer 2× hasar verir ve %25 daha uzun sürer","Le laser inflige 2× dégâts et dure 25 % plus longtemps","El láser causa el doble de daño y dura un 25 % más"],
+  ["Beschworene Flügelmänner kopieren den Laser","Summoned wingmen copy the laser","Çağrılan kanat arkadaşları lazeri kopyalar","Les ailiers invoqués copient le laser","Los compañeros invocados copian el láser"],
+  ["10 Sek. unsichtbar & unverwundbar  [Taste R]","Invisible and invulnerable for 10 sec. [R key]","10 sn. görünmez ve yenilmez [R tuşu]","Invisible et invulnérable pendant 10 s [touche R]","Invisible e invulnerable durante 10 s [tecla R]"],
+  ["Heilt 5 HP sofort [Taste H]","Instantly heals 5 HP [H key]","Anında 5 can iyileştirir [H tuşu]","Soigne 5 PV immédiatement [touche H]","Cura 5 de salud al instante [tecla H]"],
+  ["3 Lenkraketen: 20 Schaden + 5 Sek. Gift [Taste T]","3 guided missiles: 20 damage + 5 sec. poison [T key]","3 güdümlü füze: 20 hasar + 5 sn. zehir [T tuşu]","3 missiles guidés : 20 dégâts + 5 s de poison [touche T]","3 misiles guiados: 20 de daño + 5 s de veneno [tecla T]"],
+  ["10 Sek. unzerstörbares pinkes Frontschild; Treffer erhöhen den Schaden auf 2×, 4×, dann 8× [Taste F]","Indestructible pink front shield for 10 sec.; hits increase damage to 2×, 4×, then 8× [F key]","10 sn. yok edilemez pembe ön kalkan; isabetler hasarı 2×, 4×, sonra 8× yapar [F tuşu]","Bouclier frontal rose indestructible pendant 10 s ; les coups augmentent les dégâts à 2×, 4× puis 8× [touche F]","Escudo frontal rosa indestructible por 10 s; los impactos aumentan el daño a 2×, 4× y 8× [tecla F]"],
+  ["10 Sek. Titanenschild, 2× Schaden, Frost & Kettenblitze [Taste U]","10 sec. titan shield, 2× damage, frost and chain lightning [U key]","10 sn. titan kalkanı, 2× hasar, buz ve zincirleme yıldırım [U tuşu]","10 s de bouclier titan, dégâts ×2, givre et éclairs en chaîne [touche U]","10 s de escudo titán, daño doble, escarcha y rayos en cadena [tecla U]"],
+  ["5 Sek. Sog (Bosse immun), dann Explosion: 30 Schaden + Rückstoß. Währenddessen 50 % weniger Schaden und 20 % Reflexion [Taste G]","5 sec. pull (bosses immune), then explosion: 30 damage + knockback. Meanwhile 50% less damage and 20% reflection [G key]","5 sn. çekim (patronlar bağışık), sonra patlama: 30 hasar ve geri itme. Bu sırada %50 az hasar ve %20 yansıtma [G tuşu]","Attraction de 5 s (boss immunisés), puis explosion : 30 dégâts et recul. Pendant ce temps, −50 % de dégâts reçus et 20 % de renvoi [touche G]","Atracción de 5 s (jefes inmunes), luego explosión: 30 de daño y retroceso. Mientras tanto, 50 % menos de daño y 20 % de reflejo [tecla G]"],
+  ["Löscht feindliche Geschosse, verursacht Flächenschaden und friert normale Gegner 4 Sek. ein [Taste I]","Clears enemy projectiles, deals area damage and freezes normal enemies for 4 sec. [I key]","Düşman mermilerini siler, alan hasarı verir ve normal düşmanları 4 sn. dondurur [I tuşu]","Efface les projectiles ennemis, inflige des dégâts de zone et gèle les ennemis normaux 4 s [touche I]","Elimina proyectiles enemigos, causa daño de área y congela enemigos normales 4 s [tecla I]"],
+  ["+5 maximale HP (dauerhaft)","+5 maximum HP (permanent)","+5 azami can (kalıcı)","+5 PV maximum (permanent)","+5 de salud máxima (permanente)"],
+  ["+0.5 permanente Geschwindigkeit","+0.5 permanent speed","+0,5 kalıcı hız","+0,5 vitesse permanente","+0,5 velocidad permanente"],
+  ["Ausrüstbare Ulti: Ohne Bewegung und ohne Feuerspur, 0,25 Sek. geschützt. Ein Doppelgänger bleibt 10 Sek. stehen und zieht alle Gegnerangriffe auf sich. 8 Sek. Ladezeit; erneut nutzbar, sobald der Doppelgänger verschwindet.","Equipable ultimate: protected for 0.25 sec., without movement or fire trail. A stationary decoy draws enemy attacks for 10 sec. Charges in 8 sec.; reusable when the decoy disappears.","Donatılabilir yetenek: hareket ve ateş izi olmadan 0,25 sn. koruma. Sabit bir kopya 10 sn. düşman saldırılarını çeker. 8 sn. dolum; kopya kaybolunca yeniden kullanılabilir.","Pouvoir équipable : protection de 0,25 s, sans mouvement ni traînée de feu. Un leurre immobile attire les attaques pendant 10 s. Recharge en 8 s ; réutilisable quand le leurre disparaît.","Habilidad equipable: protección de 0,25 s sin movimiento ni estela de fuego. Un señuelo inmóvil atrae ataques durante 10 s. Carga en 8 s; reutilizable al desaparecer el señuelo."],
+  ["Ausrüstbare Ulti: Konterschild für 0,25 Sek. Ein abgewehrter Treffer lädt die nächste Hauptwaffen-Salve 5 Sek. lang auf 2× Schaden. 4 Sek. Ladezeit.","Equipable ultimate: counter shield for 0.25 sec. A blocked hit doubles the next main-weapon volley’s damage for 5 sec. Charges in 4 sec.","Donatılabilir yetenek: 0,25 sn. karşı kalkan. Engellenen isabet sonraki ana silah salvosuna 5 sn. boyunca 2× hasar verir. Dolum: 4 sn.","Pouvoir équipable : bouclier de contre de 0,25 s. Un coup bloqué double les dégâts de la prochaine salve principale pendant 5 s. Recharge : 4 s.","Habilidad equipable: escudo de contraataque de 0,25 s. Bloquear duplica el daño de la próxima salva principal durante 5 s. Carga: 4 s."],
+  ["Ausrüstbare Ulti: Zieht normale Gegner 1,5 Sek. in die Feuerlinie vor deinem Jet und sammelt nahe Pickups. Bosse sind immun. 10 Sek. Ladezeit.","Equipable ultimate: pulls normal enemies into your firing line for 1.5 sec. and collects nearby pick-ups. Bosses are immune. Charges in 10 sec.","Donatılabilir yetenek: normal düşmanları 1,5 sn. ateş hattına çeker ve yakındaki güçlendirmeleri toplar. Patronlar bağışıktır. Dolum: 10 sn.","Pouvoir équipable : attire les ennemis normaux dans votre ligne de tir pendant 1,5 s et ramasse les bonus proches. Boss immunisés. Recharge : 10 s.","Habilidad equipable: atrae enemigos normales a tu línea de tiro durante 1,5 s y recoge objetos cercanos. Jefes inmunes. Carga: 10 s."],
+  ["Automatisch einmal pro Einsatz: Ein tödlicher Treffer lässt 1 HP übrig. Eine Druckwelle räumt nahe Geschosse ab und verursacht 12 Schaden. Kein zusätzliches Leben; Fortsetzen lädt den Funken nicht neu.","Automatic, once per mission: a lethal hit leaves 1 HP. A shockwave clears nearby projectiles and deals 12 damage. No extra life; resuming does not recharge the spark.","Görev başına otomatik bir kez: ölümcül isabet 1 can bırakır. Şok dalgası yakındaki mermileri temizler ve 12 hasar verir. Ek can vermez; devam etmek kıvılcımı yenilemez.","Automatique, une fois par mission : un coup fatal laisse 1 PV. Une onde de choc élimine les projectiles proches et inflige 12 dégâts. Pas de vie supplémentaire ; reprendre ne recharge pas l’étincelle.","Automático una vez por misión: un golpe mortal deja 1 de salud. Una onda elimina proyectiles cercanos y causa 12 de daño. Sin vida extra; continuar no recarga la chispa."],
+  ["Jeder 15. Abschuss hinterlässt ein CHAOS-Pickup. Einsammeln verleiht zufällig 8 Sek. Schnellfeuer, Feuerkraft oder Magnetfeld. Neue Pickups ersetzen den Effekt. Funktioniert auch mit Ulti-Abschüssen.","Every 15th kill drops a CHAOS pick-up. Collect it for 8 sec. of random rapid fire, firepower or magnetism. New pick-ups replace the effect. Ultimate kills also count.","Her 15. imha KAOS güçlendirmesi bırakır. Toplamak 8 sn. rastgele hızlı ateş, ateş gücü veya manyetizma verir. Yenisi etkiyi değiştirir. Yetenek imhaları da sayılır.","Chaque 15e ennemi abattu laisse un bonus CHAOS. Il donne 8 s de tir rapide, puissance ou magnétisme aléatoire. Un nouveau bonus remplace l’effet. Les pouvoirs comptent aussi.","Cada 15 bajas deja un potenciador CAOS. Otorga 8 s de fuego rápido, potencia o magnetismo aleatorio. Uno nuevo sustituye el efecto. Las bajas con habilidades también cuentan."],
+  ["Dauerhaft +15 % Hauptwaffen-Schaden.","Permanent +15% main-weapon damage.","Kalıcı +%15 ana silah hasarı.","+15 % de dégâts permanents de l’arme principale.","+15 % de daño permanente del arma principal."],
 ];

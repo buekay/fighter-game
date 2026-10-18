@@ -140,8 +140,10 @@ Waffen-Meisterschaft. Die normale Starttaste führt weiterhin auf die Levelkarte
   beschädigte Antriebe bremsen Bewegung, der Titan verliert seinen Schild und das
   U-Boot kann nicht mehr tauchen. Stadtgeschütze lassen sich einzeln entwaffnen.
 - **Umgebungsgefahren:** Alle zehn Landschaften besitzen eigene Hindernisse.
-  1,5 Sekunden Vorwarnung, freie Passagen in Canyon und Dschungel, Wind- und
-  Sandfronten mit Schubwirkung. Während Bosskämpfen werden Hindernisse entfernt.
+  Natürliche Felskonturen, bodengebundene Baumkronen und Eisberge, Wasserhosen,
+  fallende Trümmer und ballistische Vulkanbrocken. Asteroiden driften ohne
+  Schwerkraft. Wind- und Sandfronten schieben weich an; Blitze werden zwei Sekunden
+  angekündigt und dauern nur 0,22 Sekunden. Übrige Gefahren warnen 1,5 Sekunden. Während Bosskämpfen werden Hindernisse entfernt.
 - **Geheimnisse:** Goldene Funksignale anfliegen. Wracks bergen und Piloten retten
   erfordern drei Sekunden Nähe; das Fliegerass zahlt erst nach dem Sieg aus.
   Ein verpasstes Signal verfällt ohne Strafe.

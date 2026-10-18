@@ -16,7 +16,8 @@ function terrain(ctx: CanvasRenderingContext2D, h: Hazard) {
     for (let i = 0; i < 34; i++) {
       const x = h.x + noise(h.seed, i) * h.width, y = h.y + noise(h.seed + 3, i) * h.height;
       const r = 14 + noise(h.seed + 5, i) * 26;
-      ctx.fillStyle = ['#284932', '#345b3b', '#466745', '#536d42'][i % 4];
+      const leaves = ctx.createRadialGradient(x - r * .3, y - r * .35, 2, x, y, r);
+      leaves.addColorStop(0, ['#59744c', '#52734a', '#668353', '#6a8051'][i % 4]); leaves.addColorStop(1, '#203f2e'); ctx.fillStyle = leaves;
       ctx.beginPath(); ctx.ellipse(x, y, r, r * .75, -.4, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = '#99aa6f25'; ctx.beginPath(); ctx.arc(x - r * .15, y - r * .1, r * .7, 3.5, 5.4); ctx.stroke();
     }
@@ -24,14 +25,17 @@ function terrain(ctx: CanvasRenderingContext2D, h: Hazard) {
     for (let i = 0; i < 14; i++) {
       const y = h.y + h.height * i / 14;
       ctx.strokeStyle = ice ? '#effaff55' : i % 2 ? '#cda68155' : '#241f1c55'; ctx.lineWidth = ice ? 1 : 3;
-      ctx.beginPath(); ctx.moveTo(h.x - 8, y); ctx.lineTo(h.x + h.width * .5, y + 9 + noise(h.seed, i) * 12); ctx.lineTo(h.x + h.width + 8, y - 3); ctx.stroke();
+      ctx.beginPath();
+      if (ice) { const x = h.x + noise(h.seed, i) * h.width; ctx.moveTo(x, y); ctx.lineTo(x - 6, y + 18); ctx.lineTo(x + 4, y + 35); }
+      else { ctx.moveTo(h.x - 8, y); ctx.lineTo(h.x + h.width * .5, y + 9 + noise(h.seed, i) * 12); ctx.lineTo(h.x + h.width + 8, y - 3); }
+      ctx.stroke();
     }
     if (ice) { ctx.fillStyle = '#f1fbff55'; ctx.beginPath(); ctx.moveTo(h.x + h.width * .43, h.y); ctx.lineTo(h.x + h.width * .64, h.y + h.height); ctx.lineTo(h.x + h.width * .15, h.y + h.height); ctx.fill(); }
   }
   ctx.restore(); outline(ctx, h); ctx.strokeStyle = ice ? '#d6e8edaa' : trees ? '#59724e' : '#c3a08277'; ctx.lineWidth = 1.5; ctx.stroke();
 }
-function body(ctx: CanvasRenderingContext2D, h: Hazard) {
-  ctx.save(); ctx.translate(h.x + h.width / 2, h.y + h.height / 2); ctx.rotate(h.rotation);
+function body(ctx: CanvasRenderingContext2D, h: Hazard, reduced: boolean) {
+  ctx.save(); ctx.translate(h.x + h.width / 2, h.y + h.height / 2); ctx.scale(h.width / Math.min(h.width, h.height), h.height / Math.min(h.width, h.height)); ctx.rotate(reduced ? h.seed : h.rotation);
   const r = Math.min(h.width, h.height) * .48;
   const g = ctx.createLinearGradient(-r, -r, r, r);
   g.addColorStop(0, h.kind === 'debris' ? '#a0a6a9' : '#9c9284'); g.addColorStop(.45, '#625f58'); g.addColorStop(1, '#282e31');
@@ -63,19 +67,28 @@ function air(ctx: CanvasRenderingContext2D, h: Hazard, reduced: boolean) {
     const x = h.x + noise(h.seed, i) * h.width, y = h.y + noise(h.seed + 4, i) * h.height;
     const sway = Math.sin(phase + i) * 9;
     if (sand) {
-      ctx.fillStyle = '#b79b6a13'; ctx.beginPath(); ctx.ellipse(x, y + sway, 45 + i % 3 * 8, 18 + i % 4 * 4, .12, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#b79b6a22'; ctx.beginPath(); ctx.ellipse(x, y + sway, 45 + i % 3 * 8, 18 + i % 4 * 4, .12, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = '#d6bd8d44'; ctx.lineWidth = 1;
-    } else { ctx.strokeStyle = '#d8e2df38'; ctx.lineWidth = 1.2; }
+    } else { ctx.strokeStyle = '#d8e2df66'; ctx.lineWidth = 1.2; }
     ctx.beginPath(); ctx.moveTo(x - 35, y); ctx.bezierCurveTo(x - 10, y - 4 + sway, x + 12, y + 7 + sway, x + 35, y + 6); ctx.stroke();
   }
 }
 function waterspout(ctx: CanvasRenderingContext2D, h: Hazard, reduced: boolean) {
   const cx = h.x + h.width / 2;
   const phase = reduced ? 0 : h.ageMs * .004;
+  const funnel = ctx.createLinearGradient(h.x, h.y, h.x + h.width, h.y);
+  funnel.addColorStop(0, '#d6e1e188'); funnel.addColorStop(.35, '#a3b6bdcc'); funnel.addColorStop(.65, '#5e798b99'); funnel.addColorStop(1, '#c3d5d588');
+  ctx.fillStyle = funnel;
+  ctx.beginPath(); ctx.moveTo(cx - h.width * .44, h.y);
+  ctx.bezierCurveTo(cx - h.width * .2, h.y + h.height * .2, cx - h.width * .1, h.y + h.height * .65, cx - h.width * .44, h.y + h.height);
+  ctx.lineTo(cx + h.width * .44, h.y + h.height);
+  ctx.bezierCurveTo(cx + h.width * .1, h.y + h.height * .65, cx + h.width * .2, h.y + h.height * .2, cx + h.width * .44, h.y); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#9caeb7aa';
+  for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.ellipse(cx - 36 + i * 18, h.y - 4 - (i % 2) * 7, 28, 13, 0, 0, Math.PI * 2); ctx.fill(); }
   for (let i = 0; i < 28; i++) {
     const t = i / 27, y = h.y + h.height * t;
     const radius = h.width * (.44 - .3 * Math.sin(t * Math.PI));
-    ctx.strokeStyle = i % 3 ? '#9eb6bf66' : '#d6e7e9aa'; ctx.lineWidth = 4;
+    ctx.strokeStyle = i % 3 ? '#9eb6bf33' : '#d6e7e966'; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.ellipse(cx + Math.sin(t * 4 + phase) * 5, y, radius, 5 + t * 4, 0, 0, Math.PI * 2); ctx.stroke();
   }
   // Broad spray at sea level, with a narrow condensation funnel above it.
@@ -103,7 +116,7 @@ export function drawHazards(ctx: CanvasRenderingContext2D, hazards: Hazard[], re
     else if (h.kind === 'wind' || h.kind === 'sand') air(ctx, h, reducedMotion);
     else if (h.kind === 'wave') waterspout(ctx, h, reducedMotion);
     else if (h.kind === 'lightning') lightning(ctx, h);
-    else body(ctx, h);
+    else body(ctx, h, reducedMotion);
     if (h.warningMs > 0) {
       ctx.globalAlpha = .9; ctx.font = '11px Inter, sans-serif'; ctx.fillStyle = '#e2d3b6';
       const x = Math.max(16, Math.min(h.x, 720)), y = Math.max(95, Math.min(560, h.y - 14));

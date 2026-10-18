@@ -1,3 +1,4 @@
+import { canvasLocale } from "../i18n";
 import { BOSS_NAMES, CITY_WEAPONS, ENCOUNTER_HEALTH, type EncounterKind } from "../boss-encounters";
 import { SPECIAL_NAMES, SPECIAL_WARNING_FRAMES, type BossSpecialState } from "../boss-specials";
 import { isSubmerged } from "../submarine-dive";
@@ -297,7 +298,7 @@ export function drawEncounterHealthBar(ctx: CanvasRenderingContext2D, enemies: r
   ctx.fillStyle = "#e5edf5"; ctx.font = "bold 12px monospace"; ctx.textAlign = "left";
   ctx.fillText(BOSS_NAMES[kind].toUpperCase(), x, top + 15);
   ctx.fillStyle = BOSS_ACCENTS[kind]; ctx.textAlign = "right";
-  ctx.fillText(`PHASE ${phase}  ·  ${Math.ceil(hp).toLocaleString("de-DE")} / ${maxHp.toLocaleString("de-DE")}`, x + width, top + 15);
+  ctx.fillText(`PHASE ${phase}  ·  ${Math.ceil(hp).toLocaleString(canvasLocale(ctx))} / ${maxHp.toLocaleString(canvasLocale(ctx))}`, x + width, top + 15);
   ctx.fillStyle = "#070910"; ctx.fillRect(x, top + 22, width, 12);
   const spectrum = ctx.createLinearGradient(x, 0, x + width, 0);
   spectrum.addColorStop(0, "#67e8f9"); spectrum.addColorStop(.36, "#a78bfa"); spectrum.addColorStop(.7, BOSS_ACCENTS[kind]); spectrum.addColorStop(1, "#fde68a");

@@ -132,3 +132,14 @@ Regeln mit bestehenden Schadens-, Projektil-, Pause- und Fortschrittspfaden.
 Trainingsoptionen sperren sämtliche Kampfbelohnungen und Checkpoint-Schreibpfade.
 Meisterschaftsänderungen werden höchstens einmal pro aktiver Sekunde gespeichert,
 zusätzlich beim Einsatzende und bei der Rückkehr zum Hangar.
+
+### Natürliche Umgebungsgefahren
+
+`environment-hazards.ts` definiert Geländeumrisse, elliptische Körper, ballistische
+Bewegung und weich einsetzende Windkräfte. Kollisionsprüfung und Rendering nutzen
+dieselben Geländeumrisse; leere Ecken bleiben ungefährlich. Baumkronen und Eisberge
+sind am Geländerand verankert, der Canyon behält einen 170-Pixel-Durchflug.
+`rendering/environment-hazards.ts` zeichnet gedeckte Materialien, Felslagen,
+Blattkronen, Kondensation und Staub mit deterministischen Details. Es gibt keine
+zufälligen Musterwechsel pro Frame und keine rechteckigen Warn-/Schadensflächen.
+Warnzeiten verursachen keinen Schaden; Pause friert alle Bewegungen ein.
