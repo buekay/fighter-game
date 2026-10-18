@@ -11,7 +11,7 @@ assert.deepEqual(canvasResolution(600, 900, 400, 3), {
 assert.equal(canvasResolution(900, 600, 2000, 3).scaleX, 2, "Large displays keep a bounded pixel budget");
 assert.equal(canvasResolution(900, 600, 375, 1).scaleX, 1, "Small screens retain the logical resolution");
 assert.equal(canvasResolution(900, 600, 900, NaN).scaleX, 1, "Invalid device density falls back safely");
-const fractional = canvasResolution(600, 900, 437, 1.25);
+const fractional = canvasResolution(600, 900, 637, 1.25);
 assert.equal(fractional.scaleX * 600, fractional.width, "Rounded pixels use the actual horizontal scale");
 assert.equal(fractional.scaleY * 900, fractional.height, "Rounded pixels use the actual vertical scale");
 

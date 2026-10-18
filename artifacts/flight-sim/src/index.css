@@ -951,3 +951,90 @@ input:focus-visible {
 .mastery-grid article { background: #142033; border: 1px solid #334155; border-radius: 12px; padding: 14px; }
 .mastery-grid progress { display: block; width: 100%; height: 8px; margin: 12px 0; accent-color: #22d3ee; }
 .mastery-grid label { font-size: 12px; }
+
+
+/* Menus use the safe viewport independently of the game's aspect ratio. */
+html, body, #root { width: 100%; height: 100%; min-width: 0; }
+.game-shell { width: 100%; }
+.game-frame.menu-frame {
+  width: 100%;
+  max-width: 1440px;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+  overflow: hidden;
+}
+.menu-frame > .game-canvas { position: absolute; inset: 0; }
+.menu-frame .hangar-layer { position: absolute; inset: 0; }
+.hangar-layer, .flight-lab-overlay, .campaign-map, .run-summary-layer, .pause-layer {
+  touch-action: pan-y;
+}
+.hangar-main { gap: 12px; justify-content: flex-start; }
+.menu-frame .hangar-main { padding-top: 64px; }
+.hangar-main > *, .hangar-bays > *, .hangar-pilot input,
+.settings-grid > *, .shop-header > * { min-width: 0; }
+.hangar-preview { max-width: 100%; }
+.hangar-preview-canvas { max-width: 100%; }
+.hangar-preview-canvas canvas { max-width: 100%; height: auto; }
+.hangar-skins, .hangar-crate-skins { max-width: 100%; }
+.hangar-footer { flex-wrap: wrap; justify-content: center; gap: 8px; }
+.hangar-actions { width: 100%; max-width: 700px; }
+.hangar-topbar { gap: 12px; flex-wrap: wrap; }
+.gameplay-toolbar { top: clamp(48px, 10vw, 90px); }
+.pause-layer, .run-summary-layer {
+  position: fixed;
+  inset: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.pause-panel { flex-shrink: 0; max-height: 100%; overflow-y: auto; }
+.run-summary-layer > div { margin-block: auto; flex-shrink: 0; }
+.mastery-grid { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
+.flight-lab header { flex-wrap: wrap; gap: 12px; }
+.flight-lab h2 { font-size: clamp(20px, 4vw, 28px); }
+.flight-lab-controls label, .flight-lab-controls select { min-width: 0; max-width: 100%; }
+.campaign-map-header > * { min-width: 0; }
+.campaign-node-group { width: min(220px, 44vw); }
+.campaign-victory { overflow-y: auto; justify-content: safe center; }
+
+@media (pointer: coarse), (max-width: 600px), (max-height: 500px) {
+  .facility-screen button, .facility-screen select, .facility-screen input,
+  .flight-lab button, .flight-lab select, .gameplay-toolbar button {
+    min-height: 44px;
+  }
+  .facility-screen input, .facility-screen select { font-size: 16px; }
+}
+
+@media (max-width: 600px) {
+  .hangar-topbar > div { width: 100%; }
+  .hangar-topbar > div:last-child {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    text-align: left;
+  }
+  .hangar-bays { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hangar-bays button { overflow-wrap: anywhere; padding: 8px; }
+  .shop-header { gap: 8px; }
+  .shop-header h2 { font-size: 18px; }
+  .campaign-map-header { flex-wrap: wrap; }
+  .campaign-map-header strong { margin-left: auto; }
+  .run-summary-layer { padding: 10px; }
+  .run-summary-layer > div { padding: 16px; }
+}
+
+/* Keep every hangar section in document order on short landscape displays. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .hangar-main { grid-template-columns: minmax(0, .8fr) minmax(0, 1.4fr); grid-template-rows: auto; }
+  .hangar-main > * { grid-column: 2; grid-row: auto; }
+  .hangar-main > .hangar-preview { grid-column: 1; grid-row: 1 / span 6; }
+  .hangar-main > .hangar-topbar { grid-column: 2; grid-row: 1; }
+  .hangar-main > .hangar-bays { grid-column: 2; grid-row: 2; }
+  .hangar-main > .hangar-pilot { grid-column: 2; grid-row: 3; }
+  .hangar-main > .hangar-actions { grid-column: 2; grid-row: 4; }
+  .hangar-main > .hangar-footer { grid-column: 2; grid-row: 5; }
+  .pause-layer { align-items: flex-start; }
+  .pause-panel { margin-block: auto; }
+}

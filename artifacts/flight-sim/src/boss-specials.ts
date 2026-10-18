@@ -31,7 +31,7 @@ export function specialVolleyCount(kind: EncounterKind, index: number): number {
 /** Fixed-step state machine: locked warning targets, bounded volleys, no attacks while frozen. */
 export function advanceBossSpecial(
   state: BossSpecialState, frames: number, mounts: readonly SpecialMount[], target: SpecialMount,
-  healthRatio: number, frozen = false,
+  healthRatio: number, frozen = false, disabledAttacks: readonly number[] = [],
 ): SpecialShot[] {
   if (frozen || mounts.length === 0 || frames <= 0) return [];
   const shots: SpecialShot[] = [];
@@ -48,7 +48,7 @@ export function advanceBossSpecial(
       state.target = { ...target };
     } else if (state.stage === "warning") {
       state.stage = "firing"; state.volley = 0;
-      shots.push(...createSpecialVolley(state));
+      if (!disabledAttacks.includes(state.index)) shots.push(...createSpecialVolley(state));
       state.remaining += 14;
     } else {
       state.volley++;
@@ -57,7 +57,7 @@ export function advanceBossSpecial(
         state.index = (state.index + 1) % 3;
         state.remaining += healthRatio <= .3 ? 165 : healthRatio <= .6 ? 210 : 270;
       } else {
-        shots.push(...createSpecialVolley(state));
+        if (!disabledAttacks.includes(state.index)) shots.push(...createSpecialVolley(state));
         state.remaining += 14;
       }
     }

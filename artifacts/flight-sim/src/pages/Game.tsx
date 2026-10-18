@@ -4428,6 +4428,7 @@ export default function Game() {
   const startGame = useCallback((fromSave = false, requestedLevel = campaignLevelRef.current, options?: FlightOptions) => {
     flightOptionsRef.current = options ?? { ...DEFAULT_FLIGHT_OPTIONS, coop: coopEnabledRef.current };
     const training = flightOptionsRef.current.training;
+    masterySavedAtRef.current = 0;
     if (training) requestedLevel = 1;
     setFlightLabOpen(false);
     masteriesRef.current = loadMasteries();
@@ -5505,10 +5506,12 @@ export default function Game() {
           partner.x = clamp(partner.x + clamp(dx, -1, 1) * spd * dtScale, 0, CANVAS_W - PLAYER_W);
           partner.y = clamp(partner.y + clamp(dy, -1, 1) * spd * dtScale, 65, CANVAS_H - PLAYER_H);
           if ((keysRef.current.has('ShiftRight') || pad.ulti) && partner.ultiCooldownMs <= 0) partner.armedMs = 3000;
-          if ((settingsRef.current.autoFire || keysRef.current.has('Enter') || pad.firing) && runElapsedMsRef.current - partner.lastFireMs >= 240) {
+          if (settingsRef.current.autoFire || keysRef.current.has('Enter') || pad.firing) {
             partner.lastFireMs = runElapsedMsRef.current;
             for (const weapon of activeWeaponsRef.current) {
               const stats = getWeaponStats(weapon, weaponLevelsRef.current[weapon.id] ?? 1);
+              if (runElapsedMsRef.current - (partner.lastShots[weapon.id] ?? -1000) < stats.fireRate * aircraftUpgradeRef.current.fireRateMultiplier) continue;
+              partner.lastShots[weapon.id] = runElapsedMsRef.current;
               const m = masteryFor(masteriesRef.current, weapon.id); const mastered = m.enabled && masteryUnlocked(m);
               const count = Math.min(7, weapon.guns + (mastered && weapon.pattern === 'spread' ? 2 : 0));
               for (let i = 0; i < (weapon.pattern === 'melee' ? 1 : count); i++) {
@@ -5530,7 +5533,7 @@ export default function Game() {
             if (enemy.dead || isSubmerged(enemy) || !isEnemyVisible(enemy)) continue;
             const contact = overlaps({ ...partner, width: PLAYER_W, height: PLAYER_H }, enemy);
             const beam = enemy.type === 'titan' && (enemy.titanDashWarningTimer ?? 0) > 0 && overlaps({ ...partner, width: PLAYER_W, height: PLAYER_H }, { x: 0, y: enemy.y + enemy.height / 2 - 36, width: enemy.x + 22, height: 72 });
-            if ((contact || beam) && damageCoop(partner, beam ? 10 : enemy.ramDamage ?? 2)) recordPlayerDamage(beam ? 10 : enemy.ramDamage ?? 2);
+            if (!enemy.trainingDummy && (contact || beam) && damageCoop(partner, beam ? 10 : enemy.ramDamage ?? 2)) recordPlayerDamage(beam ? 10 : enemy.ramDamage ?? 2);
           }
         }
       }
@@ -6174,7 +6177,7 @@ export default function Game() {
       const special = bossSpecialRef.current;
       if (special && specialBosses.length > 0) {
         const leader = specialBosses[0];
-        const liveMounts = specialBosses.filter(e => !isSubmerged(e) && (e.ultimateFreezeTimer ?? 0) <= 0)
+        const liveMounts = specialBosses.filter(e => !isSubmerged(e) && (e.encounterKind !== 'city' || !e.bossCannonsDisabled) && (e.ultimateFreezeTimer ?? 0) <= 0)
           .map(e => ({ x: e.x, y: e.y + e.height / 2 }));
         const target = getEnemyAttackTarget(activeModeRef.current,
           decoyAimBounds,
@@ -6182,7 +6185,7 @@ export default function Game() {
         const maxHp = special.kind === "city" ? 9000 : leader.maxHp;
         const ratio = specialBosses.reduce((total, e) => total + e.hp, 0) / maxHp;
         const shots = advanceBossSpecial(special, dtScale * (flightOptionsRef.current.training ? TRAINING_DIFFICULTY[flightOptionsRef.current.difficulty] : 1), liveMounts, target, ratio,
-          liveMounts.length === 0 || (leader.titanDashTimer ?? 0) > 0);
+          liveMounts.length === 0 || (leader.titanDashTimer ?? 0) > 0, leader.bossCannonsDisabled && special.kind !== 'city' ? [0] : []);
         for (const shot of shots) addProjectilesWithinLimit(bulletsRef.current, { ...shot, sourceEnemy: leader });
         if (shots.length > 0) {
           screenShakeRef.current = Math.max(screenShakeRef.current, 3);
@@ -6663,7 +6666,7 @@ export default function Game() {
           if (e.x + e.width < -20 && !isEnemyReturningToPlayfield(e)) return false;
 
           // Basic boss guns keep firing alongside rockets, webs, flames and specials.
-          if (e.encounterKind && e.encounterKind !== "titan" && !isSubmerged(e) && (e.ultimateFreezeTimer ?? 0) <= 0) {
+          if (e.encounterKind && e.encounterKind !== "titan" && !e.bossCannonsDisabled && !isSubmerged(e) && (e.ultimateFreezeTimer ?? 0) <= 0) {
             e.bossGunCooldown = (e.bossGunCooldown ?? 0) - dtScale;
             if (e.bossGunCooldown <= 0) {
               const target = getEnemyAttackTarget(activeModeRef.current,
@@ -6679,7 +6682,7 @@ export default function Game() {
 
           // Enemy shooting
           if (!isSubmerged(e) && e.type !== "laserdevice" && (e.ultimateFreezeTimer ?? 0) <= 0) e.shootCooldown -= dtScale;
-          if (!isSubmerged(e) && e.type !== "laserdevice" && e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
+          if ((!e.encounterKind || !e.bossCannonsDisabled) && !isSubmerged(e) && e.type !== "laserdevice" && e.shootCooldown <= 0 && (e.ultimateFreezeTimer ?? 0) <= 0) {
             const bossPhase = isBossEnemy(e) ? (e.hp / e.maxHp <= .3 ? 3 : e.hp / e.maxHp <= .6 ? 2 : 1) : 0;
             const biomeFireCooldown = getBiomeEnemyDefinition(e.biomeEnemyId)?.fireCooldown;
             const baseCooldown = e.type === "overlord" || e.type === "titan" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : biomeFireCooldown ? rand(biomeFireCooldown[0], biomeFireCooldown[1]) : rand(70, 120);
@@ -7213,7 +7216,7 @@ export default function Game() {
           }
           return false;
         }
-        if (flightOptionsRef.current.coop && !partnerRef.current.down && overlaps({ x: b.x - bw / 2, y: b.y - bh / 2, width: bw, height: bh }, { ...partnerRef.current, width: PLAYER_W, height: PLAYER_H })) {
+        if (flightOptionsRef.current.coop && !partnerRef.current.down && projectileHitsBounds(b, { ...partnerRef.current, width: PLAYER_W, height: PLAYER_H })) {
           const amount = getEnemyDamage(b.normalBossProjectile ? getNormalBossDamage(b.damage, gs.level) : b.damage, gs.level) * (flightOptionsRef.current.training ? TRAINING_DIFFICULTY[flightOptionsRef.current.difficulty] : 1);
           if (damageCoop(partnerRef.current, amount)) recordPlayerDamage(amount);
           spawnExplosion(particlesRef.current, b.x, b.y, false);
@@ -8413,9 +8416,9 @@ export default function Game() {
     <div
       ref={shellRef}
       className={`game-shell ${displayState.started && !displayState.gameOver ? "has-control-hint" : ""} flex flex-col items-center justify-center w-full bg-[#08080e] select-none ${settings.highContrast ? "high-contrast" : ""} ${settings.reducedMotion ? "reduced-motion" : ""}`}
-      style={{ touchAction: mapOpen || introOpen || flightLabOpen ? "pan-y" : "none" }}
+      style={{ touchAction: !displayState.started || displayState.paused || displayState.gameOver ? "pan-y" : "none" }}
     >
-      <div className={`game-frame ${mapOpen ? "campaign-frame" : ""} ${settings.flightDirection === "up" ? "flight-up" : ""} relative rounded overflow-hidden shadow-lg`}
+      <div className={`game-frame ${!displayState.started ? "menu-frame" : ""} ${mapOpen ? "campaign-frame" : ""} ${settings.flightDirection === "up" ? "flight-up" : ""} relative rounded overflow-hidden shadow-lg`}
         style={{ border: "1px solid rgba(0,207,255,0.15)" }}>
         <canvas
           ref={canvasRef}
@@ -8434,12 +8437,15 @@ export default function Game() {
             </div>
           </div>
         )}
-        {displayState.started && isPortraitPhone && settings.flightDirection !== "up" && (
+        {displayState.started && !displayState.paused && !displayState.gameOver && completedAnimation === null && isPortraitPhone && settings.flightDirection !== "up" && (
           <div className="orientation-gate fixed inset-0 z-[70] flex items-center justify-center bg-[#030814]/95 p-6 text-center text-white">
             <div className="max-w-sm rounded-3xl border border-cyan-400/60 bg-slate-950/95 p-7 shadow-lg">
               <div className="text-6xl" aria-hidden="true">📱↻</div>
               <h2 className="mt-4 text-2xl font-black">GERÄT DREHEN</h2>
-              <p className="mt-2 text-sm text-slate-300">Das Spielfeld ist im Querformat größer und leichter zu steuern. Die Mission wartet, bis du dein Gerät gedreht hast.</p>
+              <p className="mt-2 text-sm text-slate-300">Das Spielfeld ist im Querformat größer und leichter zu steuern. Drehe dein Gerät oder wechsle zum Hochformat-Flug.</p>
+              <button onClick={() => updateSettings({ ...settings, flightDirection: "up" })} className="pause-primary mt-5 min-h-12 w-full rounded-xl px-5 py-3 font-black">
+                ↑ IM HOCHFORMAT SPIELEN
+              </button>
               {fullscreenSupported && (
                 <button onClick={toggleFullscreen} className="pause-primary mt-5 min-h-12 w-full rounded-xl px-5 py-3 font-black">
                   ⛶ VOLLBILD ÖFFNEN
@@ -8499,7 +8505,7 @@ export default function Game() {
           </div>
         )}
         {displayState.started && !displayState.gameOver && (
-          <div className="absolute top-[90px] right-2 z-10 flex gap-1.5">
+          <div className="gameplay-toolbar absolute right-2 z-10 flex gap-1.5">
             <button onClick={returnToHangar} aria-label={translated(language, "Zum Hangar", "Return to hangar")}
               className="font-bold rounded px-2 py-1 text-sm"
               style={{ background: "rgba(4,10,24,0.85)", border: "1px solid #334466", color: "#79e5ff" }}>
@@ -8605,7 +8611,7 @@ export default function Game() {
           />
         )}
         {displayState.started && displayState.paused && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center p-4" style={{ background: "rgba(2,8,20,0.86)" }}>
+          <div className="pause-layer absolute inset-0 z-30 flex items-center justify-center overflow-y-auto p-4 touch-pan-y" style={{ background: "rgba(2,8,20,0.86)" }}>
             {pauseView === "settings" ? (
               <div className="pause-panel h-full w-full max-w-2xl overflow-hidden rounded-2xl" style={{ background: "#071126", border: "1px solid #285078" }}>
                 <SettingsScreen settings={settings} onChange={updateSettings} onBack={() => setPauseView("menu")} />
@@ -9515,7 +9521,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
           </div>
         </div>
       )}
-      <div className="relative z-10 flex items-center gap-3 shrink-0">
+      <div className="shop-header relative z-10 flex flex-wrap items-center gap-3 shrink-0">
         <button onClick={onBack} className="text-slate-400 hover:text-white text-xl font-bold px-2">←</button>
         <h2 className="font-bold text-xl tracking-wide" style={{ textShadow: "none" }}>SHOP</h2>
         <span className="rounded-full border border-cyan-400/50 bg-cyan-950/60 px-2.5 py-1 text-xs font-black text-cyan-300">PILOT-LEVEL {playerLevel}</span>

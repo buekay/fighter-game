@@ -131,11 +131,11 @@ export function rememberBoss(kind: EncounterKind, completed: number): void {
 
 export interface CoopPilot extends Point {
   hp: number; maxHp: number; invincibleMs: number; reviveMs: number; lastFireMs: number;
-  ultiCooldownMs: number; armedMs: number; down: boolean;
+  ultiCooldownMs: number; armedMs: number; down: boolean; lastShots: Record<string, number>;
 }
 export function createCoopPilot(maxHp: number): CoopPilot {
   return { x: 90, y: 370, hp: maxHp, maxHp, invincibleMs: 2000, reviveMs: 0, lastFireMs: -1000,
-    ultiCooldownMs: 0, armedMs: 0, down: false };
+    ultiCooldownMs: 0, armedMs: 0, down: false, lastShots: {} };
 }
 export function damageCoop(p: CoopPilot, damage: number): boolean {
   if (p.down || p.invincibleMs > 0) return false;

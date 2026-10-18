@@ -109,3 +109,13 @@ Die Tests simulieren unter anderem mehrere Minuten bei 30, 60 und 120 Hz.
 Hangar, Shop und Einstellungen teilen die statische `.facility-screen`-Gestaltung.
 `drawDisplayBay` zeichnet die Stellflächen nur beim Aktualisieren einer Vorschau;
 die Menüs benötigen dafür keine zusätzliche Animationsschleife.
+
+### Auflösung der Spielfläche
+
+`rendering/canvas-resolution.ts` trennt die logischen Spielkoordinaten von der
+Canvas-Pixelauflösung. Ein ResizeObserver erfasst die sichtbare Breite; der
+Spielloop berücksichtigt die Display-Pixeldichte mit maximal zweifacher Auflösung.
+Weltrotation und HUD verwenden denselben Pixelfaktor. Touch-Eingaben bleiben in
+logischen Koordinaten; Ulti-Countdowns werden nach der Weltrotation aufrecht und
+innerhalb der sichtbaren Ränder gezeichnet. Die Tastaturhilfe erhält eigenen
+Platz unter der Spielfläche, damit der obere HUD-Rand sichtbar bleibt.
