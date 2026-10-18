@@ -1,3 +1,7 @@
+import { FlightFeaturesPanel } from "../components/FlightFeaturesPanel";
+import { DEFAULT_FLIGHT_OPTIONS, TRAINING_DIFFICULTY, createBossParts, hitBossPart, createHazards, tickHazard, overlaps, createSecret, SECRET_NAMES, loadMasteries, saveMasteries, masteryFor, masteryUnlocked, recordMastery, loadDefeatedBosses, rememberBoss, createCoopPilot, damageCoop, tickCoop, rollingDps, type FlightOptions, type BossPart, type Hazard, type SecretSignal, type DamageSample } from "../flight-features";
+import { drawBossParts, drawHazards, drawSecret, drawCoopStatus } from "../rendering/flight-features";
+import { canvasResolution } from "../rendering/canvas-resolution";
 import { ACHIEVEMENTS, achievementProgress, loadAchievements, saveAchievements, newlyUnlockedAchievements, normalizeRunStats, type Achievement, type RunStats } from "../achievements";
 import { drawCombatExtras } from "../rendering/combat-extras";
 import { drawBiomeEnemyBody } from "../rendering/biome-enemies";
@@ -14,6 +18,7 @@ import { BOSS_SHOT_COLORS, BOSS_GUN_INTERVAL, createBossGunfire } from "../boss-
 import { drawBossBackground, getBossArena } from "../rendering/boss-backgrounds";
 import { claimLightningTargets } from "../fire-sword-chain";
 import { interceptProjectiles, type InterceptableProjectile } from "../projectile-defense";
+import { projectileHitsBounds } from "../combat-collisions";
 import { BOSS_SEQUENCE, BOSS_NAMES, CITY_WEAPONS, BOSS_DIMENSIONS, cityMountPosition, getBossForLevel, encounterHealth, encounterComplete, type EncounterKind } from "../boss-encounters";
 import { drawEncounterBoss, drawFortressCity, drawEncounterHealthBar, drawSpecialWarning } from "../rendering/encounter-bosses";
 import { steerTitan, type TitanTactics } from "../titan-tactics";
@@ -160,6 +165,10 @@ interface Enemy {
   citySlot?: number;
   killRegistered?: boolean;
   campaignBoss?: boolean;
+  parts?: BossPart[];
+  lastHitWeapon?: string;
+  secretAce?: boolean;
+  trainingDummy?: boolean;
   biomeEnemyId?: string;
   submarineDiveUsed?: boolean;
   submarineDiveMs?: number;
@@ -3363,6 +3372,24 @@ class GameAudio {
 
 export default function Game() {
   const [mapOpen, setMapOpen] = useState(false);
+  const [flightLabOpen, setFlightLabOpen] = useState(false);
+  const [coopEnabled, setCoopEnabled] = useState(false);
+  const flightOptionsRef = useRef<FlightOptions>({ ...DEFAULT_FLIGHT_OPTIONS });
+  const coopEnabledRef = useRef(false);
+  const partnerRef = useRef(createCoopPilot(10));
+  const leaderDownRef = useRef(false);
+  const partnerPadRef = useRef({ x: 0, y: 0, firing: false, ulti: false });
+  const hazardsRef = useRef<Hazard[]>([]);
+  const nextHazardRef = useRef(10000);
+  const secretRef = useRef<SecretSignal | null>(null);
+  const nextSecretRef = useRef(18000);
+  const masteriesRef = useRef(loadMasteries());
+  const masteryDirtyRef = useRef(false);
+  const masterySavedAtRef = useRef(0);
+  const dpsSamplesRef = useRef<DamageSample[]>([]);
+  const damageSampledRef = useRef(0);
+  const trainingRespawnRef = useRef(0);
+  const teamPulseRef = useRef(false);
   const [completedLevels, setCompletedLevels] = useState(loadCompletedLevels);
   const [completedAnimation, setCompletedAnimation] = useState<number | null>(null);
   const campaignLevelRef = useRef(1);
@@ -3570,6 +3597,7 @@ export default function Game() {
   }, []);
 
   const checkAchievements = useCallback(() => {
+    if (flightOptionsRef.current.training) return;
     const owned = achievementsRef.current;
     const unlocked = newlyUnlockedAchievements(runStatsRef.current, owned);
     if (unlocked.length === 0) return;
@@ -3604,7 +3632,17 @@ export default function Game() {
     runStatsRef.current.maxCombo = Math.max(runStatsRef.current.maxCombo, comboRef.current);
     const comboMultiplier = Math.min(4, 1 + Math.floor(comboRef.current / 10) * .25);
     stateRef.current.score += Math.round(enemy.points * (comboMultiplier - 1));
-    pilotLevelRef.current = getPilotLevelFromKills(addPilotKill());
+    if (!flightOptionsRef.current.training) {
+      pilotLevelRef.current = getPilotLevelFromKills(addPilotKill());
+      if (enemy.lastHitWeapon && WEAPONS.some(w => w.id === enemy.lastHitWeapon)) {
+        const unlocked = recordMastery(masteriesRef.current, enemy.lastHitWeapon, true, comboRef.current >= 10);
+        masteryDirtyRef.current = true;
+        if (unlocked) waveBannerRef.current = { text: 'WAFFEN-MEISTERSCHAFT FREIGESCHALTET', timer: 160 };
+      }
+    }
+    if (enemy.secretAce && !flightOptionsRef.current.training) {
+      addCoins(7500); waveBannerRef.current = { text: 'GEHEIMES FLIEGERASS BESIEGT · +7.500 CREDITS', timer: 150 };
+    }
     floatingTextsRef.current.push({
       x: enemy.x + enemy.width / 2, y: enemy.y,
       text: comboRef.current >= 2 ? `${comboRef.current}× COMBO` : `+${enemy.points}`,
@@ -3621,7 +3659,7 @@ export default function Game() {
       floatingTextsRef.current.push({ x: playerRef.current.x, y: playerRef.current.y, text: "+HP NANITEN", color: "#67e8f9", life: 70, maxLife: 70 });
     }
     stateRef.current.score += Math.round(enemy.points * routeModifiersRef.current.bounty_hunter * .25);
-    if (enemy.isGolden) {
+    if (enemy.isGolden && !flightOptionsRef.current.training) {
       const reward = 750 + stateRef.current.level * 100;
       addCoins(reward);
       stateRef.current.score += reward;
@@ -3631,6 +3669,7 @@ export default function Game() {
     if (isBossEnemy(enemy) && (enemy.encounterKind !== "city" ||
         encounterComplete(enemiesRef.current.filter(member => member.encounterKind === "city")))) {
       runStatsRef.current.bosses += 1;
+      if (enemy.encounterKind && !flightOptionsRef.current.training) rememberBoss(enemy.encounterKind, loadCompletedLevels());
       if (enemy.campaignBoss || enemy.encounterKind === getBossForLevel(stateRef.current.level)) {
         campaignBossDefeatedRef.current = true;
       }
@@ -3674,8 +3713,10 @@ export default function Game() {
   const grantRunReward = useCallback(() => {
     if (rewardGrantedRef.current) return;
     rewardGrantedRef.current = true;
+    if (masteryDirtyRef.current) { saveMasteries(masteriesRef.current); masteryDirtyRef.current = false; }
     checkAchievements();
     const gs = stateRef.current;
+    if (flightOptionsRef.current.training) { syncDisplay(); return; }
     if (activeModeRef.current === "classic" || activeModeRef.current === "protect") {
       clearSave();
     }
@@ -3976,6 +4017,7 @@ export default function Game() {
       vx: kind === "city" ? 0 : -.55, vy: 0,
       hp, maxHp: hp, width, height,
       type: kind === "titan" ? "titan" : "boss",
+      parts: createBossParts(kind, hp),
       encounterKind: kind, citySlot: kind === "city" ? slot : undefined,
       shootCooldown: 90 + slot * 20,
       points: kind === "city" ? 1250 : 2500 + power * 1000,
@@ -4136,7 +4178,10 @@ export default function Game() {
         engineModule.fireRate * fireRatePenaltyRef.current * (extrasRef.current.chaos === "rapid" ? .65 : 1);
       if (now - (lastFireRef.current[weapon.id] ?? 0) < fireRate) return;
       lastFireRef.current[weapon.id] = now;
-      const offsets = gunOffsets[Math.min(weapon.guns - 1, gunOffsets.length - 1)];
+      const mastery = masteryFor(masteriesRef.current, weapon.id);
+      const mastered = mastery.enabled && masteryUnlocked(mastery);
+      const offsets = [...gunOffsets[Math.min(weapon.guns - 1, gunOffsets.length - 1)]];
+      if (mastered && weapon.pattern === 'spread') offsets.unshift(-24), offsets.push(24);
       const slotOffset = activeWeaponsRef.current.length > 1 ? (weaponIndex === 0 ? -4 : 4) : 0;
       const weaponDamage = (weaponStats.damage + Math.floor(gs.weaponTier / 2) + routeModifiersRef.current.damage +
         aircraftUpgradeRef.current.damageBonus) * buildDamageMultiplier * (1 + wingModule.damage) *
@@ -4154,9 +4199,9 @@ export default function Game() {
           color: weapon.color,
           weaponId: weapon.id,
           lifetime: 10,
-          meleeRange: weapon.meleeRange,
-          collisionWidth: weapon.meleeRange,
-          collisionHeight: weapon.meleeRange * (weapon.id === "void_scythe" ? 1.25 : .9),
+          meleeRange: weapon.meleeRange * (mastered ? 1.4 : 1),
+          collisionWidth: weapon.meleeRange * (mastered ? 1.4 : 1),
+          collisionHeight: weapon.meleeRange * (mastered ? 1.4 : 1) * (weapon.id === "void_scythe" ? 1.25 : .9),
           hitTargets: new Set<Enemy>(),
         });
         audioRef.current.tone(weapon.id === "void_scythe" ? 120 : 240, .11,
@@ -4180,6 +4225,14 @@ export default function Game() {
         weaponId: weapon.id,
       });
       });
+      if (mastered && weapon.pattern !== 'melee' && weapon.pattern !== 'spread') {
+        const target = enemiesRef.current.find(e => !e.dead && isEnemyVisible(e)) ?? null;
+        for (const side of [-1, 1]) addProjectilesWithinLimit(bulletsRef.current, {
+          x: px, y: py + side * 8, vx: 10, vy: side * 2.1, fromPlayer: true,
+          damage: weaponDamage * .5, color: weapon.color, weaponId: weapon.id,
+          isMissile: weapon.pattern === 'missile', missileTarget: target,
+        });
+      }
     // TIE wingmen copy the normal cannons. X-Wings use their own targeted
     // two-shots-per-second fireball cadence below.
       if (ultimaActiveRef.current > 0 && aircraftUltiIds.has("tiefighter")) {
@@ -4293,7 +4346,15 @@ export default function Game() {
 
   const damagePlayer = useCallback((damage: number) => {
     const gs = stateRef.current;
-    if (gs.gameOver) return;
+    if (gs.gameOver || leaderDownRef.current) return;
+    if (flightOptionsRef.current.training && !flightOptionsRef.current.coop) {
+      gs.hp = Math.max(1, gs.hp - damage); return;
+    }
+    if (flightOptionsRef.current.coop && damage >= gs.hp && !activeUnlocksRef.current.includes('last_spark')) {
+      gs.hp = 0; leaderDownRef.current = true;
+      if (partnerRef.current.down) gs.gameOver = true;
+      return;
+    }
     const extra = extrasRef.current;
     const used = extra.sparkUsed;
     const nextLifeState = applyExtraDamage(extra, gs, damage, activeUnlocksRef.current.includes("last_spark"),
@@ -4303,6 +4364,11 @@ export default function Game() {
       floatingTextsRef.current.push({ x: playerRef.current.x, y: playerRef.current.y,
         text: "LETZTER FUNKE · GERETTET!", color: "#fbbf24", life: 100, maxLife: 100 });
       audioRef.current.effect("explosion", settingsRef.current.soundVolume);
+    }
+    if (flightOptionsRef.current.coop && nextLifeState.lives < gs.lives) {
+      gs.hp = 0; leaderDownRef.current = true;
+      if (partnerRef.current.down) gs.gameOver = true;
+      return;
     }
     const nextHangar = getNextHangarAfterDamage(gs, nextLifeState, activeHangarRef.current, loadUnlockedHangars());
     Object.assign(gs, nextLifeState);
@@ -4354,22 +4420,33 @@ export default function Game() {
     fireSwordLightningRef.current = null;
     nextFireSwordLightningRef.current = runElapsedMsRef.current + 10_000;
     waveBannerRef.current = { text: `HANGAR ${nextHangar + 1} · ${activeSkinRef.current.name} ÜBERNIMMT`, timer: 150 };
-    saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
+    if (!flightOptionsRef.current.training && !flightOptionsRef.current.coop) saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
       fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current,
       runElapsedMsRef.current, campaignBossDefeatedRef.current, protectPackageHpRef.current);
   }, [selectHangar]);
 
-  const startGame = useCallback((fromSave = false, requestedLevel = campaignLevelRef.current) => {
+  const startGame = useCallback((fromSave = false, requestedLevel = campaignLevelRef.current, options?: FlightOptions) => {
+    flightOptionsRef.current = options ?? { ...DEFAULT_FLIGHT_OPTIONS, coop: coopEnabledRef.current };
+    const training = flightOptionsRef.current.training;
+    if (training) requestedLevel = 1;
+    setFlightLabOpen(false);
+    masteriesRef.current = loadMasteries();
+    masteryDirtyRef.current = false;
+    leaderDownRef.current = false;
+    hazardsRef.current = []; nextHazardRef.current = 10000;
+    secretRef.current = null; nextSecretRef.current = 18000 + Math.random() * 10000;
+    dpsSamplesRef.current = []; damageSampledRef.current = 0; trainingRespawnRef.current = 0;
+    teamPulseRef.current = false;
     if (!isLevelUnlocked(requestedLevel, loadCompletedLevels())) return;
     campaignLevelRef.current = requestedLevel;
     setMapOpen(false);
     setCompletedAnimation(null);
     audioRef.current.unlock();
-    const savedRun = fromSave ? loadSave() : null;
+    const savedRun = fromSave && !training && !flightOptionsRef.current.coop ? loadSave() : null;
     const save = savedRun?.level === requestedLevel ? savedRun : null;
     campaignBossDefeatedRef.current = save?.campaignBossDefeated ?? false;
     runElapsedMsRef.current = save?.elapsedMs ?? 0;
-    const mode = getCampaignMode(requestedLevel);
+    const mode = training ? "classic" : getCampaignMode(requestedLevel);
     const modeRules = getEffectiveGameModeRules(mode);
     activeModeRef.current = mode;
     const unlocks = loadUnlocks();
@@ -4433,6 +4510,7 @@ export default function Game() {
       lives:      getHangarLives(loadUnlockedHangars(), save?.lives ?? modeRules.startingLives),
       gameOver: false, started: true, paused: false,
     };
+    partnerRef.current = createCoopPilot(baseMaxHp);
     playerRef.current = { x: 60, y: CANVAS_H / 2 - PLAYER_H / 2 };
     bulletsRef.current = [];
     enemiesRef.current = [];
@@ -4497,13 +4575,13 @@ export default function Game() {
     milestoneBossFiredRef.current = new Set();
     encounterLevelsSpawnedRef.current = new Set();
     bossSpecialRef.current = null;
-    if (mode === "classic" || mode === "protect") {
+    if (!training && !flightOptionsRef.current.coop && (mode === "classic" || mode === "protect")) {
       saveGame(stateRef.current, routeModifiersRef.current, sectorChoiceLevelsRef.current,
         fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current,
         runElapsedMsRef.current, campaignBossDefeatedRef.current, protectPackageHpRef.current);
     }
     setPauseView("menu");
-    const shouldTeach = settingsRef.current.tutorial && !tutorialSeen() && !fromSave;
+    const shouldTeach = !training && !flightOptionsRef.current.coop && settingsRef.current.tutorial && !tutorialSeen() && !fromSave;
     if (shouldTeach) markTutorialSeen();
     tutorialStageRef.current = shouldTeach ? 0 : -1;
     setTutorialStage(shouldTeach ? 0 : -1);
@@ -4515,17 +4593,18 @@ export default function Game() {
     setMapOpen(false);
     setCompletedAnimation(null);
     const gs = stateRef.current;
-    if (gs.started) setHangarSlots(previous => {
+    if (gs.started && !flightOptionsRef.current.training) setHangarSlots(previous => {
       const next = [...previous];
       next[activeHangar] = { ...next[activeHangar], level: Math.max(next[activeHangar].level, gs.level) };
       writeStoredJson(HANGAR_SLOTS_KEY, next);
       return next;
     });
-    if (gs.started && !gs.gameOver && (activeModeRef.current === "classic" || activeModeRef.current === "protect")) {
+    if (gs.started && !gs.gameOver && !flightOptionsRef.current.training && !flightOptionsRef.current.coop && (activeModeRef.current === "classic" || activeModeRef.current === "protect")) {
       saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
         fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current,
         runElapsedMsRef.current, campaignBossDefeatedRef.current, protectPackageHpRef.current);
     }
+    if (masteryDirtyRef.current) { saveMasteries(masteriesRef.current); masteryDirtyRef.current = false; }
     gs.started = false;
     gs.paused = false;
     gs.gameOver = false;
@@ -4562,8 +4641,8 @@ export default function Game() {
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     return {
-      x: (clientX - rect.left) * (canvas.width / rect.width),
-      y: (clientY - rect.top)  * (canvas.height / rect.height),
+      x: (clientX - rect.left) * ((settingsRef.current.flightDirection === "up" ? CANVAS_H : CANVAS_W) / rect.width),
+      y: (clientY - rect.top)  * ((settingsRef.current.flightDirection === "up" ? CANVAS_W : CANVAS_H) / rect.height),
     };
   }, []);
 
@@ -4662,7 +4741,8 @@ export default function Game() {
     return true;
   }, [syncDisplay]);
 
-  const activateAbility = useCallback((id: UltiLoadoutId | undefined) => {
+  const activateSoloAbility = useCallback((id: UltiLoadoutId | undefined) => {
+    if (leaderDownRef.current) return false;
     if (!id || !activeUltiLoadoutRef.current.includes(id) || !stateRef.current.started || stateRef.current.gameOver || stateRef.current.paused) return false;
     const titanDashing = enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0);
     if (titanDashing) return false;
@@ -4741,6 +4821,13 @@ export default function Game() {
     return false;
   }, [activateCombatExtra, activateCombinedJetAndDroneUlti, firePoisonMissiles, syncDisplay]);
 
+  const activateAbility = useCallback((id: UltiLoadoutId | undefined) => {
+    const activated = activateSoloAbility(id);
+    const partner = partnerRef.current;
+    if (activated && flightOptionsRef.current.coop && !partner.down && partner.armedMs > 0 && partner.ultiCooldownMs <= 0) teamPulseRef.current = true;
+    return activated;
+  }, [activateSoloAbility]);
+
   useEffect(() => {
     initStars();
     initCity();
@@ -4761,6 +4848,7 @@ export default function Game() {
       // The opening guide must be acknowledged before hangar shortcuts work.
       if (introOpenRef.current) return;
       if (!stateRef.current.started && e.code === "Escape") { setMapOpen(false); return; }
+      if (stateRef.current.started && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Enter', 'ShiftRight'].includes(e.code)) e.preventDefault();
       keysRef.current.add(e.key);
       keysRef.current.add(e.code);
       const bindings = settingsRef.current.keyBindings;
@@ -4819,7 +4907,12 @@ export default function Game() {
     let gamepadFrame = 0;
     const pollGamepad = () => {
       gamepadFrame = window.requestAnimationFrame(pollGamepad);
-      const pad = navigator.getGamepads?.().find(candidate => candidate?.connected) ?? null;
+      const pads = Array.from(navigator.getGamepads?.() ?? []).filter((p): p is Gamepad => Boolean(p?.connected));
+      const pad = pads[0] ?? null;
+      const second = flightOptionsRef.current.coop ? pads[1] : null;
+      partnerPadRef.current = { x: Math.abs(second?.axes[0] ?? 0) > .18 ? second!.axes[0] : 0,
+        y: Math.abs(second?.axes[1] ?? 0) > .18 ? second!.axes[1] : 0,
+        firing: Boolean(second?.buttons[0]?.pressed || second?.buttons[7]?.pressed), ulti: Boolean(second?.buttons[5]?.pressed) };
       if (!pad) {
         gamepadInputRef.current = { x: 0, y: 0, firing: false };
         gamepadButtonsRef.current = [];
@@ -5025,6 +5118,11 @@ export default function Game() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
 
+    let displayWidth = canvas.getBoundingClientRect().width;
+    const resolutionObserver = new ResizeObserver(entries => {
+      displayWidth = entries[0].contentRect.width;
+    });
+    resolutionObserver.observe(canvas);
     const visualQuality = new VisualQuality();
     let visualBank = 0;
     let lastTime = 0;
@@ -5047,13 +5145,21 @@ export default function Game() {
       timeRef.current += dtScale;
 
       const upwardFlight = settingsRef.current.flightDirection === "up";
+      const resolution = canvasResolution(
+        upwardFlight ? CANVAS_H : CANVAS_W, upwardFlight ? CANVAS_W : CANVAS_H,
+        displayWidth, window.devicePixelRatio,
+      );
+      if (canvas.width !== resolution.width) canvas.width = resolution.width;
+      if (canvas.height !== resolution.height) canvas.height = resolution.height;
+      const { scaleX, scaleY } = resolution;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalAlpha = 1;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
       // Gameplay continues to use the proven 900x600 world coordinates. This
       // transform turns the complete world counter-clockwise into a 600x900
       // view: player fire travels up and incoming enemies travel down.
-      if (upwardFlight) ctx.setTransform(0, -1, 1, 0, 0, CANVAS_W);
+      if (upwardFlight) ctx.setTransform(0, -scaleY, scaleX, 0, 0, CANVAS_W * scaleY);
 
       const bossArena = gs.started ? getBossArena(enemiesRef.current) : null;
       if (bossArena) {
@@ -5122,7 +5228,7 @@ export default function Game() {
       }
 
       if (gs.gameOver) {
-        if (upwardFlight) ctx.setTransform(1, 0, 0, 1, 0, 0);
+        if (upwardFlight) ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
         ctx.save();
         ctx.fillStyle = "rgba(4,12,28,0.84)";
         const resultW = upwardFlight ? CANVAS_H : CANVAS_W;
@@ -5170,7 +5276,7 @@ export default function Game() {
         invincibleRef.current = Math.max(invincibleRef.current, 10);
       } else {
         runElapsedMsRef.current += dt;
-        enemiesRef.current.forEach(enemy => advanceSubmarineDive(enemy, dt));
+        enemiesRef.current.forEach(enemy => { if (!enemy.bossEngineDisabled) advanceSubmarineDive(enemy, dt); else enemy.submarineDiveMs = 0; });
       }
       const modeRules = getEffectiveGameModeRules(activeModeRef.current);
       if (activeModeRef.current !== "protect" && modeRules.durationSeconds !== null && runElapsedMsRef.current >= modeRules.durationSeconds * 1000) {
@@ -5268,7 +5374,7 @@ export default function Game() {
       const activeMission = missionRef.current;
       const nextMission = advanceMission(activeMission, runStatsRef.current, comboRef.current, runElapsedMsRef.current);
       missionRef.current = nextMission;
-      if (!activeMission.completed && nextMission.completed) {
+      if (!flightOptionsRef.current.training && !activeMission.completed && nextMission.completed) {
         addCoins(activeMission.reward);
         runStatsRef.current.missions += 1;
         checkAchievements();
@@ -5292,7 +5398,8 @@ export default function Game() {
         }
         return applyPlayerHitProtection(state);
       };
-      const decoyAimBounds = { ...playerRef.current, width: PLAYER_W, height: PLAYER_H };
+      const cooperativeTarget = flightOptionsRef.current.coop && !partnerRef.current.down && (leaderDownRef.current || Math.floor(runElapsedMsRef.current / 2000) % 2 === 1) ? partnerRef.current : playerRef.current;
+      const decoyAimBounds = { ...cooperativeTarget, width: PLAYER_W, height: PLAYER_H };
       const shadowTarget = extra.decoy ? { ...extra.decoy, width: PLAYER_W, height: PLAYER_H } : null;
       const enemyAimBounds = shadowTarget ?? decoyAimBounds;
 
@@ -5301,7 +5408,7 @@ export default function Game() {
       const droneUltiIds = getDroneUltiIds(droneBuildRef.current);
       const skyUltimateActive = ultimaActiveRef.current > 0 && aircraftUltiIds.has("ultimate");
       const applyGravityDefense = (rawDamage: number, source?: Enemy) => {
-        rawDamage = getEnemyDamage(rawDamage, gs.level);
+        rawDamage = getEnemyDamage(rawDamage, gs.level) * (flightOptionsRef.current.training ? TRAINING_DIFFICULTY[flightOptionsRef.current.difficulty] : 1);
         if (!skyUltimateActive && gravityActiveRef.current <= 0) return rawDamage;
         if (source && !source.dead && source.hp > 0 && !isEnemyInvulnerable(source)) {
           const reflectedDamage = skyUltimateActive ? skyReflectedDamage(rawDamage) : rawDamage * ULTIMATE_REFLECT_PERCENT;
@@ -5333,11 +5440,15 @@ export default function Game() {
       const js = joystickRef.current;
       const gamepad = gamepadInputRef.current;
       const bindings = settingsRef.current.keyBindings;
-      const keyPressed = (action: KeyBindingAction) => keysRef.current.has(bindings[action]);
+      const keyPressed = (action: KeyBindingAction) => {
+        const coopKeys: Partial<Record<KeyBindingAction, string>> = { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', fire: 'Space' };
+        return keysRef.current.has(flightOptionsRef.current.coop ? coopKeys[action] ?? bindings[action] : bindings[action]);
+      };
 
       const previousPosition = { ...playerRef.current };
       movementStunRef.current = Math.max(0, movementStunRef.current - dtScale);
-      if (movementStunRef.current <= 0 && js.active) {
+      if (leaderDownRef.current) { invincibleRef.current = 120; }
+      else if (movementStunRef.current <= 0 && js.active) {
         const target = screenToWorld({ x: js.curX, y: js.curY });
         const targetX = clamp(target.x - PLAYER_W / 2, 0, CANVAS_W - PLAYER_W);
         const targetY = clamp(target.y - PLAYER_H / 2, 0, CANVAS_H - PLAYER_H);
@@ -5350,10 +5461,10 @@ export default function Game() {
         playerRef.current.y += dy * stepRatio;
       } else if (movementStunRef.current <= 0) {
         const upward = settingsRef.current.flightDirection === "up";
-        const moveUp = keyPressed("up") || keysRef.current.has("ArrowUp");
-        const moveDown = keyPressed("down") || keysRef.current.has("ArrowDown");
-        const moveLeft = keyPressed("left") || keysRef.current.has("ArrowLeft");
-        const moveRight = keyPressed("right") || keysRef.current.has("ArrowRight");
+        const moveUp = keyPressed("up") || (!flightOptionsRef.current.coop && keysRef.current.has("ArrowUp"));
+        const moveDown = keyPressed("down") || (!flightOptionsRef.current.coop && keysRef.current.has("ArrowDown"));
+        const moveLeft = keyPressed("left") || (!flightOptionsRef.current.coop && keysRef.current.has("ArrowLeft"));
+        const moveRight = keyPressed("right") || (!flightOptionsRef.current.coop && keysRef.current.has("ArrowRight"));
         if (upward) {
           if (moveUp) playerRef.current.x = clamp(playerRef.current.x + spd * dtScale, 0, CANVAS_W - PLAYER_W);
           if (moveDown) playerRef.current.x = clamp(playerRef.current.x - spd * dtScale, 0, CANVAS_W - PLAYER_W);
@@ -5377,6 +5488,138 @@ export default function Game() {
 
       const movement = { x: playerRef.current.x - previousPosition.x, y: playerRef.current.y - previousPosition.y };
       if (Math.hypot(movement.x, movement.y) > .01) flightVectorRef.current = movement;
+
+      // Local co-op uses its own pilot state and the same equipped weapons.
+      const partner = partnerRef.current;
+      if (flightOptionsRef.current.coop) {
+        const revived = tickCoop(partner, playerRef.current, leaderDownRef.current, tutorialActive ? 0 : dt);
+        if (revived === 'leader') { leaderDownRef.current = false; gs.hp = Math.ceil(gs.maxHp / 2); invincibleRef.current = 150; }
+        if (revived) waveBannerRef.current = { text: 'WINGMAN GERETTET!', timer: 120 };
+        if (partner.down && leaderDownRef.current) { gs.gameOver = true; grantRunReward(); syncDisplay(); return; }
+        if (!partner.down && !tutorialActive) {
+          const pad = partnerPadRef.current;
+          const axisX = Number(keysRef.current.has('ArrowRight')) - Number(keysRef.current.has('ArrowLeft')) + pad.x;
+          const axisY = Number(keysRef.current.has('ArrowDown')) - Number(keysRef.current.has('ArrowUp')) + pad.y;
+          const upward = settingsRef.current.flightDirection === 'up';
+          const dx = upward ? -axisY : axisX, dy = upward ? axisX : axisY;
+          partner.x = clamp(partner.x + clamp(dx, -1, 1) * spd * dtScale, 0, CANVAS_W - PLAYER_W);
+          partner.y = clamp(partner.y + clamp(dy, -1, 1) * spd * dtScale, 65, CANVAS_H - PLAYER_H);
+          if ((keysRef.current.has('ShiftRight') || pad.ulti) && partner.ultiCooldownMs <= 0) partner.armedMs = 3000;
+          if ((settingsRef.current.autoFire || keysRef.current.has('Enter') || pad.firing) && runElapsedMsRef.current - partner.lastFireMs >= 240) {
+            partner.lastFireMs = runElapsedMsRef.current;
+            for (const weapon of activeWeaponsRef.current) {
+              const stats = getWeaponStats(weapon, weaponLevelsRef.current[weapon.id] ?? 1);
+              const m = masteryFor(masteriesRef.current, weapon.id); const mastered = m.enabled && masteryUnlocked(m);
+              const count = Math.min(7, weapon.guns + (mastered && weapon.pattern === 'spread' ? 2 : 0));
+              for (let i = 0; i < (weapon.pattern === 'melee' ? 1 : count); i++) {
+                addProjectilesWithinLimit(bulletsRef.current, { x: partner.x + PLAYER_W, y: partner.y + PLAYER_H / 2 + (i - (count - 1) / 2) * 7,
+                  vx: weapon.pattern === 'melee' ? 0 : 10, vy: weapon.pattern === 'spread' ? (i - (count - 1) / 2) * 1.5 : 0,
+                  fromPlayer: true, damage: stats.damage + aircraftUpgradeRef.current.damageBonus, color: '#67e8f9', weaponId: weapon.id,
+                  isMissile: weapon.pattern === 'missile', missileTarget: enemiesRef.current.find(e => !e.dead && isEnemyVisible(e)) ?? null,
+                  ...(weapon.pattern === 'melee' ? { meleeRange: (weapon.meleeRange ?? 80) * (mastered ? 1.4 : 1), collisionWidth: (weapon.meleeRange ?? 80) * (mastered ? 1.4 : 1), collisionHeight: 100, lifetime: 10, hitTargets: new Set<Enemy>() } : {}),
+                });
+              }
+              if (mastered && weapon.pattern !== 'melee' && weapon.pattern !== 'spread') for (const side of [-1, 1]) {
+                addProjectilesWithinLimit(bulletsRef.current, { x: partner.x + PLAYER_W, y: partner.y + 14, vx: 10, vy: side * 2,
+                  fromPlayer: true, damage: stats.damage * .5, color: weapon.color, weaponId: weapon.id,
+                  isMissile: weapon.pattern === 'missile', missileTarget: enemiesRef.current.find(e => !e.dead && isEnemyVisible(e)) ?? null });
+              }
+            }
+          }
+          for (const enemy of enemiesRef.current) {
+            if (enemy.dead || isSubmerged(enemy) || !isEnemyVisible(enemy)) continue;
+            const contact = overlaps({ ...partner, width: PLAYER_W, height: PLAYER_H }, enemy);
+            const beam = enemy.type === 'titan' && (enemy.titanDashWarningTimer ?? 0) > 0 && overlaps({ ...partner, width: PLAYER_W, height: PLAYER_H }, { x: 0, y: enemy.y + enemy.height / 2 - 36, width: enemy.x + 22, height: 72 });
+            if ((contact || beam) && damageCoop(partner, beam ? 10 : enemy.ramDamage ?? 2)) recordPlayerDamage(beam ? 10 : enemy.ramDamage ?? 2);
+          }
+        }
+      }
+      if (teamPulseRef.current) {
+        teamPulseRef.current = false; partner.armedMs = 0; partner.ultiCooldownMs = 20000; partner.invincibleMs = 2500;
+        invincibleRef.current = Math.max(invincibleRef.current, 150);
+        bulletsRef.current = bulletsRef.current.filter(b => b.fromPlayer);
+        for (const enemy of enemiesRef.current) {
+          if (enemy.dead || !isEnemyVisible(enemy) || isEnemyInvulnerable(enemy)) continue;
+          const before = enemy.hp;
+          const result = applyEnemyDamage(enemy, isBossEnemy(enemy) ? 150 : 35);
+          setEnemyHealth(enemy, result.hp); enemy.shieldHp = result.shieldHp;
+          runStatsRef.current.damageDealt += Math.max(0, before - enemy.hp);
+          if (enemy.hp <= 0) { enemy.dead = true; gs.score += enemy.points; registerKill(enemy); }
+          spawnExplosion(particlesRef.current, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, true);
+        }
+        waveBannerRef.current = { text: 'TEAM-ULTI · DOPPELSCHLAG!', timer: 160 };
+        audioRef.current.effect('boss', settingsRef.current.soundVolume);
+      }
+
+      const bossPresent = enemiesRef.current.some(e => isBossEnemy(e) && !e.dead);
+      if (!tutorialActive && !flightOptionsRef.current.training && !bossPresent) {
+        if (runElapsedMsRef.current >= nextHazardRef.current) {
+          hazardsRef.current.push(...createHazards(getCampaignLandscape(gs.level).biome.id, Math.random()));
+          nextHazardRef.current = runElapsedMsRef.current + 12500;
+        }
+        if (!secretRef.current && runElapsedMsRef.current >= nextSecretRef.current) {
+          secretRef.current = createSecret(Math.random());
+          nextSecretRef.current = runElapsedMsRef.current + 45000 + Math.random() * 15000;
+          waveBannerRef.current = { text: '◇ UNBEKANNTES FUNKSIGNAL · GOLDENE MARKIERUNG ANFLIEGEN', timer: 170 };
+        }
+      }
+      if (bossPresent) hazardsRef.current = [];
+      hazardsRef.current = hazardsRef.current.filter(h => {
+        if (!tutorialActive) tickHazard(h, dt);
+        if (h.lifeMs <= 0 || h.x + h.width < 0) return false;
+        if (h.warningMs > 0) return true;
+        const leaderHit = !leaderDownRef.current && overlaps({ ...playerRef.current, width: PLAYER_W, height: PLAYER_H }, h);
+        const partnerHit = flightOptionsRef.current.coop && !partner.down && overlaps({ ...partner, width: PLAYER_W, height: PLAYER_H }, h);
+        if (h.kind === 'wind' || h.kind === 'sand') {
+          const push = h.kind === 'wind' ? -1 : 1;
+          if (leaderHit) playerRef.current.y = clamp(playerRef.current.y + push * 2 * dtScale, 65, CANVAS_H - PLAYER_H);
+          if (partnerHit) partner.y = clamp(partner.y + push * 2 * dtScale, 65, CANVAS_H - PLAYER_H);
+        } else {
+          if (leaderHit && invincibleRef.current <= 0 && ultimateActiveRef.current <= 0) {
+            const result = protectPlayer({ shieldTimer: shieldTimerRef.current, shieldHp: playerShieldHpRef.current, invincibleTimer: invincibleRef.current, stealthTimer: stealthActiveRef.current });
+            shieldTimerRef.current = result.shieldTimer; playerShieldHpRef.current = result.shieldHp;
+            if (!result.protected) { recordPlayerDamage(2); damagePlayer(2); }
+            invincibleRef.current = 90;
+          }
+          if (partnerHit && damageCoop(partner, 2)) recordPlayerDamage(2);
+        }
+        return true;
+      });
+      drawHazards(ctx, hazardsRef.current);
+      const signal = secretRef.current;
+      if (signal && !bossPresent && !tutorialActive) {
+        signal.remainingMs -= dt;
+        const nearby = !leaderDownRef.current && Math.hypot(playerRef.current.x + 26 - signal.x, playerRef.current.y + 14 - signal.y) < 65 ||
+          flightOptionsRef.current.coop && !partner.down && Math.hypot(partner.x + 26 - signal.x, partner.y + 14 - signal.y) < 65;
+        if (nearby && signal.phase === 'signal') {
+          signal.phase = 'active'; signal.remainingMs = 16000;
+          waveBannerRef.current = { text: 'GEHEIMNIS ENTDECKT · ' + SECRET_NAMES[signal.kind].toUpperCase(), timer: 140 };
+          if (signal.kind === 'ace') {
+            const hp = 120 + gs.level * 12;
+            addSpawnedEnemy(enemiesRef.current, { x: CANVAS_W + 10, y: signal.y, width: 125, height: 90,
+              vx: -1.4, vy: 0, hp, maxHp: hp, type: 'overlord', secretAce: true, points: 4000,
+              color: '#fcd34d', angle: 0, shootCooldown: 60, parts: createBossParts('titan', hp) }, gs.level);
+            secretRef.current = null;
+          }
+        }
+        if (signal.phase === 'active' && signal.kind !== 'ace') {
+          signal.progressMs = nearby ? signal.progressMs + dt : 0;
+          if (signal.progressMs >= 3000) {
+            const reward = signal.kind === 'wreck' ? 4000 : 3000;
+            addCoins(reward); gs.score += reward;
+            if (signal.kind === 'rescue') { gs.hp = Math.min(gs.maxHp, gs.hp + 4); if (flightOptionsRef.current.coop && !partner.down) partner.hp = Math.min(partner.maxHp, partner.hp + 4); }
+            else { shieldTimerRef.current = Math.max(shieldTimerRef.current, 300); playerShieldHpRef.current = Math.max(playerShieldHpRef.current, 3); }
+            waveBannerRef.current = { text: (signal.kind === 'wreck' ? 'WRACK GEBORGEN' : 'PILOT GERETTET') + ' · +' + reward + ' CREDITS', timer: 160 };
+            audioRef.current.effect('upgrade', settingsRef.current.soundVolume); secretRef.current = null;
+          }
+        }
+        if (signal.remainingMs <= 0) secretRef.current = null;
+        if (secretRef.current) drawSecret(ctx, signal);
+      }
+      if (gs.gameOver) { grantRunReward(); syncDisplay(); return; }
+      if (masteryDirtyRef.current && runElapsedMsRef.current - masterySavedAtRef.current >= 1000) {
+        saveMasteries(masteriesRef.current); masteryDirtyRef.current = false; masterySavedAtRef.current = runElapsedMsRef.current;
+      }
 
       const magnetActive = extra.magnet > 0 || extra.chaos === "magnet";
       const magnetTarget = getMagnetTarget({ x: playerRef.current.x + PLAYER_W / 2, y: playerRef.current.y + PLAYER_H / 2 }, extra.trail, CANVAS_W);
@@ -5415,7 +5658,7 @@ export default function Game() {
       if (pulse) pulse.pending = false;
 
       const firing = settingsRef.current.autoFire || keyPressed("fire") || touchFireRef.current.active || gamepad.firing;
-      if (firing) fireBullets(timestamp);
+      if (firing && !leaderDownRef.current) fireBullets(timestamp);
 
       const fireSword = activeWeaponsRef.current.find(weapon => weapon.id === "fire_sword");
       if (fireSword?.lightningRange && fireSword.lightningIntervalMs &&
@@ -5482,7 +5725,7 @@ export default function Game() {
 
       // Map missions stay on their selected level until the full objective is met.
       const encounterActive = enemiesRef.current.some(e => e.encounterKind && !e.dead && e.hp > 0);
-      if (!tutorialActive && canCompleteCampaignLevel(gs.level, gs.score, campaignBossDefeatedRef.current, runElapsedMsRef.current)) {
+      if (!flightOptionsRef.current.training && !tutorialActive && canCompleteCampaignLevel(gs.level, gs.score, campaignBossDefeatedRef.current, runElapsedMsRef.current)) {
         runResultRef.current = "complete";
         gs.gameOver = true;
         if (activeModeRef.current === "protect") gs.score += 10_000;
@@ -5524,7 +5767,7 @@ export default function Game() {
       }
 
       // ── Rare encounters: one surprising event roughly every 35–55 seconds ──
-      if (!tutorialActive && activeModeRef.current !== "boss_fight") {
+      if (!flightOptionsRef.current.training && !tutorialActive && activeModeRef.current !== "boss_fight") {
         rareEventTimerRef.current += dtScale;
         if (rareEventTimerRef.current >= nextRareEventRef.current && !scheduledBossActive) {
           rareEventTimerRef.current = 0;
@@ -5602,7 +5845,20 @@ export default function Game() {
 
       // ── Spawn enemies ──
       enemiesRef.current = enemiesRef.current.filter(enemy => !enemy.dead);
-      if (tutorialActive) {
+      if (flightOptionsRef.current.training) {
+        if (!enemiesRef.current.some(e => !e.dead && e.hp > 0)) {
+          trainingRespawnRef.current += dt;
+          if (trainingRespawnRef.current >= 1200) {
+            trainingRespawnRef.current = 0;
+            const target = flightOptionsRef.current.target;
+            if (target === 'dummy') {
+              addSpawnedEnemy(enemiesRef.current, { x: 650, y: 260, width: 90, height: 80, vx: 0, vy: 0,
+                hp: 1000000, maxHp: 1000000, type: 'sentinel', trainingDummy: true, points: 0,
+                color: '#67e8f9', angle: 0, shootCooldown: Infinity }, 1);
+            } else spawnBossEncounter(BOSS_SEQUENCE.indexOf(target) + 1);
+          }
+        }
+      } else if (tutorialActive) {
         enemySpawnTimerRef.current = 0;
         bossFightSpawnTimerRef.current = 0;
       } else if (activeModeRef.current === "boss_fight") {
@@ -5643,7 +5899,7 @@ export default function Game() {
         const waveReward = getWaveClearReward(
           activeWaveRef.current.spawned, activeWaveRef.current.defeated.size, flawlessWave,
         );
-        addCoins(waveReward);
+        if (!flightOptionsRef.current.training) addCoins(waveReward);
         gs.score += waveReward;
         if (waveReward > 0 && (activeWaveRef.current.isMajor || flawlessWave)) {
           waveBannerRef.current = {
@@ -5748,7 +6004,8 @@ export default function Game() {
         b.x += b.vx * dtScale * projectileSpeed;
         b.y += b.vy * dtScale * projectileSpeed;
         drawBullet(ctx, b);
-        return b.x > -20 && b.x < CANVAS_W + 20 && b.y > -20 && b.y < CANVAS_H + 20;
+        // Retain shots that crossed the field this frame until hits are resolved.
+        return projectileHitsBounds(b, { x: -20, y: -20, width: CANVAS_W + 40, height: CANVAS_H + 40 });
       });
 
       bulletsRef.current = interceptProjectiles(
@@ -5924,7 +6181,7 @@ export default function Game() {
           { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT }, shadowTarget);
         const maxHp = special.kind === "city" ? 9000 : leader.maxHp;
         const ratio = specialBosses.reduce((total, e) => total + e.hp, 0) / maxHp;
-        const shots = advanceBossSpecial(special, dtScale, liveMounts, target, ratio,
+        const shots = advanceBossSpecial(special, dtScale * (flightOptionsRef.current.training ? TRAINING_DIFFICULTY[flightOptionsRef.current.difficulty] : 1), liveMounts, target, ratio,
           liveMounts.length === 0 || (leader.titanDashTimer ?? 0) > 0);
         for (const shot of shots) addProjectilesWithinLimit(bulletsRef.current, { ...shot, sourceEnemy: leader });
         if (shots.length > 0) {
@@ -5936,8 +6193,11 @@ export default function Game() {
 
       const pendingLightningJumps: Bullet[] = [];
       enemiesRef.current = enemiesRef.current.filter(e => {
+        const dtScale = dt / FRAME_MS * (flightOptionsRef.current.training ? TRAINING_DIFFICULTY[flightOptionsRef.current.difficulty] : 1);
         if (e.dead) return false;
+        const previousEnemyPosition = { x: e.x, y: e.y };
 
+        if (e.trainingDummy) { e.hp = e.maxHp; e.shootCooldown = Infinity; e.vx = 0; e.vy = 0; }
         // Spawned enemies begin just outside the right edge. Off-screen they
         // only perform the minimum entry movement required to reach the game;
         // AI, weapons, status effects, collisions and damage remain dormant.
@@ -5954,7 +6214,7 @@ export default function Game() {
             e.titanShieldTimer = Math.max(0, (e.titanShieldTimer ?? 0) - dtScale);
             e.titanShieldCooldown = (e.titanShieldCooldown ?? TITAN_SHIELD_COOLDOWN) - dtScale;
             if (e.titanShieldCooldown <= 0) {
-              e.titanShieldTimer = TITAN_SHIELD_DURATION;
+              e.titanShieldTimer = e.bossEngineDisabled ? 0 : TITAN_SHIELD_DURATION;
               e.titanShieldCooldown = TITAN_SHIELD_COOLDOWN;
             }
             e.titanHealTimer = (e.titanHealTimer ?? 60) - dtScale;
@@ -6211,7 +6471,7 @@ export default function Game() {
               e.vy = 0;
             } else if ((e.ultimateFreezeTimer ?? 0) <= 0) {
               const speed = e.encounterKind === "spider" ? 2.6 : e.encounterKind === "submarine" ? 1.6 : .8;
-              e.vy = Math.sin(timeRef.current * .018) * speed;
+              e.vy = Math.sin(timeRef.current * .018) * speed * (e.bossEngineDisabled ? .4 : 1);
             }
             e.vx = 0;
           }
@@ -6413,7 +6673,7 @@ export default function Game() {
                 { x: e.x, y: e.y + e.height / 2 }, target, e.bossGunVolley ?? 0);
               addProjectilesWithinLimit(bulletsRef.current, ...shots.map(shot => ({ ...shot, sourceEnemy: e })));
               e.bossGunVolley = (e.bossGunVolley ?? 0) + 1;
-              e.bossGunCooldown += BOSS_GUN_INTERVAL[e.encounterKind];
+              e.bossGunCooldown += BOSS_GUN_INTERVAL[e.encounterKind] * (e.bossCannonsDisabled ? 2.5 : 1);
             }
           }
 
@@ -6598,6 +6858,7 @@ export default function Game() {
           ctx.shadowBlur = 0;
         }
         drawEnemy(ctx, e, settingsRef.current.reducedMotion);
+        if (e.parts && !isSubmerged(e)) drawBossParts(ctx, e, e.parts);
         ctx.restore();
         if (e.isGolden) {
           ctx.save();
@@ -6684,7 +6945,7 @@ export default function Game() {
           e.dead = true;
           return false;
         }
-        if ((invincibleRef.current <= 0 || e.trackPlayerRam) && stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0 &&
+        if (invincibleRef.current <= 0 && stealthActiveRef.current <= 0 && ultimateActiveRef.current <= 0 &&
           e.type !== "titan" && playerTouchesEnemy) {
           const collidedWithBoss = isBossEnemy(e);
           if (collidedWithBoss) setEnemyHealth(e, Math.max(0, e.hp - 1));
@@ -6698,6 +6959,7 @@ export default function Game() {
           shieldTimerRef.current = protection.shieldTimer;
           playerShieldHpRef.current = protection.shieldHp;
           if (protection.protected) {
+            invincibleRef.current = Math.max(invincibleRef.current, 90);
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, false);
             e.dead = collidedWithBoss ? e.hp <= 0 : true;
             if (e.dead) {
@@ -6731,14 +6993,12 @@ export default function Game() {
         }
 
         // Bullet-enemy collision
-        let hit = false;
         bulletsRef.current = bulletsRef.current.filter(b => {
-          if (!b.fromPlayer || hit || isSubmerged(e)) return true;
+          // Resolve the whole volley, but leave unused shots after a kill alive.
+          if (!b.fromPlayer || e.dead || isSubmerged(e)) return true;
           if ((b.isPoisonMissile || b.weaponId === "fire_sword_lightning") && b.missileTarget !== e) return true;
           if (b.hitTargets?.has(e)) return true;
-          const bw = b.collisionWidth ?? 14;
-          const bh = b.collisionHeight ?? (b.isMissile ? 8 : 4);
-          if (!rectHit(b.x, b.y - bh / 2, bw, bh, e.x, e.y, e.width, e.height)) return true;
+          if (!projectileHitsBounds(b, e, previousEnemyPosition)) return true;
           const critical = routeModifiersRef.current.critical > 0 && Math.random() < Math.min(.45, .15 * routeModifiersRef.current.critical);
           const aircraftDamage = ultimaActiveRef.current > 0
             ? (aircraftUltiIds.has("solaris") || skyUltimateActive) ? 3 : ["crimson", "voidreaper"].some(id => aircraftUltiIds.has(id)) ? 2 : 1
@@ -6746,7 +7006,7 @@ export default function Game() {
           const absorberDamage = absorberActiveRef.current > 0 && absorberHitsRef.current > 0
             ? Math.pow(2, absorberHitsRef.current) : 1;
           let weakpointMultiplier = 1;
-          if (isBossEnemy(e)) {
+          if (isBossEnemy(e) && !e.parts && !isEnemyInvulnerable(e)) {
             const relativeY = (b.y - e.y) / e.height;
             const rawPartDamage = Math.max(1, b.damage);
             if (relativeY < .42 && (e.bossTopPartHp ?? 0) > 0) {
@@ -6793,6 +7053,24 @@ export default function Game() {
               }
             }
           }
+          if (e.parts && !isEnemyInvulnerable(e) && !(e.shieldHp && e.shieldHp > 0)) {
+            const partWidth = b.collisionWidth ?? 14;
+            const partHeight = b.collisionHeight ?? (b.isMissile ? 8 : 4);
+            const part = hitBossPart(e, e.parts, { x: b.x, y: b.y - partHeight / 2, width: partWidth, height: partHeight }, b.damage);
+            if (part) {
+              weakpointMultiplier = 1.6;
+              if (!flightOptionsRef.current.training && b.weaponId && WEAPONS.some(w => w.id === b.weaponId)) {
+                if (recordMastery(masteriesRef.current, b.weaponId, false, true)) waveBannerRef.current = { text: 'WAFFEN-MEISTERSCHAFT FREIGESCHALTET', timer: 160 };
+                masteryDirtyRef.current = true;
+              }
+              if (part.hp === 0) {
+                if (part.id === 'weapon') e.bossCannonsDisabled = true;
+                else e.bossEngineDisabled = true;
+                spawnExplosion(particlesRef.current, b.x, b.y, true);
+                waveBannerRef.current = { text: part.name.toUpperCase() + ' ZERSTÖRT', timer: 120 };
+              }
+            }
+          }
           const bossHunterMultiplier = isBossEnemy(e) ? 1 + routeModifiersRef.current.boss_hunter * .3 : 1;
           const dealtDamage = b.damage * (critical ? 3 : 1) * aircraftDamage * absorberDamage *
             (ultimateActiveRef.current > 0 ? 2 : 1) * weakpointMultiplier * bossHunterMultiplier *
@@ -6802,6 +7080,7 @@ export default function Game() {
             ? { hp: e.hp, shieldHp: e.shieldHp ?? 0, absorbedByShield: true, destroyed: false }
             : applyEnemyDamage(e, dealtDamage);
           setEnemyHealth(e, damageResult.hp);
+          if (!damageResult.absorbedByShield && b.weaponId) e.lastHitWeapon = b.weaponId;
           e.shieldHp = damageResult.shieldHp;
           if (!damageResult.absorbedByShield) runStatsRef.current.damageDealt += Math.max(0, enemyHpBeforeDamage - e.hp);
           floatingTextsRef.current.push({
@@ -6872,7 +7151,6 @@ export default function Game() {
           } else {
             audioRef.current.effect("hit", settingsRef.current.soundVolume);
           }
-          hit = true;
           b.hitTargets?.add(e);
           if (e.hp <= 0) {
             spawnExplosion(particlesRef.current, e.x + e.width / 2, e.y + e.height / 2, isBossEnemy(e));
@@ -6917,15 +7195,14 @@ export default function Game() {
 
       // ── Bullet-player collision ──
       bulletsRef.current = bulletsRef.current.filter(b => {
-        if (b.fromPlayer) return true;
+        if (b.fromPlayer || gs.gameOver) return true;
         if (b.sourceEnemy && isSubmerged(b.sourceEnemy)) return false;
         if (extra.pulse?.pending && Math.hypot(b.x - extra.pulse.x, b.y - extra.pulse.y) < 230) return false;
-        if (extra.decoy && rectHit(b.x - 4, b.y - 4, 8, 8, extra.decoy.x, extra.decoy.y, PLAYER_W, PLAYER_H)) return false;
-        const bw = b.collisionWidth ?? 8, bh = b.collisionHeight ?? 8;
+        if (extra.decoy && projectileHitsBounds(b, { ...extra.decoy, width: PLAYER_W, height: PLAYER_H })) return false;
+        const bw = b.collisionWidth ?? 8;
         if (activeModeRef.current === "protect" &&
-            rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh,
-              protectPackageRef.current.x, protectPackageRef.current.y,
-              PROTECT_PACKAGE_WIDTH, PROTECT_PACKAGE_HEIGHT)) {
+            projectileHitsBounds(b, { ...protectPackageRef.current,
+              width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT })) {
           protectPackageHpRef.current = Math.max(0, protectPackageHpRef.current - getEnemyDamage(Math.max(2, b.damage * 2), gs.level));
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           audioRef.current.effect("hit", settingsRef.current.soundVolume);
@@ -6936,17 +7213,25 @@ export default function Game() {
           }
           return false;
         }
+        if (flightOptionsRef.current.coop && !partnerRef.current.down && overlaps({ x: b.x - bw / 2, y: b.y - bh / 2, width: bw, height: bh }, { ...partnerRef.current, width: PLAYER_W, height: PLAYER_H })) {
+          const amount = getEnemyDamage(b.normalBossProjectile ? getNormalBossDamage(b.damage, gs.level) : b.damage, gs.level) * (flightOptionsRef.current.training ? TRAINING_DIFFICULTY[flightOptionsRef.current.difficulty] : 1);
+          if (damageCoop(partnerRef.current, amount)) recordPlayerDamage(amount);
+          spawnExplosion(particlesRef.current, b.x, b.y, false);
+          return false;
+        }
         const shieldX = playerRef.current.x + PLAYER_W - 2 + ABSORBER_SHIELD_FORWARD_OFFSET;
         const shieldY = playerRef.current.y - ABSORBER_SHIELD_PADDING;
         if (absorberActiveRef.current > 0 && b.vx < 0 &&
-            rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh, shieldX, shieldY,
-              ABSORBER_SHIELD_WIDTH, PLAYER_H + ABSORBER_SHIELD_PADDING * 2)) {
+            projectileHitsBounds(b, { x: shieldX, y: shieldY,
+              width: ABSORBER_SHIELD_WIDTH, height: PLAYER_H + ABSORBER_SHIELD_PADDING * 2 },
+              { x: previousPosition.x + PLAYER_W - 2 + ABSORBER_SHIELD_FORWARD_OFFSET,
+                y: previousPosition.y - ABSORBER_SHIELD_PADDING })) {
           absorberHitsRef.current = Math.min(3, absorberHitsRef.current + 1);
           spawnExplosion(particlesRef.current, b.x, b.y, false);
           audioRef.current.effect("hit", settingsRef.current.soundVolume);
           return false;
         }
-        if (!rectHit(b.x - bw / 2, b.y - bh / 2, bw, bh, playerRef.current.x, playerRef.current.y, PLAYER_W, PLAYER_H)) {
+        if (!projectileHitsBounds(b, { ...playerRef.current, width: PLAYER_W, height: PLAYER_H }, previousPosition)) {
           const nearDistance = Math.hypot(
             b.x - (playerRef.current.x + PLAYER_W / 2),
             b.y - (playerRef.current.y + PLAYER_H / 2),
@@ -7576,17 +7861,6 @@ export default function Game() {
         if (swordLightning.remainingMs <= 0) fireSwordLightningRef.current = null;
       }
 
-      // Keep the remaining duration of every active ultimate visible above the pilot.
-      drawActiveUltiCountdowns(ctx, playerRef.current.x, playerRef.current.y, [
-        { key: "Q", remaining: ultimaActiveRef.current, color: "#ff44ff" },
-        { key: "E", remaining: laserActiveRef.current, color: "#ffaa22" },
-        { key: "R", remaining: stealthActiveRef.current, color: "#00ddcc" },
-        { key: "H", remaining: healActiveRef.current, color: "#ff4466" },
-        { key: "F", remaining: absorberActiveRef.current, color: "#ff72dc" },
-        { key: "U", remaining: ultimateActiveRef.current, color: "#62ddff" },
-        { key: "G", remaining: gravityActiveRef.current, color: "#d66bff" },
-      ]);
-
       // ── Engine exhaust ──
       if (!reducedMotion && particlesRef.current.length < MAX_VISUAL_PARTICLES && Math.random() < 1 - Math.pow(0.6, dtScale)) {
         const tier = WEAPON_TIERS[gs.weaponTier];
@@ -7602,14 +7876,31 @@ export default function Game() {
       }
 
       // ── Max score tracking ──
-      if (gs.score > bestScoreRef.current) { bestScoreRef.current = gs.score; saveHighScore(gs.score); }
+      if (!flightOptionsRef.current.training && gs.score > bestScoreRef.current) { bestScoreRef.current = gs.score; saveHighScore(gs.score); }
 
       if (activeModeRef.current === "protect") {
         drawProtectPackage(ctx, protectPackageRef.current, protectPackageHpRef.current, timeRef.current);
       }
 
       // ── HUD ──
-      if (upwardFlight) ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (upwardFlight) ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+      // Keep the remaining duration of every active ultimate visible above the pilot.
+      drawActiveUltiCountdowns(ctx, playerRef.current.x, playerRef.current.y, [
+        { key: "Q", remaining: ultimaActiveRef.current, color: "#ff44ff" },
+        { key: "E", remaining: laserActiveRef.current, color: "#ffaa22" },
+        { key: "R", remaining: stealthActiveRef.current, color: "#00ddcc" },
+        { key: "H", remaining: healActiveRef.current, color: "#ff4466" },
+        { key: "F", remaining: absorberActiveRef.current, color: "#ff72dc" },
+        { key: "U", remaining: ultimateActiveRef.current, color: "#62ddff" },
+        { key: "G", remaining: gravityActiveRef.current, color: "#d66bff" },
+      ], upwardFlight);
+
+      if (flightOptionsRef.current.coop) {
+        const partner = partnerRef.current;
+        ctx.save(); ctx.globalAlpha = partner.down ? .35 : partner.invincibleMs > 0 ? .7 : 1;
+        drawPlayerJet(ctx, partner.x, partner.y, gs.weaponTier, false, JET_SKINS.find(s => s.id === 'jade') ?? activeSkinRef.current, undefined, aircraftUpgradeRef.current.level);
+        ctx.globalAlpha = 1; ctx.fillStyle = '#67e8f9'; ctx.font = 'bold 12px Inter, sans-serif'; ctx.fillText('P2', partner.x + 15, partner.y - 8); ctx.restore();
+      }
       const isAtOneHp = gs.hp > 0 && gs.hp <= 1;
       if (isAtOneHp && !wasAtOneHpRef.current) {
         lowHpWarningMsRef.current = 5000;
@@ -7642,6 +7933,17 @@ export default function Game() {
       drawHUD(ctx, gs, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, gravityChargeRef.current, gravityActiveRef.current, empChargeRef.current, bestScoreRef.current, pilotLevelRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, [formatKeyCode(settingsRef.current.keyBindings.ability1), formatKeyCode(settingsRef.current.keyBindings.ability2), formatKeyCode(settingsRef.current.keyBindings.ability3)], extrasRef.current, upwardFlight, runElapsedMsRef.current);
       const hudW = upwardFlight ? CANVAS_H : CANVAS_W;
       const hudTop = upwardFlight ? 136 : 86;
+      if (flightOptionsRef.current.coop) drawCoopStatus(ctx, partnerRef.current, { ...playerRef.current, width: PLAYER_W, height: PLAYER_H }, leaderDownRef.current);
+      if (flightOptionsRef.current.training) {
+        const damage = runStatsRef.current.damageDealt - damageSampledRef.current;
+        if (damage > 0) dpsSamplesRef.current.push({ time: runElapsedMsRef.current, damage });
+        damageSampledRef.current = runStatsRef.current.damageDealt;
+        const dps = rollingDps(dpsSamplesRef.current, runElapsedMsRef.current);
+        ctx.save(); ctx.fillStyle = '#071126ee'; ctx.fillRect(16, CANVAS_H - 74, 395, 52);
+        ctx.fillStyle = '#67e8f9'; ctx.font = 'bold 15px Inter, sans-serif';
+        ctx.fillText('TRAINING · ' + dps.toFixed(1) + ' DPS (letzte 5 s)', 28, CANVAS_H - 52);
+        ctx.font = '12px Inter, sans-serif'; ctx.fillText('Schaden gesamt: ' + Math.round(runStatsRef.current.damageDealt) + ' · Esc: Menü / Verlassen', 28, CANVAS_H - 32); ctx.restore();
+      }
       const hudBosses = enemiesRef.current.filter(e => e.encounterKind && e.encounterKind !== "titan" && !e.dead && e.hp > 0);
       drawEncounterHealthBar(ctx, hudBosses, hudW, hudTop + 8, bossSpecialRef.current);
       if (hudBosses.length === 0) {
@@ -7770,6 +8072,7 @@ export default function Game() {
       loopRunning = false;
       wakeGameLoopRef.current = () => {};
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      resolutionObserver.disconnect();
     };
   }, [activateAbility, checkAchievements, damagePlayer, fireBullets, grantRunReward, recordPlayerDamage, registerKill, screenToWorld, spawnBossEncounter, spawnEnemy, spawnFormationWave, startGame, syncDisplay]);
 
@@ -8109,8 +8412,8 @@ export default function Game() {
   return (
     <div
       ref={shellRef}
-      className={`game-shell flex flex-col items-center justify-center w-full bg-[#08080e] select-none ${settings.highContrast ? "high-contrast" : ""} ${settings.reducedMotion ? "reduced-motion" : ""}`}
-      style={{ touchAction: mapOpen || introOpen ? "pan-y" : "none" }}
+      className={`game-shell ${displayState.started && !displayState.gameOver ? "has-control-hint" : ""} flex flex-col items-center justify-center w-full bg-[#08080e] select-none ${settings.highContrast ? "high-contrast" : ""} ${settings.reducedMotion ? "reduced-motion" : ""}`}
+      style={{ touchAction: mapOpen || introOpen || flightLabOpen ? "pan-y" : "none" }}
     >
       <div className={`game-frame ${mapOpen ? "campaign-frame" : ""} ${settings.flightDirection === "up" ? "flight-up" : ""} relative rounded overflow-hidden shadow-lg`}
         style={{ border: "1px solid rgba(0,207,255,0.15)" }}>
@@ -8145,6 +8448,8 @@ export default function Game() {
             </div>
           </div>
         )}
+        {!displayState.started && !mapOpen && !introOpen && <button className="flight-lab-entry" onClick={() => setFlightLabOpen(true)}>✦ Flugzentrum{coopEnabled ? ' · KOOP AN' : ''}</button>}
+        {flightLabOpen && !displayState.started && <FlightFeaturesPanel completed={completedLevels} bosses={loadDefeatedBosses(completedLevels)} weapons={WEAPONS.filter(w => w.cost === 0 || unlockedItems.includes(`weapon_${w.id}`))} coop={coopEnabled} onCoop={enabled => { setCoopEnabled(enabled); coopEnabledRef.current = enabled; }} onClose={() => setFlightLabOpen(false)} onTraining={options => startGame(false, 1, options)} />}
         {mapOpen && !displayState.started && <LevelMap completed={completedLevels} onBack={() => setMapOpen(false)} onSelect={level => startGame(false, level)} />}
         {completedAnimation !== null && (
           <div className="campaign-victory" role="status" aria-live="polite">
@@ -8311,7 +8616,7 @@ export default function Game() {
                 <h2 className="mt-2 text-3xl font-black text-white">{translated(language, "PAUSE", "PAUSED")}</h2>
                 <div className="mt-5 flex flex-col gap-2">
                   <button autoFocus onClick={() => { stateRef.current.paused = false; setPauseView("menu"); syncDisplay(); }} className="pause-primary rounded-xl py-3 font-black tracking-widest">{translated(language, "▶ WEITERSPIELEN", "▶ RESUME")}</button>
-                  <button onClick={() => startGame(false)} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "↻ NEU STARTEN", "↻ RESTART")}</button>
+                  <button onClick={() => startGame(false, campaignLevelRef.current, flightOptionsRef.current)} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "↻ NEU STARTEN", "↻ RESTART")}</button>
                   <button onClick={() => setPauseView("settings")} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⚙ EINSTELLUNGEN", "⚙ SETTINGS")}</button>
                   <button onClick={returnToHangar} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⌂ ZUM HANGAR", "⌂ RETURN TO HANGAR")}</button>
                   <button onClick={cashOutRunToHangar} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "■ BEENDEN & SCORE HOLEN", "■ END & CLAIM SCORE")}</button>
@@ -10125,6 +10430,7 @@ function drawActiveUltiCountdowns(
   playerX: number,
   playerY: number,
   ultis: ActiveUltiCountdown[],
+  upward = false,
 ) {
   const active = ultis.filter(ulti => ulti.remaining > 0);
   if (active.length === 0) return;
@@ -10132,14 +10438,18 @@ function drawActiveUltiCountdowns(
   const text = active
     .map(ulti => active.length === 1 ? `${Math.ceil(ulti.remaining / 60)}` : `${ulti.key} ${Math.ceil(ulti.remaining / 60)}`)
     .join("  ·  ");
-  const centerX = playerX + PLAYER_W / 2;
-  const centerY = Math.max(98, playerY - 12);
+  const viewWidth = upward ? CANVAS_H : CANVAS_W;
+  const viewHeight = upward ? CANVAS_W : CANVAS_H;
+  const anchorX = upward ? playerY + PLAYER_H / 2 : playerX + PLAYER_W / 2;
+  const anchorY = upward ? CANVAS_W - playerX - PLAYER_W : playerY;
+  const centerY = Math.max(98, Math.min(viewHeight - 18, anchorY - 18));
 
   ctx.save();
   ctx.font = "900 18px 'Inter', sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   const width = ctx.measureText(text).width + 18;
+  const centerX = Math.max(width / 2 + 4, Math.min(viewWidth - width / 2 - 4, anchorX));
 
   ctx.fillStyle = "rgba(2, 7, 18, 0.84)";
   ctx.strokeStyle = active.length === 1 ? active[0].color : "#ffffffaa";

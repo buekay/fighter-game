@@ -20,6 +20,9 @@ App.tsx
 ## Modulgrenzen
 
 - `game-rules.ts` enthält deterministische Regeln ohne React-Abhängigkeit.
+- `combat-collisions.ts` prüft Geschossflugbahnen gegen bewegte Trefferboxen
+  mit relativer Bewegung. Spieler- und Gegnergeschosse behalten ihre jeweiligen
+  Koordinatenkonventionen; Tests decken schnelle Schüsse bei 30/60/120 Hz ab.
 - `catalog-order.ts` definiert die verbindliche Reihenfolge für Seltenheit,
   Preis und Namen. Shop und Hangar verwenden ausschließlich diese Sortierung.
 - `game-enhancements.ts` enthält zusätzliche Progressionsregeln. Persistierte

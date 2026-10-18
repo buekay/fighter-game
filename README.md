@@ -60,6 +60,9 @@ pnpm run build
 
 ## Gameplay Rules
 
+- Projectile collisions follow the complete flight path between frames, including moving targets, shields, decoys, and the protect objective. Shots crossing the screen edge still resolve their final hits.
+- Every shot in a volley can hit during the same frame. Shots remaining after an enemy is destroyed stay available for other targets.
+- Ramming enemies respect post-hit invulnerability. Shielded body collisions grant a short grace period so sustained contact cannot drain the shield every frame.
 - Losing a life deploys the aircraft and equipment from the next unlocked hangar with full health, keeping the current mission and score. Hangars wrap back to the first unlocked bay; losing the final life still ends the run.
 - Missions progress through 500 levels. Landscapes rotate every level through city, desert, ocean, plains, arctic, canyon, volcano, jungle, storm, and space. Background music and flight shadows use this same landscape selection.
 - The tank, spider robot, submarine, and city use enlarged mechanical models with metal armor, pistons, joints, reactors, damage marks, and a shared phase-marked boss health bar. Each has three unique special attacks with 1.5 seconds of locked-target warning; attacks pause when frozen and accelerate in later health phases. The city shares one attack controller and health bar across its surviving defense systems. The Titan retains its original model, size, health bar, and abilities.
