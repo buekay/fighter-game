@@ -30,6 +30,9 @@ for (const language of LANGUAGES) {
   }
 }
 assert.equal(translate("fr", "Sprache"), "Langue");
+assert.equal(translate("fr", "/"), "/");
+assert.equal(translate("fr", "Level 5, verfügbar"), "Niveau 5, disponible");
+assert.equal(translate("es", "500 Punkte"), "500 puntos");
 assert.equal(translate("es", "Level 12 ist jetzt freigeschaltet."), "El nivel 12 está desbloqueado.");
 assert.equal(translate("tr", "  Fähigkeiten  "), "  Fähigkeiten  ");
 assert.equal(translate("fr", " HEIL-ULTI ❤ "), " POUVOIR DE SOIN ❤ ");

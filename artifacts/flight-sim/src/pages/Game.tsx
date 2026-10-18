@@ -5167,7 +5167,7 @@ export default function Game() {
         ctx.fillStyle = "#ffd966"; ctx.font = "bold 16px 'Inter', sans-serif";
         const modeReward = Math.round(calculateCoinReward(gs.score) * getModeCoinMultiplier(activeModeRef.current));
         const gemReward = Math.floor(modeReward / 100);
-        ctx.fillText(`Belohnung: +${modeReward.toLocaleString(localize.locale)} Credits · +${gemReward.toLocaleString(localize.locale)} Juwelen`, resultW/2, resultH/2+70);
+        ctx.fillText(`Belohnung: +${modeReward.toLocaleString(canvasLocale(ctx))} Credits · +${gemReward.toLocaleString(canvasLocale(ctx))} Juwelen`, resultW/2, resultH/2+70);
         ctx.fillStyle = "#ffcc00";
         ctx.font = "13px 'Inter', sans-serif";
         ctx.fillText("Einsatzbilanz wird geöffnet …", resultW/2, resultH/2+98);
@@ -9934,7 +9934,7 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
       ))}
       {localize(pendingDelete !== null && (
         <div role="alert" className="mb-3 rounded-lg border border-red-400/40 bg-red-950/40 p-3 text-sm">
-          <p>{localize(pendingDelete === "all" ? "Alle Einträge aus der Rangliste löschen?" : `Eintrag von „${entries[pendingDelete].name}“ (${entries[pendingDelete].score.toLocaleString(localize.locale)} Punkte) löschen?`)}</p>
+          <p>{pendingDelete === "all" ? localize("Alle Einträge aus der Rangliste löschen?") : localize("Eintrag von „{0}“ ({1} Punkte) löschen?").replace("{0}", entries[pendingDelete].name).replace("{1}", entries[pendingDelete].score.toLocaleString(localize.locale))}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <button type="button" onClick={confirmDelete} className="min-h-11 rounded-lg bg-red-700 px-4 text-xs font-bold text-white hover:bg-red-600">{localize("Löschen bestätigen")}</button>
             <button type="button" onClick={() => { setPendingDelete(null); setDeleteError(false); }} className="min-h-11 rounded-lg bg-white/10 px-4 text-xs font-bold hover:bg-white/15">{localize("Abbrechen")}</button>
@@ -9974,7 +9974,7 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
                     <span className="text-sm font-black tabular-nums" style={{ color: i === 0 ? "#ffcc00" : "#00cfff" }}>{localize(e.score.toLocaleString(localize.locale))}</span>
                     <span aria-hidden="true" className={`ml-1 text-xs text-cyan-400 transition-transform ${expanded ? "rotate-180" : ""}`}>{localize("▼")}</span>
                   </button>
-                  <button type="button" onClick={() => requestDelete(i)} aria-label={localize(`Eintrag von ${e.name} löschen`)}
+                  <button type="button" onClick={() => requestDelete(i)} aria-label={localize("Eintrag von {0} löschen").replace("{0}", e.name)}
                     className="mr-2 min-h-11 shrink-0 rounded-lg px-2 text-xs font-bold text-red-300 hover:bg-red-900/40">
                     {localize(" Löschen ")}</button>
                 </div>

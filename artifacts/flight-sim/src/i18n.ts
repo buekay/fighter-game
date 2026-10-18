@@ -12,7 +12,7 @@ for (const values of MESSAGES) {
     LANGUAGES.forEach((language, index) => dictionaries[language].set(normalize(source), values[index]));
   }
   if (values[0].includes("{0}")) patterns.push({
-    expressions: values.map(value => new RegExp("^" + value.split(/(\{\d+\})/).map(part => /^\{\d+\}$/.test(part) ? "(.+?)" : escape(part)).join("") + "$")), values,
+    expressions: values.map(value => new RegExp("^" + value.split(/(\{\d+\})/).map(part => /^\{\d+\}$/.test(part) ? "(.*?)" : escape(part)).join("") + "$")), values,
   });
 }
 
@@ -32,10 +32,10 @@ export function translate(language: Language, source: string, fallback = source)
 /** Translate displayed text only; IDs, saved values, keyboard codes and player input stay intact. */
 function translateUncached(language: Language, source: string, fallback: string): string {
   const key = normalize(source);
+  if (!/\p{L}/u.test(key)) return source;
   const result = dictionaries[language].get(key);
   const whitespace = /^(\s*)[\s\S]*?(\s*)$/.exec(source)!;
   if (result !== undefined) return whitespace[1] + result + whitespace[2];
-  if (!/\p{L}/u.test(key)) return source;
   if (key === key.toLocaleUpperCase(languageLocale(language))) {
     const row = MESSAGES.find(values => values.some(value => normalize(value).toLocaleUpperCase(languageLocale(language)) === key));
     if (row) return whitespace[1] + row[LANGUAGES.indexOf(language)].toLocaleUpperCase(languageLocale(language)) + whitespace[2];
@@ -52,7 +52,7 @@ function translateUncached(language: Language, source: string, fallback: string)
     const inner = translate(language, decorated[2]);
     if (inner !== decorated[2]) return whitespace[1] + decorated[1] + inner + decorated[3] + whitespace[2];
   }
-  const segments = key.split(/( · | — |: |\n)/);
+  const segments = key.split(/( · | — |: |, |\n)/);
   if (segments.length > 1) {
     const localized = segments.map((part, index) => index % 2 ? part : translate(language, part)).join("");
     if (localized !== key) return whitespace[1] + localized + whitespace[2];
