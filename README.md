@@ -5,7 +5,7 @@ Local development workspace for the 2D fighter game.
 ## Requirements
 
 - Node.js 24
-- pnpm 11
+- pnpm 11.9.0 (in `package.json` festgelegt)
 
 ## Install
 
@@ -30,6 +30,8 @@ http://localhost:5173/
 ```
 
 The root `start` and `dev` package scripts call `./start-app.sh`, which runs `@workspace/flight-sim`.
+
+**Start** im Hangar öffnet die Levelkarte zur Auswahl einer neuen Mission.
 
 ## Verify
 

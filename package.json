@@ -11,6 +11,7 @@
     "test": "pnpm --filter @workspace/flight-sim run test"
   },
   "private": true,
+  "packageManager": "pnpm@11.9.0",
   "devDependencies": {
     "typescript": "~5.9.3"
   }

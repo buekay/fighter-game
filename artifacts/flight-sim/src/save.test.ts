@@ -41,6 +41,27 @@ try {
   saveGame(state, {} as Parameters<typeof saveGame>[1]);
   assert.equal(loadSave()!.elapsedMs, 0, "New runs clear earlier checkpoint progress");
   assert.equal(loadSave()!.campaignBossDefeated, false);
+
+  saveGame({ ...state, level: 7 }, {} as Parameters<typeof saveGame>[1], [], 1,
+    "none", false, 0, undefined, 120_000, false, 87);
+  assert.equal(loadSave()!.protectPackageHp, 87, "Protection checkpoints retain objective damage");
+  assert.equal(loadSave()!.elapsedMs, 120_000);
+
+  for (const mutatorId of ["toString", "constructor", "__proto__", "missing"]) {
+    values.set("fighter-command-save", JSON.stringify({ ...raw, mutatorId }));
+    assert.equal(loadSave()!.mutatorId, undefined, "Inherited object properties are not playable mutators");
+  }
+  for (const mutatorId of ["none", "swarm", "bullet_time", "volatile", "glass_skies"]) {
+    values.set("fighter-command-save", JSON.stringify({ ...raw, mutatorId }));
+    assert.equal(loadSave()!.mutatorId, mutatorId);
+  }
+  for (const [protectPackageHp, expected] of [[-10, 0], [400, 300], [null, 300], ["87", 300]] as const) {
+    values.set("fighter-command-save", JSON.stringify({ ...raw, protectPackageHp, hp: 99 }));
+    assert.equal(loadSave()!.protectPackageHp, expected);
+    assert.equal(loadSave()!.hp, state.maxHp, "Loaded health cannot exceed maximum health");
+  }
+  values.set("fighter-command-save", JSON.stringify(raw));
+  assert.equal(loadSave()!.protectPackageHp, 300, "Legacy saves default to an undamaged package");
   console.log("Save progress regression tests passed");
 } finally {
   if (originalDescriptor) Object.defineProperty(globalThis, "localStorage", originalDescriptor);

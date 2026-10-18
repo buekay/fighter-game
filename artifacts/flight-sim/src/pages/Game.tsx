@@ -697,6 +697,7 @@ function getWeaponStats(weapon: WeaponDefinition, level: number) {
 const SAVE_KEY = "fighter-command-save";
 
 interface SaveData {
+  protectPackageHp?: number;
   elapsedMs?: number;
   campaignBossDefeated?: boolean;
   runStats?: RunStats;
@@ -744,6 +745,7 @@ export function saveGame(
   runStats: RunStats = normalizeRunStats(undefined),
   elapsedMs = 0,
   campaignBossDefeated = false,
+  protectPackageHp = PROTECT_PACKAGE_MAX_HP,
 ) {
   try {
     const aircraftBuild = loadAircraftBuild();
@@ -760,7 +762,7 @@ export function saveGame(
       fireRatePenalty: Math.max(1, Math.min(10, fireRatePenalty)),
       mutatorId,
       sparkUsed, chaosKills, runStats: { ...runStats },
-      elapsedMs, campaignBossDefeated,
+      elapsedMs, campaignBossDefeated, protectPackageHp,
       savedAt: Date.now(),
     };
     writeStoredJson(SAVE_KEY, data);
@@ -819,7 +821,7 @@ export function loadSave(): SaveData | null {
     return {
       score: Math.max(0, Math.floor(score!)),
       level: Math.max(1, Math.min(MAX_LEVEL, Math.floor(level!))),
-      hp: Math.max(0, hp!),
+      hp: Math.max(0, Math.min(hp!, Math.max(1, maxHp!))),
       maxHp: Math.max(1, maxHp!),
       weaponTier: Math.max(0, Math.min(WEAPON_TIERS.length - 1, Math.floor(weaponTier!))),
       speed: Math.max(0.1, speed!),
@@ -828,6 +830,7 @@ export function loadSave(): SaveData | null {
       runStats: normalizeRunStats(saved.runStats),
       elapsedMs: Math.max(0, finiteNumber(saved.elapsedMs) ?? 0),
       campaignBossDefeated: saved.campaignBossDefeated === true,
+      protectPackageHp: Math.max(0, Math.min(PROTECT_PACKAGE_MAX_HP, finiteNumber(saved.protectPackageHp) ?? PROTECT_PACKAGE_MAX_HP)),
       sparkUsed: saved.sparkUsed === true,
       chaosKills: Math.max(0, Math.floor(finiteNumber(saved.chaosKills) ?? 0)),
       routeModifiers,
@@ -839,7 +842,7 @@ export function loadSave(): SaveData | null {
             .filter((level): level is number => level !== null && Number.isInteger(level) && level >= 5 && level <= MAX_LEVEL)
         : undefined,
       fireRatePenalty: Math.max(1, Math.min(10, finiteNumber(saved.fireRatePenalty) ?? 1)),
-      mutatorId: typeof saved.mutatorId === "string" && saved.mutatorId in MUTATORS
+      mutatorId: typeof saved.mutatorId === "string" && Object.hasOwn(MUTATORS, saved.mutatorId)
         ? saved.mutatorId as MutatorDefinition["id"]
         : undefined,
     };
@@ -3445,7 +3448,6 @@ export default function Game() {
   const backgroundNightRef = useRef(selectBiomeTimeOfDay(Math.random()) === "night");
 
   // ── Checkpoint save tracking ──
-  const saveExistsRef = useRef(!!loadSave());
   const milestoneBossFiredRef = useRef<Set<number>>(new Set());
   const encounterLevelsSpawnedRef = useRef<Set<number>>(new Set());
   const activeSkinRef = useRef<JetSkin>(JET_SKINS.find(s => s.id === loadSkin()) ?? JET_SKINS[0]);
@@ -3674,9 +3676,8 @@ export default function Game() {
     rewardGrantedRef.current = true;
     checkAchievements();
     const gs = stateRef.current;
-    if (activeModeRef.current === "classic") {
+    if (activeModeRef.current === "classic" || activeModeRef.current === "protect") {
       clearSave();
-      saveExistsRef.current = false;
     }
     setRunSummary({
       score: gs.score,
@@ -4355,7 +4356,7 @@ export default function Game() {
     waveBannerRef.current = { text: `HANGAR ${nextHangar + 1} · ${activeSkinRef.current.name} ÜBERNIMMT`, timer: 150 };
     saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
       fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current,
-      runElapsedMsRef.current, campaignBossDefeatedRef.current);
+      runElapsedMsRef.current, campaignBossDefeatedRef.current, protectPackageHpRef.current);
   }, [selectHangar]);
 
   const startGame = useCallback((fromSave = false, requestedLevel = campaignLevelRef.current) => {
@@ -4445,7 +4446,7 @@ export default function Game() {
     enemySpawnTimerRef.current = 0;
     timeRef.current = 0;
     backgroundNightRef.current = getCampaignLandscape(requestedLevel).night;
-    protectPackageHpRef.current = PROTECT_PACKAGE_MAX_HP;
+    protectPackageHpRef.current = save?.protectPackageHp ?? PROTECT_PACKAGE_MAX_HP;
     protectPackageHitCooldownRef.current = 0;
     protectPackageRef.current = { x: 150, y: CANVAS_H / 2 - PROTECT_PACKAGE_HEIGHT / 2, direction: 1 };
     protectPackageLastFireRef.current = 0;
@@ -4496,18 +4497,17 @@ export default function Game() {
     milestoneBossFiredRef.current = new Set();
     encounterLevelsSpawnedRef.current = new Set();
     bossSpecialRef.current = null;
-    saveExistsRef.current = !!loadSave();
-    if (mode === "classic") {
+    if (mode === "classic" || mode === "protect") {
       saveGame(stateRef.current, routeModifiersRef.current, sectorChoiceLevelsRef.current,
         fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current,
-        runElapsedMsRef.current, campaignBossDefeatedRef.current);
-      saveExistsRef.current = true;
+        runElapsedMsRef.current, campaignBossDefeatedRef.current, protectPackageHpRef.current);
     }
     setPauseView("menu");
     const shouldTeach = settingsRef.current.tutorial && !tutorialSeen() && !fromSave;
     if (shouldTeach) markTutorialSeen();
     tutorialStageRef.current = shouldTeach ? 0 : -1;
     setTutorialStage(shouldTeach ? 0 : -1);
+    canvasRef.current?.focus({ preventScroll: true });
     syncDisplay();
   }, [checkAchievements, syncDisplay]);
 
@@ -4521,10 +4521,10 @@ export default function Game() {
       writeStoredJson(HANGAR_SLOTS_KEY, next);
       return next;
     });
-    if (gs.started && !gs.gameOver && activeModeRef.current === "classic") {
+    if (gs.started && !gs.gameOver && (activeModeRef.current === "classic" || activeModeRef.current === "protect")) {
       saveGame(gs, routeModifiersRef.current, sectorChoiceLevelsRef.current,
         fireRatePenaltyRef.current, activeMutatorRef.current.id, extrasRef.current.sparkUsed, extrasRef.current.kills, runStatsRef.current,
-        runElapsedMsRef.current, campaignBossDefeatedRef.current);
+        runElapsedMsRef.current, campaignBossDefeatedRef.current, protectPackageHpRef.current);
     }
     gs.started = false;
     gs.paused = false;
@@ -4534,7 +4534,6 @@ export default function Game() {
     setPauseView("menu");
     tutorialStageRef.current = -1;
     setTutorialStage(-1);
-    saveExistsRef.current = !!loadSave();
     setCoins(loadCoins());
     syncDisplay();
   }, [activeHangar, syncDisplay]);
@@ -4747,7 +4746,7 @@ export default function Game() {
     initCity();
     const onKey = (e: KeyboardEvent, down: boolean) => {
       const target = e.target as HTMLElement | null;
-      const isMenuControl = Boolean(target?.closest("button, input, select, textarea, [role='button']"));
+      const isMenuControl = Boolean(target?.closest("button, input, select, textarea, [role='button'], [contenteditable='true']"));
       if (!down) {
         keysRef.current.delete(e.key);
         keysRef.current.delete(e.code);
@@ -4756,7 +4755,9 @@ export default function Game() {
       // Keystrokes intended for a focused menu control must not leak into the
       // game (for example, typing "n" in the pilot-name input used to start a
       // new mission and clear the current checkpoint).
-      if (isMenuControl) return;
+      const isEditable = Boolean(target?.closest("input, select, textarea, [contenteditable='true']"));
+      const pauseKey = e.code === settingsRef.current.keyBindings.pause || e.code === "Escape";
+      if (isMenuControl && !(pauseKey && stateRef.current.started && !isEditable)) return;
       // The opening guide must be acknowledged before hangar shortcuts work.
       if (introOpenRef.current) return;
       if (!stateRef.current.started && e.code === "Escape") { setMapOpen(false); return; }
