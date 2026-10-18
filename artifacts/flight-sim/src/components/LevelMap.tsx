@@ -1,3 +1,5 @@
+import { createLocalizer, translate, localizeCanvas } from "../i18n";
+import { LanguageProvider, useLocalize } from "../i18n-react";
 import { useEffect, useRef, useState } from 'react';
 import { MAX_LEVEL } from '../game-rules';
 import { getCampaignLandscape, getCampaignTarget, isCampaignBossLevel, isCampaignProtectLevel, isLevelUnlocked } from '../campaign';
@@ -24,6 +26,7 @@ function terrainImage(): string {
 }
 const nodeX = (i: number) => 50 + Math.sin(i * 1.15) * 25;
 export function LevelMap({ completed, onBack, onSelect }: { completed: number; onBack: () => void; onSelect: (level: number) => void }) {
+  const localize = useLocalize();
   const [terrain, setTerrain] = useState('');
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => { setTerrain(terrainImage()); }, []);
@@ -31,30 +34,30 @@ export function LevelMap({ completed, onBack, onSelect }: { completed: number; o
     const target = scroller.current?.querySelector<HTMLElement>('[data-current="true"]');
     if (target && scroller.current) scroller.current.scrollTop = Math.max(0, target.offsetTop - 170);
   }, []);
-  return <section className="campaign-map" aria-label="Levelkarte">
+  return <section className="campaign-map" aria-label={localize("Levelkarte")}>
     <header className="campaign-map-header">
-      <button onClick={onBack} className="campaign-back">← Zurück</button>
-      <div><span>EINSATZGEBIET</span><h1>Deine Flugroute</h1></div>
-      <strong>{completed} / {MAX_LEVEL}<small>ABGESCHLOSSEN</small></strong>
+      <button onClick={onBack} className="campaign-back">{localize("← Zurück")}</button>
+      <div><span>{localize("EINSATZGEBIET")}</span><h1>{localize("Deine Flugroute")}</h1></div>
+      <strong>{localize(completed)} {localize(" / ")}{localize(MAX_LEVEL)}<small>{localize("ABGESCHLOSSEN")}</small></strong>
     </header>
-    <div className="campaign-map-scroll" ref={scroller} tabIndex={0} aria-label="Nach unten scrollen für weitere Level">
+    <div className="campaign-map-scroll" ref={scroller} tabIndex={0} aria-label={localize("Nach unten scrollen für weitere Level")}>
       <div className="campaign-terrain" style={{ backgroundImage: terrain ? `linear-gradient(90deg, #04131866, transparent 45%, #04131866), url(${terrain})` : undefined }}>
-        <div className="campaign-map-intro"><b>MISSION WÄHLEN</b><p>Folge der Route. Jeder Sieg öffnet das nächste Level.</p><span>↓ Wischen oder scrollen · ☠ Bosslevel · 📦 Beschützen</span></div>
-        {Array.from({ length: MAX_LEVEL }, (_, i) => {
+        <div className="campaign-map-intro"><b>{localize("MISSION WÄHLEN")}</b><p>{localize("Folge der Route. Jeder Sieg öffnet das nächste Level.")}</p><span>{localize("↓ Wischen oder scrollen · ☠ Bosslevel · 📦 Beschützen")}</span></div>
+        {localize(Array.from({ length: MAX_LEVEL }, (_, i) => {
           const level=i+1, unlocked=isLevelUnlocked(level,completed), done=level<=completed, current=level===Math.min(MAX_LEVEL,completed+1), boss=isCampaignBossLevel(level);
           const landscape=getCampaignLandscape(level), protect=isCampaignProtectLevel(level);
           return <div key={level} className="campaign-map-stop" data-current={current}>
-            {level<MAX_LEVEL && <svg className="campaign-route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d={`M ${nodeX(i)} 0 C ${nodeX(i)} 50, ${nodeX(i+1)} 50, ${nodeX(i+1)} 100`} className={done?'route-done':''}/></svg>}
+            {localize(level<MAX_LEVEL && <svg className="campaign-route" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d={`M ${nodeX(i)} 0 C ${nodeX(i)} 50, ${nodeX(i+1)} 50, ${nodeX(i+1)} 100`} className={done?'route-done':''}/></svg>)}
             <div className="campaign-node-group" style={{ left:`${nodeX(i)}%` }}>
-              <button disabled={!unlocked} onClick={()=>onSelect(level)} className={`campaign-node ${done?'done':''} ${current?'current':''} ${boss?'boss':''}`} aria-label={`Level ${level}${boss?', Bosslevel':protect?', Beschützen':''}${done?', abgeschlossen':unlocked?', verfügbar':', gesperrt'}`} title={unlocked?protect?'Beschütze das Paket drei Minuten lang':`${getCampaignTarget(level).toLocaleString('de-DE')} Punkte${boss?' und Boss besiegen':''}`:`Schließe zuerst Level ${level-1} ab`}>
-                {boss ? <><span className="campaign-skull">☠</span><small>{level}</small></> : protect ? <><span className="campaign-skull">📦</span><small>{level}</small></> : <span>{level}</span>}
-                <i aria-hidden="true">{done?'✓':unlocked?'▶':'🔒'}</i>
+              <button disabled={!unlocked} onClick={()=>onSelect(level)} className={`campaign-node ${done?'done':''} ${current?'current':''} ${boss?'boss':''}`} aria-label={localize(`Level ${level}${boss?', Bosslevel':protect?', Beschützen':''}${done?', abgeschlossen':unlocked?', verfügbar':', gesperrt'}`)} title={localize(unlocked?protect?'Beschütze das Paket drei Minuten lang':`${getCampaignTarget(level).toLocaleString('de-DE')} Punkte${boss?' und Boss besiegen':''}`:`Schließe zuerst Level ${level-1} ab`)}>
+                {localize(boss ? <><span className="campaign-skull">{localize("☠")}</span><small>{localize(level)}</small></> : protect ? <><span className="campaign-skull">{localize("📦")}</span><small>{localize(level)}</small></> : <span>{localize(level)}</span>)}
+                <i aria-hidden="true">{localize(done?'✓':unlocked?'▶':'🔒')}</i>
               </button>
-              <div className="campaign-node-label"><b>{current?'NÄCHSTER EINSATZ':boss?'BOSSGEBIET':protect?'BESCHÜTZEN':`LEVEL ${level}`}</b><span>{landscape.name}</span></div>
+              <div className="campaign-node-label"><b>{localize(current?'NÄCHSTER EINSATZ':boss?'BOSSGEBIET':protect?'BESCHÜTZEN':`LEVEL ${level}`)}</b><span>{localize(landscape.name)}</span></div>
             </div>
           </div>;
-        })}
-        <div className="campaign-map-end">ENDE DER FLUGROUTE</div>
+        }))}
+        <div className="campaign-map-end">{localize("ENDE DER FLUGROUTE")}</div>
       </div>
     </div>
   </section>;

@@ -1,3 +1,5 @@
+import { createLocalizer, translate, localizeCanvas, canvasLocale } from "../i18n";
+import { LanguageProvider, useLocalize } from "../i18n-react";
 import { FlightFeaturesPanel } from "../components/FlightFeaturesPanel";
 import { DEFAULT_FLIGHT_OPTIONS, TRAINING_DIFFICULTY, createBossParts, hitBossPart, createHazards, tickHazard, overlaps, createSecret, SECRET_NAMES, loadMasteries, saveMasteries, masteryFor, masteryUnlocked, recordMastery, loadDefeatedBosses, rememberBoss, createCoopPilot, damageCoop, tickCoop, rollingDps, type FlightOptions, type BossPart, type Hazard, type SecretSignal, type DamageSample } from "../flight-features";
 import { drawBossParts, drawHazards, drawSecret, drawCoopStatus, drawCoopRevival } from "../rendering/flight-features";
@@ -1421,106 +1423,8 @@ function loadSettings(): GameSettings {
 }
 function saveSettings(settings: GameSettings) { writeStoredJson(SETTINGS_KEY, settings); }
 
-const TURKISH_TRANSLATIONS: Readonly<Record<string, string>> = {
-  "2D fighter jet simulator": "2D savaş uçağı simülatörü",
-  "? HOW TO PLAY": "? NASIL OYNANIR",
-  "Always show": "Her zaman göster",
-  "At the end of a mission, you receive one credit for every point. Example: 1,000 points = 1,000 credits.": "Görev sonunda her puan için bir kredi kazanırsın. Örnek: 1.000 puan = 1.000 kredi.",
-  "Automatic": "Otomatik",
-  "Available credits": "Mevcut krediler",
-  "Back": "Geri",
-  "Drag left:": "Solda sürükle:",
-  "Enter fullscreen": "Tam ekrana geç",
-  "Exit fullscreen": "Tam ekrandan çık",
-  "Explains movement and shooting on the first start.": "İlk başlangıçta hareket etmeyi ve ateş etmeyi açıklar.",
-  "Fighter Command": "Fighter Command",
-  "Fullscreen": "Tam ekran",
-  "Great!": "Harika!",
-  "GOT IT — GO TO HANGAR": "ANLADIM — HANGARA GİT",
-  "HOW FIGHTER COMMAND WORKS": "FIGHTER COMMAND NASIL OYNANIR",
-  "High contrast": "Yüksek kontrast",
-  "Highest player level reached": "Ulaşılan en yüksek oyuncu seviyesi",
-  "Hold SPACE · hold right on touch": "BOŞLUK tuşunu basılı tut · dokunmatikte sağ tarafa basılı tut",
-  "Keyboard": "Klavye",
-  "Language": "Dil",
-  "Language used for menus and hints.": "Menülerde ve ipuçlarında kullanılan dil.",
-  "Level": "Seviye",
-  "LEVEL": "SEVİYE",
-  "Mission briefing": "Görev brifingi",
-  "Mission paused": "Görev duraklatıldı",
-  "New hangar rank reached": "Yeni hangar rütbesine ulaşıldı",
-  "Mobile / Touch": "Mobil / Dokunmatik",
-  "The jet follows your finger quickly.": "Uçak parmağını hızla takip eder.",
-  "Move your jet": "Uçağını hareket ettir",
-  "Music": "Müzik",
-  "NEW GAME": "YENİ OYUN",
-  "Never show": "Asla gösterme",
-  "Next goal": "Sonraki hedef",
-  "Open fire": "Ateş aç",
-  "PAUSED": "DURAKLATILDI",
-  "Pause game": "Oyunu duraklat",
-  "Pilot milestone": "Pilot dönüm noktası",
-  "Pilot name": "Pilot adı",
-  "Points → credits:": "Puanlar → krediler:",
-  "Press P to resume": "Devam etmek için P tuşuna bas",
-  "Ready for the mission!": "Göreve hazırsın!",
-  "Reduce motion": "Hareketi azalt",
-  "Reduces decorative effects and animations.": "Dekoratif efektleri ve animasyonları azaltır.",
-  "Resume game": "Oyuna devam et",
-  "SETTINGS": "AYARLAR",
-  "Saved": "Kaydedildi",
-  "Select language": "Dil seç",
-  "Show tutorial": "Eğitimi göster",
-  "Skip training": "Eğitimi atla",
-  "Sound effects": "Ses efektleri",
-  "Your score": "Skorun",
-  "Strengthens text, borders and controls.": "Metinleri, kenarlıkları ve kontrolleri daha belirgin yapar.",
-  "Touch controls": "Dokunmatik kontroller",
-  "Show joystick": "Joystick'i göster",
-  "Displays the movement joystick in the play area.": "Hareket joystick'ini oyun alanında gösterir.",
-  "Drag your finger across the left side. The jet follows it quickly.": "Parmağını sol tarafta sürükle. Uçak parmağını hızla takip eder.",
-  "Ultimates are explained when they are ready.": "Özel yetenekler hazır olduklarında açıklanır.",
-  "Virtual controls in the play area.": "Oyun alanındaki sanal kontroller.",
-  "WASD / arrow keys · drag left on touch": "WASD / yön tuşları · dokunmatikte solda sürükle",
-  "You can reopen this guide from the hangar at any time.": "Bu rehberi hangardan istediğin zaman yeniden açabilirsin.",
-  "Your jet": "Uçağın",
-  "Your objective is simple: survive as long as possible, destroy enemies, and make your jet stronger throughout the mission. Read this briefing once—then practice movement and shooting during your first deployment.": "Hedefin basit: mümkün olduğunca uzun süre hayatta kal, düşmanları yok et ve görev boyunca uçağını güçlendir. Bu brifingi bir kez oku; ardından ilk görevinde hareket ve atış alıştırması yap.",
-  "hold to keep firing.": "sürekli ateş etmek için basılı tut.",
-  "points": "puan",
-  "tap once the corresponding ability is ready.": "ilgili yetenek hazır olduğunda bir kez dokun.",
-  "↙ Exit fullscreen": "↙ Tam ekrandan çık",
-  "↻ RESTART": "↻ YENİDEN BAŞLAT",
-  "⌂ RETURN TO HANGAR": "⌂ HANGARA DÖN",
-  "▶ CONTINUE": "▶ DEVAM ET",
-  "▶ RESUME": "▶ DEVAM ET",
-  "▶ START": "▶ BAŞLAT",
-  "⚙ SETTINGS": "⚙ AYARLAR",
-  "⛶ Fullscreen": "⛶ Tam ekran",
-  "🏆 LEADERBOARD": "🏆 LİDERLİK TABLOSU",
-};
-
 function translated(language: GameSettings["language"], german: string, english: string) {
-  if (language === "de") return german;
-  if (language === "tr") return TURKISH_TRANSLATIONS[english] ?? english;
-  if (language === "fr") return ({
-    "Language": "Langue", "Select language": "Choisir la langue", "SETTINGS": "PARAMÈTRES",
-    "Back": "Retour", "NEW GAME": "NOUVELLE PARTIE", "Your jet": "Votre chasseur",
-    "Great!": "Super !", "Your score": "Votre score",
-    "Available credits": "Crédits disponibles",
-    "Pilot milestone": "Étape du pilote", "LEVEL": "NIVEAU",
-    "New hangar rank reached": "Nouveau rang de hangar atteint",
-    "Touch controls": "Commandes tactiles", "Music": "Musique", "Sound effects": "Effets sonores",
-  } as Record<string, string>)[english] ?? english;
-  if (language === "es") return ({
-    "Language": "Idioma", "Select language": "Elegir idioma", "SETTINGS": "AJUSTES",
-    "Back": "Atrás", "NEW GAME": "NUEVA PARTIDA", "Your jet": "Tu caza",
-    "Great!": "¡Genial!", "Your score": "Tu puntuación",
-    "Available credits": "Créditos disponibles",
-    "Pilot milestone": "Hito del piloto", "LEVEL": "NIVEL",
-    "New hangar rank reached": "Nuevo rango de hangar alcanzado",
-    "Touch controls": "Controles táctiles", "Music": "Música", "Sound effects": "Efectos de sonido",
-  } as Record<string, string>)[english] ?? english;
-  return english;
+  return translate(language, german, english);
 }
 
 function localeFor(language: GameSettings["language"]) {
@@ -1873,6 +1777,7 @@ function drawPlayerJet(ctx: CanvasRenderingContext2D, x: number, y: number, tier
 }
 
 function JetShopImage({ skin, aircraftLevel }: { skin: JetSkin; aircraftLevel: number }) {
+  const localize = useLocalize();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -1919,7 +1824,7 @@ function JetShopImage({ skin, aircraftLevel }: { skin: JetSkin; aircraftLevel: n
         ref={canvasRef}
         className="h-full w-auto max-w-full"
         role="img"
-        aria-label={`${skin.name} Flugzeug`}
+        aria-label={localize(`${skin.name} Flugzeug`)}
       />
     </div>
   );
@@ -3541,6 +3446,7 @@ export default function Game() {
   const [ultiLoadout, setUltiLoadout] = useState<UltiLoadoutId[]>(() => loadUltiLoadout());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [settings, setSettings] = useState<GameSettings>(() => loadSettings());
+  const localize = createLocalizer(settings.language);
   const settingsRef = useRef(settings);
   const language = settings.language;
   const [pauseView, setPauseView] = useState<"menu" | "settings">("menu");
@@ -5118,6 +5024,7 @@ export default function Game() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
+    localizeCanvas(ctx, () => settingsRef.current.language);
 
     let displayWidth = canvas.getBoundingClientRect().width;
     const resolutionObserver = new ResizeObserver(entries => {
@@ -5260,7 +5167,7 @@ export default function Game() {
         ctx.fillStyle = "#ffd966"; ctx.font = "bold 16px 'Inter', sans-serif";
         const modeReward = Math.round(calculateCoinReward(gs.score) * getModeCoinMultiplier(activeModeRef.current));
         const gemReward = Math.floor(modeReward / 100);
-        ctx.fillText(`Belohnung: +${modeReward.toLocaleString("de-DE")} Credits · +${gemReward.toLocaleString("de-DE")} Juwelen`, resultW/2, resultH/2+70);
+        ctx.fillText(`Belohnung: +${modeReward.toLocaleString(localize.locale)} Credits · +${gemReward.toLocaleString(localize.locale)} Juwelen`, resultW/2, resultH/2+70);
         ctx.fillStyle = "#ffcc00";
         ctx.font = "13px 'Inter', sans-serif";
         ctx.fillText("Einsatzbilanz wird geöffnet …", resultW/2, resultH/2+98);
@@ -5798,7 +5705,7 @@ export default function Game() {
             const eventCredits = Math.round((1500 + gs.level * 250) * collectorBonus);
             addCoins(eventCredits);
             gs.score += eventCredits;
-            waveBannerRef.current = { text: `◆ SCHATZKONVOI · +${eventCredits.toLocaleString("de-DE")} CREDITS`, timer: 180 };
+            waveBannerRef.current = { text: `◆ SCHATZKONVOI · +${eventCredits.toLocaleString(localize.locale)} CREDITS`, timer: 180 };
             for (let index = 0; index < 5; index++) {
               const hp = 3 + Math.floor(gs.level / 3);
               addSpawnedEnemy(enemiesRef.current, {
@@ -8343,11 +8250,11 @@ export default function Game() {
     if (roll < .45) {
       const amount = Math.round(crate.creditReward[0] + Math.random() * (crate.creditReward[1] - crate.creditReward[0]));
       addCoins(amount);
-      reward = { kind: "credits", amount, label: `${amount.toLocaleString("de-DE")} Credits`, icon: "💰" };
+      reward = { kind: "credits", amount, label: `${amount.toLocaleString(localize.locale)} Credits`, icon: "💰" };
     } else if (roll < .90) {
       const amount = Math.round(crate.gemReward[0] + Math.random() * (crate.gemReward[1] - crate.gemReward[0]));
       addGems(amount);
-      reward = { kind: "gems", amount, label: `${amount.toLocaleString("de-DE")} Juwelen`, icon: "💎" };
+      reward = { kind: "gems", amount, label: `${amount.toLocaleString(localize.locale)} Juwelen`, icon: "💎" };
     } else {
       const aircraft = JET_SKINS.filter(item => item.rarity === rarity && !loadUnlocks().includes(item.id));
       const drones = DRONE_SKINS.filter(item => item.rarity === rarity && !loadUnlocks().includes(item.id));
@@ -8362,7 +8269,7 @@ export default function Game() {
       } else {
         const amount = crate.gemReward[1] * 2;
         addGems(amount);
-        reward = { kind: "gems", amount, label: `${amount.toLocaleString("de-DE")} Juwelen (Ersatz)`, icon: "💎" };
+        reward = { kind: "gems", amount, label: `${amount.toLocaleString(localize.locale)} Juwelen (Ersatz)`, icon: "💎" };
       }
     }
     setCoins(loadCoins());
@@ -8416,6 +8323,7 @@ export default function Game() {
   };
 
   return (
+    <LanguageProvider language={settings.language}>
     <div
       ref={shellRef}
       className={`game-shell ${displayState.started && !displayState.gameOver ? "has-control-hint" : ""} flex flex-col items-center justify-center w-full bg-[#08080e] select-none ${settings.highContrast ? "high-contrast" : ""} ${settings.reducedMotion ? "reduced-motion" : ""}`}
@@ -8431,108 +8339,113 @@ export default function Game() {
           style={{ objectFit: "contain", touchAction: "none" }}
           tabIndex={0}
         />
-        {displayState.started && !displayState.gameOver && !displayState.paused && (
-          <div className="combat-extras" aria-label="Upgrade-Status">
+        {localize(displayState.started && !displayState.gameOver && !displayState.paused && (
+          <div className="combat-extras" aria-label={localize("Upgrade-Status")}>
             <div className="combat-extras-status">
-              {activeUnlocksRef.current.includes("last_spark") && <span>Funke: {extrasRef.current.sparkUsed ? "verbraucht" : "bereit"}</span>}
-              {extrasRef.current.charged > 0 && <span>Konter: 2× Salve</span>}
-              {extrasRef.current.chaos && <span>CHAOS: {CHAOS_LABELS[extrasRef.current.chaos]} · {Math.ceil(extrasRef.current.chaosTime / 60)} s</span>}
+              {localize(activeUnlocksRef.current.includes("last_spark") && <span>{localize("Funke: ")}{localize(extrasRef.current.sparkUsed ? "verbraucht" : "bereit")}</span>)}
+              {localize(extrasRef.current.charged > 0 && <span>{localize("Konter: 2× Salve")}</span>)}
+              {localize(extrasRef.current.chaos && <span>{localize("CHAOS: ")}{localize(CHAOS_LABELS[extrasRef.current.chaos])} {localize(" · ")}{localize(Math.ceil(extrasRef.current.chaosTime / 60))} {localize(" s")}</span>)}
             </div>
           </div>
-        )}
-        {displayState.started && isPortraitPhone && settings.flightDirection !== "up" && (
+        ))}
+        {localize(displayState.started && isPortraitPhone && settings.flightDirection !== "up" && (
           <div className="orientation-gate fixed inset-0 z-[70] flex items-center justify-center bg-[#030814]/95 p-6 text-center text-white">
             <div className="max-w-sm rounded-3xl border border-cyan-400/60 bg-slate-950/95 p-7 shadow-lg">
-              <div className="text-6xl" aria-hidden="true">📱↻</div>
-              <h2 className="mt-4 text-2xl font-black">GERÄT DREHEN</h2>
-              <p className="mt-2 text-sm text-slate-300">Das Spielfeld ist im Querformat größer und leichter zu steuern. Die Mission wartet, bis du dein Gerät gedreht hast.</p>
-              {fullscreenSupported && (
+              <div className="text-6xl" aria-hidden="true">{localize("📱↻")}</div>
+              <h2 className="mt-4 text-2xl font-black">{localize("GERÄT DREHEN")}</h2>
+              <p className="mt-2 text-sm text-slate-300">{localize("Das Spielfeld ist im Querformat größer und leichter zu steuern. Die Mission wartet, bis du dein Gerät gedreht hast.")}</p>
+              {localize(fullscreenSupported && (
                 <button onClick={toggleFullscreen} className="pause-primary mt-5 min-h-12 w-full rounded-xl px-5 py-3 font-black">
-                  ⛶ VOLLBILD ÖFFNEN
-                </button>
-              )}
+                  {localize(" ⛶ VOLLBILD ÖFFNEN ")}</button>
+              ))}
             </div>
           </div>
-        )}
-        {!displayState.started && !mapOpen && !introOpen && <button className="flight-lab-entry" onClick={() => setFlightLabOpen(true)}>✦ Flugzentrum{coopEnabled ? ' · KOOP AN' : ''}</button>}
-        {flightLabOpen && !displayState.started && <FlightFeaturesPanel completed={completedLevels} bosses={loadDefeatedBosses(completedLevels)} weapons={WEAPONS.filter(w => w.cost === 0 || unlockedItems.includes(`weapon_${w.id}`))} coop={coopEnabled} onCoop={enabled => { setCoopEnabled(enabled); coopEnabledRef.current = enabled; }} onClose={() => setFlightLabOpen(false)} onTraining={options => startGame(false, 1, options)} />}
-        {mapOpen && !displayState.started && <LevelMap completed={completedLevels} onBack={() => setMapOpen(false)} onSelect={level => startGame(false, level)} />}
-        {completedAnimation !== null && (
+        ))}
+        {localize(!displayState.started && !mapOpen && !introOpen && <div className="flight-entry-actions">
+          <button className="coop-entry" aria-pressed={coopEnabled} onClick={() => { const enabled = !coopEnabled; setCoopEnabled(enabled); coopEnabledRef.current = enabled; }}>
+            <span>👥 {localize("ZU ZWEIT SPIELEN")}</span>
+            <strong>{localize(coopEnabled ? "KOOP AN ✓" : "KOOP AUS")}</strong>
+            <small>{localize("Eine Tastatur reicht · WASD + Pfeiltasten")}</small>
+          </button>
+          <button className="flight-lab-entry" onClick={() => setFlightLabOpen(true)}>{localize("✦ Flugzentrum")}</button>
+        </div>)}
+        {localize(flightLabOpen && !displayState.started && <FlightFeaturesPanel completed={completedLevels} bosses={loadDefeatedBosses(completedLevels)} weapons={WEAPONS.filter(w => w.cost === 0 || unlockedItems.includes(`weapon_${w.id}`))} coop={coopEnabled} onCoop={enabled => { setCoopEnabled(enabled); coopEnabledRef.current = enabled; }} onClose={() => setFlightLabOpen(false)} onTraining={options => startGame(false, 1, options)} />)}
+        {localize(mapOpen && !displayState.started && <LevelMap completed={completedLevels} onBack={() => setMapOpen(false)} onSelect={level => startGame(false, level)} />)}
+        {localize(completedAnimation !== null && (
           <div className="campaign-victory" role="status" aria-live="polite">
-            {getCampaignMode(completedAnimation) === "protect"
+            {localize(getCampaignMode(completedAnimation) === "protect"
               ? <PackageLanding />
-              : <div className="campaign-victory-ring">✓</div>}
-            <span>MISSION ABGESCHLOSSEN</span>
-            <h2>LEVEL {completedAnimation} GESCHAFFT!</h2>
-            <p>{completedAnimation < MAX_LEVEL ? `Level ${completedAnimation + 1} ist jetzt freigeschaltet.` : "Du hast die gesamte Flugroute abgeschlossen!"}</p>
-            <small>Rückflug zum Hangar …</small>
-            <button onClick={returnToHangar}>Zum Hangar →</button>
+              : <div className="campaign-victory-ring">{localize("✓")}</div>)}
+            <span>{localize("MISSION ABGESCHLOSSEN")}</span>
+            <h2>{localize("LEVEL ")}{localize(completedAnimation)} {localize(" GESCHAFFT!")}</h2>
+            <p>{localize(completedAnimation < MAX_LEVEL ? `Level ${completedAnimation + 1} ist jetzt freigeschaltet.` : "Du hast die gesamte Flugroute abgeschlossen!")}</p>
+            <small>{localize("Rückflug zum Hangar …")}</small>
+            <button onClick={returnToHangar}>{localize("Zum Hangar →")}</button>
           </div>
-        )}
-        {achievementToast && (
+        ))}
+        {localize(achievementToast && (
           <div className="absolute left-1/2 top-4 z-50 w-[min(90%,390px)] -translate-x-1/2 rounded-xl border border-amber-300 bg-slate-950/95 p-3 text-center shadow-lg">
-            <div className="text-xs font-black uppercase tracking-[.25em] text-amber-300">Erfolg freigeschaltet</div>
-            <div className="mt-1 text-lg font-black text-white">{achievementToast.icon} {achievementToast.name}</div>
-            <div className="text-sm text-slate-300">+{achievementToast.reward.toLocaleString("de-DE")} Credits</div>
+            <div className="text-xs font-black uppercase tracking-[.25em] text-amber-300">{localize("Erfolg freigeschaltet")}</div>
+            <div className="mt-1 text-lg font-black text-white">{localize(achievementToast.icon)} {localize(achievementToast.name)}</div>
+            <div className="text-sm text-slate-300">{localize("+")}{localize(achievementToast.reward.toLocaleString(localize.locale))} {localize(" Credits")}</div>
           </div>
-        )}
-        {displayState.gameOver && runSummary && completedAnimation === null && (
+        ))}
+        {localize(displayState.gameOver && runSummary && completedAnimation === null && (
           <div className="run-summary-layer absolute inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-slate-950/94 p-4 touch-pan-y">
             <div className="w-full max-w-2xl rounded-3xl border border-cyan-400/50 bg-[#071126] p-6 text-white shadow-lg">
               <div className="text-center">
-                <div className="text-xs font-black uppercase tracking-[.3em] text-cyan-300">Einsatzbilanz</div>
-                <h2 className="mt-2 text-3xl font-black">{runSummary.newRecord ? "🏆 NEUER REKORD" : runResultRef.current === "complete" ? "MISSION GESCHAFFT" : "EINSATZ BEENDET"}</h2>
-                <div className="mt-2 text-2xl font-black text-amber-300">{runSummary.score.toLocaleString("de-DE")} Punkte</div>
+                <div className="text-xs font-black uppercase tracking-[.3em] text-cyan-300">{localize("Einsatzbilanz")}</div>
+                <h2 className="mt-2 text-3xl font-black">{localize(runSummary.newRecord ? "🏆 NEUER REKORD" : runResultRef.current === "complete" ? "MISSION GESCHAFFT" : "EINSATZ BEENDET")}</h2>
+                <div className="mt-2 text-2xl font-black text-amber-300">{localize(runSummary.score.toLocaleString(localize.locale))} {localize(" Punkte")}</div>
               </div>
               <div className="mt-5 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-                {[
+                {localize([
                   ["Dauer", formatRunDuration(runSummary.durationMs)],
                   ["Level", String(runSummary.level)],
                   ["Abschüsse", String(runSummary.stats.kills)],
-                  ["Schaden", Math.round(runSummary.stats.damageDealt).toLocaleString("de-DE")],
+                  ["Schaden", Math.round(runSummary.stats.damageDealt).toLocaleString(localize.locale)],
                   ["Max. Combo", `${runSummary.stats.maxCombo}×`],
                   ["Near Misses", String(runSummary.stats.nearMisses)],
                   ["Bosse", String(runSummary.stats.bosses)],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-xl bg-slate-900/80 p-3">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div>
-                    <div className="mt-1 text-lg font-black">{value}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{localize(label)}</div>
+                    <div className="mt-1 text-lg font-black">{localize(value)}</div>
                   </div>
-                ))}
+                )))}
               </div>
-              <button onClick={returnToHangar} className="pause-primary mt-5 w-full rounded-xl py-3 font-black tracking-widest">⌂ ZUM HANGAR</button>
+              <button onClick={returnToHangar} className="pause-primary mt-5 w-full rounded-xl py-3 font-black tracking-widest">{localize("⌂ ZUM HANGAR")}</button>
             </div>
           </div>
-        )}
-        {displayState.started && !displayState.gameOver && (
+        ))}
+        {localize(displayState.started && !displayState.gameOver && (
           <div className="absolute top-[90px] right-2 z-10 flex gap-1.5">
-            <button onClick={returnToHangar} aria-label={translated(language, "Zum Hangar", "Return to hangar")}
+            <button onClick={returnToHangar} aria-label={localize(translated(language, "Zum Hangar", "Return to hangar"))}
               className="font-bold rounded px-2 py-1 text-sm"
               style={{ background: "rgba(4,10,24,0.85)", border: "1px solid #334466", color: "#79e5ff" }}>
-              ⌂ HANGAR
-            </button>
-            {fullscreenSupported && (
+              {localize(" ⌂ HANGAR ")}</button>
+            {localize(fullscreenSupported && (
               <button
                 onClick={toggleFullscreen}
-                aria-label={isFullscreen ? translated(language, "Vollbild beenden", "Exit fullscreen") : translated(language, "Vollbild öffnen", "Enter fullscreen")}
-                title={isFullscreen ? translated(language, "Vollbild beenden", "Exit fullscreen") : translated(language, "Vollbild", "Fullscreen")}
+                aria-label={localize(isFullscreen ? translated(language, "Vollbild beenden", "Exit fullscreen") : translated(language, "Vollbild öffnen", "Enter fullscreen"))}
+                title={localize(isFullscreen ? translated(language, "Vollbild beenden", "Exit fullscreen") : translated(language, "Vollbild", "Fullscreen"))}
                 className="font-bold rounded px-2 py-1 text-sm"
                 style={{ background: "rgba(4,10,24,0.85)", border: "1px solid #334466", color: "#7799bb" }}
               >
-                {isFullscreen ? "↙" : "⛶"}
+                {localize(isFullscreen ? "↙" : "⛶")}
               </button>
-            )}
+            ))}
             <button
               onClick={() => { stateRef.current.paused = !stateRef.current.paused; setPauseView("menu"); syncDisplay(); }}
-              aria-label={displayState.paused ? translated(language, "Spiel fortsetzen", "Resume game") : translated(language, "Spiel pausieren", "Pause game")}
+              aria-label={localize(displayState.paused ? translated(language, "Spiel fortsetzen", "Resume game") : translated(language, "Spiel pausieren", "Pause game"))}
               className="font-bold rounded px-2 py-1 text-sm"
               style={{ background: "rgba(4,10,24,0.85)", border: "1px solid #334466", color: "#7799bb" }}
             >
-              {displayState.paused ? translated(language, "▶ WEITER", "▶ RESUME") : "⏸"}
+              {localize(displayState.paused ? translated(language, "▶ WEITER", "▶ RESUME") : "⏸")}
             </button>
           </div>
-        )}
-        {introOpen && (
+        ))}
+        {localize(introOpen && (
           <div className="hangar-layer absolute inset-0 z-30 overflow-hidden" style={{ background: "rgba(4,12,28,0.98)" }}>
             <BriefingScreen settings={settings} onDone={() => {
               markBriefingSeen();
@@ -8541,8 +8454,8 @@ export default function Game() {
               canvasRef.current?.focus({ preventScroll: true });
             }} />
           </div>
-        )}
-        {!introOpen && !displayState.started && !mapOpen && (
+        ))}
+        {localize(!introOpen && !displayState.started && !mapOpen && (
           <HangarOverlay
             hangarSlots={hangarSlots}
             activeHangar={activeHangar}
@@ -8609,65 +8522,65 @@ export default function Game() {
             achievements={achievements}
             achievementStats={{ ...runStatsRef.current }}
           />
-        )}
-        {displayState.started && displayState.paused && (
+        ))}
+        {localize(displayState.started && displayState.paused && (
           <div className="absolute inset-0 z-30 flex items-center justify-center p-4" style={{ background: "rgba(2,8,20,0.86)" }}>
-            {pauseView === "settings" ? (
+            {localize(pauseView === "settings" ? (
               <div className="pause-panel h-full w-full max-w-2xl overflow-hidden rounded-2xl" style={{ background: "#071126", border: "1px solid #285078" }}>
                 <SettingsScreen settings={settings} onChange={updateSettings} onBack={() => setPauseView("menu")} />
               </div>
             ) : (
               <div className="pause-panel w-full max-w-sm rounded-2xl p-5 text-center" style={{ background: "#071126", border: "1px solid #285078", boxShadow: "0 3px 8px #0005" }}>
-                <div className="text-xs uppercase tracking-[0.3em] text-cyan-400">{translated(language, "Mission unterbrochen", "Mission paused")}</div>
-                <h2 className="mt-2 text-3xl font-black text-white">{translated(language, "PAUSE", "PAUSED")}</h2>
+                <div className="text-xs uppercase tracking-[0.3em] text-cyan-400">{localize(translated(language, "Mission unterbrochen", "Mission paused"))}</div>
+                <h2 className="mt-2 text-3xl font-black text-white">{localize(translated(language, "PAUSE", "PAUSED"))}</h2>
                 <div className="mt-5 flex flex-col gap-2">
-                  <button autoFocus onClick={() => { stateRef.current.paused = false; setPauseView("menu"); syncDisplay(); }} className="pause-primary rounded-xl py-3 font-black tracking-widest">{translated(language, "▶ WEITERSPIELEN", "▶ RESUME")}</button>
-                  <button onClick={() => startGame(false, campaignLevelRef.current, flightOptionsRef.current)} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "↻ NEU STARTEN", "↻ RESTART")}</button>
-                  <button onClick={() => setPauseView("settings")} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⚙ EINSTELLUNGEN", "⚙ SETTINGS")}</button>
-                  <button onClick={returnToHangar} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⌂ ZUM HANGAR", "⌂ RETURN TO HANGAR")}</button>
-                  <button onClick={cashOutRunToHangar} className="pause-secondary rounded-xl py-3 font-bold">{flightOptionsRef.current.training ? translated(language, "■ TRAINING BEENDEN", "■ END TRAINING") : translated(language, "■ BEENDEN & SCORE HOLEN", "■ END & CLAIM SCORE")}</button>
+                  <button autoFocus onClick={() => { stateRef.current.paused = false; setPauseView("menu"); syncDisplay(); }} className="pause-primary rounded-xl py-3 font-black tracking-widest">{localize(translated(language, "▶ WEITERSPIELEN", "▶ RESUME"))}</button>
+                  <button onClick={() => startGame(false, campaignLevelRef.current, flightOptionsRef.current)} className="pause-secondary rounded-xl py-3 font-bold">{localize(translated(language, "↻ NEU STARTEN", "↻ RESTART"))}</button>
+                  <button onClick={() => setPauseView("settings")} className="pause-secondary rounded-xl py-3 font-bold">{localize(translated(language, "⚙ EINSTELLUNGEN", "⚙ SETTINGS"))}</button>
+                  <button onClick={returnToHangar} className="pause-secondary rounded-xl py-3 font-bold">{localize(translated(language, "⌂ ZUM HANGAR", "⌂ RETURN TO HANGAR"))}</button>
+                  <button onClick={cashOutRunToHangar} className="pause-secondary rounded-xl py-3 font-bold">{localize(flightOptionsRef.current.training ? translated(language, "■ TRAINING BEENDEN", "■ END TRAINING") : translated(language, "■ BEENDEN & SCORE HOLEN", "■ END & CLAIM SCORE"))}</button>
                 </div>
-                <div className="mt-4 text-xs text-slate-500">ESC oder {formatKeyCode(settings.keyBindings.pause)} drücken, um weiterzuspielen</div>
+                <div className="mt-4 text-xs text-slate-500">{localize("ESC oder ")}{localize(formatKeyCode(settings.keyBindings.pause))} {localize(" drücken, um weiterzuspielen")}</div>
               </div>
-            )}
+            ))}
           </div>
-        )}
-        {displayState.started && !displayState.paused && tutorialStage >= 0 && (
+        ))}
+        {localize(displayState.started && !displayState.paused && tutorialStage >= 0 && (
           <>
             <div className="tutorial-card absolute left-1/2 top-20 z-20 w-[min(92%,460px)] -translate-x-1/2 rounded-2xl px-5 py-4 text-center" style={{ background: "rgba(4,12,28,0.96)", border: "1px solid #00cfff", boxShadow: "0 3px 8px #0005" }}>
-              <div className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-400">Training {tutorialStage + 1}/3</div>
-              <div className="mt-1 text-lg font-black text-white">{tutorialStage === 0 ? translated(language, "Bewege deinen Jet", "Move your jet") : tutorialStage === 1 ? translated(language, "Jetzt schießen", "Now fire") : translated(language, "Bereit für die Mission!", "Ready for the mission!")}</div>
-              {tutorialStage === 0 && !showVirtualControls && (
+              <div className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-400">{localize("Training ")}{localize(tutorialStage + 1)}{localize("/3")}</div>
+              <div className="mt-1 text-lg font-black text-white">{localize(tutorialStage === 0 ? translated(language, "Bewege deinen Jet", "Move your jet") : tutorialStage === 1 ? translated(language, "Jetzt schießen", "Now fire") : translated(language, "Bereit für die Mission!", "Ready for the mission!"))}</div>
+              {localize(tutorialStage === 0 && !showVirtualControls && (
                 <div className="mt-3 flex items-center justify-center gap-4">
-                  <div className="grid grid-cols-3 gap-1" aria-label={translated(language, "WASD-Tasten", "WASD keys")}>
-                    <span /><kbd className="tutorial-key">{formatKeyCode(settings.keyBindings.up)}</kbd><span />
-                    <kbd className="tutorial-key">{formatKeyCode(settings.keyBindings.left)}</kbd><kbd className="tutorial-key">{formatKeyCode(settings.keyBindings.down)}</kbd><kbd className="tutorial-key">{formatKeyCode(settings.keyBindings.right)}</kbd>
+                  <div className="grid grid-cols-3 gap-1" aria-label={localize(translated(language, "WASD-Tasten", "WASD keys"))}>
+                    <span /><kbd className="tutorial-key">{localize(formatKeyCode(settings.keyBindings.up))}</kbd><span />
+                    <kbd className="tutorial-key">{localize(formatKeyCode(settings.keyBindings.left))}</kbd><kbd className="tutorial-key">{localize(formatKeyCode(settings.keyBindings.down))}</kbd><kbd className="tutorial-key">{localize(formatKeyCode(settings.keyBindings.right))}</kbd>
                   </div>
-                  <span className="text-xs font-bold text-slate-400">{translated(language, "ODER", "OR")}</span>
-                  <div className="grid grid-cols-3 gap-1" aria-label={translated(language, "Pfeiltasten", "Arrow keys")}>
-                    <span /><kbd className="tutorial-key">↑</kbd><span />
-                    <kbd className="tutorial-key">←</kbd><kbd className="tutorial-key">↓</kbd><kbd className="tutorial-key">→</kbd>
+                  <span className="text-xs font-bold text-slate-400">{localize(translated(language, "ODER", "OR"))}</span>
+                  <div className="grid grid-cols-3 gap-1" aria-label={localize(translated(language, "Pfeiltasten", "Arrow keys"))}>
+                    <span /><kbd className="tutorial-key">{localize("↑")}</kbd><span />
+                    <kbd className="tutorial-key">{localize("←")}</kbd><kbd className="tutorial-key">{localize("↓")}</kbd><kbd className="tutorial-key">{localize("→")}</kbd>
                   </div>
                 </div>
-              )}
-              {tutorialStage === 1 && !showVirtualControls && <kbd className="tutorial-space mt-3 inline-block">{formatKeyCode(settings.keyBindings.fire)} GEDRÜCKT HALTEN</kbd>}
-              {showVirtualControls && tutorialStage < 2 && <div className="mt-2 text-sm font-bold text-slate-200">{tutorialStage === 0 ? translated(language, "Ziehe deinen Finger links über das Spielfeld. Der Jet folgt ihm schnell.", "Drag your finger across the left side. The jet follows it quickly.") : translated(language, "Halte rechts den roten FIRE-Knopf gedrückt.", "Hold the red FIRE button on the right.")}</div>}
-              {tutorialStage === 2 && <div className="mt-2 text-sm text-slate-300">{settings.autoFire ? "Gut gemacht! Dein Jet feuert automatisch. Deine zwei ausgerüsteten Fähigkeiten nutzt du mit den eingeblendeten Tasten." : translated(language, "Gut gemacht! Volle Spezialanzeigen leuchten auf. Nutze dann die angezeigte Taste oder den entsprechenden Touch-Knopf.", "Well done! Full ability meters light up. Then use the displayed key or matching touch button.")}</div>}
-              {tutorialStage < 2 && <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-cyan-200">Sicheres Training · Gegner warten</div>}
-              {tutorialStage < 2 && <div className="mt-2 text-xs font-bold text-emerald-300">{translated(language, "Probiere es jetzt aus, um fortzufahren.", "Try it now to continue.")}</div>}
-              {tutorialStage < 2 && <button onClick={finishTutorial} className="mt-2 text-xs font-bold text-slate-400 underline underline-offset-4">{translated(language, "Training überspringen", "Skip training")}</button>}
+              ))}
+              {localize(tutorialStage === 1 && !showVirtualControls && <kbd className="tutorial-space mt-3 inline-block">{localize(formatKeyCode(settings.keyBindings.fire))} {localize(" GEDRÜCKT HALTEN")}</kbd>)}
+              {localize(showVirtualControls && tutorialStage < 2 && <div className="mt-2 text-sm font-bold text-slate-200">{localize(tutorialStage === 0 ? translated(language, "Ziehe deinen Finger links über das Spielfeld. Der Jet folgt ihm schnell.", "Drag your finger across the left side. The jet follows it quickly.") : translated(language, "Halte rechts den roten FIRE-Knopf gedrückt.", "Hold the red FIRE button on the right."))}</div>)}
+              {localize(tutorialStage === 2 && <div className="mt-2 text-sm text-slate-300">{localize(settings.autoFire ? "Gut gemacht! Dein Jet feuert automatisch. Deine zwei ausgerüsteten Fähigkeiten nutzt du mit den eingeblendeten Tasten." : translated(language, "Gut gemacht! Volle Spezialanzeigen leuchten auf. Nutze dann die angezeigte Taste oder den entsprechenden Touch-Knopf.", "Well done! Full ability meters light up. Then use the displayed key or matching touch button."))}</div>)}
+              {localize(tutorialStage < 2 && <div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-cyan-200">{localize("Sicheres Training · Gegner warten")}</div>)}
+              {localize(tutorialStage < 2 && <div className="mt-2 text-xs font-bold text-emerald-300">{localize(translated(language, "Probiere es jetzt aus, um fortzufahren.", "Try it now to continue."))}</div>)}
+              {localize(tutorialStage < 2 && <button onClick={finishTutorial} className="mt-2 text-xs font-bold text-slate-400 underline underline-offset-4">{localize(translated(language, "Training überspringen", "Skip training"))}</button>)}
             </div>
-            {showVirtualControls && tutorialStage === 0 && <div className="tutorial-pointer absolute bottom-[155px] left-[4%] z-20 text-center text-cyan-200"><div className="text-sm font-black">{translated(language, "HIER ZIEHEN", "DRAG HERE")}</div><div className="text-4xl">↓</div></div>}
-            {showVirtualControls && tutorialStage === 1 && <div className="tutorial-pointer absolute bottom-[150px] right-[3%] z-20 text-center text-red-300"><div className="text-sm font-black">{translated(language, "HIER HALTEN", "HOLD HERE")}</div><div className="text-4xl">↓</div></div>}
+            {localize(showVirtualControls && tutorialStage === 0 && <div className="tutorial-pointer absolute bottom-[155px] left-[4%] z-20 text-center text-cyan-200"><div className="text-sm font-black">{localize(translated(language, "HIER ZIEHEN", "DRAG HERE"))}</div><div className="text-4xl">{localize("↓")}</div></div>)}
+            {localize(showVirtualControls && tutorialStage === 1 && <div className="tutorial-pointer absolute bottom-[150px] right-[3%] z-20 text-center text-red-300"><div className="text-sm font-black">{localize(translated(language, "HIER HALTEN", "HOLD HERE"))}</div><div className="text-4xl">{localize("↓")}</div></div>)}
           </>
-        )}
+        ))}
       </div>
-      {displayState.started && !displayState.gameOver && (
+      {localize(displayState.started && !displayState.gameOver && (
         <div className="mt-2 text-xs text-gray-600 tracking-wider hidden sm:block">
-          {formatKeyCode(settings.keyBindings.up)}{formatKeyCode(settings.keyBindings.left)}{formatKeyCode(settings.keyBindings.down)}{formatKeyCode(settings.keyBindings.right)} — Bewegen · {settings.autoFire ? "AUTO-FIRE" : `${formatKeyCode(settings.keyBindings.fire)} — Schuss`} · {formatKeyCode(settings.keyBindings.ability1)}/{formatKeyCode(settings.keyBindings.ability2)}/{formatKeyCode(settings.keyBindings.ability3)} — Fähigkeiten · ESC — Pause
-        </div>
-      )}
+          {localize(formatKeyCode(settings.keyBindings.up))}{localize(formatKeyCode(settings.keyBindings.left))}{localize(formatKeyCode(settings.keyBindings.down))}{localize(formatKeyCode(settings.keyBindings.right))} {localize(" — Bewegen · ")}{localize(settings.autoFire ? "AUTO-FIRE" : `${formatKeyCode(settings.keyBindings.fire)} — Schuss`)} {localize(" · ")}{localize(formatKeyCode(settings.keyBindings.ability1))}{localize("/")}{localize(formatKeyCode(settings.keyBindings.ability2))}{localize("/")}{localize(formatKeyCode(settings.keyBindings.ability3))} {localize(" — Fähigkeiten · ESC — Pause ")}</div>
+      ))}
     </div>
+    </LanguageProvider>
   );
 }
 
@@ -8815,14 +8728,15 @@ function WorkshopSection({ build, droneBuild, droneRole, selectedSkin, selectedD
   onDroneRoleChange: (role: DroneRoleId) => void;
   onBuild: () => void;
 }) {
+  const localize = useLocalize();
   const availableJets = JET_SKINS.filter(skin => skin.cost === 0 || unlockedItems.includes(skin.id) || skin.id === selectedSkin);
   const availableDrones = DRONE_SKINS.filter(skin => skin.cost === 0 || unlockedItems.includes(skin.id) || skin.id === selectedDroneSkin);
   const skinName = (id: string) => JET_SKINS.find(skin => skin.id === id)?.name ?? "Aegis";
   const JetSelector = ({ title, slot }: { title: string; slot: "primary" | "secondary" }) =>
     <section className="mt-5">
-      <h3 className="font-black" style={{ color: slot === "primary" ? "#67e8f9" : "#c4b5fd" }}>{title}</h3>
+      <h3 className="font-black" style={{ color: slot === "primary" ? "#67e8f9" : "#c4b5fd" }}>{localize(title)}</h3>
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        {availableJets.map(skin => {
+        {localize(availableJets.map(skin => {
           const active = slot === "primary" ? build.bodySkin === skin.id : build.wingSkin === skin.id;
           return <button key={`${slot}-${skin.id}`} onClick={() => onBuildChange(slot === "primary"
             ? { ...build, bodySkin: skin.id, engineSkin: skin.id }
@@ -8830,15 +8744,15 @@ function WorkshopSection({ build, droneBuild, droneRole, selectedSkin, selectedD
           className="rounded-xl p-3 text-left transition active:scale-95"
           style={{ background: active ? `${skin.glow}30` : "rgba(15,23,42,.8)", border: `2px solid ${active ? skin.glow : "#334155"}`, boxShadow: active ? "0 3px 8px #0005" : "none" }}>
           <JetBuildThumbnail skin={skin} />
-          <span className="mt-2 block text-xs font-black">{skin.name}</span>
-        </button>})}
+          <span className="mt-2 block text-xs font-black">{localize(skin.name)}</span>
+        </button>}))}
       </div>
     </section>;
   const DroneSelector = ({ title, slot }: { title: string; slot: "primary" | "secondary" }) =>
     <section className="mt-4">
-      <h3 className="text-sm font-black text-fuchsia-200">{title}</h3>
+      <h3 className="text-sm font-black text-fuchsia-200">{localize(title)}</h3>
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        {availableDrones.map(skin => {
+        {localize(availableDrones.map(skin => {
           const active = slot === "primary" ? droneBuild.bodySkin === skin.id : droneBuild.weaponSkin === skin.id;
           return <button key={`${slot}-${skin.id}`} onClick={() => onDroneBuildChange(slot === "primary"
             ? { ...droneBuild, bodySkin: skin.id, coreSkin: skin.id }
@@ -8846,45 +8760,44 @@ function WorkshopSection({ build, droneBuild, droneRole, selectedSkin, selectedD
           className="rounded-xl p-3 text-left transition active:scale-95"
           style={{ background: active ? `${skin.stroke}30` : "rgba(15,23,42,.8)", border: `2px solid ${active ? skin.stroke : "#334155"}` }}>
           <DroneBuildThumbnail skin={skin} />
-          <span className="mt-2 block text-xs font-black">{skin.name}</span>
-        </button>})}
+          <span className="mt-2 block text-xs font-black">{localize(skin.name)}</span>
+        </button>}))}
       </div>
     </section>;
-  return <section className="relative z-10 text-white" aria-label="Baukasten">
+  return <section className="relative z-10 text-white" aria-label={localize("Baukasten")}>
     <div className="mx-auto w-full max-w-4xl">
       <div className="flex items-center gap-3">
-        <div><div className="text-xs font-black uppercase tracking-[.25em] text-cyan-400">Shop-Werkstatt</div><h2 className="text-2xl font-black">FLUGZEUG-BAUKASTEN</h2></div>
+        <div><div className="text-xs font-black uppercase tracking-[.25em] text-cyan-400">{localize("Shop-Werkstatt")}</div><h2 className="text-2xl font-black">{localize("FLUGZEUG-BAUKASTEN")}</h2></div>
       </div>
-      <p className="mt-2 text-sm text-slate-400">Wähle genau zwei vollständige Flugzeuge. Der Baukasten erzeugt daraus automatisch einen sichtbaren Hybrid-Jet.</p>
+      <p className="mt-2 text-sm text-slate-400">{localize("Wähle genau zwei vollständige Flugzeuge. Der Baukasten erzeugt daraus automatisch einen sichtbaren Hybrid-Jet.")}</p>
 
-      <JetSelector title="1 · FLUGZEUG A" slot="primary" />
-      <JetSelector title="2 · FLUGZEUG B" slot="secondary" />
+      <JetSelector title={localize("1 · FLUGZEUG A")} slot="primary" />
+      <JetSelector title={localize("2 · FLUGZEUG B")} slot="secondary" />
 
       <div className="mt-7 rounded-2xl border border-fuchsia-500/40 bg-fuchsia-950/15 p-4">
-        <h3 className="text-lg font-black text-fuchsia-300">DROHNEN-BAUKASTEN</h3>
-        <p className="text-xs text-slate-400">Wähle genau zwei vollständige Drohnen. Gehäuse, Kern und Waffen werden automatisch gemischt.</p>
-        <DroneSelector title="1 · DROHNE A" slot="primary" />
-        <DroneSelector title="2 · DROHNE B" slot="secondary" />
+        <h3 className="text-lg font-black text-fuchsia-300">{localize("DROHNEN-BAUKASTEN")}</h3>
+        <p className="text-xs text-slate-400">{localize("Wähle genau zwei vollständige Drohnen. Gehäuse, Kern und Waffen werden automatisch gemischt.")}</p>
+        <DroneSelector title={localize("1 · DROHNE A")} slot="primary" />
+        <DroneSelector title={localize("2 · DROHNE B")} slot="secondary" />
       </div>
 
       <section className="mt-5">
-        <h3 className="font-black text-violet-200">3 · DROHNENROLLE</h3>
-        <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{DRONE_ROLES.map(role => <button key={role.id} onClick={() => onDroneRoleChange(role.id)}
+        <h3 className="font-black text-violet-200">{localize("3 · DROHNENROLLE")}</h3>
+        <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{localize(DRONE_ROLES.map(role => <button key={role.id} onClick={() => onDroneRoleChange(role.id)}
           className="rounded-2xl p-4 text-left transition active:scale-95" style={{ background: droneRole === role.id ? "rgba(109,40,217,.3)" : "rgba(15,23,42,.8)", border: `1px solid ${droneRole === role.id ? "#c4b5fd" : "#334155"}` }}>
-          <div className="text-3xl">{role.icon}</div><div className="mt-2 font-black">{role.name}</div><div className="mt-1 text-xs text-slate-400">{role.description}</div>
-        </button>)}</div>
+          <div className="text-3xl">{localize(role.icon)}</div><div className="mt-2 font-black">{localize(role.name)}</div><div className="mt-1 text-xs text-slate-400">{localize(role.description)}</div>
+        </button>))}</div>
       </section>
 
       <div className="mt-5 rounded-2xl border border-emerald-500/40 bg-emerald-950/25 p-4 text-sm">
-        <div className="text-xs font-black uppercase tracking-wider text-emerald-300">Deine Kombinationen</div>
-        <div className="mt-1 font-black">Jet: {skinName(build.bodySkin)} + {skinName(build.wingSkin)}</div>
-        <div className="mt-1 font-black text-fuchsia-200">Drohne: {DRONE_SKINS.find(skin => skin.id === droneBuild.bodySkin)?.name} + {DRONE_SKINS.find(skin => skin.id === droneBuild.weaponSkin)?.name}</div>
+        <div className="text-xs font-black uppercase tracking-wider text-emerald-300">{localize("Deine Kombinationen")}</div>
+        <div className="mt-1 font-black">{localize("Jet: ")}{localize(skinName(build.bodySkin))} {localize(" + ")}{localize(skinName(build.wingSkin))}</div>
+        <div className="mt-1 font-black text-fuchsia-200">{localize("Drohne: ")}{localize(DRONE_SKINS.find(skin => skin.id === droneBuild.bodySkin)?.name)} {localize(" + ")}{localize(DRONE_SKINS.find(skin => skin.id === droneBuild.weaponSkin)?.name)}</div>
       </div>
       <button onClick={onBuild} disabled={coins < HYBRID_BUILD_COST}
         className="pause-primary mt-5 min-h-12 w-full rounded-xl font-black disabled:cursor-not-allowed disabled:opacity-40">
-        HYBRID BAUEN · 💰 {HYBRID_BUILD_COST.toLocaleString("de-DE")} CREDITS
-      </button>
-      {coins < HYBRID_BUILD_COST && <div className="mt-2 text-center text-xs font-bold text-red-300">Noch {(HYBRID_BUILD_COST - coins).toLocaleString("de-DE")} Credits benötigt</div>}
+        {localize(" HYBRID BAUEN · 💰 ")}{localize(HYBRID_BUILD_COST.toLocaleString(localize.locale))} {localize(" CREDITS ")}</button>
+      {localize(coins < HYBRID_BUILD_COST && <div className="mt-2 text-center text-xs font-bold text-red-300">{localize("Noch ")}{localize((HYBRID_BUILD_COST - coins).toLocaleString(localize.locale))} {localize(" Credits benötigt")}</div>)}
     </div>
   </section>;
 }
@@ -8926,6 +8839,7 @@ function HangarOverlay({
   achievements: string[];
   achievementStats: RunStats;
 }) {
+  const localize = useLocalize();
   const language = settings.language;
   const [view, setView] = useState<"main" | "briefing" | "upgrades" | "settings" | "leaderboard" | "achievements">("main");
   const [hoverSkin, setHoverSkin] = useState<string | null>(null);
@@ -9041,76 +8955,75 @@ function HangarOverlay({
   return (
     <div className="facility-screen hangar-layer hangar-main absolute inset-0 flex flex-col items-center justify-between px-6 py-4 overflow-y-auto"
       >
-      {pilotMilestone !== null && (
+      {localize(pilotMilestone !== null && (
         <div className="pilot-level-celebration pointer-events-none fixed inset-0 z-[80] grid place-items-center overflow-hidden" role="status" aria-live="polite">
-          <span className="pilot-level-spark pilot-level-spark-1">✦</span>
-          <span className="pilot-level-spark pilot-level-spark-2">✧</span>
-          <span className="pilot-level-spark pilot-level-spark-3">★</span>
-          <span className="pilot-level-spark pilot-level-spark-4">✦</span>
-          <span className="pilot-level-spark pilot-level-spark-5">✧</span>
-          <span className="pilot-level-spark pilot-level-spark-6">★</span>
+          <span className="pilot-level-spark pilot-level-spark-1">{localize("✦")}</span>
+          <span className="pilot-level-spark pilot-level-spark-2">{localize("✧")}</span>
+          <span className="pilot-level-spark pilot-level-spark-3">{localize("★")}</span>
+          <span className="pilot-level-spark pilot-level-spark-4">{localize("✦")}</span>
+          <span className="pilot-level-spark pilot-level-spark-5">{localize("✧")}</span>
+          <span className="pilot-level-spark pilot-level-spark-6">{localize("★")}</span>
           <div className="pilot-level-card relative rounded-3xl px-10 py-7 text-center text-white">
-            <div className="pilot-level-wings" aria-hidden="true">◆</div>
-            <div className="mt-2 text-[10px] font-black uppercase tracking-[.35em] text-cyan-200">{translated(language, "Pilot-Meilenstein", "Pilot milestone")}</div>
-            <div className="pilot-level-number mt-1 font-black">{translated(language, "LEVEL", "LEVEL")} {pilotMilestone}</div>
-            <div className="mt-2 text-sm font-bold text-violet-200">{translated(language, "Neuer Hangar-Rang erreicht", "New hangar rank reached")}</div>
+            <div className="pilot-level-wings" aria-hidden="true">{localize("◆")}</div>
+            <div className="mt-2 text-[10px] font-black uppercase tracking-[.35em] text-cyan-200">{localize(translated(language, "Pilot-Meilenstein", "Pilot milestone"))}</div>
+            <div className="pilot-level-number mt-1 font-black">{localize(translated(language, "LEVEL", "LEVEL"))} {localize(pilotMilestone)}</div>
+            <div className="mt-2 text-sm font-bold text-violet-200">{localize(translated(language, "Neuer Hangar-Rang erreicht", "New hangar rank reached"))}</div>
           </div>
         </div>
-      )}
+      ))}
       {/* ── Top bar ── */}
       <div className="hangar-topbar w-full flex items-start justify-between">
         <div>
           <div className="font-black text-2xl tracking-widest" style={{ color: "#00cfff", textShadow: "none" }}>
-            fighter-game
-          </div>
-          <div className="text-xs text-slate-400 mt-0.5">{translated(language, "2D Kampfjet-Simulator", "2D fighter jet simulator")}</div>
+            {localize(" fighter-game ")}</div>
+          <div className="text-xs text-slate-400 mt-0.5">{localize(translated(language, "2D Kampfjet-Simulator", "2D fighter jet simulator"))}</div>
         </div>
         <div className="text-right flex flex-col items-end gap-1">
           <div className="rounded-full border border-cyan-400/50 bg-cyan-950/60 px-3 py-1 text-sm font-black tracking-wider text-cyan-300"
-            title={translated(language, "Höchstes erreichtes Spielerlevel", "Highest player level reached")}>
-            🛡 PILOT-LEVEL {getPilotLevelFromKills()}
+            title={localize(translated(language, "Höchstes erreichtes Spielerlevel", "Highest player level reached"))}>
+            {localize(" 🛡 PILOT-LEVEL ")}{localize(getPilotLevelFromKills())}
           </div>
-          <div className="text-cyan-300 font-bold text-sm" title="Juwelen für Flugzeug- und Drohnen-Upgrades">💎 {gems.toLocaleString("de-DE")} Juwelen</div>
-          <div className="text-slate-300 font-bold text-sm">⭐ {highScore.toLocaleString("de-DE")} Highscore</div>
-          <div className="text-amber-400 font-bold text-sm" title={translated(language, "Verfügbare Credits", "Available credits")}>💰 {coins.toLocaleString(localeFor(language))} Credits</div>
+          <div className="text-cyan-300 font-bold text-sm" title={localize("Juwelen für Flugzeug- und Drohnen-Upgrades")}>{localize("💎 ")}{localize(gems.toLocaleString(localize.locale))} {localize(" Juwelen")}</div>
+          <div className="text-slate-300 font-bold text-sm">{localize("⭐ ")}{localize(highScore.toLocaleString(localize.locale))} {localize(" Highscore")}</div>
+          <div className="text-amber-400 font-bold text-sm" title={localize(translated(language, "Verfügbare Credits", "Available credits"))}>{localize("💰 ")}{localize(coins.toLocaleString(localeFor(language)))} {localize(" Credits")}</div>
           <button onClick={() => setView("leaderboard")}
             className="text-xs font-bold px-2 py-0.5 rounded"
             style={{ background: "rgba(0,180,255,0.12)", border: "1px solid #1a4466", color: "#44aadd" }}>
-            {translated(language, "🏆 RANGLISTE", "🏆 LEADERBOARD")}
+            {localize(translated(language, "🏆 RANGLISTE", "🏆 LEADERBOARD"))}
           </button>
-          <button onClick={() => setView("achievements")} className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: "rgba(255,190,0,.12)", border: "1px solid #665018", color: "#ffcc44" }}>🏅 ERFOLGE {achievements.length}/{ACHIEVEMENTS.length}</button>
+          <button onClick={() => setView("achievements")} className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: "rgba(255,190,0,.12)", border: "1px solid #665018", color: "#ffcc44" }}>{localize("🏅 ERFOLGE ")}{localize(achievements.length)}{localize("/")}{localize(ACHIEVEMENTS.length)}</button>
         </div>
       </div>
 
-      <div className="hangar-bays w-full grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label={translated(language, "Vier Hangars", "Four hangars")}>
-        {hangarSlots.map((slot, index) => {
+      <div className="hangar-bays w-full grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label={localize(translated(language, "Vier Hangars", "Four hangars"))}>
+        {localize(hangarSlots.map((slot, index) => {
           if (index >= unlockedHangars) return <button key={index} type="button"
             onClick={() => onHangarBuy(index)} disabled={index !== unlockedHangars || coins < HANGAR_PRICES[index]}
             className="rounded-xl border border-amber-600/60 bg-slate-900/70 px-3 py-2 text-left text-xs text-amber-200 disabled:opacity-50">
-            <div className="font-black text-sm">⌂ HANGAR {index + 1} · 🔒</div>
-            <div className="mt-1">{index === unlockedHangars ? `KAUFEN · 💰 ${HANGAR_PRICES[index].toLocaleString("de-DE")}` : "Vorherigen Hangar freischalten"}</div>
+            <div className="font-black text-sm">{localize("⌂ HANGAR ")}{localize(index + 1)} {localize(" · 🔒")}</div>
+            <div className="mt-1">{localize(index === unlockedHangars ? `KAUFEN · 💰 ${HANGAR_PRICES[index].toLocaleString(localize.locale)}` : "Vorherigen Hangar freischalten")}</div>
           </button>;
           const jet = JET_SKINS.find(item => item.id === slot.skin) ?? JET_SKINS[0];
           const drone = DRONE_SKINS.find(item => item.id === slot.droneSkin) ?? DRONE_SKINS[0];
           return <button key={index} type="button" onClick={() => onHangarSelect(index)}
             aria-pressed={activeHangar === index}
             className={`rounded-xl border px-3 py-2 text-left text-xs ${activeHangar === index ? "border-cyan-300 bg-cyan-900/50 text-white" : "border-slate-600 bg-slate-900/70 text-slate-300"}`}>
-            <div className="font-black text-sm">⌂ HANGAR {index + 1} · LV {slot.level}</div>
-            <div className="mt-1">✈ {jet.name} · ◈ {drone.name}</div>
-            <div className="truncate text-slate-400">⚔ {slot.weapons.map(id => WEAPONS.find(item => item.id === id)?.name ?? id).join(" + ")}</div>
-            <div className="truncate text-slate-400">▣ {WEAPON_CRATES.find(item => item.id === slot.weaponCrate)?.name ?? slot.weaponCrate}</div>
+            <div className="font-black text-sm">{localize("⌂ HANGAR ")}{localize(index + 1)} {localize(" · LV ")}{localize(slot.level)}</div>
+            <div className="mt-1">{localize("✈ ")}{localize(jet.name)} {localize(" · ◈ ")}{localize(drone.name)}</div>
+            <div className="truncate text-slate-400">{localize("⚔ ")}{localize(slot.weapons.map(id => WEAPONS.find(item => item.id === id)?.name ?? id).join(" + "))}</div>
+            <div className="truncate text-slate-400">{localize("▣ ")}{localize(WEAPON_CRATES.find(item => item.id === slot.weaponCrate)?.name ?? slot.weaponCrate)}</div>
           </button>;
-        })}
+        }))}
       </div>
 
       {/* ── Pilot name ── */}
       <div className="hangar-pilot w-full flex items-center gap-2 px-1">
-        <span className="text-slate-400 text-xs whitespace-nowrap">🧑‍✈️ Name:</span>
+        <span className="text-slate-400 text-xs whitespace-nowrap">{localize("🧑‍✈️ Name:")}</span>
         <input
           value={playerName}
           onChange={e => { setPlayerName(e.target.value); saveName(e.target.value); }}
           maxLength={20}
-          placeholder="Pilot"
+          placeholder={localize("Pilot")}
           className="flex-1 px-2 py-1 rounded-lg text-sm font-bold text-white outline-none"
           style={{ background: "rgba(255,255,255,0.06)", border: "1px solid #334466", color: "#00cfff" }}
         />
@@ -9118,22 +9031,22 @@ function HangarOverlay({
 
       {/* ── Jet preview ── */}
       <div className="hangar-preview flex flex-col items-center gap-2">
-        <div className="text-xs text-slate-500 uppercase tracking-widest">{translated(language, "Dein Jet", "Your jet")}</div>
+        <div className="text-xs text-slate-500 uppercase tracking-widest">{localize(translated(language, "Dein Jet", "Your jet"))}</div>
         <div className="hangar-preview-canvas rounded-2xl overflow-hidden"
           style={{ border: `1.5px solid ${skin.glow}55`, boxShadow: "0 3px 8px #0005" }}>
           <canvas ref={previewRef} width={240} height={140} className="block" />
         </div>
-        <div className="font-bold text-white text-sm tracking-wide">{hybridActive ? `Hybrid · ${JET_SKINS.find(item => item.id === aircraftBuild.bodySkin)?.name} + ${JET_SKINS.find(item => item.id === aircraftBuild.wingSkin)?.name}` : skin.name}</div>
+        <div className="font-bold text-white text-sm tracking-wide">{localize(hybridActive ? `Hybrid · ${JET_SKINS.find(item => item.id === aircraftBuild.bodySkin)?.name} + ${JET_SKINS.find(item => item.id === aircraftBuild.wingSkin)?.name}` : skin.name)}</div>
         <div className="max-w-sm rounded-xl border px-3 py-2 text-center" style={{ borderColor: `${skin.glow}55`, background: `${skin.glow}12` }}>
-          <div className="text-xs font-black uppercase tracking-wider" style={{ color: skin.glow }}>{aircraftUltis.map(item => item.ultiName).join(" + ")}</div>
-          {hybridActive && <div className="mt-1 text-[10px] text-slate-300">Alle enthaltenen Ulti-Effekte werden gemeinsam aktiviert.</div>}
+          <div className="text-xs font-black uppercase tracking-wider" style={{ color: skin.glow }}>{localize(aircraftUltis.map(item => item.ultiName).join(" + "))}</div>
+          {localize(hybridActive && <div className="mt-1 text-[10px] text-slate-300">{localize("Alle enthaltenen Ulti-Effekte werden gemeinsam aktiviert.")}</div>)}
         </div>
         <div className="rounded-full border border-cyan-400/40 bg-cyan-950/50 px-3 py-0.5 text-[11px] font-black tracking-wider text-cyan-300">
-          JET-LEVEL {aircraftLevels[activeAircraftLevelKey] ?? 1}
+          {localize(" JET-LEVEL ")}{localize(aircraftLevels[activeAircraftLevelKey] ?? 1)}
         </div>
         {/* Colour picker dots */}
         <div className="hangar-skins flex max-w-full gap-2.5 mt-0.5 overflow-x-auto px-2 py-2">
-          {JET_SKINS.filter(s => s.cost === 0 || unlockedItems.includes(s.id)).map(s => {
+          {localize(JET_SKINS.filter(s => s.cost === 0 || unlockedItems.includes(s.id)).map(s => {
             const active = !hybridActive && s.id === selectedSkin;
             const previewing = s.id === hoverSkin;
             return (
@@ -9141,8 +9054,8 @@ function HangarOverlay({
                 onClick={() => onSkinSelect(s.id)}
                 onMouseEnter={() => setHoverSkin(s.id)}
                 onMouseLeave={() => setHoverSkin(null)}
-                aria-label={`${s.name} auswählen`}
-                title={s.name}
+                aria-label={localize(`${s.name} auswählen`)}
+                title={localize(s.name)}
                 className="hangar-skin-button"
                 style={{
                   width: 38, height: 38, minWidth: 38, borderRadius: "50%", background: s.glow,
@@ -9153,12 +9066,12 @@ function HangarOverlay({
                 }}
               />
             );
-          })}
+          }))}
           <button
             type="button"
             onClick={onHybridSelect}
-            aria-label="Hybrid-Jet auswählen"
-            title="Dein gespeicherter Hybrid-Jet"
+            aria-label={localize("Hybrid-Jet auswählen")}
+            title={localize("Dein gespeicherter Hybrid-Jet")}
             className="hangar-skin-button grid place-items-center font-black text-white"
             style={{
               width: 46, height: 38, minWidth: 46, borderRadius: 10,
@@ -9166,73 +9079,73 @@ function HangarOverlay({
               border: hybridActive ? "3px solid #fff" : "2px solid #67e8f9",
               boxShadow: hybridActive ? "0 3px 8px #0005" : "none",
             }}
-          >H</button>
-          {savedAircraftBuilds
+          >{localize("H")}</button>
+          {localize(savedAircraftBuilds
             .filter(build => aircraftBuildLevelKey(build) !== aircraftBuildLevelKey(aircraftBuild))
             .map((build, index) => {
               const body = JET_SKINS.find(item => item.id === build.bodySkin) ?? JET_SKINS[0];
               const wing = JET_SKINS.find(item => item.id === build.wingSkin) ?? JET_SKINS[0];
               return <button key={aircraftBuildLevelKey(build)} type="button" onClick={() => onSavedAircraftBuildSelect(build)}
-                aria-label={`Gespeicherten Hybrid ${body.name} und ${wing.name} auswählen`}
-                title={`${body.name} + ${wing.name} · Level ${aircraftLevels[aircraftBuildLevelKey(build)] ?? 1}`}
+                aria-label={localize(`Gespeicherten Hybrid ${body.name} und ${wing.name} auswählen`)}
+                title={localize(`${body.name} + ${wing.name} · Level ${aircraftLevels[aircraftBuildLevelKey(build)] ?? 1}`)}
                 className="hangar-skin-button grid place-items-center text-[10px] font-black text-white"
                 style={{ width: 46, height: 38, minWidth: 46, borderRadius: 10, background: `linear-gradient(135deg, ${body.glow} 0 50%, ${wing.glow} 50% 100%)`, border: "2px solid #67e8f9" }}>
-                H{index + 2}
+                {localize(" H")}{localize(index + 2)}
               </button>;
-            })}
+            }))}
         </div>
         <div className="hangar-drone-skins flex items-center justify-center gap-2 mt-1">
-          <span className="text-slate-500 text-xs">Drohne:</span>
-          {DRONE_SKINS.filter(s => s.cost === 0 || unlockedItems.includes(s.id)).map(s => {
+          <span className="text-slate-500 text-xs">{localize("Drohne:")}</span>
+          {localize(DRONE_SKINS.filter(s => s.cost === 0 || unlockedItems.includes(s.id)).map(s => {
             const active = !droneCombined && selectedDroneSkin === s.id;
             return <button key={s.id} onClick={() => onDroneSkinSelect(s.id)}
-              aria-label={`${s.name} Drohnen-Skin auswählen`}
-              title={s.name}
+              aria-label={localize(`${s.name} Drohnen-Skin auswählen`)}
+              title={localize(s.name)}
               className="hangar-skin-button grid place-items-center overflow-hidden"
               style={{ width: 50, height: 38, minWidth: 50, borderRadius: 10, background: `${s.body}cc`,
                 border: active ? "3px solid #fff" : `2px solid ${s.stroke}66`,
                 boxShadow: active ? "0 3px 8px #0005" : "none" }}>
               <DroneBuildThumbnail skin={s} level={droneLevels[s.id] ?? 1} compact className="h-full w-full" />
             </button>;
-          })}
-          {droneCombined && (
+          }))}
+          {localize(droneCombined && (
             <div
               role="img"
-              aria-label={`Kombinierte Drohne ${combinedDroneNames.join(" und ")}`}
-              title={`Kombiniert · ${combinedDroneNames.join(" + ")}`}
+              aria-label={localize(`Kombinierte Drohne ${combinedDroneNames.join(" und ")}`)}
+              title={localize(`Kombiniert · ${combinedDroneNames.join(" + ")}`)}
               className="grid place-items-center overflow-hidden"
               style={{ width: 58, height: 42, minWidth: 58, borderRadius: 11, background: "rgba(109,40,217,.32)", border: "3px solid #fff", boxShadow: "0 3px 8px #0005" }}
             >
               <CombinedDroneBuildThumbnail build={droneBuild} fallback={selectedDrone} level={combinedDroneLevel} compact className="h-full w-full" />
             </div>
-          )}
-          {savedDroneBuilds
+          ))}
+          {localize(savedDroneBuilds
             .filter(build => droneBuildLevelKey(build) !== droneBuildLevelKey(droneBuild))
             .map(build => {
               const fallback = DRONE_SKINS.find(item => item.id === build.bodySkin) ?? selectedDrone;
               const names = [build.bodySkin, build.weaponSkin].map(id => DRONE_SKINS.find(item => item.id === id)?.name ?? fallback.name);
               return <button key={droneBuildLevelKey(build)} type="button" onClick={() => onSavedDroneBuildSelect(build)}
-                aria-label={`Gespeicherte kombinierte Drohne ${names.join(" und ")} auswählen`}
-                title={`${names.join(" + ")} · Level ${droneLevels[droneBuildLevelKey(build)] ?? 1}`}
+                aria-label={localize(`Gespeicherte kombinierte Drohne ${names.join(" und ")} auswählen`)}
+                title={localize(`${names.join(" + ")} · Level ${droneLevels[droneBuildLevelKey(build)] ?? 1}`)}
                 className="hangar-skin-button grid place-items-center overflow-hidden"
                 style={{ width: 58, height: 42, minWidth: 58, borderRadius: 11, background: "rgba(109,40,217,.2)", border: "2px solid #c084fc" }}>
                 <CombinedDroneBuildThumbnail build={build} fallback={fallback} level={droneLevels[droneBuildLevelKey(build)] ?? 1} compact className="h-full w-full" />
               </button>;
-            })}
-          <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2 py-0.5 text-[10px] font-black text-violet-300">LV {droneCombined ? combinedDroneLevel : (droneLevels[selectedDroneSkin] ?? 1)}</span>
+            }))}
+          <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2 py-0.5 text-[10px] font-black text-violet-300">{localize("LV ")}{localize(droneCombined ? combinedDroneLevel : (droneLevels[selectedDroneSkin] ?? 1))}</span>
         </div>
-        {droneCombined && <div className="text-[10px] font-black text-fuchsia-300">KOMBINIERT · {combinedDroneNames.join(" + ")}</div>}
-        <div className="max-w-sm text-center text-[10px] text-violet-300" title={droneUltis.map(item => item.ultiDesc).join(" ")}>
-          {droneUltis.map(item => item.ultiName).join(" + ")}
+        {localize(droneCombined && <div className="text-[10px] font-black text-fuchsia-300">{localize("KOMBINIERT · ")}{localize(combinedDroneNames.join(" + "))}</div>)}
+        <div className="max-w-sm text-center text-[10px] text-violet-300" title={localize(droneUltis.map(item => item.ultiDesc).join(" "))}>
+          {localize(droneUltis.map(item => item.ultiName).join(" + "))}
         </div>
         <div className="hangar-crate-skins flex max-w-full flex-wrap items-center justify-center gap-2 mt-1">
-          <span className="text-slate-500 text-xs">Waffenmodul:</span>
-          {SORTED_WEAPON_CRATES.filter(crate => crate.cost === 0 || unlockedItems.includes(`weapon_crate_${crate.id}`)).map(crate => (
+          <span className="text-slate-500 text-xs">{localize("Waffenmodul:")}</span>
+          {localize(SORTED_WEAPON_CRATES.filter(crate => crate.cost === 0 || unlockedItems.includes(`weapon_crate_${crate.id}`)).map(crate => (
             <button
               key={crate.id}
               onClick={() => onWeaponCrateSelect(crate.id)}
-              aria-label={`${crate.name} als Waffenmodul auswählen`}
-              title={`${crate.name} · ${SHOP_RARITIES[crate.rarity].label}`}
+              aria-label={localize(`${crate.name} als Waffenmodul auswählen`)}
+              title={localize(`${crate.name} · ${SHOP_RARITIES[crate.rarity].label}`)}
               className="hangar-skin-button grid place-items-center overflow-hidden"
               style={{
                 width: 52, height: 38, minWidth: 52, borderRadius: 10,
@@ -9243,23 +9156,23 @@ function HangarOverlay({
             >
               <WeaponModuleThumbnail module={crate} compact className="h-full w-full" />
             </button>
-          ))}
+          )))}
         </div>
         {/* Continue hint */}
-        {hasSave && saveData && (
+        {localize(hasSave && saveData && (
           <div className="text-xs text-emerald-400/80 mt-1">
-            {translated(language, "Gespeichert", "Saved")}: {translated(language, "Level", "Level")} {saveData.level} · {saveData.score.toLocaleString(localeFor(language))} {translated(language, "Punkte", "points")} · {WEAPON_TIERS[saveData.weaponTier]?.name}
+            {localize(translated(language, "Gespeichert", "Saved"))}{localize(": ")}{localize(translated(language, "Level", "Level"))} {localize(saveData.level)} {localize(" · ")}{localize(saveData.score.toLocaleString(localeFor(language)))} {localize(translated(language, "Punkte", "points"))} {localize(" · ")}{localize(WEAPON_TIERS[saveData.weaponTier]?.name)}
           </div>
-        )}
-        {nextPurchase && (
+        ))}
+        {localize(nextPurchase && (
           <div className="hangar-progress w-full max-w-md mt-1">
             <div className="flex justify-between text-[11px] text-slate-400">
-              <span>{translated(language, "Nächstes Ziel", "Next goal")}: {nextPurchase.name}</span>
-              <span>{Math.min(coins, nextPurchase.cost).toLocaleString("de-DE")} / {nextPurchase.cost.toLocaleString("de-DE")} Credits</span>
+              <span>{localize(translated(language, "Nächstes Ziel", "Next goal"))}{localize(": ")}{localize(nextPurchase.name)}</span>
+              <span>{localize(Math.min(coins, nextPurchase.cost).toLocaleString(localize.locale))} {localize(" / ")}{localize(nextPurchase.cost.toLocaleString(localize.locale))} {localize(" Credits")}</span>
             </div>
             <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-amber-400" style={{ width: `${Math.min(100, coins / nextPurchase.cost * 100)}%` }} /></div>
           </div>
-        )}
+        ))}
       </div>
 
       {/* ── Bottom buttons ── */}
@@ -9267,34 +9180,34 @@ function HangarOverlay({
         <button onClick={() => setView("upgrades")}
           className="flex-1 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-95"
           style={{ background: "rgba(50,15,90,0.75)", border: "1.5px solid #7733bb", color: "#cc88ff" }}>
-          <span aria-hidden="true">⚔️</span> <span className="hangar-action-label">SHOP</span>
+          <span aria-hidden="true">{localize("⚔️")}</span> <span className="hangar-action-label">{localize("SHOP")}</span>
         </button>
         <div className="flex-[1.6] flex flex-col gap-1.5">
-          {hasSave ? (
+          {localize(hasSave ? (
             <>
               <button onClick={onStart}
                 className="w-full py-2.5 rounded-xl font-bold text-base tracking-widest transition-all active:scale-95"
                 style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #00cfff", color: "#00cfff", textShadow: "none" }}>
-                {translated(language, "▶ WEITERSPIELEN", "▶ CONTINUE")}
+                {localize(translated(language, "▶ WEITERSPIELEN", "▶ CONTINUE"))}
               </button>
               <button onClick={onNewGame}
                 className="w-full py-1.5 rounded-xl font-bold text-xs tracking-wider transition-all active:scale-95"
                 style={{ background: "rgba(20,20,30,0.7)", border: "1px solid #334466", color: "#667799" }}>
-                {translated(language, "▶ NEUES SPIEL", "▶ NEW GAME")}
+                {localize(translated(language, "▶ NEUES SPIEL", "▶ NEW GAME"))}
               </button>
             </>
           ) : (
             <button onClick={onStart}
               className="w-full py-3 rounded-xl font-bold text-lg tracking-widest transition-all active:scale-95"
               style={{ background: "rgba(0,70,140,0.85)", border: "2px solid #00cfff", color: "#00cfff", textShadow: "none" }}>
-              {translated(language, "▶ START", "▶ START")}
+              {localize(translated(language, "▶ START", "▶ START"))}
             </button>
-          )}
+          ))}
         </div>
         <button onClick={() => setView("settings")}
           className="flex-1 py-3 rounded-xl font-bold text-sm tracking-wide transition-all active:scale-95"
           style={{ background: "rgba(15,30,45,0.75)", border: "1.5px solid #335566", color: "#7799bb" }}>
-          <span aria-hidden="true">⚙️</span> <span className="hangar-action-label">{translated(language, "EINSTELLUNGEN", "SETTINGS")}</span>
+          <span aria-hidden="true">{localize("⚙️")}</span> <span className="hangar-action-label">{localize(translated(language, "EINSTELLUNGEN", "SETTINGS"))}</span>
         </button>
       </div>
       {/* Admin button (bottom-right) */}
@@ -9302,40 +9215,39 @@ function HangarOverlay({
         <button onClick={() => setView("briefing")}
           className="text-xs rounded px-2 py-0.5"
           style={{ color: "#8bdfff", background: "rgba(0,180,255,0.08)", border: "1px solid #1a4466" }}>
-          {translated(language, "? ANLEITUNG", "? HOW TO PLAY")}
+          {localize(translated(language, "? ANLEITUNG", "? HOW TO PLAY"))}
         </button>
-        {fullscreenSupported && (
+        {localize(fullscreenSupported && (
           <button onClick={onFullscreenToggle}
-            aria-label={isFullscreen ? translated(language, "Vollbild beenden", "Exit fullscreen") : translated(language, "Vollbild öffnen", "Enter fullscreen")}
+            aria-label={localize(isFullscreen ? translated(language, "Vollbild beenden", "Exit fullscreen") : translated(language, "Vollbild öffnen", "Enter fullscreen"))}
             className="text-xs rounded px-2 py-0.5"
             style={{ color: "#7799bb", background: "rgba(0,180,255,0.08)", border: "1px solid #1a4466" }}>
-            {isFullscreen ? translated(language, "↙ Vollbild beenden", "↙ Exit fullscreen") : translated(language, "⛶ Vollbild", "⛶ Fullscreen")}
+            {localize(isFullscreen ? translated(language, "↙ Vollbild beenden", "↙ Exit fullscreen") : translated(language, "⛶ Vollbild", "⛶ Fullscreen"))}
           </button>
-        )}
+        ))}
         <button onClick={() => setShowAdmin(v => !v)}
           className="text-xs rounded px-2 py-0.5"
           style={{ color: "#556688", background: "rgba(255,255,255,0.04)", border: "1px solid #223344" }}>
-          ⚙ Admin
-        </button>
+          {localize(" ⚙ Admin ")}</button>
       </div>
       {/* Admin panel */}
-      {showAdmin && (
+      {localize(showAdmin && (
         <div className="absolute inset-0 flex items-center justify-center z-50"
           style={{ background: "rgba(0,0,0,0.88)" }}>
           <div className="flex flex-col gap-4 rounded-2xl p-6 w-72"
             style={{ background: "#0a0f20", border: "1.5px solid #2244aa" }}>
-            <div className="font-black text-lg tracking-wide" style={{ color: "#00cfff" }}>ADMIN PANEL</div>
-            <div className="text-slate-400 text-sm">Pilot: <span className="text-white font-bold">{playerName || "Pilot"}</span></div>
-            <div className="text-slate-400 text-sm">Spieler aktiv: <span className="text-emerald-400 font-bold">1 (lokal)</span></div>
-            <div className="text-slate-500 text-xs">Admin-Code eingeben:</div>
+            <div className="font-black text-lg tracking-wide" style={{ color: "#00cfff" }}>{localize("ADMIN PANEL")}</div>
+            <div className="text-slate-400 text-sm">{localize("Pilot: ")}<span className="text-white font-bold">{localize(playerName || "Pilot")}</span></div>
+            <div className="text-slate-400 text-sm">{localize("Spieler aktiv: ")}<span className="text-emerald-400 font-bold">{localize("1 (lokal)")}</span></div>
+            <div className="text-slate-500 text-xs">{localize("Admin-Code eingeben:")}</div>
             <input
               value={adminCode}
               onChange={e => setAdminCode(e.target.value)}
-              placeholder="Code..."
+              placeholder={localize("Code...")}
               className="px-3 py-2 rounded-lg text-sm font-mono outline-none"
               style={{ background: "rgba(255,255,255,0.07)", border: "1px solid #334466", color: "#fff" }}
             />
-            {adminMsg && <div className="text-emerald-400 text-sm font-bold">{adminMsg}</div>}
+            {localize(adminMsg && <div className="text-emerald-400 text-sm font-bold">{localize(adminMsg)}</div>)}
             <div className="flex gap-2">
               <button onClick={() => {
                 if (adminCode === "buelli-best 1") {
@@ -9348,17 +9260,15 @@ function HangarOverlay({
               }}
                 className="flex-1 py-2 rounded-xl font-bold text-sm transition-all active:scale-95"
                 style={{ background: "rgba(0,80,200,0.5)", border: "1px solid #0066ff", color: "#66aaff" }}>
-                Aktivieren
-              </button>
+                {localize(" Aktivieren ")}</button>
               <button onClick={() => { setShowAdmin(false); setAdminMsg(""); setAdminCode(""); }}
                 className="flex-1 py-2 rounded-xl font-bold text-sm transition-all active:scale-95"
                 style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #334", color: "#667799" }}>
-                Schließen
-              </button>
+                {localize(" Schließen ")}</button>
             </div>
           </div>
         </div>
-      )}
+      ))}
     </div>
   );
 }
@@ -9366,6 +9276,7 @@ function HangarOverlay({
 // ─── Shop Screen ──────────────────────────────────────────────────────────────
 
 function ShopCrateVisual({ rarity, opening }: { rarity: ShopRarity; opening: boolean }) {
+  const localize = useLocalize();
   const theme = SHOP_RARITIES[rarity];
   return (
     <div
@@ -9382,7 +9293,7 @@ function ShopCrateVisual({ rarity, opening }: { rarity: ShopRarity; opening: boo
       <div className="sci-fi-crate-body">
         <span className="sci-fi-crate-panel sci-fi-crate-panel-left" />
         <span className="sci-fi-crate-panel sci-fi-crate-panel-right" />
-        <span className="sci-fi-crate-lock">◆</span>
+        <span className="sci-fi-crate-lock">{localize("◆")}</span>
         <span className="sci-fi-crate-bolt sci-fi-crate-bolt-a" />
         <span className="sci-fi-crate-bolt sci-fi-crate-bolt-b" />
       </div>
@@ -9412,6 +9323,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
   onWeaponUpgrade: (id: string) => void;
   onCrateOpen: (rarity: ShopRarity, free: boolean) => ShopCrateReward | null;
 }) {
+  const localize = useLocalize();
   type ShopSection = "workshop" | "crates" | "weapons" | "levels" | "skins" | "ultis" | "upgrades";
   const shopSections: readonly { id: ShopSection; icon: string; label: string; description: string }[] = [
     { id: "crates", icon: "📦", label: "Kisten", description: "Versiegelte Belohnungskisten öffnen" },
@@ -9486,51 +9398,48 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
   return (
     <div className="facility-screen shop-screen relative flex flex-col h-full p-4 gap-3 overflow-y-auto select-none text-white">
 
-      {pendingPurchase && (
+      {localize(pendingPurchase && (
         <div className="purchase-confirmation fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4" role="dialog" aria-modal="true" aria-labelledby="purchase-title">
           <div className="w-full max-w-sm rounded-3xl border border-amber-300/70 bg-[#090d1d]/95 p-6 text-center shadow-lg">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-amber-300/60 bg-amber-400/10 text-4xl shadow-lg">{pendingPurchase.currency === "gems" ? "💎" : "💰"}</div>
-            <div className="mt-4 text-[10px] font-black uppercase tracking-[.28em] text-amber-300">Kauf bestätigen</div>
-            <h3 id="purchase-title" className="mt-2 text-2xl font-black text-white">Bist du sicher?</h3>
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-amber-300/60 bg-amber-400/10 text-4xl shadow-lg">{localize(pendingPurchase.currency === "gems" ? "💎" : "💰")}</div>
+            <div className="mt-4 text-[10px] font-black uppercase tracking-[.28em] text-amber-300">{localize("Kauf bestätigen")}</div>
+            <h3 id="purchase-title" className="mt-2 text-2xl font-black text-white">{localize("Bist du sicher?")}</h3>
             <p className="mt-2 text-sm text-slate-300">
-              Möchtest du <b className="text-white">{pendingPurchase.name}</b> für{" "}
-              <b className="text-amber-300">{pendingPurchase.cost.toLocaleString("de-DE")} {pendingPurchase.currency === "gems" ? "Juwelen" : "Credits"}</b> kaufen?
-            </p>
+              {localize(" Möchtest du ")}<b className="text-white">{localize(pendingPurchase.name)}</b> {localize(" für")}{localize(" ")}
+              <b className="text-amber-300">{localize(pendingPurchase.cost.toLocaleString(localize.locale))} {localize(pendingPurchase.currency === "gems" ? "Juwelen" : "Credits")}</b> {localize(" kaufen? ")}</p>
             <div className="mt-6 grid grid-cols-2 gap-3">
               <button autoFocus onClick={() => setPendingPurchase(null)} className="rounded-xl border border-slate-500 bg-slate-800/80 px-4 py-3 font-black text-slate-200 transition hover:bg-slate-700">
-                ABBRECHEN
-              </button>
+                {localize(" ABBRECHEN ")}</button>
               <button onClick={confirmPurchase} className="purchase-confirm-button rounded-xl border border-amber-200 bg-amber-400 px-4 py-3 font-black text-slate-950 transition hover:bg-amber-300 active:scale-95">
-                KAUFEN
-              </button>
+                {localize(" KAUFEN ")}</button>
             </div>
           </div>
         </div>
-      )}
-      {purchaseCelebration && (
+      ))}
+      {localize(purchaseCelebration && (
         <div key={purchaseCelebration.nonce} className="purchase-celebration pointer-events-none fixed inset-0 z-50 grid place-items-center" role="status" aria-live="polite">
           <div className="purchase-flash absolute inset-0" />
           <div className="purchase-success relative rounded-3xl border border-emerald-300/80 bg-slate-950/95 px-8 py-6 text-center shadow-lg">
-            <div className="purchase-check mx-auto grid h-20 w-20 place-items-center rounded-full bg-emerald-400 text-5xl font-black text-slate-950">✓</div>
-            <div className="mt-4 text-[11px] font-black uppercase tracking-[.3em] text-emerald-300">Kauf erfolgreich</div>
-            <div className="mt-1 text-xl font-black text-white">{purchaseCelebration.name}</div>
-            <div className="purchase-spark purchase-spark-a">✦</div>
-            <div className="purchase-spark purchase-spark-b">✦</div>
-            <div className="purchase-spark purchase-spark-c">✦</div>
-            <div className="purchase-spark purchase-spark-d">✦</div>
+            <div className="purchase-check mx-auto grid h-20 w-20 place-items-center rounded-full bg-emerald-400 text-5xl font-black text-slate-950">{localize("✓")}</div>
+            <div className="mt-4 text-[11px] font-black uppercase tracking-[.3em] text-emerald-300">{localize("Kauf erfolgreich")}</div>
+            <div className="mt-1 text-xl font-black text-white">{localize(purchaseCelebration.name)}</div>
+            <div className="purchase-spark purchase-spark-a">{localize("✦")}</div>
+            <div className="purchase-spark purchase-spark-b">{localize("✦")}</div>
+            <div className="purchase-spark purchase-spark-c">{localize("✦")}</div>
+            <div className="purchase-spark purchase-spark-d">{localize("✦")}</div>
           </div>
         </div>
-      )}
+      ))}
       <div className="relative z-10 flex items-center gap-3 shrink-0">
-        <button onClick={onBack} className="text-slate-400 hover:text-white text-xl font-bold px-2">←</button>
-        <h2 className="font-bold text-xl tracking-wide" style={{ textShadow: "none" }}>SHOP</h2>
-        <span className="rounded-full border border-cyan-400/50 bg-cyan-950/60 px-2.5 py-1 text-xs font-black text-cyan-300">PILOT-LEVEL {playerLevel}</span>
-        <span className="ml-auto text-cyan-300 font-bold text-sm">💎 {gems.toLocaleString("de-DE")}</span>
-        <span className="text-amber-300 font-bold text-sm">💰 {coins.toLocaleString("de-DE")}</span>
+        <button onClick={onBack} className="text-slate-400 hover:text-white text-xl font-bold px-2">{localize("←")}</button>
+        <h2 className="font-bold text-xl tracking-wide" style={{ textShadow: "none" }}>{localize("SHOP")}</h2>
+        <span className="rounded-full border border-cyan-400/50 bg-cyan-950/60 px-2.5 py-1 text-xs font-black text-cyan-300">{localize("PILOT-LEVEL ")}{localize(playerLevel)}</span>
+        <span className="ml-auto text-cyan-300 font-bold text-sm">{localize("💎 ")}{localize(gems.toLocaleString(localize.locale))}</span>
+        <span className="text-amber-300 font-bold text-sm">{localize("💰 ")}{localize(coins.toLocaleString(localize.locale))}</span>
       </div>
 
       <div className="relative z-10 flex flex-wrap gap-2 text-[10px] font-black tracking-wider">
-        {SHOP_RARITY_SEQUENCE.map(key => {
+        {localize(SHOP_RARITY_SEQUENCE.map(key => {
           const rarity = SHOP_RARITIES[key];
           const unlocked = isShopRarityUnlocked(key, playerLevel);
           return <span key={key} className="rounded px-2 py-0.5" style={{
@@ -9538,12 +9447,12 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
             ...shopRarityLabelStyle(key),
             border: `1px solid ${rarity.color}`,
             boxShadow: unlocked ? shopRarityFinish(key, 7) : undefined,
-          }}>{unlocked ? "" : "🔒 "}{rarity.label} · LVL {SHOP_RARITY_MIN_LEVEL[key]}</span>;
-        })}
+          }}>{localize(unlocked ? "" : "🔒 ")}{localize(rarity.label)} {localize(" · LVL ")}{localize(SHOP_RARITY_MIN_LEVEL[key])}</span>;
+        }))}
       </div>
 
-      <nav className="relative z-10 grid grid-cols-3 gap-1 rounded-2xl sm:grid-cols-7 border border-slate-700/80 bg-slate-950/80 p-1.5" aria-label="Shop-Bereiche">
-        {shopSections.map(section => {
+      <nav className="relative z-10 grid grid-cols-3 gap-1 rounded-2xl sm:grid-cols-7 border border-slate-700/80 bg-slate-950/80 p-1.5" aria-label={localize("Shop-Bereiche")}>
+        {localize(shopSections.map(section => {
           const active = shopSection === section.id;
           return (
             <button
@@ -9551,27 +9460,27 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
               type="button"
               onClick={() => setShopSection(section.id)}
               aria-pressed={active}
-              title={section.description}
+              title={localize(section.description)}
               className={`min-w-0 rounded-xl px-1 py-2 text-center transition ${active ? "bg-cyan-400 text-slate-950 shadow-lg" : "bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"}`}
             >
-              <span className="block text-base leading-none">{section.icon}</span>
-              <span className="mt-1 block truncate text-[10px] font-black uppercase tracking-wide">{section.label}</span>
+              <span className="block text-base leading-none">{localize(section.icon)}</span>
+              <span className="mt-1 block truncate text-[10px] font-black uppercase tracking-wide">{localize(section.label)}</span>
             </button>
           );
-        })}
+        }))}
       </nav>
       <div className="relative z-10 rounded-xl border border-cyan-500/20 bg-cyan-950/20 px-3 py-2 text-xs text-slate-300">
-        <b className="text-cyan-300">{shopSections.find(section => section.id === shopSection)?.label}:</b>{" "}
-        {shopSections.find(section => section.id === shopSection)?.description}
-        {shopSection !== "workshop" && <span className="ml-2 text-slate-500">Sortiert nach Seltenheit und Preis.</span>}
+        <b className="text-cyan-300">{localize(shopSections.find(section => section.id === shopSection)?.label)}{localize(":")}</b>{localize(" ")}
+        {localize(shopSections.find(section => section.id === shopSection)?.description)}
+        {localize(shopSection !== "workshop" && <span className="ml-2 text-slate-500">{localize("Sortiert nach Seltenheit und Preis.")}</span>)}
       </div>
 
-      {shopSection === "workshop" && workshop}
+      {localize(shopSection === "workshop" && workshop)}
 
-      {shopSection === "crates" && (
+      {localize(shopSection === "crates" && (
         <div className="relative z-10">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {SORTED_SHOP_CRATES.map(crate => {
+            {localize(SORTED_SHOP_CRATES.map(crate => {
               const rarity = SHOP_RARITIES[crate.rarity];
               const isOpening = openingCrate === crate.rarity;
               const isDaily = crate.rarity === "rare";
@@ -9579,48 +9488,48 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
               return (
                 <div key={crate.rarity} className={`shop-crate-card relative overflow-hidden rounded-2xl p-4 ${isOpening ? "daily-chest-opening" : ""} ${isOpening && dailyChestCelebrating ? "daily-chest-celebrating" : ""}`}
                   style={{ background: crate.rarity === "ultimate" ? "linear-gradient(125deg,#172033,#31173b,#12313b)" : `${rarity.color}12`, border: `1px solid ${rarity.color}99`, boxShadow: shopRarityFinish(crate.rarity, 15) }}>
-                  {isOpening && dailyChestCelebrating && crateReward && (
+                  {localize(isOpening && dailyChestCelebrating && crateReward && (
                     <div className="crate-reward-reveal absolute inset-0 z-20 grid place-items-center bg-slate-950/90 p-4 text-center" role="status" aria-live="polite">
                       <div>
-                        <div className="text-5xl">{crateReward.icon}</div>
-                        <div className="mt-2 text-[10px] font-black uppercase tracking-[.25em]" style={shopRarityLabelStyle(crate.rarity)}>GEWONNEN</div>
-                        <div className="mt-1 text-lg font-black text-white">{crateReward.label}</div>
+                        <div className="text-5xl">{localize(crateReward.icon)}</div>
+                        <div className="mt-2 text-[10px] font-black uppercase tracking-[.25em]" style={shopRarityLabelStyle(crate.rarity)}>{localize("GEWONNEN")}</div>
+                        <div className="mt-1 text-lg font-black text-white">{localize(crateReward.label)}</div>
                       </div>
                     </div>
-                  )}
+                  ))}
                   <div className="flex items-center gap-4">
                     <ShopCrateVisual rarity={crate.rarity} opening={isOpening} />
                     <div className="min-w-0 flex-1">
-                      <div className="text-[9px] font-black tracking-[.2em]" style={shopRarityLabelStyle(crate.rarity)}>{rarity.label}</div>
-                      <div className="font-black text-white">{crate.name}</div>
-                      <div className="mt-1 text-[11px] font-bold uppercase tracking-[.2em] text-slate-500">Versiegelt</div>
+                      <div className="text-[9px] font-black tracking-[.2em]" style={shopRarityLabelStyle(crate.rarity)}>{localize(rarity.label)}</div>
+                      <div className="font-black text-white">{localize(crate.name)}</div>
+                      <div className="mt-1 text-[11px] font-bold uppercase tracking-[.2em] text-slate-500">{localize("Versiegelt")}</div>
                     </div>
                   </div>
                   <button type="button" onClick={() => openCrate(crate)} disabled={!canAfford || openingCrate !== null}
                     className="mt-3 w-full rounded-xl px-3 py-2.5 text-xs font-black transition active:scale-[.98] disabled:opacity-40"
                     style={{ background: `${rarity.color}25`, border: `1px solid ${rarity.color}`, color: rarity.color }}>
-                    {isOpening ? "WIRD GEÖFFNET …" : `💰 ${crate.cost.toLocaleString("de-DE")} · KAUFEN & ÖFFNEN`}
+                    {localize(isOpening ? "WIRD GEÖFFNET …" : `💰 ${crate.cost.toLocaleString(localize.locale)} · KAUFEN & ÖFFNEN`)}
                   </button>
-                  {isDaily && (
+                  {localize(isDaily && (
                     <button type="button" onClick={() => openCrate(crate, true)} disabled={!dailyChestAvailable || openingCrate !== null}
                       className="mt-2 w-full rounded-xl border border-emerald-300/70 bg-emerald-400/15 px-3 py-2.5 text-xs font-black text-emerald-200 transition active:scale-[.98] disabled:opacity-40">
-                      {dailyChestAvailable ? "🎁 TÄGLICHE GRATIS-KISTE" : "✓ HEUTE BEREITS GEÖFFNET"}
+                      {localize(dailyChestAvailable ? "🎁 TÄGLICHE GRATIS-KISTE" : "✓ HEUTE BEREITS GEÖFFNET")}
                     </button>
-                  )}
+                  ))}
                 </div>
               );
-            })}
+            }))}
           </div>
         </div>
-      )}
+      ))}
 
-      {shopSection === "weapons" && (
+      {localize(shopSection === "weapons" && (
       <div className="relative z-10">
-        <div className="text-xs font-black uppercase tracking-[.2em] text-rose-300">Waffenarsenal</div>
-        <div className="mt-1 text-xs text-slate-400">Kaufe Waffen mit Credits oder Juwelen, rüste bis zu zwei gleichzeitig aus und verbessere sie bis Level 10.</div>
-        <div className="mt-2 text-[10px] font-black uppercase tracking-wider text-cyan-300">Waffenslots {selectedWeapons.length}/2 belegt</div>
+        <div className="text-xs font-black uppercase tracking-[.2em] text-rose-300">{localize("Waffenarsenal")}</div>
+        <div className="mt-1 text-xs text-slate-400">{localize("Kaufe Waffen mit Credits oder Juwelen, rüste bis zu zwei gleichzeitig aus und verbessere sie bis Level 10.")}</div>
+        <div className="mt-2 text-[10px] font-black uppercase tracking-wider text-cyan-300">{localize("Waffenslots ")}{localize(selectedWeapons.length)}{localize("/2 belegt")}</div>
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {SORTED_WEAPONS.map(weapon => {
+          {localize(SORTED_WEAPONS.map(weapon => {
             const owned = weapon.cost === 0 || unlockedItems.includes(`weapon_${weapon.id}`);
             const active = selectedWeapons.includes(weapon.id);
             const slot = active ? selectedWeapons.indexOf(weapon.id) + 1 : null;
@@ -9639,41 +9548,41 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
               opacity: !owned && !levelUnlocked ? .48 : 1,
             }}>
               <div className="flex items-start gap-3">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xl font-black" style={{ color: weapon.color, background: `${weapon.color}16`, border: `1px solid ${weapon.color}88`, textShadow: "none" }}>{weapon.icon}</div>
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xl font-black" style={{ color: weapon.color, background: `${weapon.color}16`, border: `1px solid ${weapon.color}88`, textShadow: "none" }}>{localize(weapon.icon)}</div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2"><b>{weapon.name}</b><span className="text-[9px] font-black" style={shopRarityLabelStyle(weapon.rarity)}>{rarity.label}</span></div>
-                  <div className="text-[11px] text-slate-400">{weapon.description}</div>
+                  <div className="flex flex-wrap items-center gap-2"><b>{localize(weapon.name)}</b><span className="text-[9px] font-black" style={shopRarityLabelStyle(weapon.rarity)}>{localize(rarity.label)}</span></div>
+                  <div className="text-[11px] text-slate-400">{localize(weapon.description)}</div>
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px]">
-                <span className="rounded bg-black/25 p-1"><b className="block text-white">{stats.damage}</b>Schaden</span>
-                <span className="rounded bg-black/25 p-1"><b className="block text-white">{weapon.meleeRange ?? weapon.guns}</b>{weapon.meleeRange ? "Reichweite" : "Schüsse"}</span>
-                <span className="rounded bg-black/25 p-1"><b className="block text-white">{Math.round(1000 / stats.fireRate * 10) / 10}/s</b>Feuerrate</span>
+                <span className="rounded bg-black/25 p-1"><b className="block text-white">{localize(stats.damage)}</b>{localize("Schaden")}</span>
+                <span className="rounded bg-black/25 p-1"><b className="block text-white">{localize(weapon.meleeRange ?? weapon.guns)}</b>{localize(weapon.meleeRange ? "Reichweite" : "Schüsse")}</span>
+                <span className="rounded bg-black/25 p-1"><b className="block text-white">{localize(Math.round(1000 / stats.fireRate * 10) / 10)}{localize("/s")}</b>{localize("Feuerrate")}</span>
               </div>
               <div className="mt-2 flex gap-2">
-                {!owned ? (
+                {localize(!owned ? (
                   <button disabled={!levelUnlocked || !canAfford} onClick={buy} className="flex-1 rounded-lg border border-amber-400/50 bg-amber-950/50 px-2 py-2 text-xs font-black text-amber-200 disabled:opacity-35">
-                    {!levelUnlocked ? `🔒 Pilot-Level ${SHOP_RARITY_MIN_LEVEL[weapon.rarity]} erforderlich` : `${weapon.currency === "gems" ? "💎" : "💰"} ${weapon.cost.toLocaleString("de-DE")}`}
+                    {localize(!levelUnlocked ? `🔒 Pilot-Level ${SHOP_RARITY_MIN_LEVEL[weapon.rarity]} erforderlich` : `${weapon.currency === "gems" ? "💎" : "💰"} ${weapon.cost.toLocaleString(localize.locale)}`)}
                   </button>
                 ) : (
                   <button onClick={() => onWeaponSelect(weapon.id)} className="flex-1 rounded-lg border border-cyan-400/50 bg-cyan-950/50 px-2 py-2 text-xs font-black text-cyan-200">
-                    {active ? `✓ SLOT ${slot} · ABLEGEN` : selectedWeapons.length < 2 ? "AUSRÜSTEN" : "SLOT 2 ERSETZEN"}
+                    {localize(active ? `✓ SLOT ${slot} · ABLEGEN` : selectedWeapons.length < 2 ? "AUSRÜSTEN" : "SLOT 2 ERSETZEN")}
                   </button>
-                )}
-                {owned && <button disabled={upgradeCost === null || gems < upgradeCost} onClick={() => upgradeCost !== null && requestPurchase(`${weapon.name} auf Level ${level + 1}`, upgradeCost, () => onWeaponUpgrade(weapon.id), "gems")} className="rounded-lg border border-violet-400/50 bg-violet-950/50 px-2 py-2 text-xs font-black text-violet-200 disabled:opacity-35">
-                  {upgradeCost === null ? "MAX" : `LVL ${level} → ${level + 1} · 💎 ${upgradeCost}`}
-                </button>}
+                ))}
+                {localize(owned && <button disabled={upgradeCost === null || gems < upgradeCost} onClick={() => upgradeCost !== null && requestPurchase(`${weapon.name} auf Level ${level + 1}`, upgradeCost, () => onWeaponUpgrade(weapon.id), "gems")} className="rounded-lg border border-violet-400/50 bg-violet-950/50 px-2 py-2 text-xs font-black text-violet-200 disabled:opacity-35">
+                  {localize(upgradeCost === null ? "MAX" : `LVL ${level} → ${level + 1} · 💎 ${upgradeCost}`)}
+                </button>)}
               </div>
             </div>;
-          })}
+          }))}
         </div>
 
         <div className="mt-6 border-t border-violet-400/25 pt-5">
-          <div className="text-xs font-black uppercase tracking-[.2em] text-violet-300">Drohnenwaffen</div>
-          <div className="mt-1 text-xs text-slate-400">Kaufe Drohnenwaffen mit Credits und rüste eine davon aus. Drohnenlevel und Rollen verstärken sie weiterhin.</div>
-          <div className="mt-2 text-[10px] font-black uppercase tracking-wider text-violet-200">Drohnen-Waffenslot 1/1 belegt</div>
+          <div className="text-xs font-black uppercase tracking-[.2em] text-violet-300">{localize("Drohnenwaffen")}</div>
+          <div className="mt-1 text-xs text-slate-400">{localize("Kaufe Drohnenwaffen mit Credits und rüste eine davon aus. Drohnenlevel und Rollen verstärken sie weiterhin.")}</div>
+          <div className="mt-2 text-[10px] font-black uppercase tracking-wider text-violet-200">{localize("Drohnen-Waffenslot 1/1 belegt")}</div>
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {SORTED_DRONE_WEAPONS.map(weapon => {
+            {localize(SORTED_DRONE_WEAPONS.map(weapon => {
               const owned = weapon.cost === 0 || unlockedItems.includes(`drone_weapon_${weapon.id}`);
               const active = owned && selectedDroneWeapon === weapon.id;
               const canAfford = coins >= weapon.cost;
@@ -9700,31 +9609,31 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
                   }}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xl font-black" style={{ color: weapon.color, background: `${weapon.color}16`, border: `1px solid ${weapon.color}88`, textShadow: "none" }}>{weapon.icon}</span>
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xl font-black" style={{ color: weapon.color, background: `${weapon.color}16`, border: `1px solid ${weapon.color}88`, textShadow: "none" }}>{localize(weapon.icon)}</span>
                     <span className="min-w-0">
-                      <span className="flex flex-wrap items-center gap-2"><b className="block text-white">{weapon.name}</b><span className="text-[9px] font-black" style={shopRarityLabelStyle(weapon.rarity)}>{rarity.label}</span></span>
-                      <span className="text-[11px] text-slate-400">{weapon.description}</span>
+                      <span className="flex flex-wrap items-center gap-2"><b className="block text-white">{localize(weapon.name)}</b><span className="text-[9px] font-black" style={shopRarityLabelStyle(weapon.rarity)}>{localize(rarity.label)}</span></span>
+                      <span className="text-[11px] text-slate-400">{localize(weapon.description)}</span>
                     </span>
                   </div>
                   <span className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px] text-slate-300">
-                    <span className="rounded bg-black/25 p-1"><b className="block text-white">{damage}</b>Schaden</span>
-                    <span className="rounded bg-black/25 p-1"><b className="block text-white">{weapon.meleeRange ?? weapon.shots}</b>{weapon.meleeRange ? "Reichweite" : "Schüsse"}</span>
-                    <span className="rounded bg-black/25 p-1"><b className="block text-white">{fireRate}/s</b>Feuerrate</span>
+                    <span className="rounded bg-black/25 p-1"><b className="block text-white">{localize(damage)}</b>{localize("Schaden")}</span>
+                    <span className="rounded bg-black/25 p-1"><b className="block text-white">{localize(weapon.meleeRange ?? weapon.shots)}</b>{localize(weapon.meleeRange ? "Reichweite" : "Schüsse")}</span>
+                    <span className="rounded bg-black/25 p-1"><b className="block text-white">{localize(fireRate)}{localize("/s")}</b>{localize("Feuerrate")}</span>
                   </span>
                   <span className="mt-2 block rounded-lg border border-violet-400/50 bg-violet-950/50 px-2 py-2 text-center text-xs font-black text-violet-200">
-                    {active ? "✓ AUSGERÜSTET" : owned ? "AUSRÜSTEN" : !levelUnlocked ? `🔒 PILOT-LEVEL ${SHOP_RARITY_MIN_LEVEL[weapon.rarity]}` : `${canAfford ? "💰" : "🔒"} ${weapon.cost.toLocaleString("de-DE")} CREDITS`}
+                    {localize(active ? "✓ AUSGERÜSTET" : owned ? "AUSRÜSTEN" : !levelUnlocked ? `🔒 PILOT-LEVEL ${SHOP_RARITY_MIN_LEVEL[weapon.rarity]}` : `${canAfford ? "💰" : "🔒"} ${weapon.cost.toLocaleString(localize.locale)} CREDITS`)}
                   </span>
                 </button>
               );
-            })}
+            }))}
           </div>
         </div>
 
         <div className="mt-6 border-t border-amber-400/25 pt-5">
-          <div className="text-xs font-black uppercase tracking-[.2em] text-amber-300">Waffenmodule</div>
-          <div className="mt-1 text-xs text-slate-400">Kaufe ein Begleitmodul mit Credits. Das gewählte Modul aktiviert sich im Einsatz regelmäßig für fünf Sekunden.</div>
+          <div className="text-xs font-black uppercase tracking-[.2em] text-amber-300">{localize("Waffenmodule")}</div>
+          <div className="mt-1 text-xs text-slate-400">{localize("Kaufe ein Begleitmodul mit Credits. Das gewählte Modul aktiviert sich im Einsatz regelmäßig für fünf Sekunden.")}</div>
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {SORTED_WEAPON_CRATES.map(module => {
+            {localize(SORTED_WEAPON_CRATES.map(module => {
               const owned = module.cost === 0 || unlockedItems.includes(`weapon_crate_${module.id}`);
               const active = owned && selectedWeaponCrate === module.id;
               const canAfford = coins >= module.cost;
@@ -9748,81 +9657,81 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
                 }}>
                 <WeaponModuleThumbnail module={module} className="h-16 w-full" />
                 <span className="mt-3 block min-w-0">
-                  <span className="flex flex-wrap items-center gap-2"><b className="text-white">{module.name}</b><span className="text-[9px] font-black" style={shopRarityLabelStyle(module.rarity)}>{rarity.label}</span></span>
-                  <span className="block text-[11px] text-slate-400">{module.kind === "rockets" ? "Zielsuchende Raketen" : module.kind === "laser" ? "Schnelle Präzisionsstrahlen" : "Breite Plasmafächer"}</span>
+                  <span className="flex flex-wrap items-center gap-2"><b className="text-white">{localize(module.name)}</b><span className="text-[9px] font-black" style={shopRarityLabelStyle(module.rarity)}>{localize(rarity.label)}</span></span>
+                  <span className="block text-[11px] text-slate-400">{localize(module.kind === "rockets" ? "Zielsuchende Raketen" : module.kind === "laser" ? "Schnelle Präzisionsstrahlen" : "Breite Plasmafächer")}</span>
                 </span>
                 <span className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px] text-slate-300">
-                  <span className="rounded bg-black/25 p-1"><b className="block text-white">{module.damage}</b>Schaden</span>
-                  <span className="rounded bg-black/25 p-1"><b className="block text-white">{shots}</b>Schüsse</span>
-                  <span className="rounded bg-black/25 p-1"><b className="block text-white">{shotsPerSecond}/s</b>Feuerrate</span>
+                  <span className="rounded bg-black/25 p-1"><b className="block text-white">{localize(module.damage)}</b>{localize("Schaden")}</span>
+                  <span className="rounded bg-black/25 p-1"><b className="block text-white">{localize(shots)}</b>{localize("Schüsse")}</span>
+                  <span className="rounded bg-black/25 p-1"><b className="block text-white">{localize(shotsPerSecond)}{localize("/s")}</b>{localize("Feuerrate")}</span>
                 </span>
                 <span className="mt-2 block rounded-lg border border-amber-400/50 bg-amber-950/40 px-2 py-2 text-center text-xs font-black text-amber-200">
-                  {active ? "✓ AUSGERÜSTET" : owned ? "AUSRÜSTEN" : !levelUnlocked ? `🔒 PILOT-LEVEL ${SHOP_RARITY_MIN_LEVEL[module.rarity]}` : `${canAfford ? "💰" : "🔒"} ${module.cost.toLocaleString("de-DE")} CREDITS`}
+                  {localize(active ? "✓ AUSGERÜSTET" : owned ? "AUSRÜSTEN" : !levelUnlocked ? `🔒 PILOT-LEVEL ${SHOP_RARITY_MIN_LEVEL[module.rarity]}` : `${canAfford ? "💰" : "🔒"} ${module.cost.toLocaleString(localize.locale)} CREDITS`)}
                 </span>
               </button>;
-            })}
+            }))}
           </div>
         </div>
       </div>
-      )}
+      ))}
 
-      {shopSection === "levels" && (<>
+      {localize(shopSection === "levels" && (<>
       <div className="relative z-10 rounded-2xl p-4" style={{ background: `${selectedJet.glow}12`, border: `1px solid ${selectedJet.glow}77`, boxShadow: "0 3px 8px #0005" }}>
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl" style={{ background: selectedJet.body, border: `2px solid ${selectedJet.glow}`, boxShadow: "0 3px 8px #0005" }}>✈</div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl" style={{ background: selectedJet.body, border: `2px solid ${selectedJet.glow}`, boxShadow: "0 3px 8px #0005" }}>{localize("✈")}</div>
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-300">Flugzeug verbessern</div>
-            <div className="font-black">{aircraftName} · Level {aircraftStats.level}/10</div>
+            <div className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-300">{localize("Flugzeug verbessern")}</div>
+            <div className="font-black">{localize(aircraftName)} {localize(" · Level ")}{localize(aircraftStats.level)}{localize("/10")}</div>
             <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${aircraftStats.level * 10}%`, boxShadow: "0 3px 8px #0005" }} /></div>
           </div>
-          {aircraftUpgradeCost === null ? (
-            <span className="shrink-0 rounded-lg border border-emerald-400/50 px-3 py-2 text-xs font-black text-emerald-300">MAX</span>
+          {localize(aircraftUpgradeCost === null ? (
+            <span className="shrink-0 rounded-lg border border-emerald-400/50 px-3 py-2 text-xs font-black text-emerald-300">{localize("MAX")}</span>
           ) : (
             <button onClick={() => requestPurchase(`${aircraftName} auf Level ${aircraftStats.level + 1}`, aircraftUpgradeCost, onAircraftUpgrade, "gems")} disabled={gems < aircraftUpgradeCost}
               className="shrink-0 rounded-lg px-3 py-2 text-xs font-black transition active:scale-95 disabled:opacity-40"
               style={{ background: "rgba(8,90,120,.65)", border: "1px solid #22d3ee", color: "#a5f3fc" }}>
-              LEVEL {aircraftStats.level + 1}<br />💎 {aircraftUpgradeCost.toLocaleString("de-DE")}
+              {localize(" LEVEL ")}{localize(aircraftStats.level + 1)}<br />{localize("💎 ")}{localize(aircraftUpgradeCost.toLocaleString(localize.locale))}
             </button>
-          )}
+          ))}
         </div>
         <div className="mt-3 grid grid-cols-4 gap-1 text-center text-[10px] text-slate-300">
-          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">+{aircraftStats.maxHpBonus}</b>HP</div>
-          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">+{aircraftStats.damageBonus}</b>Schaden</div>
-          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">+{aircraftStats.speedBonus.toFixed(1)}</b>Tempo</div>
-          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">+{Math.round((1 - aircraftStats.fireRateMultiplier) * 100)}%</b>Feuerrate</div>
+          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">{localize("+")}{localize(aircraftStats.maxHpBonus)}</b>{localize("HP")}</div>
+          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">{localize("+")}{localize(aircraftStats.damageBonus)}</b>{localize("Schaden")}</div>
+          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">{localize("+")}{localize(aircraftStats.speedBonus.toFixed(1))}</b>{localize("Tempo")}</div>
+          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">{localize("+")}{localize(Math.round((1 - aircraftStats.fireRateMultiplier) * 100))}{localize("%")}</b>{localize("Feuerrate")}</div>
         </div>
       </div>
 
       <div className="relative z-10 rounded-2xl p-4" style={{ background: `${selectedDrone.stroke}12`, border: `1px solid ${selectedDrone.stroke}77`, boxShadow: "0 3px 8px #0005" }}>
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl" style={{ background: selectedDrone.body, border: `2px solid ${selectedDrone.stroke}`, boxShadow: "0 3px 8px #0005" }}>🛸</div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl" style={{ background: selectedDrone.body, border: `2px solid ${selectedDrone.stroke}`, boxShadow: "0 3px 8px #0005" }}>{localize("🛸")}</div>
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-black uppercase tracking-[.2em] text-violet-300">Drohne verbessern</div>
-            <div className="font-black">{droneName} · Level {droneLevel}/10</div>
+            <div className="text-[10px] font-black uppercase tracking-[.2em] text-violet-300">{localize("Drohne verbessern")}</div>
+            <div className="font-black">{localize(droneName)} {localize(" · Level ")}{localize(droneLevel)}{localize("/10")}</div>
             <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-violet-400" style={{ width: `${droneLevel * 10}%`, boxShadow: "0 3px 8px #0005" }} /></div>
           </div>
-          {droneUpgradeCost === null ? (
-            <span className="shrink-0 rounded-lg border border-emerald-400/50 px-3 py-2 text-xs font-black text-emerald-300">MAX</span>
+          {localize(droneUpgradeCost === null ? (
+            <span className="shrink-0 rounded-lg border border-emerald-400/50 px-3 py-2 text-xs font-black text-emerald-300">{localize("MAX")}</span>
           ) : (
             <button onClick={() => requestPurchase(`${droneName} auf Level ${droneLevel + 1}`, droneUpgradeCost, onDroneUpgrade, "gems")} disabled={gems < droneUpgradeCost}
               className="shrink-0 rounded-lg px-3 py-2 text-xs font-black transition active:scale-95 disabled:opacity-40"
               style={{ background: "rgba(80,25,120,.65)", border: "1px solid #c084fc", color: "#e9d5ff" }}>
-              LEVEL {droneLevel + 1}<br />💎 {droneUpgradeCost.toLocaleString("de-DE")}
+              {localize(" LEVEL ")}{localize(droneLevel + 1)}<br />{localize("💎 ")}{localize(droneUpgradeCost.toLocaleString(localize.locale))}
             </button>
-          )}
+          ))}
         </div>
         <div className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px] text-slate-300">
-          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">{droneStats.damage}</b>Schaden</div>
-          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">{droneStats.guns}</b>Kanonen</div>
-          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">+{Math.round((1 - droneStats.fireRateMultiplier) * 100)}%</b>Feuerrate</div>
+          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">{localize(droneStats.damage)}</b>{localize("Schaden")}</div>
+          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">{localize(droneStats.guns)}</b>{localize("Kanonen")}</div>
+          <div className="rounded-lg bg-black/25 p-1.5"><b className="block text-white">{localize("+")}{localize(Math.round((1 - droneStats.fireRateMultiplier) * 100))}{localize("%")}</b>{localize("Feuerrate")}</div>
         </div>
       </div>
-      </>)}
+      </>))}
 
-      {shopSection === "skins" && (<>
-      <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest">Jet-Skins</div>
+      {localize(shopSection === "skins" && (<>
+      <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest">{localize("Jet-Skins")}</div>
       <div className="relative z-10 grid grid-cols-3 gap-2 shrink-0">
-        {SORTED_JET_SKINS.map(s => {
+        {localize(SORTED_JET_SKINS.map(s => {
           const owned = s.cost === 0 || unlockedItems.includes(s.id);
           const active = s.id === selectedSkin;
           const canAfford = coins >= s.cost;
@@ -9844,58 +9753,58 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
                 opacity: !owned && (!canAfford || !levelUnlocked) ? 0.45 : 1,
               }}>
               <JetShopImage skin={s} aircraftLevel={aircraftLevel} />
-              <div className="text-center text-xs font-bold">{s.name}</div>
-              <div className="text-[9px] font-black leading-tight" style={{ color: s.glow }}>{s.ultiName}</div>
-              <div className="text-[10px] font-bold text-cyan-300">Level {aircraftLevel}</div>
-              <div className="text-[9px] font-black tracking-wider" style={shopRarityLabelStyle(s.rarity)}>{rarity.label}</div>
-              {owned
-                ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div>
+              <div className="text-center text-xs font-bold">{localize(s.name)}</div>
+              <div className="text-[9px] font-black leading-tight" style={{ color: s.glow }}>{localize(s.ultiName)}</div>
+              <div className="text-[10px] font-bold text-cyan-300">{localize("Level ")}{localize(aircraftLevel)}</div>
+              <div className="text-[9px] font-black tracking-wider" style={shopRarityLabelStyle(s.rarity)}>{localize(rarity.label)}</div>
+              {localize(owned
+                ? <div className="text-green-400 text-xs">{localize(active ? "✓ Aktiv" : "Wählen")}</div>
                 : <div className={`text-xs font-bold ${canAfford && levelUnlocked ? "text-amber-300" : "text-slate-500"}`}>
-                    {!levelUnlocked ? `🔒 Pilot-Level ${SHOP_RARITY_MIN_LEVEL[s.rarity]} erforderlich` : canAfford ? `💰 ${formatLockedSkinPrice(s.cost)}` : `🔒 ${formatLockedSkinPrice(s.cost)}`}
-                  </div>
+                    {localize(!levelUnlocked ? `🔒 Pilot-Level ${SHOP_RARITY_MIN_LEVEL[s.rarity]} erforderlich` : canAfford ? `💰 ${formatLockedSkinPrice(s.cost)}` : `🔒 ${formatLockedSkinPrice(s.cost)}`)}
+                  </div>)
               }
             </button>
           );
-        })}
+        }))}
       </div>
-      </>)}
+      </>))}
 
-      {shopSection === "ultis" && (<>
+      {localize(shopSection === "ultis" && (<>
       <div className="relative z-10 flex items-center justify-between text-slate-400 text-xs uppercase tracking-widest mt-1">
-        <span>Ulti-Loadout</span><span className="text-violet-300">{ultiLoadout.length}/{ULTI_LOADOUT_SLOTS} belegt</span>
+        <span>{localize("Ulti-Loadout")}</span><span className="text-violet-300">{localize(ultiLoadout.length)}{localize("/")}{localize(ULTI_LOADOUT_SLOTS)} {localize(" belegt")}</span>
       </div>
       <div className="relative z-10 rounded-2xl border border-violet-400/40 bg-violet-950/20 p-3">
-        <div className="mb-2 text-[10px] text-slate-400">Neue Ultis werden beim Kauf sofort ausgerüstet. Sind alle Slots belegt, ersetzen sie die erste Ulti. Reihenfolge und Auswahl kannst du hier ändern.</div>
+        <div className="mb-2 text-[10px] text-slate-400">{localize("Neue Ultis werden beim Kauf sofort ausgerüstet. Sind alle Slots belegt, ersetzen sie die erste Ulti. Reihenfolge und Auswahl kannst du hier ändern.")}</div>
         <div className="flex flex-col gap-2">
-          {ultiLoadout.map((id, index) => {
+          {localize(ultiLoadout.map((id, index) => {
             const option = ULTI_LOADOUT_OPTIONS.find(item => item.id === id)!;
             const move = (offset: number) => { const next = [...ultiLoadout]; const target = index + offset; if (target < 0 || target >= next.length) return; [next[index], next[target]] = [next[target], next[index]]; onUltiLoadoutChange(next); };
             return <div key={id} className="flex items-center gap-2 rounded-xl border border-violet-400/30 bg-black/25 p-2">
-              <span className="w-12 text-xs font-black text-violet-300">SLOT {index + 1}</span><span className="flex-1 text-sm font-bold">{option.name} <b className="text-cyan-300">[{formatKeyCode(loadSettings().keyBindings[(["ability1", "ability2", "ability3"] as const)[index]])}]</b></span>
-              <button onClick={() => move(-1)} disabled={index === 0} className="rounded px-2 py-1 disabled:opacity-25">↑</button>
-              <button onClick={() => move(1)} disabled={index === ultiLoadout.length - 1} className="rounded px-2 py-1 disabled:opacity-25">↓</button>
-              <button onClick={() => onUltiLoadoutChange(ultiLoadout.filter(item => item !== id))} className="rounded px-2 py-1 text-red-300" aria-label={`${option.name} entfernen`}>✕</button>
+              <span className="w-12 text-xs font-black text-violet-300">{localize("SLOT ")}{localize(index + 1)}</span><span className="flex-1 text-sm font-bold">{localize(option.name)} <b className="text-cyan-300">{localize("[")}{localize(formatKeyCode(loadSettings().keyBindings[(["ability1", "ability2", "ability3"] as const)[index]]))}{localize("]")}</b></span>
+              <button onClick={() => move(-1)} disabled={index === 0} className="rounded px-2 py-1 disabled:opacity-25">{localize("↑")}</button>
+              <button onClick={() => move(1)} disabled={index === ultiLoadout.length - 1} className="rounded px-2 py-1 disabled:opacity-25">{localize("↓")}</button>
+              <button onClick={() => onUltiLoadoutChange(ultiLoadout.filter(item => item !== id))} className="rounded px-2 py-1 text-red-300" aria-label={localize(`${option.name} entfernen`)}>{localize("✕")}</button>
             </div>;
-          })}
-          {Array.from({ length: ULTI_LOADOUT_SLOTS - ultiLoadout.length }, (_, index) => (
+          }))}
+          {localize(Array.from({ length: ULTI_LOADOUT_SLOTS - ultiLoadout.length }, (_, index) => (
             <div key={`empty-${index}`} className="flex items-center gap-2 rounded-xl border border-dashed border-slate-600/70 bg-black/10 p-2 text-slate-500">
-              <span className="w-12 text-xs font-black">SLOT {ultiLoadout.length + index + 1}</span>
-              <span className="flex-1 text-sm">Leer</span>
+              <span className="w-12 text-xs font-black">{localize("SLOT ")}{localize(ultiLoadout.length + index + 1)}</span>
+              <span className="flex-1 text-sm">{localize("Leer")}</span>
             </div>
-          ))}
+          )))}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          {ULTI_LOADOUT_OPTIONS.filter(option => (!option.requires || unlockedItems.includes(option.requires)) && !ultiLoadout.includes(option.id)).map(option =>
-            <button key={option.id} onClick={() => onUltiLoadoutChange([...ultiLoadout, option.id])} disabled={ultiLoadout.length >= ULTI_LOADOUT_SLOTS} className="rounded-lg border border-cyan-500/40 bg-cyan-950/40 px-3 py-2 text-xs font-bold text-cyan-200 disabled:opacity-30">+ {option.name}</button>
-          )}
+          {localize(ULTI_LOADOUT_OPTIONS.filter(option => (!option.requires || unlockedItems.includes(option.requires)) && !ultiLoadout.includes(option.id)).map(option =>
+            <button key={option.id} onClick={() => onUltiLoadoutChange([...ultiLoadout, option.id])} disabled={ultiLoadout.length >= ULTI_LOADOUT_SLOTS} className="rounded-lg border border-cyan-500/40 bg-cyan-950/40 px-3 py-2 text-xs font-bold text-cyan-200 disabled:opacity-30">{localize("+ ")}{localize(option.name)}</button>
+          ))}
         </div>
       </div>
-      </>)}
+      </>))}
 
-      {shopSection === "skins" && (<>
-      <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest mt-1">Drohnen-Skins</div>
+      {localize(shopSection === "skins" && (<>
+      <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest mt-1">{localize("Drohnen-Skins")}</div>
       <div className="relative z-10 grid grid-cols-3 gap-2 shrink-0">
-        {SORTED_DRONE_SKINS.map(s => {
+        {localize(SORTED_DRONE_SKINS.map(s => {
           const owned = s.cost === 0 || unlockedItems.includes(s.id);
           const active = s.id === selectedDroneSkin;
           const canAfford = coins >= s.cost;
@@ -9916,21 +9825,21 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
             <div className="h-12 w-20 overflow-hidden rounded-lg" style={{ background: `${s.body}99`, border: `1px solid ${s.stroke}88`, boxShadow: "0 3px 8px #0005" }}>
               <DroneBuildThumbnail skin={s} level={droneLevels[s.id] ?? 1} compact className="h-full w-full" />
             </div>
-            <div className="text-xs font-bold">{s.name}</div>
-            <div className="text-[9px] font-black" style={shopRarityLabelStyle(s.rarity)}>{rarity.label}</div>
-            <div className="text-[9px] font-black" style={{ color: s.stroke }}>{s.ultiName}</div>
-            <div className="text-[10px] font-bold text-violet-300">Level {droneLevels[s.id] ?? 1}</div>
-            {owned ? <div className="text-green-400 text-xs">{active ? "✓ Aktiv" : "Wählen"}</div> :
-              <div className={`text-xs font-bold ${canAfford && levelUnlocked ? "text-amber-300" : "text-slate-500"}`}>{!levelUnlocked ? `🔒 Pilot-Level ${SHOP_RARITY_MIN_LEVEL[s.rarity]} erforderlich` : `${canAfford ? "💰" : "🔒"} ${formatLockedSkinPrice(s.cost)}`}</div>}
+            <div className="text-xs font-bold">{localize(s.name)}</div>
+            <div className="text-[9px] font-black" style={shopRarityLabelStyle(s.rarity)}>{localize(rarity.label)}</div>
+            <div className="text-[9px] font-black" style={{ color: s.stroke }}>{localize(s.ultiName)}</div>
+            <div className="text-[10px] font-bold text-violet-300">{localize("Level ")}{localize(droneLevels[s.id] ?? 1)}</div>
+            {localize(owned ? <div className="text-green-400 text-xs">{localize(active ? "✓ Aktiv" : "Wählen")}</div> :
+              <div className={`text-xs font-bold ${canAfford && levelUnlocked ? "text-amber-300" : "text-slate-500"}`}>{localize(!levelUnlocked ? `🔒 Pilot-Level ${SHOP_RARITY_MIN_LEVEL[s.rarity]} erforderlich` : `${canAfford ? "💰" : "🔒"} ${formatLockedSkinPrice(s.cost)}`)}</div>)}
           </button>;
-        })}
+        }))}
       </div>
-      </>)}
+      </>))}
 
-      {(shopSection === "upgrades" || shopSection === "ultis") && (<>
-      <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest mt-1">{shopSection === "ultis" ? "Ultis & Ulti-Verbesserungen" : "Dauerhafte Upgrades"}</div>
+      {localize((shopSection === "upgrades" || shopSection === "ultis") && (<>
+      <div className="relative z-10 text-slate-400 text-xs uppercase tracking-widest mt-1">{localize(shopSection === "ultis" ? "Ultis & Ulti-Verbesserungen" : "Dauerhafte Upgrades")}</div>
       <div className="relative z-10 flex flex-col gap-2">
-        {SORTED_SHOP_ITEMS.filter(item => ULTI_SHOP_ITEM_IDS.has(item.id) === (shopSection === "ultis")).map(item => {
+        {localize(SORTED_SHOP_ITEMS.filter(item => ULTI_SHOP_ITEM_IDS.has(item.id) === (shopSection === "ultis")).map(item => {
           const owned = unlockedItems.includes(item.id);
           const prerequisiteMet = !item.requires || unlockedItems.includes(item.requires);
           const levelUnlocked = isShopRarityUnlocked(item.rarity, playerLevel);
@@ -9950,28 +9859,28 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
               }}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <div className="font-bold text-sm">{item.name}</div>
-                  <span className="text-[9px] font-black tracking-wider" style={shopRarityLabelStyle(item.rarity)}>{rarity.label}</span>
+                  <div className="font-bold text-sm">{localize(item.name)}</div>
+                  <span className="text-[9px] font-black tracking-wider" style={shopRarityLabelStyle(item.rarity)}>{localize(rarity.label)}</span>
                 </div>
-                <div className="text-slate-400 text-xs">{item.desc}</div>
+                <div className="text-slate-400 text-xs">{localize(item.desc)}</div>
               </div>
-              {owned
-                ? <span className="text-green-400 font-bold text-lg shrink-0">✓</span>
+              {localize(owned
+                ? <span className="text-green-400 font-bold text-lg shrink-0">{localize("✓")}</span>
                 : !levelUnlocked
-                  ? <span className="text-slate-500 text-xs font-bold shrink-0">🔒 Pilot-Level {SHOP_RARITY_MIN_LEVEL[item.rarity]} erforderlich</span>
+                  ? <span className="text-slate-500 text-xs font-bold shrink-0">{localize("🔒 Pilot-Level ")}{localize(SHOP_RARITY_MIN_LEVEL[item.rarity])} {localize(" erforderlich")}</span>
                 : !prerequisiteMet
-                  ? <span className="text-slate-500 text-xs font-bold shrink-0">🔒 Vorstufe</span>
+                  ? <span className="text-slate-500 text-xs font-bold shrink-0">{localize("🔒 Vorstufe")}</span>
                 : <button onClick={() => canAfford && requestPurchase(item.name, item.cost, () => onBuy(item.id))} disabled={!canAfford}
                     className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-40"
                     style={{ background: "rgba(80,50,0,0.6)", border: "1px solid #aa8800", color: "#ffcc44" }}>
-                    💰 {item.cost.toLocaleString("de-DE")}
-                  </button>
+                    {localize(" 💰 ")}{localize(item.cost.toLocaleString(localize.locale))}
+                  </button>)
               }
             </div>
           );
-        })}
+        }))}
       </div>
-      </>)}
+      </>))}
     </div>
   );
 }
@@ -9979,6 +9888,7 @@ function ShopScreen({ workshop, coins, gems, playerLevel, unlockedItems, aircraf
 // ─── Leaderboard Screen ───────────────────────────────────────────────────────
 
 function LeaderboardScreen({ onBack }: { onBack: () => void }) {
+  const localize = useLocalize();
   const [entries, setEntries] = useState(loadLeaderboard);
   const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<number | "all" | null>(null);
@@ -10010,38 +9920,34 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
       <div className="flex items-center gap-3 mb-4">
         <button onClick={onBack} className="text-xs px-3 py-1 rounded font-bold"
           style={{ background: "rgba(255,255,255,0.07)", border: "1px solid #334466", color: "#7799bb" }}>
-          ← ZURÜCK
-        </button>
+          {localize(" ← ZURÜCK ")}</button>
         <div className="font-black text-lg tracking-widest" style={{ color: "#ffcc00", textShadow: "none" }}>
-          🏆 RANGLISTE
-        </div>
-        <div className="text-xs text-slate-500 ml-auto">(lokal – dieses Gerät)</div>
+          {localize(" 🏆 RANGLISTE ")}</div>
+        <div className="text-xs text-slate-500 ml-auto">{localize("(lokal – dieses Gerät)")}</div>
       </div>
-      {entries.length > 0 && (
+      {localize(entries.length > 0 && (
         <div className="mb-3 flex justify-end">
           <button type="button" onClick={() => requestDelete("all")}
             className="min-h-11 rounded-lg border border-red-400/40 bg-red-950/40 px-3 text-xs font-bold text-red-300 hover:bg-red-900/40">
-            Alle löschen
-          </button>
+            {localize(" Alle löschen ")}</button>
         </div>
-      )}
-      {pendingDelete !== null && (
+      ))}
+      {localize(pendingDelete !== null && (
         <div role="alert" className="mb-3 rounded-lg border border-red-400/40 bg-red-950/40 p-3 text-sm">
-          <p>{pendingDelete === "all" ? "Alle Einträge aus der Rangliste löschen?" : `Eintrag von „${entries[pendingDelete].name}“ (${entries[pendingDelete].score.toLocaleString("de-DE")} Punkte) löschen?`}</p>
+          <p>{localize(pendingDelete === "all" ? "Alle Einträge aus der Rangliste löschen?" : `Eintrag von „${entries[pendingDelete].name}“ (${entries[pendingDelete].score.toLocaleString(localize.locale)} Punkte) löschen?`)}</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <button type="button" onClick={confirmDelete} className="min-h-11 rounded-lg bg-red-700 px-4 text-xs font-bold text-white hover:bg-red-600">Löschen bestätigen</button>
-            <button type="button" onClick={() => { setPendingDelete(null); setDeleteError(false); }} className="min-h-11 rounded-lg bg-white/10 px-4 text-xs font-bold hover:bg-white/15">Abbrechen</button>
+            <button type="button" onClick={confirmDelete} className="min-h-11 rounded-lg bg-red-700 px-4 text-xs font-bold text-white hover:bg-red-600">{localize("Löschen bestätigen")}</button>
+            <button type="button" onClick={() => { setPendingDelete(null); setDeleteError(false); }} className="min-h-11 rounded-lg bg-white/10 px-4 text-xs font-bold hover:bg-white/15">{localize("Abbrechen")}</button>
           </div>
-          {deleteError && <p className="mt-2 text-red-300">Löschen konnte nicht gespeichert werden. Bitte erneut versuchen.</p>}
+          {localize(deleteError && <p className="mt-2 text-red-300">{localize("Löschen konnte nicht gespeichert werden. Bitte erneut versuchen.")}</p>)}
         </div>
-      )}
-      {entries.length === 0 ? (
+      ))}
+      {localize(entries.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
-          Noch keine Einträge. Spiel beenden um deinen Score zu speichern!
-        </div>
+          {localize(" Noch keine Einträge. Spiel beenden um deinen Score zu speichern! ")}</div>
       ) : (
         <div className="flex-1 overflow-y-auto space-y-1 pr-1" style={{ maxHeight: "calc(100% - 60px)" }}>
-          {entries.slice(0, 30).map((e, i) => {
+          {localize(entries.slice(0, 30).map((e, i) => {
             const entryId = `${e.ts}-${i}`;
             const expanded = expandedEntry === entryId;
             const playedAt = new Date(e.ts);
@@ -10062,54 +9968,52 @@ function LeaderboardScreen({ onBack }: { onBack: () => void }) {
                     className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left transition hover:bg-white/5"
                   >
                     <span className="w-6 text-center text-xs font-black" style={{ color: i === 0 ? "#ffcc00" : i === 1 ? "#aabbcc" : i === 2 ? "#cc8844" : "#446677" }}>
-                      {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
+                      {localize(i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`)}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color: i < 3 ? "#e0f0ff" : "#8899bb" }}>{e.name}</span>
-                    <span className="text-sm font-black tabular-nums" style={{ color: i === 0 ? "#ffcc00" : "#00cfff" }}>{e.score.toLocaleString("de-DE")}</span>
-                    <span aria-hidden="true" className={`ml-1 text-xs text-cyan-400 transition-transform ${expanded ? "rotate-180" : ""}`}>▼</span>
+                    <span className="text-sm font-black tabular-nums" style={{ color: i === 0 ? "#ffcc00" : "#00cfff" }}>{localize(e.score.toLocaleString(localize.locale))}</span>
+                    <span aria-hidden="true" className={`ml-1 text-xs text-cyan-400 transition-transform ${expanded ? "rotate-180" : ""}`}>{localize("▼")}</span>
                   </button>
-                  <button type="button" onClick={() => requestDelete(i)} aria-label={`Eintrag von ${e.name} löschen`}
+                  <button type="button" onClick={() => requestDelete(i)} aria-label={localize(`Eintrag von ${e.name} löschen`)}
                     className="mr-2 min-h-11 shrink-0 rounded-lg px-2 text-xs font-bold text-red-300 hover:bg-red-900/40">
-                    Löschen
-                  </button>
+                    {localize(" Löschen ")}</button>
                 </div>
-                {expanded && (
+                {localize(expanded && (
                   <div id={detailsId} className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-cyan-900/70 px-4 py-3 text-xs sm:grid-cols-4">
-                    <div><span className="block text-slate-500">Platzierung</span><b className="text-white">#{i + 1} von {entries.length}</b></div>
-                    <div><span className="block text-slate-500">Abstand zu Platz 1</span><b className="text-cyan-300">{i === 0 ? "Spitzenplatz" : `−${Math.max(0, leaderScore - e.score).toLocaleString("de-DE")}`}</b></div>
-                    <div><span className="block text-slate-500">Datum</span><b className="text-white">{validDate ? playedAt.toLocaleDateString("de-DE") : "Unbekannt"}</b></div>
-                    <div><span className="block text-slate-500">Uhrzeit</span><b className="text-white">{validDate ? playedAt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "—"}</b></div>
-                    {e.level !== undefined && <div><span className="block text-slate-500">Erreichtes Level</span><b className="text-emerald-300">Level {e.level}</b></div>}
-                    {e.durationMs !== undefined && <div><span className="block text-slate-500">Einsatzdauer</span><b className="text-white">{formatDuration(e.durationMs)}</b></div>}
-                    {e.kills !== undefined && <div><span className="block text-slate-500">Abschüsse</span><b className="text-red-300">{e.kills}</b></div>}
-                    {e.bosses !== undefined && <div><span className="block text-slate-500">Bosse besiegt</span><b className="text-amber-300">{e.bosses}</b></div>}
-                    {e.maxCombo !== undefined && <div><span className="block text-slate-500">Beste Combo</span><b className="text-orange-300">×{e.maxCombo}</b></div>}
-                    {e.nearMisses !== undefined && <div><span className="block text-slate-500">Near Misses</span><b className="text-sky-300">{e.nearMisses}</b></div>}
+                    <div><span className="block text-slate-500">{localize("Platzierung")}</span><b className="text-white">{localize("#")}{localize(i + 1)} {localize(" von ")}{localize(entries.length)}</b></div>
+                    <div><span className="block text-slate-500">{localize("Abstand zu Platz 1")}</span><b className="text-cyan-300">{localize(i === 0 ? "Spitzenplatz" : `−${Math.max(0, leaderScore - e.score).toLocaleString(localize.locale)}`)}</b></div>
+                    <div><span className="block text-slate-500">{localize("Datum")}</span><b className="text-white">{localize(validDate ? playedAt.toLocaleDateString(localize.locale) : "Unbekannt")}</b></div>
+                    <div><span className="block text-slate-500">{localize("Uhrzeit")}</span><b className="text-white">{localize(validDate ? playedAt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "—")}</b></div>
+                    {localize(e.level !== undefined && <div><span className="block text-slate-500">{localize("Erreichtes Level")}</span><b className="text-emerald-300">{localize("Level ")}{localize(e.level)}</b></div>)}
+                    {localize(e.durationMs !== undefined && <div><span className="block text-slate-500">{localize("Einsatzdauer")}</span><b className="text-white">{localize(formatDuration(e.durationMs))}</b></div>)}
+                    {localize(e.kills !== undefined && <div><span className="block text-slate-500">{localize("Abschüsse")}</span><b className="text-red-300">{localize(e.kills)}</b></div>)}
+                    {localize(e.bosses !== undefined && <div><span className="block text-slate-500">{localize("Bosse besiegt")}</span><b className="text-amber-300">{localize(e.bosses)}</b></div>)}
+                    {localize(e.maxCombo !== undefined && <div><span className="block text-slate-500">{localize("Beste Combo")}</span><b className="text-orange-300">{localize("×")}{localize(e.maxCombo)}</b></div>)}
+                    {localize(e.nearMisses !== undefined && <div><span className="block text-slate-500">{localize("Near Misses")}</span><b className="text-sky-300">{localize(e.nearMisses)}</b></div>)}
                   </div>
-                )}
+                ))}
               </div>
             );
-          })}
+          }))}
         </div>
-      )}
+      ))}
     </div>
   );
 }
 
 function AchievementsScreen({ unlocked, stats, onBack }: { unlocked: string[]; stats: RunStats; onBack: () => void }) {
+  const localize = useLocalize();
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto p-4 text-white">
       <div className="flex items-center gap-3">
-        <button onClick={onBack} className="min-h-11 min-w-11 text-xl text-slate-300">←</button>
-        <h2 className="text-xl font-black tracking-wide">MISSIONEN & ERFOLGE</h2>
-        <span className="ml-auto text-amber-300">{unlocked.length}/{ACHIEVEMENTS.length}</span>
+        <button onClick={onBack} className="min-h-11 min-w-11 text-xl text-slate-300">{localize("←")}</button>
+        <h2 className="text-xl font-black tracking-wide">{localize("MISSIONEN & ERFOLGE")}</h2>
+        <span className="ml-auto text-amber-300">{localize(unlocked.length)}{localize("/")}{localize(ACHIEVEMENTS.length)}</span>
       </div>
       <p className="text-sm text-slate-400">
-        Erfülle diese Ziele innerhalb eines Einsatzes. Belohnungen werden sofort gutgeschrieben.
-        Der Fortschritt gilt für den aktuellen oder letzten Einsatz und bleibt beim Fortsetzen erhalten.
-      </p>
+        {localize(" Erfülle diese Ziele innerhalb eines Einsatzes. Belohnungen werden sofort gutgeschrieben. Der Fortschritt gilt für den aktuellen oder letzten Einsatz und bleibt beim Fortsetzen erhalten. ")}</p>
       <div className="grid gap-3 sm:grid-cols-2">
-        {ACHIEVEMENTS.map(achievement => {
+        {localize(ACHIEVEMENTS.map(achievement => {
           const done = unlocked.includes(achievement.id);
           const progress = achievementProgress(achievement, stats, done);
           return (
@@ -10118,23 +10022,22 @@ function AchievementsScreen({ unlocked, stats, onBack }: { unlocked: string[]; s
               background: done ? "rgba(120,85,0,.2)" : "rgba(15,23,42,.7)",
             }}>
               <div className="flex items-start gap-3">
-                <div className={`text-3xl ${done ? "" : "grayscale opacity-40"}`}>{achievement.icon}</div>
+                <div className={`text-3xl ${done ? "" : "grayscale opacity-40"}`}>{localize(achievement.icon)}</div>
                 <div className="min-w-0 flex-1">
-                  <div className="font-black">{achievement.name} {done && "✓"}</div>
-                  <div className="text-sm text-slate-400">{achievement.description}</div>
+                  <div className="font-black">{localize(achievement.name)} {localize(done && "✓")}</div>
+                  <div className="text-sm text-slate-400">{localize(achievement.description)}</div>
                   <div className="mt-3 text-xs text-slate-300">
-                    {done ? "Freigeschaltet" : "Fortschritt"}: {Math.floor(progress).toLocaleString("de-DE")} / {achievement.target.toLocaleString("de-DE")}
+                    {localize(done ? "Freigeschaltet" : "Fortschritt")}{localize(": ")}{localize(Math.floor(progress).toLocaleString(localize.locale))} {localize(" / ")}{localize(achievement.target.toLocaleString(localize.locale))}
                   </div>
                   <progress className="mt-1 h-2 w-full accent-amber-300"
-                    aria-label={`${achievement.name}: Fortschritt`} value={progress} max={achievement.target} />
+                    aria-label={localize(`${achievement.name}: Fortschritt`)} value={progress} max={achievement.target} />
                   <div className="mt-2 text-xs font-bold text-amber-300">
-                    Belohnung: {achievement.reward.toLocaleString("de-DE")} Credits
-                  </div>
+                    {localize(" Belohnung: ")}{localize(achievement.reward.toLocaleString(localize.locale))} {localize(" Credits ")}</div>
                 </div>
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
     </div>
   );
@@ -10143,32 +10046,21 @@ function AchievementsScreen({ unlocked, stats, onBack }: { unlocked: string[]; s
 // ─── First-mission briefing ───────────────────────────────────────────────────
 
 function BriefingScreen({ settings, onDone }: { settings: GameSettings; onDone: () => void }) {
+  const localize = useLocalize();
   const language = settings.language;
   const briefingRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     briefingRef.current?.focus({ preventScroll: true });
   }, []);
-  const sections = language === "de" ? [
+  const sections = [
     { icon: "①", title: "Im Hangar vorbereiten", text: "Öffne im Shop den Bereich Baukasten, um Flugzeug und Drohne zusammenzustellen. Dort kannst du auch Skins, Waffen und bis zu drei Spezialfähigkeiten ausrüsten. „Start“ öffnet die Levelkarte. Level 1 ist offen; jeder Sieg schaltet das nächste Level frei. Wische auf der Karte nach unten, um weitere Level zu sehen. Totenköpfe markieren Bosslevel. Nach dem Sieg fliegst du automatisch zurück zum Hangar." },
     { icon: "②", title: "Fliegen & feuern", text: "Bewege den Jet in alle vier Richtungen. Der Bildschirm scrollt automatisch – du steuerst nur den Jet. Halte die Feuertaste gedrückt, sofern Auto-Fire ausgeschaltet ist. Weiche gegnerischen Flugzeugen, Hindernissen und ihren Geschossen aus und schieße Ziele ab, um Punkte zu erhalten." },
     { icon: "❤", title: "Schaden & Leben", text: "Treffer reduzieren zuerst einen aktiven Schild, danach deine HP. Bei 0 HP verlierst du ein Leben und kehrst mit voller Energie zurück. Sind keine Leben mehr übrig, endet der Einsatz." },
     { icon: "📦", title: "Power-ups einsammeln", text: "Zerstörte Gegner können Symbole hinterlassen. Fliege mit dem Jet darüber, bevor sie den Bildschirm verlassen: Herzen heilen HP, Schilde absorbieren Treffer und Tempo-Boosts erhöhen vorübergehend deine Fluggeschwindigkeit." },
     { icon: "⚡", title: "Spezialfähigkeiten", text: "Du kannst im Shop bis zu drei Fähigkeiten für einen Einsatz ausrüsten. Jede besitzt im HUD eine eigene Ladeanzeige. Erst wenn die Anzeige voll leuchtet, löst du die Fähigkeit mit ihrer eingeblendeten Taste beziehungsweise dem Touch-Knopf aus." },
     { icon: "💎", title: "Belohnung & dauerhafte Stärke", text: "Am Missionsende wird dein Score in Credits umgerechnet; bestimmte Modi erhöhen den Credit-Ertrag. Je 100 verdiente Einsatz-Credits erhältst du außerdem ein Juwel. Credits kaufen Shopartikel, Juwelen verbessern dauerhaft die Level von Flugzeug und Drohne." },
-  ] : language === "tr" ? [
-    { icon: "🎯", title: "Görevin", text: "Uçağını giderek zorlaşan ve otomatik kayan sektörlerde yönlendir. Düşmanlardan ve mermilerden kaç, hedefleri vur ve mümkün olduğunca çok puan topla. Puanın arttıkça pilot seviyen yükselir; bölüm sonu savaşları görevin büyük aşamalarını belirler." },
-    { icon: "❤", title: "Hayatta kalma", text: "Her düşman isabeti HP'ni azaltır. HP sıfıra düştüğünde bir can kaybeder ve tam enerjiyle geri dönersin. Son canından sonra görev biter. Aktif kalkan önce hasarı emer, ancak kaçınmak hâlâ en güvenli taktiktir." },
-    { icon: "📦", title: "Güçlendirmeler", text: "Yok edilen düşmanlar yararlı güçlendirmeler bırakabilir: sağlık HP'ni yeniler, kalkanlar ek koruma sağlar ve hız takviyeleri uçağını geçici olarak hızlandırır. Simgeler ekrandan çıkmadan önce uçağınla onlara dokun." },
-    { icon: "⚡", title: "Silahlar ve özel yetenekler", text: "Kesintisiz ateş etmek için ateş kontrolünü basılı tut. Savaş sırasında uçağına özel 10 saniyelik yetenek ile lazer, gizlilik ve iyileştirme dolar. Gösterge dolduğunda ekrandaki tuşla yeteneği etkinleştir." },
-    { icon: "💎", title: "Krediler, mücevherler ve hangar", text: "Görev sonunda her puan bir krediye dönüşür ve her 100 görev kredisi için bir mücevher kazanırsın. Uçak ve drone seviyeleri mücevherlerle; görünümler ve diğer mağaza ürünleri kredilerle alınır." },
-  ] : [
-    { icon: "🎯", title: "Your mission", text: "Pilot your jet through automatically scrolling sectors that become progressively harder. Dodge enemies and projectiles, shoot down targets, and score as many points as possible. Your pilot level rises with your score, while boss fights mark the major milestones of a mission." },
-    { icon: "❤", title: "Survival", text: "Every enemy hit reduces your HP. When HP reaches zero, you lose a life and return at full health. The mission ends after your final life. An active shield absorbs damage first, but dodging remains your safest tactic." },
-    { icon: "📦", title: "Power-ups", text: "Destroyed enemies may leave useful pick-ups behind: health restores HP, shields provide extra protection, and speed boosts temporarily make your jet faster. Touch an icon with your jet before it leaves the screen." },
-    { icon: "⚡", title: "Weapons & abilities", text: "Hold the fire control or optionally enable auto-fire in Settings. Equip up to two special abilities before launch; once a meter is full, activate it with the displayed key or touch button." },
-    { icon: "💎", title: "Credits, gems & hangar", text: "At the end of a mission, every point becomes one credit, and every 100 mission credits also earn one gem. Aircraft and drone levels cost gems; skins and other shop items continue to cost credits." },
   ];
-  const keyboardHelp = language === "de" ? [
+  const keyboardHelp = [
     [`${formatKeyCode(settings.keyBindings.up)} / ${formatKeyCode(settings.keyBindings.down)}`, "Hoch / runter"],
     [`${formatKeyCode(settings.keyBindings.left)} / ${formatKeyCode(settings.keyBindings.right)}`, "Links / rechts"],
     [settings.autoFire ? "AUTO" : formatKeyCode(settings.keyBindings.fire), settings.autoFire ? "Dauerfeuer ist aktiv" : "Gedrückt halten zum Feuern"],
@@ -10176,64 +10068,48 @@ function BriefingScreen({ settings, onDone }: { settings: GameSettings; onDone: 
     [formatKeyCode(settings.keyBindings.ability2), "Fähigkeit 2"],
     [formatKeyCode(settings.keyBindings.ability3), "Fähigkeit 3"],
     [formatKeyCode(settings.keyBindings.pause), "Pause / fortsetzen"],
-  ] as const : language === "tr" ? [
-    [`${formatKeyCode(settings.keyBindings.up)} / ${formatKeyCode(settings.keyBindings.down)}`, "Yukarı / aşağı"],
-    [`${formatKeyCode(settings.keyBindings.left)} / ${formatKeyCode(settings.keyBindings.right)}`, "Sol / sağ"],
-    [settings.autoFire ? "AUTO" : formatKeyCode(settings.keyBindings.fire), settings.autoFire ? "Otomatik ateş açık" : "Ateş etmek için basılı tut"],
-    [formatKeyCode(settings.keyBindings.ability1), "Yetenek 1"],
-    [formatKeyCode(settings.keyBindings.ability2), "Yetenek 2"],
-    [formatKeyCode(settings.keyBindings.ability3), "Yetenek 3"],
-    [formatKeyCode(settings.keyBindings.pause), "Duraklat / devam et"],
-  ] as const : [
-    [`${formatKeyCode(settings.keyBindings.up)} / ${formatKeyCode(settings.keyBindings.down)}`, "Up / down"],
-    [`${formatKeyCode(settings.keyBindings.left)} / ${formatKeyCode(settings.keyBindings.right)}`, "Left / right"],
-    [settings.autoFire ? "AUTO" : formatKeyCode(settings.keyBindings.fire), settings.autoFire ? "Auto-fire is active" : "Hold to fire"],
-    [formatKeyCode(settings.keyBindings.ability1), "Ability 1"],
-    [formatKeyCode(settings.keyBindings.ability2), "Ability 2"],
-    [formatKeyCode(settings.keyBindings.ability3), "Ability 3"],
-    [formatKeyCode(settings.keyBindings.pause), "Pause / resume"],
   ] as const;
 
   return (
-    <div ref={briefingRef} tabIndex={-1} role="region" aria-label={translated(language, "Einführung ins Spiel", "Game introduction")} className="flex h-full flex-col overflow-y-auto px-4 py-5 text-white outline-none sm:px-7" style={{ touchAction: "pan-y" }}>
+    <div ref={briefingRef} tabIndex={-1} role="region" aria-label={localize(translated(language, "Einführung ins Spiel", "Game introduction"))} className="flex h-full flex-col overflow-y-auto px-4 py-5 text-white outline-none sm:px-7" style={{ touchAction: "pan-y" }}>
       <div className="mx-auto w-full max-w-4xl">
         <div className="text-center">
-          <div className="text-xs font-black uppercase tracking-[.3em] text-cyan-400">{translated(language, "Willkommen bei Fighter Command", "Welcome to Fighter Command")}</div>
-          <h2 className="mt-1 text-2xl font-black sm:text-3xl">{translated(language, "SO FUNKTIONIERT FIGHTER COMMAND", "HOW FIGHTER COMMAND WORKS")}</h2>
-          <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">{translated(language, "Steuere deinen Jet, weiche Geschossen aus und besiege Gegner und Bosse, um neue Level freizuschalten. Sammle Belohnungen und verbessere deine Ausrüstung im Hangar. Hier lernst du die Grundlagen, bevor du deinen ersten Einsatz startest.", "Pilot your jet, dodge projectiles, and defeat enemies and bosses to unlock new levels. Collect rewards and upgrade your equipment in the hangar. Learn the basics here before launching your first mission.")}</p>
+          <div className="text-xs font-black uppercase tracking-[.3em] text-cyan-400">{localize(translated(language, "Willkommen bei Fighter Command", "Welcome to Fighter Command"))}</div>
+          <h2 className="mt-1 text-2xl font-black sm:text-3xl">{localize(translated(language, "SO FUNKTIONIERT FIGHTER COMMAND", "HOW FIGHTER COMMAND WORKS"))}</h2>
+          <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">{localize(translated(language, "Steuere deinen Jet, weiche Geschossen aus und besiege Gegner und Bosse, um neue Level freizuschalten. Sammle Belohnungen und verbessere deine Ausrüstung im Hangar. Hier lernst du die Grundlagen, bevor du deinen ersten Einsatz startest.", "Pilot your jet, dodge projectiles, and defeat enemies and bosses to unlock new levels. Collect rewards and upgrade your equipment in the hangar. Learn the basics here before launching your first mission."))}</p>
         </div>
 
         <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {sections.map(section => (
+          {localize(sections.map(section => (
             <div key={section.title} className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
-              <div className="flex items-center gap-2 font-black text-cyan-100"><span className="text-xl" aria-hidden="true">{section.icon}</span>{section.title}</div>
-              <p className="mt-1 text-xs leading-relaxed text-slate-300">{section.text}</p>
+              <div className="flex items-center gap-2 font-black text-cyan-100"><span className="text-xl" aria-hidden="true">{localize(section.icon)}</span>{localize(section.title)}</div>
+              <p className="mt-1 text-xs leading-relaxed text-slate-300">{localize(section.text)}</p>
             </div>
-          ))}
+          )))}
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <div className="rounded-xl border border-cyan-700/60 bg-cyan-950/25 p-4">
-            <h3 className="text-xs font-black uppercase tracking-[.2em] text-cyan-300">{translated(language, "Tastatur", "Keyboard")}</h3>
+            <h3 className="text-xs font-black uppercase tracking-[.2em] text-cyan-300">{localize(translated(language, "Tastatur", "Keyboard"))}</h3>
             <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-              {keyboardHelp.map(([key, desc]) => <div key={key} className="flex items-center gap-2 text-xs"><kbd className="min-w-[82px] rounded border border-slate-600 bg-slate-800 px-2 py-1 text-center font-mono text-white">{key}</kbd><span className="text-slate-300">{desc}</span></div>)}
+              {localize(keyboardHelp.map(([key, desc]) => <div key={key} className="flex items-center gap-2 text-xs"><kbd className="min-w-[82px] rounded border border-slate-600 bg-slate-800 px-2 py-1 text-center font-mono text-white">{localize(key)}</kbd><span className="text-slate-300">{localize(desc)}</span></div>))}
             </div>
           </div>
           <div className="rounded-xl border border-violet-700/60 bg-violet-950/25 p-4">
-            <h3 className="text-xs font-black uppercase tracking-[.2em] text-violet-300">{translated(language, "Touch-Steuerung", "Touch controls")}</h3>
+            <h3 className="text-xs font-black uppercase tracking-[.2em] text-violet-300">{localize(translated(language, "Touch-Steuerung", "Touch controls"))}</h3>
             <div className="mt-3 space-y-2 text-xs text-slate-300">
-              <p><strong className="text-white">{translated(language, "Links ziehen:", "Drag left:")}</strong> {translated(language, "Der Jet folgt deinem Finger schnell.", "The jet follows your finger quickly.")}</p>
-              <p><strong className="text-white">AUTO-FIRE:</strong> {translated(language, settings.autoFire ? "Ist aktiv; der Jet feuert ohne Eingabe." : "Ist aus; halte rechts den roten FIRE-Knopf gedrückt." , settings.autoFire ? "Active; the jet fires without input." : "Off; hold the red FIRE button on the right.")}</p>
-              <p><strong className="text-white">FÄHIGKEIT 1 · 2 · 3:</strong> {translated(language, "Tippe einen ausgerüsteten Knopf erst an, wenn seine Anzeige voll ist.", "Tap an equipped button only when its meter is full.")}</p>
+              <p><strong className="text-white">{localize(translated(language, "Links ziehen:", "Drag left:"))}</strong> {localize(translated(language, "Der Jet folgt deinem Finger schnell.", "The jet follows your finger quickly."))}</p>
+              <p><strong className="text-white">{localize("AUTO-FIRE:")}</strong> {localize(translated(language, settings.autoFire ? "Ist aktiv; der Jet feuert ohne Eingabe." : "Ist aus; halte rechts den roten FIRE-Knopf gedrückt." , settings.autoFire ? "Active; the jet fires without input." : "Off; hold the red FIRE button on the right."))}</p>
+              <p><strong className="text-white">{localize("FÄHIGKEIT 1 · 2 · 3:")}</strong> {localize(translated(language, "Tippe einen ausgerüsteten Knopf erst an, wenn seine Anzeige voll ist.", "Tap an equipped button only when its meter is full."))}</p>
             </div>
           </div>
         </div>
 
         <div className="mt-5 border-t border-slate-800/80 bg-[#040c1c] pt-4 pb-1 text-center">
           <button onClick={onDone} className="pause-primary min-h-12 w-full max-w-md rounded-xl px-6 py-3 font-black tracking-widest">
-            {translated(language, "VERSTANDEN – ZUM HANGAR", "GOT IT — GO TO HANGAR")}
+            {localize(translated(language, "VERSTANDEN – ZUM HANGAR", "GOT IT — GO TO HANGAR"))}
           </button>
-          <div className="mt-2 text-[11px] text-slate-500">{translated(language, "Die Anleitung ist im Hangar jederzeit wieder erreichbar.", "You can reopen this guide from the hangar at any time.")}</div>
+          <div className="mt-2 text-[11px] text-slate-500">{localize(translated(language, "Die Anleitung ist im Hangar jederzeit wieder erreichbar.", "You can reopen this guide from the hangar at any time."))}</div>
         </div>
       </div>
     </div>
@@ -10243,6 +10119,7 @@ function BriefingScreen({ settings, onDone }: { settings: GameSettings; onDone: 
 // ─── Settings Screen ──────────────────────────────────────────────────────────
 
 function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings; onChange: (settings: GameSettings) => void; onBack: () => void }) {
+  const localize = useLocalize();
   const [name, setName] = useState(() => loadName());
   const language = settings.language;
   const toggle = (key: "tutorial" | "reducedMotion" | "highContrast" | "autoFire" | "autoUlti" | "showJoystick") => onChange({ ...settings, [key]: !settings[key] });
@@ -10252,80 +10129,81 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
   return (
     <div className="facility-screen settings-screen flex flex-col h-full p-4 gap-4 overflow-y-auto text-white select-none">
       <div className="flex items-center gap-3">
-        <button onClick={onBack} aria-label={translated(language, "Zurück", "Back")} className="min-h-11 min-w-11 text-slate-300 hover:text-white text-xl font-bold px-2">←</button>
-        <h2 className="font-bold text-xl tracking-wide">{translated(language, "EINSTELLUNGEN", "SETTINGS")}</h2>
+        <button onClick={onBack} aria-label={localize(translated(language, "Zurück", "Back"))} className="min-h-11 min-w-11 text-slate-300 hover:text-white text-xl font-bold px-2">{localize("←")}</button>
+        <h2 className="font-bold text-xl tracking-wide">{localize(translated(language, "EINSTELLUNGEN", "SETTINGS"))}</h2>
       </div>
       <div className="settings-grid grid gap-2 sm:grid-cols-2">
         <label className="rounded-xl border border-cyan-700/70 bg-cyan-950/30 p-3">
-          <span className="block text-sm font-bold">{translated(language, "Sprache", "Language")}</span>
-          <span className="mb-2 block text-xs text-slate-400">{translated(language, "Sprache der Menüs und Hinweise.", "Language used for menus and hints.")}</span>
-          <select aria-label={translated(language, "Sprache auswählen", "Select language")} value={language} onChange={e => onChange({ ...settings, language: e.target.value as GameSettings["language"] })} className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white">
-            <option value="de">Deutsch</option><option value="en">English</option><option value="tr">Türkçe</option><option value="fr">Français</option><option value="es">Español</option>
+          <span className="block text-sm font-bold">{localize(translated(language, "Sprache", "Language"))}</span>
+          <span className="mb-2 block text-xs text-slate-400">{localize(translated(language, "Sprache der Menüs und Hinweise.", "Language used for menus and hints."))}</span>
+          <select aria-label={localize(translated(language, "Sprache auswählen", "Select language"))} value={language} onChange={e => onChange({ ...settings, language: e.target.value as GameSettings["language"] })} className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white">
+            <option value="de">{localize("Deutsch")}</option><option value="en">{localize("English")}</option><option value="tr">{localize("Türkçe")}</option><option value="fr">{localize("Français")}</option><option value="es">{localize("Español")}</option>
           </select>
         </label>
         <SettingToggle
-          label={translated(language, "Nach oben fliegen", "Fly upward")}
-          description={translated(language, "Dreht Spieler, Gegner, Schüsse und Spielwelt ins Hochformat.", "Rotates the player, enemies, projectiles and playfield into portrait mode.")}
+          label={localize(translated(language, "Nach oben fliegen", "Fly upward"))}
+          description={localize(translated(language, "Dreht Spieler, Gegner, Schüsse und Spielwelt ins Hochformat.", "Rotates the player, enemies, projectiles and playfield into portrait mode."))}
           checked={settings.flightDirection === "up"}
           onClick={() => onChange({ ...settings, flightDirection: settings.flightDirection === "up" ? "right" : "up" })}
         />
-        <SettingToggle label={translated(language, "Einführung anzeigen", "Show tutorial")} description={translated(language, "Erklärt Bewegung und Schießen beim ersten Start.", "Explains movement and shooting on the first start.")} checked={settings.tutorial} onClick={() => toggle("tutorial")} />
-        <SettingToggle label="Automatisches Dauerfeuer" description="Der Jet schießt selbstständig; FIRE bleibt optional." checked={settings.autoFire} onClick={() => toggle("autoFire")} />
-        <SettingToggle label={translated(language, "Auto-Ulti", "Auto ultimate")} description={translated(language, "Aktiviert ausgerüstete Ultis sofort automatisch, sobald sie bereit sind.", "Automatically activates equipped ultimates as soon as they are ready.")} checked={settings.autoUlti} onClick={() => toggle("autoUlti")} />
+        <SettingToggle label={localize(translated(language, "Einführung anzeigen", "Show tutorial"))} description={localize(translated(language, "Erklärt Bewegung und Schießen beim ersten Start.", "Explains movement and shooting on the first start."))} checked={settings.tutorial} onClick={() => toggle("tutorial")} />
+        <SettingToggle label={localize("Automatisches Dauerfeuer")} description={localize("Der Jet schießt selbstständig; FIRE bleibt optional.")} checked={settings.autoFire} onClick={() => toggle("autoFire")} />
+        <SettingToggle label={localize(translated(language, "Auto-Ulti", "Auto ultimate"))} description={localize(translated(language, "Aktiviert ausgerüstete Ultis sofort automatisch, sobald sie bereit sind.", "Automatically activates equipped ultimates as soon as they are ready."))} checked={settings.autoUlti} onClick={() => toggle("autoUlti")} />
         <SettingToggle
-          label={translated(language, "Joystick anzeigen", "Show joystick")}
-          description={translated(language, "Zeigt den Bewegungs-Joystick im Spielfeld an.", "Displays the movement joystick in the play area.")}
+          label={localize(translated(language, "Joystick anzeigen", "Show joystick"))}
+          description={localize(translated(language, "Zeigt den Bewegungs-Joystick im Spielfeld an.", "Displays the movement joystick in the play area."))}
           checked={settings.showJoystick}
           onClick={() => toggle("showJoystick")}
         />
-        <SettingToggle label={translated(language, "Bewegung reduzieren", "Reduce motion")} description={translated(language, "Reduziert dekorative Effekte und Animationen.", "Reduces decorative effects and animations.")} checked={settings.reducedMotion} onClick={() => toggle("reducedMotion")} />
-        <SettingToggle label={translated(language, "Hoher Kontrast", "High contrast")} description={translated(language, "Verstärkt Texte, Rahmen und Bedienelemente.", "Strengthens text, borders and controls.")} checked={settings.highContrast} onClick={() => toggle("highContrast")} />
-        <VolumeSetting label={translated(language, "Soundeffekte", "Sound effects")} value={settings.soundVolume} onChange={value => onChange({ ...settings, soundVolume: value })} />
-        <VolumeSetting label={translated(language, "Musik", "Music")} value={settings.musicVolume} onChange={value => onChange({ ...settings, musicVolume: value })} />
+        <SettingToggle label={localize(translated(language, "Bewegung reduzieren", "Reduce motion"))} description={localize(translated(language, "Reduziert dekorative Effekte und Animationen.", "Reduces decorative effects and animations."))} checked={settings.reducedMotion} onClick={() => toggle("reducedMotion")} />
+        <SettingToggle label={localize(translated(language, "Hoher Kontrast", "High contrast"))} description={localize(translated(language, "Verstärkt Texte, Rahmen und Bedienelemente.", "Strengthens text, borders and controls."))} checked={settings.highContrast} onClick={() => toggle("highContrast")} />
+        <VolumeSetting label={localize(translated(language, "Soundeffekte", "Sound effects"))} value={settings.soundVolume} onChange={value => onChange({ ...settings, soundVolume: value })} />
+        <VolumeSetting label={localize(translated(language, "Musik", "Music"))} value={settings.musicVolume} onChange={value => onChange({ ...settings, musicVolume: value })} />
         <label className="rounded-xl border border-slate-700 bg-slate-900/70 p-3">
-          <span className="block text-sm font-bold">{translated(language, "Touch-Steuerung", "Touch controls")}</span>
-          <span className="mb-2 block text-xs text-slate-400">{translated(language, "Virtuelle Steuerung im Spielfeld.", "Virtual controls in the play area.")}</span>
+          <span className="block text-sm font-bold">{localize(translated(language, "Touch-Steuerung", "Touch controls"))}</span>
+          <span className="mb-2 block text-xs text-slate-400">{localize(translated(language, "Virtuelle Steuerung im Spielfeld.", "Virtual controls in the play area."))}</span>
           <select value={settings.touchControls} onChange={e => onChange({ ...settings, touchControls: e.target.value as GameSettings["touchControls"] })} className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white">
-            <option value="auto">{translated(language, "Automatisch", "Automatic")}</option><option value="always">{translated(language, "Immer anzeigen", "Always show")}</option><option value="never">{translated(language, "Nie anzeigen", "Never show")}</option>
+            <option value="auto">{localize(translated(language, "Automatisch", "Automatic"))}</option><option value="always">{localize(translated(language, "Immer anzeigen", "Always show"))}</option><option value="never">{localize(translated(language, "Nie anzeigen", "Never show"))}</option>
           </select>
         </label>
       </div>
-      <div className="text-slate-500 text-xs uppercase tracking-widest">Tastaturbelegung</div>
+      <div className="text-slate-500 text-xs uppercase tracking-widest">{localize("Tastaturbelegung")}</div>
       <div className="grid gap-2 sm:grid-cols-2">
-        <KeyBindingSetting label="Nach oben" value={settings.keyBindings.up} onChange={value => updateBinding("up", value)} />
-        <KeyBindingSetting label="Nach unten" value={settings.keyBindings.down} onChange={value => updateBinding("down", value)} />
-        <KeyBindingSetting label="Nach links" value={settings.keyBindings.left} onChange={value => updateBinding("left", value)} />
-        <KeyBindingSetting label="Nach rechts" value={settings.keyBindings.right} onChange={value => updateBinding("right", value)} />
-        <KeyBindingSetting label="Feuern" value={settings.keyBindings.fire} onChange={value => updateBinding("fire", value)} />
-        <KeyBindingSetting label="Pause" value={settings.keyBindings.pause} onChange={value => updateBinding("pause", value)} />
-        <KeyBindingSetting label="Fähigkeit 1" value={settings.keyBindings.ability1} onChange={value => updateBinding("ability1", value)} />
-        <KeyBindingSetting label="Fähigkeit 2" value={settings.keyBindings.ability2} onChange={value => updateBinding("ability2", value)} />
-        <KeyBindingSetting label="Fähigkeit 3" value={settings.keyBindings.ability3} onChange={value => updateBinding("ability3", value)} />
+        <KeyBindingSetting label={localize("Nach oben")} value={settings.keyBindings.up} onChange={value => updateBinding("up", value)} />
+        <KeyBindingSetting label={localize("Nach unten")} value={settings.keyBindings.down} onChange={value => updateBinding("down", value)} />
+        <KeyBindingSetting label={localize("Nach links")} value={settings.keyBindings.left} onChange={value => updateBinding("left", value)} />
+        <KeyBindingSetting label={localize("Nach rechts")} value={settings.keyBindings.right} onChange={value => updateBinding("right", value)} />
+        <KeyBindingSetting label={localize("Feuern")} value={settings.keyBindings.fire} onChange={value => updateBinding("fire", value)} />
+        <KeyBindingSetting label={localize("Pause")} value={settings.keyBindings.pause} onChange={value => updateBinding("pause", value)} />
+        <KeyBindingSetting label={localize("Fähigkeit 1")} value={settings.keyBindings.ability1} onChange={value => updateBinding("ability1", value)} />
+        <KeyBindingSetting label={localize("Fähigkeit 2")} value={settings.keyBindings.ability2} onChange={value => updateBinding("ability2", value)} />
+        <KeyBindingSetting label={localize("Fähigkeit 3")} value={settings.keyBindings.ability3} onChange={value => updateBinding("ability3", value)} />
       </div>
-      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Gamepad & Touch</div>
+      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">{localize("Gamepad & Touch")}</div>
       <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-sm text-slate-300">
-        <div><strong className="text-white">Gamepad:</strong> linker Stick bewegt, A/RT feuert, LB/RB/LT nutzt Fähigkeit 1/2/3, Menü pausiert.</div>
-        <div className="mt-1"><strong className="text-white">Touch:</strong> links ziehen zum Bewegen; die drei großen Fähigkeitsknöpfe rechts antippen.</div>
+        <div><strong className="text-white">{localize("Gamepad:")}</strong> {localize(" linker Stick bewegt, A/RT feuert, LB/RB/LT nutzt Fähigkeit 1/2/3, Menü pausiert.")}</div>
+        <div className="mt-1"><strong className="text-white">{localize("Touch:")}</strong> {localize(" links ziehen zum Bewegen; die drei großen Fähigkeitsknöpfe rechts antippen.")}</div>
       </div>
-      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">{translated(language, "Piloten-Name", "Pilot name")}</div>
+      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">{localize(translated(language, "Piloten-Name", "Pilot name"))}</div>
       <div className="flex items-center gap-2">
         <input
           value={name}
           onChange={e => { setName(e.target.value); saveName(e.target.value); }}
           maxLength={20}
-          placeholder="Pilot"
+          placeholder={localize("Pilot")}
           className="flex-1 px-2 py-1.5 rounded-lg text-sm font-bold outline-none"
           style={{ background: "rgba(255,255,255,0.06)", border: "1px solid #334466", color: "#00cfff" }}
         />
       </div>
-      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">Shop</div>
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-slate-200"><strong className="text-amber-300">{translated(language, "Punkte → Credits:", "Points → credits:")}</strong> {translated(language, "Am Ende einer Mission erhältst du für jeden Punkt einen Credit. Beispiel: 1.000 Punkte = 1.000 Credits.", "At the end of a mission, you receive one credit for every point. Example: 1,000 points = 1,000 credits.")}</div>
+      <div className="text-slate-500 text-xs uppercase tracking-widest mt-2">{localize("Shop")}</div>
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-slate-200"><strong className="text-amber-300">{localize(translated(language, "Punkte → Credits:", "Points → credits:"))}</strong> {localize(translated(language, "Am Ende einer Mission erhältst du für jeden Punkt einen Credit. Beispiel: 1.000 Punkte = 1.000 Credits.", "At the end of a mission, you receive one credit for every point. Example: 1,000 points = 1,000 credits."))}</div>
     </div>
   );
 }
 
 function VolumeSetting({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
-  return <label className="rounded-xl border border-slate-700 bg-slate-900/70 p-3"><span className="flex justify-between text-sm font-bold"><span>{label}</span><span>{Math.round(value * 100)}%</span></span><input className="mt-3 w-full accent-cyan-400" type="range" min="0" max="1" step="0.05" value={value} onChange={e => onChange(Number(e.target.value))} /></label>;
+  const localize = useLocalize();
+  return <label className="rounded-xl border border-slate-700 bg-slate-900/70 p-3"><span className="flex justify-between text-sm font-bold"><span>{localize(label)}</span><span>{localize(Math.round(value * 100))}{localize("%")}</span></span><input className="mt-3 w-full accent-cyan-400" type="range" min="0" max="1" step="0.05" value={value} onChange={e => onChange(Number(e.target.value))} /></label>;
 }
 
 const KEY_BINDING_OPTIONS = [
@@ -10334,22 +10212,24 @@ const KEY_BINDING_OPTIONS = [
 ] as const;
 
 function KeyBindingSetting({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const localize = useLocalize();
   return (
     <label className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2">
-      <span className="text-sm font-bold text-slate-200">{label}</span>
-      <select aria-label={`${label} belegen`} value={value} onChange={event => onChange(event.target.value)} className="min-h-10 rounded-lg border border-slate-600 bg-slate-800 px-3 text-sm font-black text-cyan-200">
-        {!KEY_BINDING_OPTIONS.includes(value as typeof KEY_BINDING_OPTIONS[number]) && <option value={value}>{formatKeyCode(value)}</option>}
-        {KEY_BINDING_OPTIONS.map(code => <option key={code} value={code}>{formatKeyCode(code)}</option>)}
+      <span className="text-sm font-bold text-slate-200">{localize(label)}</span>
+      <select aria-label={localize(`${label} belegen`)} value={value} onChange={event => onChange(event.target.value)} className="min-h-10 rounded-lg border border-slate-600 bg-slate-800 px-3 text-sm font-black text-cyan-200">
+        {localize(!KEY_BINDING_OPTIONS.includes(value as typeof KEY_BINDING_OPTIONS[number]) && <option value={value}>{localize(formatKeyCode(value))}</option>)}
+        {localize(KEY_BINDING_OPTIONS.map(code => <option key={code} value={code}>{localize(formatKeyCode(code))}</option>))}
       </select>
     </label>
   );
 }
 
 function SettingToggle({ label, description, checked, onClick }: { label: string; description: string; checked: boolean; onClick: () => void }) {
+  const localize = useLocalize();
   return (
     <button type="button" role="switch" aria-checked={checked} onClick={onClick} className="flex min-h-20 items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-left">
       <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? "bg-cyan-500" : "bg-slate-700"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${checked ? "translate-x-6" : "translate-x-1"}`} /></span>
-      <span><span className="block text-sm font-bold text-white">{label}</span><span className="block text-xs text-slate-400">{description}</span></span>
+      <span><span className="block text-sm font-bold text-white">{localize(label)}</span><span className="block text-xs text-slate-400">{localize(description)}</span></span>
     </button>
   );
 }
@@ -10806,7 +10686,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
   const secondsLeft = Math.max(0, Math.ceil((durationMs - elapsedMs) / 1000));
   const objectiveLabel = protect
     ? `BESCHÜTZEN ${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
-    : `ZIEL ${Math.min(gs.score, getCampaignTarget(gs.level)).toLocaleString("de-DE")} / ${getCampaignTarget(gs.level).toLocaleString("de-DE")}`;
+    : `ZIEL ${Math.min(gs.score, getCampaignTarget(gs.level)).toLocaleString(canvasLocale(ctx))} / ${getCampaignTarget(gs.level).toLocaleString(canvasLocale(ctx))}`;
   const hpText = `${Number(Math.max(0, gs.hp).toFixed(1))}/${gs.maxHp}`;
   if (upward) {
     const viewW = CANVAS_H;
@@ -10830,7 +10710,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     ctx.textAlign = "left";
     ctx.fillStyle = "#00cfff"; ctx.font = "bold 13px 'Inter', sans-serif"; ctx.fillText("SCORE", 14, 8);
     ctx.fillStyle = "#fff"; ctx.font = "bold 21px 'Inter', sans-serif"; ctx.fillText(String(gs.score), 14, 25);
-    ctx.fillStyle = "#ffaa00"; ctx.font = "10px 'Inter', sans-serif"; ctx.fillText(`BEST ${bestScore.toLocaleString("de-DE")}`, 14, 52);
+    ctx.fillStyle = "#ffaa00"; ctx.font = "10px 'Inter', sans-serif"; ctx.fillText(`BEST ${bestScore.toLocaleString(canvasLocale(ctx))}`, 14, 52);
     ctx.fillStyle = "#67e8f9"; ctx.fillText(`PILOT ${pilotLevel}`, 14, 67);
 
     ctx.textAlign = "center";
@@ -10939,7 +10819,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, gs: GameState, ultimaCharge: num
     ctx.fillStyle = "#ffaa00";
     ctx.font = "10px 'Inter', sans-serif";
     ctx.textAlign = "right";
-    ctx.fillText(`BEST: ${bestScore.toLocaleString("de-DE")}`, CANVAS_W - 8, 39);
+    ctx.fillText(`BEST: ${bestScore.toLocaleString(canvasLocale(ctx))}`, CANVAS_W - 8, 39);
   }
   ctx.fillStyle = "#67e8f9";
   ctx.font = "bold 10px 'Inter', sans-serif";

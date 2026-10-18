@@ -1,12 +1,15 @@
+import { createLocalizer, translate, localizeCanvas } from "../i18n";
+import { LanguageProvider, useLocalize } from "../i18n-react";
 export function PackageLanding() {
+  const localize = useLocalize();
   return <div className="package-landing">
-    <svg viewBox="0 0 400 240" role="img" aria-label="Das beschützte Paket sinkt auf einen beleuchteten Landeplatz und setzt sicher auf.">
+    <svg viewBox="0 0 400 240" role="img" aria-label={localize("Das beschützte Paket sinkt auf einen beleuchteten Landeplatz und setzt sicher auf.")}>
       <path d="M0 200 200 125 400 200V240H0Z" fill="#152f35" />
       <path d="m30 220 170-65 170 65M100 240l100-85 100 85M0 205h400" fill="none" stroke="#29494d" strokeWidth="2" />
       <ellipse cx="200" cy="200" rx="105" ry="31" fill="#091b26" stroke="#67e8f9" strokeWidth="3" />
       <ellipse cx="200" cy="200" rx="82" ry="23" fill="none" stroke="#67e8f9" strokeDasharray="10 8" opacity=".5" />
       <path d="M185 190v19m30-19v19m-30-10h30" stroke="#c1f5e8" strokeWidth="4" />
-      {[100, 150, 250, 300].map((x, i) => <circle key={x} cx={x} cy={i === 0 || i === 3 ? 200 : 226} r="3" fill="#a5f3fc" />)}
+      {localize([100, 150, 250, 300].map((x, i) => <circle key={x} cx={x} cy={i === 0 || i === 3 ? 200 : 226} r="3" fill="#a5f3fc" />))}
       <ellipse className="package-landing-shadow" cx="200" cy="198" rx="47" ry="11" fill="#000" />
       <ellipse className="package-landing-dust" cx="200" cy="200" rx="56" ry="16" fill="none" stroke="#a5f3fc" strokeWidth="3" />
       <g className="package-landing-cargo">
@@ -21,6 +24,6 @@ export function PackageLanding() {
         <circle cx="149" cy="201" r="3" fill="#a5f3fc" />
       </g>
     </svg>
-    <strong className="package-landing-confirmation">✓ PAKET SICHER GELANDET</strong>
+    <strong className="package-landing-confirmation">{localize("✓ PAKET SICHER GELANDET")}</strong>
   </div>;
 }
