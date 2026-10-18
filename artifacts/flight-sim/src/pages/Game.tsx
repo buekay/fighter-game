@@ -1,7 +1,7 @@
 import { createLocalizer, translate, localizeCanvas, canvasLocale } from "../i18n";
 import { LanguageProvider, useLocalize } from "../i18n-react";
 import { FlightFeaturesPanel } from "../components/FlightFeaturesPanel";
-import { DEFAULT_FLIGHT_OPTIONS, TRAINING_DIFFICULTY, createBossParts, hitBossPart, createHazards, tickHazard, overlaps, createSecret, SECRET_NAMES, loadMasteries, saveMasteries, masteryFor, masteryUnlocked, recordMastery, loadDefeatedBosses, rememberBoss, createCoopPilot, damageCoop, tickCoop, rollingDps, type FlightOptions, type BossPart, type Hazard, type SecretSignal, type DamageSample } from "../flight-features";
+import { DEFAULT_FLIGHT_OPTIONS, TRAINING_DIFFICULTY, createBossParts, hitBossPart, createHazards, tickHazard, hazardHits, hazardPush, overlaps, createSecret, SECRET_NAMES, loadMasteries, saveMasteries, masteryFor, masteryUnlocked, recordMastery, loadDefeatedBosses, rememberBoss, createCoopPilot, damageCoop, tickCoop, rollingDps, type FlightOptions, type BossPart, type Hazard, type SecretSignal, type DamageSample } from "../flight-features";
 import { drawBossParts, drawHazards, drawSecret, drawCoopStatus, drawCoopRevival } from "../rendering/flight-features";
 import { canvasResolution } from "../rendering/canvas-resolution";
 import { ACHIEVEMENTS, achievementProgress, loadAchievements, saveAchievements, newlyUnlockedAchievements, normalizeRunStats, type Achievement, type RunStats } from "../achievements";
@@ -5478,12 +5478,12 @@ export default function Game() {
         if (!tutorialActive) tickHazard(h, dt);
         if (h.lifeMs <= 0 || h.x + h.width < 0) return false;
         if (h.warningMs > 0) return true;
-        const leaderHit = !leaderDownRef.current && overlaps({ ...playerRef.current, width: PLAYER_W, height: PLAYER_H }, h);
-        const partnerHit = flightOptionsRef.current.coop && !partner.down && overlaps({ ...partner, width: PLAYER_W, height: PLAYER_H }, h);
+        const leaderHit = !leaderDownRef.current && hazardHits(h, { ...playerRef.current, width: PLAYER_W, height: PLAYER_H });
+        const partnerHit = flightOptionsRef.current.coop && !partner.down && hazardHits(h, { ...partner, width: PLAYER_W, height: PLAYER_H });
         if (h.kind === 'wind' || h.kind === 'sand') {
-          const push = h.kind === 'wind' ? -1 : 1;
-          if (leaderHit) playerRef.current.y = clamp(playerRef.current.y + push * 2 * dtScale, 65, CANVAS_H - PLAYER_H);
-          if (partnerHit) partner.y = clamp(partner.y + push * 2 * dtScale, 65, CANVAS_H - PLAYER_H);
+          const push = hazardPush(h) * dt / 1000;
+          if (leaderHit) playerRef.current.y = clamp(playerRef.current.y + push, 65, CANVAS_H - PLAYER_H);
+          if (partnerHit) partner.y = clamp(partner.y + push, 65, CANVAS_H - PLAYER_H);
         } else {
           if (leaderHit && invincibleRef.current <= 0 && ultimateActiveRef.current <= 0) {
             const result = protectPlayer({ shieldTimer: shieldTimerRef.current, shieldHp: playerShieldHpRef.current, invincibleTimer: invincibleRef.current, stealthTimer: stealthActiveRef.current });
@@ -5495,7 +5495,7 @@ export default function Game() {
         }
         return true;
       });
-      drawHazards(ctx, hazardsRef.current);
+      drawHazards(ctx, hazardsRef.current, settingsRef.current.reducedMotion);
       const signal = secretRef.current;
       if (signal && !bossPresent && !tutorialActive) {
         signal.remainingMs -= dt;

@@ -41,47 +41,7 @@ export function hitBossPart(boss: Bounds, parts: BossPart[], shot: Bounds, damag
   return part;
 }
 
-export type HazardKind = 'debris' | 'sand' | 'wave' | 'wind' | 'ice' | 'rock' | 'lava' | 'vine' | 'lightning' | 'asteroid';
-export const HAZARDS: Record<string, { kind: HazardKind; name: string; color: string }> = {
-  city: { kind: 'debris', name: 'Trümmerfeld', color: '#fda4af' },
-  desert: { kind: 'sand', name: 'Sandfront', color: '#fde68a' },
-  ocean: { kind: 'wave', name: 'Wasserfontäne', color: '#67e8f9' },
-  plains: { kind: 'wind', name: 'Windböe', color: '#bbf7d0' },
-  arctic: { kind: 'ice', name: 'Eisschollen', color: '#a5f3fc' },
-  canyon: { kind: 'rock', name: 'Engpass', color: '#fdba74' },
-  volcano: { kind: 'lava', name: 'Lavaausbruch', color: '#fb923c' },
-  jungle: { kind: 'vine', name: 'Rankenwand', color: '#86efac' },
-  storm: { kind: 'lightning', name: 'Blitzeinschlag', color: '#e9d5ff' },
-  space: { kind: 'asteroid', name: 'Asteroidenfeld', color: '#c4b5fd' },
-};
-export interface Hazard extends Bounds {
-  kind: HazardKind; name: string; color: string; warningMs: number; lifeMs: number; vx: number; vy: number;
-}
-/** A 1.5 second stationary warning always precedes an active obstacle. */
-export function createHazards(biome: string, random: number): Hazard[] {
-  const def = HAZARDS[biome] ?? HAZARDS.city;
-  const base = { ...def, warningMs: 1500, lifeMs: 7000, vx: -135, vy: 0 };
-  const y = 110 + Math.max(0, Math.min(1, random)) * 340;
-  if (def.kind === 'rock' || def.kind === 'vine') {
-    const gapY = Math.max(145, Math.min(425, y));
-    return [{ ...base, x: 830, y: 65, width: 58, height: gapY - 65 },
-      { ...base, x: 830, y: gapY + 130, width: 58, height: 600 - gapY - 130 }];
-  }
-  if (def.kind === 'lightning' || def.kind === 'lava' || def.kind === 'wave') {
-    return [{ ...base, x: 120 + random * 590, y: def.kind === 'lightning' ? 65 : 345,
-      width: def.kind === 'lightning' ? 44 : 78, height: def.kind === 'lightning' ? 500 : 255,
-      vx: 0, lifeMs: 1800 }];
-  }
-  if (def.kind === 'wind' || def.kind === 'sand') return [{ ...base, x: 820, y, width: 130, height: 110, vx: -180 }];
-  return [0, 1, 2].map(i => ({ ...base, x: 815 + i * 34, y: Math.max(75, Math.min(520, y + (i - 1) * 145)),
-    width: 38 + i * 7, height: 38 + i * 7, vx: -145 - i * 18, vy: (i - 1) * 12 }));
-}
-export function tickHazard(h: Hazard, ms: number): void {
-  const activeMs = Math.max(0, ms - h.warningMs);
-  h.warningMs = Math.max(0, h.warningMs - ms);
-  h.lifeMs -= activeMs;
-  h.x += h.vx * activeMs / 1000; h.y += h.vy * activeMs / 1000;
-}
+export { HAZARDS, createHazards, tickHazard, hazardHits, hazardPush, type HazardKind, type Hazard } from './environment-hazards';
 
 export type SecretKind = 'wreck' | 'rescue' | 'ace';
 export interface SecretSignal extends Point { kind: SecretKind; remainingMs: number; phase: 'signal' | 'active'; progressMs: number }

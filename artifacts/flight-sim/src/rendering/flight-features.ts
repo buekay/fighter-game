@@ -1,4 +1,4 @@
-import { partBounds, SECRET_NAMES, type Bounds, type BossPart, type Hazard, type SecretSignal, type CoopPilot } from '../flight-features';
+import { partBounds, SECRET_NAMES, type Bounds, type BossPart, type SecretSignal, type CoopPilot } from '../flight-features';
 
 export function drawBossParts(ctx: CanvasRenderingContext2D, boss: Bounds, parts: BossPart[]) {
   ctx.save(); ctx.font = 'bold 10px Inter, sans-serif';
@@ -14,22 +14,7 @@ export function drawBossParts(ctx: CanvasRenderingContext2D, boss: Bounds, parts
   }
   ctx.restore();
 }
-export function drawHazards(ctx: CanvasRenderingContext2D, hazards: Hazard[]) {
-  ctx.save(); ctx.font = 'bold 12px Inter, sans-serif';
-  for (const h of hazards) {
-    ctx.fillStyle = h.color; ctx.strokeStyle = h.color;
-    ctx.globalAlpha = h.warningMs > 0 ? .16 : .7;
-    if (h.warningMs > 0) { ctx.fillRect(h.x, h.y, h.width, h.height); ctx.globalAlpha = 1; ctx.setLineDash([6, 5]); ctx.strokeRect(h.x, h.y, h.width, h.height); ctx.setLineDash([]); ctx.fillText('⚠ ' + h.name, Math.min(h.x, 740), Math.max(90, h.y - 12)); }
-    else if (['asteroid', 'ice', 'debris'].includes(h.kind)) {
-      ctx.beginPath(); ctx.moveTo(h.x + h.width * .2, h.y); ctx.lineTo(h.x + h.width * .8, h.y + 3); ctx.lineTo(h.x + h.width, h.y + h.height * .6); ctx.lineTo(h.x + h.width * .5, h.y + h.height); ctx.lineTo(h.x, h.y + h.height * .7); ctx.closePath(); ctx.fill();
-      ctx.globalAlpha = 1; ctx.stroke();
-    } else {
-      ctx.fillRect(h.x, h.y, h.width, h.height); ctx.globalAlpha = 1;
-      ctx.beginPath(); for (let y = h.y; y < h.y + h.height; y += 24) { ctx.moveTo(h.x, y); ctx.lineTo(h.x + h.width, y + 14); } ctx.stroke();
-    }
-  }
-  ctx.restore();
-}
+export { drawHazards } from './environment-hazards';
 export function drawSecret(ctx: CanvasRenderingContext2D, signal: SecretSignal) {
   ctx.save(); ctx.strokeStyle = '#fcd34d'; ctx.fillStyle = '#fcd34d'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(signal.x, signal.y, signal.phase === 'signal' ? 40 : 60, 0, Math.PI * 2); ctx.stroke();
