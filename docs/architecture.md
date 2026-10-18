@@ -119,3 +119,16 @@ Weltrotation und HUD verwenden denselben Pixelfaktor. Touch-Eingaben bleiben in
 logischen Koordinaten; Ulti-Countdowns werden nach der Weltrotation aufrecht und
 innerhalb der sichtbaren Ränder gezeichnet. Die Tastaturhilfe erhält eigenen
 Platz unter der Spielfläche, damit der obere HUD-Rand sichtbar bleibt.
+
+### Flugzentrum und zusätzliche Kampfregeln
+
+`flight-features.ts` kapselt Bauteil-Geometrie, Gefahren-Timer, Geheimnisdefinitionen,
+validierte Meisterschafts- und Bossfreischaltungs-Speicherung, Koop-HP und
+Wiederbelebung sowie das DPS-Zeitfenster. `rendering/flight-features.ts` zeichnet
+Weltobjekte getrennt vom HUD; der zweite Jet und Wiederbelebungskreise werden vor
+Rücknahme der Weltrotation gezeichnet. `FlightFeaturesPanel.tsx` stellt die
+Startoptionen und Meisterschaftsvarianten bereit. Der Canvas-Loop integriert die
+Regeln mit bestehenden Schadens-, Projektil-, Pause- und Fortschrittspfaden.
+Trainingsoptionen sperren sämtliche Kampfbelohnungen und Checkpoint-Schreibpfade.
+Meisterschaftsänderungen werden höchstens einmal pro aktiver Sekunde gespeichert,
+zusätzlich beim Einsatzende und bei der Rückkehr zum Hangar.

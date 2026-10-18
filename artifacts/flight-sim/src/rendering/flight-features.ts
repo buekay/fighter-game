@@ -6,7 +6,7 @@ export function drawBossParts(ctx: CanvasRenderingContext2D, boss: Bounds, parts
     const b = partBounds(boss, part); const color = part.id === 'weapon' ? '#fb923c' : '#67e8f9';
     ctx.strokeStyle = part.hp > 0 ? color : '#64748b'; ctx.lineWidth = 2;
     ctx.setLineDash(part.hp > 0 ? [] : [3, 4]); ctx.strokeRect(b.x, b.y, b.width, b.height);
-    ctx.fillStyle = part.hp > 0 ? '#071126bb' : '#101820ee'; ctx.fillRect(b.x, b.y, b.width, b.height);
+    ctx.fillStyle = part.hp > 0 ? '#07112655' : '#101820ee'; ctx.fillRect(b.x, b.y, b.width, b.height);
     if (part.hp > 0) {
       ctx.fillStyle = color; ctx.fillRect(b.x, b.y + b.height - 3, b.width * part.hp / part.maxHp, 3);
       ctx.fillText(part.name, b.x + 3, b.y + 13);

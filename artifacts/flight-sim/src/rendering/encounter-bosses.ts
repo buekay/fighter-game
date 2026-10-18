@@ -129,7 +129,7 @@ export function drawEncounterBoss(ctx: CanvasRenderingContext2D, e: BossBody, ti
         plate(ctx, x, side * 76 - 21, 17, 42, true, 2);
         ctx.fillStyle = "#91a0aa55"; ctx.fillRect(x + 2, side * 76 - 15, 12, 3);
       }
-      for (let i = 0; i < 6; i++) joint(ctx, -109 + i * 43, side * 76, 13, "#818d98", time * .001);
+      for (let i = 0; i < 6; i++) joint(ctx, -109 + i * 43, side * 76, 13, "#818d98", e.bossEngineDisabled ? 0 : time * .001);
       piston(ctx, -93, side * 34, -112, side * 61); piston(ctx, 87, side * 34, 110, side * 61);
     }
     plate(ctx, -113, -57, 244, 114, false, 25);
@@ -141,13 +141,15 @@ export function drawEncounterBoss(ctx: CanvasRenderingContext2D, e: BossBody, ti
     joint(ctx, 11, 0, 49, accent, time * .0002);
     plate(ctx, -54, -33, 100, 66, false, 18);
     piston(ctx, -35, -24, -117, -24, 9); piston(ctx, -35, 24, -117, 24, 9);
-    barrel(ctx, -148, 0, 121, accent, true);
+    if (!e.bossCannonsDisabled) barrel(ctx, -148, 0, 121, accent, true);
+    else plate(ctx, -64, -12, 25, 24, true);
     plate(ctx, 11, -19, 28, 38, true); serviceHub(ctx, 25, 0, 14, accent);
     ctx.fillStyle = "#e5e7eb"; ctx.font = "bold 8px monospace"; ctx.fillText("02 / SIEGE", 64, 6);
   } else if (kind === "spider") {
     for (const side of [-1, 1]) for (let leg = 0; leg < 4; leg++) {
+      if (e.bossEngineDisabled && leg === 0) continue;
       const rootX = -52 + leg * 34, kneeX = -116 + leg * 74;
-      const step = Math.sin(time * .003 + leg * 1.7 + side) * 7;
+      const step = e.bossEngineDisabled ? 0 : Math.sin(time * .003 + leg * 1.7 + side) * 7;
       const kneeY = side * (62 + (leg % 2) * 8), footX = Math.max(-143, Math.min(143, kneeX + (leg < 2 ? -13 : 13) + step));
       piston(ctx, rootX, side * 25, kneeX, kneeY, 13);
       piston(ctx, kneeX, kneeY, footX, side * 102, 9);
@@ -161,7 +163,7 @@ export function drawEncounterBoss(ctx: CanvasRenderingContext2D, e: BossBody, ti
     joint(ctx, -10, 0, 31, accent, -time * .0006); serviceHub(ctx, -10, 0, 21, accent);
     plate(ctx, -103, -25, 43, 50, true, 12);
     for (const y of [-14, 0, 14]) serviceHub(ctx, -91, y, 6, "#fb7185");
-    for (const side of [-1, 1]) { piston(ctx, -82, side * 20, -121, side * 33, 8); barrel(ctx, -141, side * 31, 30, accent); }
+    if (!e.bossCannonsDisabled) for (const side of [-1, 1]) { piston(ctx, -82, side * 20, -121, side * 33, 8); barrel(ctx, -141, side * 31, 30, accent); }
   } else if (kind === "submarine") {
     for (const side of [-1, 1]) {
       plate(ctx, 52, side * 66 - 18, 64, 36, true, 10);
@@ -180,8 +182,8 @@ export function drawEncounterBoss(ctx: CanvasRenderingContext2D, e: BossBody, ti
     plate(ctx, -38, -38, 104, 76, true, 19);
     plate(ctx, -10, -24, 42, 48, false, 8); joint(ctx, 11, 0, 14, accent, time * .0008);
     piston(ctx, 8, -23, 8, -83, 5); barrel(ctx, -15, -84, 29, accent);
-    for (const side of [-1, 1]) { barrel(ctx, -146, side * 24, 33, accent, true); serviceHub(ctx, -107, side * 20, 8, accent); }
-    joint(ctx, 125, 0, 26, accent, time * .006);
+    if (!e.bossCannonsDisabled) for (const side of [-1, 1]) { barrel(ctx, -146, side * 24, 33, accent, true); serviceHub(ctx, -107, side * 20, 8, accent); }
+    joint(ctx, 125, 0, 26, accent, e.bossEngineDisabled ? 0 : time * .006);
     for (const y of [-40, 40]) { ctx.fillStyle = accent; ctx.fillRect(-66, y, 82, 2); }
     ctx.fillStyle = "#cedae2"; ctx.font = "bold 9px monospace"; ctx.fillText("U-04", 42, 4);
   } else if (kind === "titan") {
@@ -214,7 +216,8 @@ export function drawEncounterBoss(ctx: CanvasRenderingContext2D, e: BossBody, ti
     }
     joint(ctx, 12, 0, 60, accent, time * .0001);
     plate(ctx, -67, -40, 134, 80, false, 16);
-    if (weapon === "flame") {
+    if (e.bossCannonsDisabled) { plate(ctx, -70, -25, 65, 50, true); }
+    else if (weapon === "flame") {
       for (const side of [-1, 1]) { plate(ctx, 69, side * 29 - 18, 54, 36, true, 12); ctx.fillStyle = "#f97316"; ctx.fillRect(78, side * 29 - 12, 8, 24); barrel(ctx, -146, side * 23, 92, "#fb923c", true); }
       serviceHub(ctx, -41, 0, 19, "#fb923c");
     } else if (weapon === "rocket") {

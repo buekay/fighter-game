@@ -128,3 +128,40 @@ Spielstand gespeichert und beim Fortsetzen wiederhergestellt. Ein neuer Einsatz
 beginnt bei null; freigeschaltete Erfolge bleiben erhalten und ihre Belohnungen
 werden nur einmal vergeben. Ältere Spielstände ohne Statistiken starten mit
 null Fortschritt.
+
+## Flugzentrum, Erkundung und Koop
+
+Im Hangar öffnet **✦ Flugzentrum** die Trainingsarena, Koop-Einstellung und
+Waffen-Meisterschaft. Die normale Starttaste führt weiterhin auf die Levelkarte.
+
+- **Boss-Bauteile:** Die fünf großen Bosse besitzen orange markierte Waffen und
+  blaue Antriebs-/Schutzmodule mit eigenen HP. Gezielte Treffer zerstören Module:
+  Railgun, Netzwerfer und Torpedorohr verlieren ihren zugehörigen Spezialangriff;
+  beschädigte Antriebe bremsen Bewegung, der Titan verliert seinen Schild und das
+  U-Boot kann nicht mehr tauchen. Stadtgeschütze lassen sich einzeln entwaffnen.
+- **Umgebungsgefahren:** Alle zehn Landschaften besitzen eigene Hindernisse.
+  1,5 Sekunden Vorwarnung, freie Passagen in Canyon und Dschungel, Wind- und
+  Sandfronten mit Schubwirkung. Während Bosskämpfen werden Hindernisse entfernt.
+- **Geheimnisse:** Goldene Funksignale anfliegen. Wracks bergen und Piloten retten
+  erfordern drei Sekunden Nähe; das Fliegerass zahlt erst nach dem Sieg aus.
+  Ein verpasstes Signal verfällt ohne Strafe.
+- **Meisterschaft:** Je Waffe 40 Abschüsse und 12 Präzisionstreffer auf Bauteile
+  bzw. Abschüsse ab einer 10er-Combo. Varianten erweitern Schussmuster,
+  Raketenzielwahl oder Nahkampfreichweite und sind im Flugzentrum abschaltbar.
+- **Training:** Aktuelle Ausrüstung gegen eine unbewaffnete Übungsdrohne oder
+  bereits besiegte Bosse testen. Drei Schwierigkeiten, laufender Fünf-Sekunden-DPS,
+  automatische Ziel-Neustarts. Solo-Training verhindert tödliche Treffer.
+  Training verändert weder Credits/Juwelen noch Rekorde, Erfolge, Meisterschaft
+  oder Kampagnenfortschritt und überschreibt keinen Missionsspielstand.
+- **Lokaler Koop:** Vor dem Missionsstart aktivieren. P1 nutzt WASD + Leertaste,
+  P2 Pfeiltasten + Enter; alternativ zwei Gamepads. Beide verwenden die ausgerüsteten
+  Hauptwaffen und haben eigene HP. In der Nähe eines ausgefallenen Piloten bleiben
+  (2,5 Sekunden), um ihn mit halben HP zu retten. Beide ausgefallen beendet den Run.
+  P2 aktiviert die Team-Bereitschaft mit rechter Umschalttaste bzw. rechter
+  Gamepad-Schultertaste; eine erfolgreiche P1-Ulti innerhalb von drei Sekunden
+  löst zusätzlich einen gemeinsamen Schutz-/Angriffspuls aus (20 Sekunden Cooldown).
+  Koop ist auch im Training möglich. Koop-Einsätze haben keine Fortsetzen-Checkpoints.
+
+`flight-features.test.ts` prüft Bauteiltreffer, deaktivierte Boss-Spezialangriffe,
+Gefahren bei 30/60/120 Hz, Meisterschaft und Speicherfehler sowie beide
+Wiederbelebungsrichtungen und die DPS-Zeitfenster.

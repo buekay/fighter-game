@@ -4556,7 +4556,7 @@ export default function Game() {
       ? MUTATORS[save.mutatorId]
       : getMutatorForLevel(requestedLevel);
     waveBannerRef.current = {
-      text: `LEVEL ${requestedLevel} · MISSION GESTARTET`,
+      text: training ? 'TRAININGSARENA · AUSRÜSTUNG TESTEN' : `LEVEL ${requestedLevel} · MISSION GESTARTET`,
       timer: 120,
     };
     droneSupportTimerRef.current = 0;
@@ -8629,7 +8629,7 @@ export default function Game() {
                   <button onClick={() => startGame(false, campaignLevelRef.current, flightOptionsRef.current)} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "↻ NEU STARTEN", "↻ RESTART")}</button>
                   <button onClick={() => setPauseView("settings")} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⚙ EINSTELLUNGEN", "⚙ SETTINGS")}</button>
                   <button onClick={returnToHangar} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "⌂ ZUM HANGAR", "⌂ RETURN TO HANGAR")}</button>
-                  <button onClick={cashOutRunToHangar} className="pause-secondary rounded-xl py-3 font-bold">{translated(language, "■ BEENDEN & SCORE HOLEN", "■ END & CLAIM SCORE")}</button>
+                  <button onClick={cashOutRunToHangar} className="pause-secondary rounded-xl py-3 font-bold">{flightOptionsRef.current.training ? translated(language, "■ TRAINING BEENDEN", "■ END TRAINING") : translated(language, "■ BEENDEN & SCORE HOLEN", "■ END & CLAIM SCORE")}</button>
                 </div>
                 <div className="mt-4 text-xs text-slate-500">ESC oder {formatKeyCode(settings.keyBindings.pause)} drücken, um weiterzuspielen</div>
               </div>
