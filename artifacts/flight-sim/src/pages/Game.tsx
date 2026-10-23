@@ -1,6 +1,6 @@
 import { getGhostWorld, GHOST_AIRCRAFT, getGhostAircraft, createGhostShots, ensureGhostAircraft, prepareGhostSpawn, type GhostAircraftId, type GhostElement, type GhostWorld } from "../ghost-worlds";
 import { drawGhostWorld, drawGhostAircraft, drawGhostShot } from "../rendering/ghost-worlds";
-import { awakenSpirit, tickSpirit, spiritTouches, type ElementSpirit } from "../element-spirits";
+import { awakenSpirit, tickSpirit, spiritTouches, nextSpiritAction, type ElementSpirit } from "../element-spirits";
 import { drawElementSpirit } from "../rendering/element-spirits";
 import { createLocalizer, translate, localizeCanvas, canvasLocale } from "../i18n";
 import { LanguageProvider, useLocalize } from "../i18n-react";
@@ -1933,7 +1933,8 @@ function addWorldEnemy(enemies: Enemy[], enemy: Enemy, level = 1): boolean {
 }
 
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, reducedMotion = false, ghostWorld: GhostWorld | null = null) {
-  if (ghostWorld && !isBossEnemy(e)) { drawGhostAircraft(ctx, e, ghostWorld, performance.now(), reducedMotion); return; }
+  const spiritWorld = ghostWorld ?? (e.ghostAircraftId ? getGhostWorld(16) : null);
+  if (spiritWorld && !isBossEnemy(e)) { drawGhostAircraft(ctx, e, spiritWorld, performance.now(), reducedMotion); return; }
   if (e.encounterKind && e.encounterKind !== "titan") {
     drawEncounterBoss(ctx, e, reducedMotion ? 0 : performance.now());
     return;
@@ -5578,6 +5579,57 @@ export default function Game() {
             shieldTimerRef.current = Math.max(shieldTimerRef.current, 180);
             playerShieldHpRef.current = Math.max(playerShieldHpRef.current, 2);
             audioRef.current.effect('upgrade', settingsRef.current.soundVolume);
+          }
+          const action = nextSpiritAction(spirit);
+          if (action) {
+            spirit.beamTarget = undefined;
+            if (action === 'heal') {
+              let healed = false;
+              if (!leaderDownRef.current && Math.hypot(playerRef.current.x + PLAYER_W / 2 - spirit.x, playerRef.current.y + PLAYER_H / 2 - spirit.y) < 240 && gs.hp < gs.maxHp) {
+                gs.hp = Math.min(gs.maxHp, gs.hp + 1); healed = true;
+              }
+              if (flightOptionsRef.current.coop && !partner.down && Math.hypot(partner.x + PLAYER_W / 2 - spirit.x, partner.y + PLAYER_H / 2 - spirit.y) < 240 && partner.hp < partner.maxHp) {
+                partner.hp = Math.min(partner.maxHp, partner.hp + 1); healed = true;
+              }
+              if (healed) spirit.flashUntilMs = spirit.ageMs + 600;
+            } else if (action === 'attack') {
+              let target: Enemy | undefined;
+              let nearest = 360;
+              for (const enemy of enemiesRef.current) {
+                if (enemy.dead || !isEnemyVisible(enemy) || isEnemyInvulnerable(enemy)) continue;
+                const distance = Math.hypot(enemy.x + enemy.width / 2 - spirit.x, enemy.y + enemy.height / 2 - spirit.y);
+                if (distance < nearest) { target = enemy; nearest = distance; }
+              }
+              if (target) {
+                const before = target.hp;
+                const result = applyEnemyDamage(target, 8 + gs.level * .4);
+                setEnemyHealth(target, result.hp); target.shieldHp = result.shieldHp;
+                runStatsRef.current.damageDealt += Math.max(0, before - target.hp);
+                if (target.hp <= 0) { target.dead = true; gs.score += target.points; registerKill(target); }
+                spirit.beamTarget = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
+                spirit.flashUntilMs = spirit.ageMs + 250;
+              }
+            } else if (action === 'cannon' && pilots.length > 0) {
+              const aircraft = GHOST_AIRCRAFT.find(a => a.element === spirit.element)!;
+              const target = pilots.reduce((near, pilot) => Math.hypot(pilot.x - spirit.x, pilot.y - spirit.y) < Math.hypot(near.x - spirit.x, near.y - spirit.y) ? pilot : near);
+              addProjectilesWithinLimit(bulletsRef.current, ...createGhostShots(aircraft.id, spirit, target));
+              spirit.flashUntilMs = spirit.ageMs + 250;
+            } else if (action === 'summon' && pilots.length > 0) {
+              const aircraft = GHOST_AIRCRAFT.find(a => a.element === spirit.element)!;
+              for (const offset of [-1, 1]) {
+                if ((spirit.summoned ?? 0) >= 4) break;
+                // Summons enter from the screen edge, never on top of a pilot.
+                const hp = aircraft.hp + gs.level * .6;
+                const added = addWorldEnemy(enemiesRef.current, {
+                  x: CANVAS_W + 25, y: clamp(spirit.y + offset * 70, 30, CANVAS_H - aircraft.height - 30),
+                  width: aircraft.width, height: aircraft.height, hp, maxHp: hp,
+                  vx: -aircraft.speed, vy: 0, type: 'bomber', ghostAircraftId: aircraft.id,
+                  color: aircraft.color, shootCooldown: aircraft.cooldown, points: aircraft.points, angle: 0,
+                }, gs.level);
+                if (added) spirit.summoned = (spirit.summoned ?? 0) + 1;
+              }
+              spirit.flashUntilMs = spirit.ageMs + 600;
+            }
           }
           if (!spirit.friendly && spirit.ageMs >= 1200 && spirit.remainingMs > 0) {
             const touches = (x: number, y: number) => spiritTouches(spirit, { x, y, width: PLAYER_W, height: PLAYER_H });

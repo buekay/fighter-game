@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { awakenSpirit, tickSpirit, spiritTouches } from './element-spirits';
+import { awakenSpirit, tickSpirit, spiritTouches, nextSpiritAction } from './element-spirits';
 
 assert.equal(awakenSpirit('lava', 900, 600).friendly, true);
 assert.equal(awakenSpirit('lightning', 300, 250).friendly, false);
@@ -43,3 +43,33 @@ assert.equal(spiritTouches(contact, { x: 330, y: 240, width: 52, height: 28 }), 
 assert.equal(spiritTouches(contact, { x: 340, y: 240, width: 52, height: 28 }), false);
 contact.friendly = true;
 assert.equal(spiritTouches(contact, { x: 300, y: 250, width: 52, height: 28 }), false);
+
+for (const hz of [30, 60, 120]) {
+  for (const [kind, action, count] of [['wave', 'heal', 3], ['lava', 'attack', 4], ['lightning', 'cannon', 3]] as const) {
+    const spirit = awakenSpirit(kind, 300, 250);
+    let actions = 0;
+    for (let i = 0; i < hz * 10; i++) {
+      tickSpirit(spirit, 1000 / hz, []);
+      const result = nextSpiritAction(spirit);
+      if (result) { assert.equal(result, action); actions++; }
+    }
+    assert.equal(actions, count, `${action} cadence at ${hz} Hz`);
+  }
+}
+const summoner = awakenSpirit('ice', 300, 250);
+summoner.ageMs = 3000;
+assert.equal(nextSpiritAction(summoner), 'summon');
+summoner.summoned = 4; summoner.ageMs = 8000;
+assert.equal(nextSpiritAction(summoner), null, 'summoning is capped');
+const converted = awakenSpirit('lightning', 300, 250);
+tickSpirit(converted, 1200, []);
+assert.equal(tickSpirit(converted, 2500, [{ x: 380, y: 250 }]), 'calmed');
+assert.equal(nextSpiritAction(converted), null, 'calming gives time before next ability');
+tickSpirit(converted, 1800, []);
+assert.equal(nextSpiritAction(converted), 'attack', 'calmed spirits attack enemies instead of pilots');
+converted.remainingMs = 0; converted.ageMs += 10000;
+assert.equal(nextSpiritAction(converted), null, 'expired spirits have no abilities');
+const pausedSpirit = awakenSpirit('wave', 300, 250);
+pausedSpirit.ageMs = 3000;
+assert.equal(nextSpiritAction(pausedSpirit), 'heal');
+for (let i = 0; i < 100; i++) { tickSpirit(pausedSpirit, 0, []); assert.equal(nextSpiritAction(pausedSpirit), null); }

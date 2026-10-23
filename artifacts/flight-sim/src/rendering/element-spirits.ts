@@ -88,6 +88,19 @@ export function drawElementSpirit(ctx: CanvasRenderingContext2D, spirit: Element
     ctx.strokeStyle = '#d6cfff'; ctx.lineWidth = .9; ctx.stroke();
   }
   ctx.restore();
+  if ((spirit.flashUntilMs ?? 0) > spirit.ageMs) {
+    ctx.save();
+    ctx.globalAlpha *= Math.min(1, ((spirit.flashUntilMs ?? 0) - spirit.ageMs) / 250);
+    ctx.strokeStyle = spirit.color; ctx.lineWidth = 2;
+    if (spirit.beamTarget) {
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(spirit.beamTarget.x - spirit.x, spirit.beamTarget.y - spirit.y); ctx.stroke();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = .8; ctx.stroke();
+    } else {
+      const radius = spirit.friendly && spirit.element === 'water' ? 100 : 43;
+      ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
   ctx.textAlign = 'center'; ctx.font = 'bold 12px sans-serif'; ctx.fillStyle = '#ffffff';
   ctx.strokeStyle = '#06111b'; ctx.lineWidth = 3;
   ctx.strokeText(spirit.name, 0, -58);

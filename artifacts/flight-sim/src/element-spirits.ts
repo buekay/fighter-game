@@ -2,6 +2,7 @@ import type { HazardKind } from './environment-hazards';
 
 export interface ElementSpirit {
   x: number; y: number; ageMs: number; remainingMs: number;
+  nextActionMs?: number; summoned?: number; flashUntilMs?: number; beamTarget?: { x: number; y: number };
   calmMs: number; friendly: boolean; name: string; color: string;
   element: 'ember' | 'water' | 'crystal' | 'storm'; event: string;
 }
@@ -29,7 +30,7 @@ export function tickSpirit(spirit: ElementSpirit, ms: number, pilots: readonly {
   if (!spirit.friendly) {
     const calming = pilots.some(pilot => { const d = Math.hypot(pilot.x - spirit.x, pilot.y - spirit.y); return d >= 65 && d < 110; });
     spirit.calmMs = calming ? spirit.calmMs + activeStep : Math.max(0, spirit.calmMs - activeStep * .5);
-    if (spirit.calmMs >= 2500) { spirit.friendly = true; return 'calmed'; }
+    if (spirit.calmMs >= 2500) { spirit.friendly = true; spirit.nextActionMs = spirit.ageMs + 1800; return 'calmed'; }
   }
   return 'waiting';
 }
@@ -40,4 +41,15 @@ export function spiritTouches(spirit: ElementSpirit, pilot: { x: number; y: numb
   const x = Math.max(pilot.x, Math.min(spirit.x, pilot.x + pilot.width));
   const y = Math.max(pilot.y, Math.min(spirit.y, pilot.y + pilot.height));
   return Math.hypot(x - spirit.x, y - spirit.y) < 33;
+}
+
+export type SpiritAction = 'heal' | 'attack' | 'cannon' | 'summon';
+/** Active age drives abilities, so pausing and frame rate cannot speed them up. */
+export function nextSpiritAction(spirit: ElementSpirit): SpiritAction | null {
+  if (spirit.remainingMs <= 0 || spirit.ageMs < (spirit.nextActionMs ?? 3000)) return null;
+  const action: SpiritAction = spirit.friendly ? (spirit.element === 'water' ? 'heal' : 'attack')
+    : spirit.element === 'crystal' ? 'summon' : 'cannon';
+  spirit.nextActionMs = spirit.ageMs + (action === 'summon' ? 5000 : action === 'heal' ? 3000 : action === 'attack' ? 1800 : 2400);
+  if (action === 'summon' && (spirit.summoned ?? 0) >= 4) return null;
+  return action;
 }
