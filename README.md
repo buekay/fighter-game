@@ -176,13 +176,12 @@ wecken feindliche Sturm- und Splittergeister. Die Geister erscheinen beim Ende
 der Gefahrenwarnung und bleiben 16 Sekunden. Sie haben keine Menschen- oder
 Tierkörper, sondern bestehen aus schwebenden Elementfragmenten.
 
-Grüne Markierungen zeigen Helfer: Anfliegen heilt das aktive Team um bis zu drei
-HP und gibt P1 einen Schutzschild. Rote Markierungen zeigen Feinde: Ihr Kern
-verursacht Kontaktschaden. Im äußeren Ring 2,5 Sekunden in der Nähe bleiben,
-um einen feindlichen Geist zu beruhigen; der Kreis zeigt den Fortschritt. Danach
-kann auch dieser Geist helfen. Während der ersten 1,2 Sekunden erwachen Geister
-ohne Kontaktschaden. Bosskämpfe räumen Geister ab; Training und Tutorial erzeugen
-keine Begegnungen. Pause hält alle Geister-Timer an.
+Friedliche Geister können aktive Piloten heilen oder schützen. Feindliche Geister
+verursachen bei Berührung ihres Kerns Schaden. Ihre Gesinnung bleibt unverändert;
+sie können nicht beruhigt werden. Namen, Anflugkreise und Fähigkeitshinweise werden
+nicht angezeigt. Während der ersten 1,2 Sekunden erwachen Geister ohne
+Kontaktschaden. Bosskämpfe räumen Geister ab; Training und Tutorial erzeugen keine
+Begegnungen. Pause hält alle Geister-Timer an.
 
 ## Geisterwelten
 
@@ -236,6 +235,6 @@ innerhalb von 360 Pixeln mit einem Elementstrahl; Gegner-Schilde werden beachtet
 Feindliche Sturmgeister feuern alle 2,4 Sekunden gezielte Elementgeschosse.
 Feindliche Splittergeister beschwören alle fünf Sekunden zwei Kristallflugzeuge,
 maximal vier pro Geist, innerhalb des bestehenden Gegnerlimits. Diese fliegen vom
-rechten Bildschirmrand ein. Beruhigen ersetzt feindliche Fähigkeiten durch Hilfe.
+rechten Bildschirmrand ein. Feindliche Geister bleiben bis zu ihrem Verschwinden feindlich.
 Pause hält die Fähigkeiten an; abgelaufene Geister wirken nicht weiter.
 Im Spiel erscheinen dazu keine Beschreibungen, Gesinnungs- oder Ereignistexte.

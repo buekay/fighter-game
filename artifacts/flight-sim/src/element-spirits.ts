@@ -4,7 +4,7 @@ export interface ElementSpirit {
   originX?: number; originY?: number;
   x: number; y: number; ageMs: number; remainingMs: number;
   nextActionMs?: number; summoned?: number; flashUntilMs?: number; beamTarget?: { x: number; y: number };
-  calmMs: number; friendly: boolean; name: string; color: string;
+  friendly: boolean; name: string; color: string;
   element: 'ember' | 'water' | 'crystal' | 'storm'; event: string;
 }
 export function awakenSpirit(kind: HazardKind, x: number, y: number): ElementSpirit {
@@ -16,23 +16,17 @@ export function awakenSpirit(kind: HazardKind, x: number, y: number): ElementSpi
         ? { element: 'storm' as const, name: 'Sturmgeist', color: '#c4afff', friendly: false, event: 'Ein Sturm entlädt sich' }
         : { element: 'crystal' as const, name: 'Splittergeist', color: '#9bdbff', friendly: false, event: 'Materie zerbricht' };
   return { ...definition, x: Math.max(140, Math.min(720, x)), y: Math.max(130, Math.min(470, y)),
-    ageMs: 0, remainingMs: 16000, calmMs: 0 };
+    ageMs: 0, remainingMs: 16000 };
 }
-/** Stay in the outer ring for 2.5 seconds to calm a hostile spirit. */
-export function tickSpirit(spirit: ElementSpirit, ms: number, pilots: readonly { x: number; y: number }[]): 'waiting' | 'calmed' | 'gift' {
+/** Update lifetime and friendly contact gifts; allegiance never changes. */
+export function tickSpirit(spirit: ElementSpirit, ms: number, pilots: readonly { x: number; y: number }[]): 'waiting' | 'gift' {
   if (!Number.isFinite(ms) || ms <= 0 || spirit.remainingMs <= 0) return 'waiting';
   const step = Math.min(ms, spirit.remainingMs);
-  const activeStep = Math.max(0, step - Math.max(0, 1200 - spirit.ageMs));
   spirit.ageMs += step; spirit.remainingMs -= step;
   if (spirit.remainingMs <= 0) return 'waiting';
   const distance = pilots.reduce((nearest, pilot) => Math.min(nearest, Math.hypot(pilot.x - spirit.x, pilot.y - spirit.y)), Infinity);
   if (spirit.ageMs < 1200) return 'waiting';
   if (spirit.friendly && distance < 65) { spirit.remainingMs = 0; return 'gift'; }
-  if (!spirit.friendly) {
-    const calming = pilots.some(pilot => { const d = Math.hypot(pilot.x - spirit.x, pilot.y - spirit.y); return d >= 65 && d < 110; });
-    spirit.calmMs = calming ? spirit.calmMs + activeStep : Math.max(0, spirit.calmMs - activeStep * .5);
-    if (spirit.calmMs >= 2500) { spirit.friendly = true; spirit.nextActionMs = spirit.ageMs + 1800; return 'calmed'; }
-  }
   return 'waiting';
 }
 
