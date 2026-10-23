@@ -186,9 +186,11 @@ keine Begegnungen. Pause hält alle Geister-Timer an.
 
 ## Geisterwelten
 
-Level 4 und 6 jedes Zehnerblocks (4, 6, 14, 16 …) führen abwechselnd ins
+Geisterwelten werden ab Level 15 freigeschaltet. Level 15 bleibt ein Bosslevel;
+die erste Geisterwelt erscheint in Level 16, danach nur alle 8 Level: 24, 32, 40 …
+Diese Sektoren führen abwechselnd ins
 Nebelreich, die Splitterdimension und den Geistersturm. Die Levelkarte nennt die
-Geisterwelt. Normale Landschaftsrotation und Bosslevel bleiben erhalten.
+Geisterwelt. In diesen Sektoren haben Geisterwelten Vorrang vor regulären Bossbegegnungen.
 
 In diesen Sektoren bestehen die Gegner aus durchscheinenden Geisterflugzeugen:
 Nebeljäger, Phantomflügel und Seelenbomber. Schattierte Rümpfe, Glaskanzeln und
@@ -198,3 +200,24 @@ schwebende Ruinen, Lichtpartikel und Nebelbänder ersetzen die normalen Landscha
 Gefahren erscheinen in durchscheinender Geisterfarbe; Elementgeister können auch
 hier freundlich oder feindlich sein. Reduzierte Bewegung friert kosmetisches
 Pulsieren, Nachbildbewegung und Hintergrundbewegung ein.
+
+
+### Elementare Geisterflugzeuge
+
+In Geisterwelten erscheinen acht eigene Flugzeugtypen mit sichtbaren Elementfarben:
+
+| Flugzeug | Element und Form | Geschosse |
+| --- | --- | --- |
+| Glutphantom | Feuer, gepfeilte Flügel und glühende Risse | Zwei orange Glutgeschosse |
+| Gezeitengeist | Wasser, geschwungene Flügel | Drei türkise Wassertropfen |
+| Splitterflügel | Kristall, gezackte Facetten | Fünf violette Splitter im Fächer |
+| Donnererscheinung | Sturm, versetzte Blitzflügel | Ein schnelles gelbes Blitzgeschoss |
+
+Die Angriffe zielen auf das aktuelle Angriffsziel, einschließlich Ablenkungen und
+Beschützen-Missionen. Farben und Schussformen bleiben unabhängig von der jeweiligen
+Geisterwelt. Alle acht Typen sind ab der ersten Geisterwelt verfügbar.
+
+Weitere Geisterflugzeuge: Aschenschwinge (Feuer, vier bernsteinfarbene Schüsse),
+Nebellanze (Wasser, schneller blauer Präzisionsschuss), Frostkrone (Kristall,
+sieben eisblaue Splitter) und Sturmsichel (Sturm, drei violette Blitzgeschosse).
+Jeder Typ besitzt eine eigene Silhouette sowie eigene Geschwindigkeiten und Feuerpausen.

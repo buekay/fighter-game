@@ -23,7 +23,9 @@ export function getCampaignTarget(level: number): number {
   const span = level < MAX_LEVEL ? getLevelThreshold(level + 1) - current : current - getLevelThreshold(level - 1);
   return Math.max(1, span) * LEVEL_LENGTH_MULTIPLIER;
 }
-export const isCampaignBossLevel = isMilestoneBossLevel;
+export function isCampaignBossLevel(level: number): boolean {
+  return !getGhostWorld(level) && isMilestoneBossLevel(level);
+}
 export function isCampaignProtectLevel(level: number): boolean {
   return Number.isInteger(level) && level >= 1 && level <= MAX_LEVEL && level % 7 === 0 && !isCampaignBossLevel(level);
 }

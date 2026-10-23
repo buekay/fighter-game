@@ -1,6 +1,6 @@
-import { getGhostWorld, GHOST_AIRCRAFT, type GhostWorld } from "../ghost-worlds";
-import { drawGhostWorld, drawGhostAircraft } from "../rendering/ghost-worlds";
-import { awakenSpirit, tickSpirit, type ElementSpirit } from "../element-spirits";
+import { getGhostWorld, GHOST_AIRCRAFT, getGhostAircraft, createGhostShots, ensureGhostAircraft, prepareGhostSpawn, type GhostAircraftId, type GhostElement, type GhostWorld } from "../ghost-worlds";
+import { drawGhostWorld, drawGhostAircraft, drawGhostShot } from "../rendering/ghost-worlds";
+import { awakenSpirit, tickSpirit, spiritTouches, type ElementSpirit } from "../element-spirits";
 import { drawElementSpirit } from "../rendering/element-spirits";
 import { createLocalizer, translate, localizeCanvas, canvasLocale } from "../i18n";
 import { LanguageProvider, useLocalize } from "../i18n-react";
@@ -138,6 +138,7 @@ interface BackgroundTransition {
 }
 
 interface Bullet extends InterceptableProjectile {
+  ghostElement?: GhostElement;
   x: number; y: number;
   vx: number; vy: number;
   fromPlayer: boolean;
@@ -176,6 +177,7 @@ interface Enemy {
   secretAce?: boolean;
   trainingDummy?: boolean;
   biomeEnemyId?: string;
+  ghostAircraftId?: GhostAircraftId;
   submarineDiveUsed?: boolean;
   submarineDiveMs?: number;
   shootCooldown: number;
@@ -1925,8 +1927,13 @@ function drawCombinedPlayerJet(
   ctx.restore();
 }
 
+// All spawn paths share the world restriction before boss AI or rendering sees them.
+function addWorldEnemy(enemies: Enemy[], enemy: Enemy, level = 1): boolean {
+  return addSpawnedEnemy(enemies, prepareGhostSpawn(enemy, level, Math.random()), level);
+}
+
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, reducedMotion = false, ghostWorld: GhostWorld | null = null) {
-  if (ghostWorld) { drawGhostAircraft(ctx, e, ghostWorld, performance.now(), reducedMotion); return; }
+  if (ghostWorld && !isBossEnemy(e)) { drawGhostAircraft(ctx, e, ghostWorld, performance.now(), reducedMotion); return; }
   if (e.encounterKind && e.encounterKind !== "titan") {
     drawEncounterBoss(ctx, e, reducedMotion ? 0 : performance.now());
     return;
@@ -2534,6 +2541,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, reducedMotion = fals
 }
 
 function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet) {
+  if (b.ghostElement) { drawGhostShot(ctx, b, b.ghostElement); return; }
   ctx.save();
   if (b.isFlame) {
     ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx));
@@ -3790,6 +3798,7 @@ export default function Game() {
     const roll = Math.random();
     let type: Enemy["type"] = "scout";
     let biomeEnemyId: string | undefined;
+    let ghostAircraftId: GhostAircraftId | undefined;
     let biomeEnemyBand: "air" | "ground" | "surface" = "air";
     let hp = 1, w = 40, h = 20, vx = -rand(1.5, 3), pts = 10, color = "#ff4444";
     const bossInterval = Math.max(220, 1200 - level * 60);
@@ -3798,10 +3807,11 @@ export default function Game() {
 
     const ghostWorld = getGhostWorld(level);
     if (ghostWorld) {
-      const aircraft = GHOST_AIRCRAFT[Math.min(2, Math.floor(roll * 3))];
-      type = aircraft === GHOST_AIRCRAFT[2] ? 'bomber' : 'fighter';
+      const aircraft = GHOST_AIRCRAFT[Math.min(GHOST_AIRCRAFT.length - 1, Math.floor(roll * GHOST_AIRCRAFT.length))];
+      ghostAircraftId = aircraft.id;
+      type = aircraft.element === 'crystal' ? 'bomber' : 'fighter';
       hp = aircraft.hp + Math.ceil(level * .6); w = aircraft.width; h = aircraft.height;
-      vx = -rand(aircraft.speed * .8, aircraft.speed * 1.2); pts = aircraft.points; color = ghostWorld.color;
+      vx = -rand(aircraft.speed * .8, aircraft.speed * 1.2); pts = aircraft.points; color = aircraft.color;
     } else if (isBossLevel && enemiesRef.current.filter(isBossEnemy).length === 0) {
       const isSuperBoss = level >= 12 && timeRef.current % (bossInterval * 4) < 5;
       type = "boss";
@@ -3868,7 +3878,8 @@ export default function Game() {
       width: w, height: h,
       type,
       biomeEnemyId,
-      shootCooldown: biomeEnemyDefinition
+      ghostAircraftId,
+      shootCooldown: ghostAircraftId ? getGhostAircraft(ghostAircraftId)!.cooldown : biomeEnemyDefinition
         ? rand(biomeEnemyDefinition.fireCooldown[0], biomeEnemyDefinition.fireCooldown[1])
         : type === "plasmawing" ? rand(35, 55) : type === "emeraldtiefighter" ? rand(80, 120) : type === "tiefighter" ? rand(40, 60) : rand(60, 120),
       points: pts, color,
@@ -3913,11 +3924,11 @@ export default function Game() {
       }
     }
     if (isBossEnemy(enemy)) bossDamageStartRef.current = runStatsRef.current.damageTaken;
-    addSpawnedEnemy(enemiesRef.current, enemy, level);
+    addWorldEnemy(enemiesRef.current, enemy, level);
 
     if (type === "emeraldtiefighter") {
       const pairOffset = y < CANVAS_H / 2 ? 58 : -58;
-      addSpawnedEnemy(enemiesRef.current, {
+      addWorldEnemy(enemiesRef.current, {
         ...enemy,
         x: enemy.x + 64,
         y: clamp(enemy.y + pairOffset, 20, CANVAS_H - h - 20),
@@ -3933,7 +3944,7 @@ export default function Game() {
     const { width, height } = BOSS_DIMENSIONS[kind];
     bossSpecialRef.current = kind === "titan" ? null : createBossSpecial(kind);
     if (kind === "titan") titanWarningRef.current = 180;
-    health.forEach((hp, slot) => addSpawnedEnemy(enemiesRef.current, {
+    health.forEach((hp, slot) => addWorldEnemy(enemiesRef.current, {
       x: kind === "city" ? cityMountPosition(slot, CANVAS_W, CANVAS_H).x : CANVAS_W + 24,
       y: kind === "city" ? cityMountPosition(slot, CANVAS_W, CANVAS_H).y : CANVAS_H / 2 - height / 2,
       vx: kind === "city" ? 0 : -.55, vy: 0,
@@ -3979,7 +3990,7 @@ export default function Game() {
         ? centerY + (index - Math.floor(count / 2)) * 52
         : centerY + side * (35 + row * 45);
       const hp = isBomber ? 8 + level : type === "interceptor" ? 2 : 3 + Math.floor(level / 3);
-      addSpawnedEnemy(enemiesRef.current, {
+      addWorldEnemy(enemiesRef.current, {
         x: CANVAS_W + 50 + row * 65,
         y: clamp(y, 90, CANVAS_H - height - 25),
         vx: isBomber ? -1.1 : type === "interceptor" ? -4.3 : -2.5,
@@ -5108,7 +5119,7 @@ export default function Game() {
 
       const ghostWorld = getGhostWorld(gs.level);
       const bossArena = gs.started ? getBossArena(enemiesRef.current) : null;
-      if (ghostWorld) {
+      if (ghostWorld && !bossArena) {
         drawGhostWorld(ctx, ghostWorld, timeRef.current, settingsRef.current.reducedMotion, visualQuality.economical);
       } else if (bossArena) {
         backgroundTransitionRef.current = null;
@@ -5531,7 +5542,6 @@ export default function Game() {
           const spirit = awakenSpirit(h.kind, h.x + h.width / 2, h.y + h.height / 2);
           spiritsRef.current.push(spirit);
           nextSpiritRef.current = runElapsedMsRef.current + 10000;
-          waveBannerRef.current = { text: spirit.event.toUpperCase() + ' · ' + spirit.name.toUpperCase() + ' ERWACHT', timer: 150 };
         }
         if (h.lifeMs <= 0 || h.x + h.width < 0) return false;
         if (h.warningMs > 0) return true;
@@ -5562,17 +5572,15 @@ export default function Game() {
           if (!leaderDownRef.current) pilots.push({ x: playerRef.current.x + PLAYER_W / 2, y: playerRef.current.y + PLAYER_H / 2 });
           if (flightOptionsRef.current.coop && !partner.down) pilots.push({ x: partner.x + PLAYER_W / 2, y: partner.y + PLAYER_H / 2 });
           const outcome = tickSpirit(spirit, dt, pilots);
-          if (outcome === 'calmed') waveBannerRef.current = { text: spirit.name.toUpperCase() + ' BERUHIGT · JETZT FREUNDLICH', timer: 150 };
           if (outcome === 'gift') {
             if (!leaderDownRef.current) gs.hp = Math.min(gs.maxHp, gs.hp + 3);
             if (flightOptionsRef.current.coop && !partner.down) partner.hp = Math.min(partner.maxHp, partner.hp + 3);
             shieldTimerRef.current = Math.max(shieldTimerRef.current, 180);
             playerShieldHpRef.current = Math.max(playerShieldHpRef.current, 2);
-            waveBannerRef.current = { text: spirit.name.toUpperCase() + ' · +3 HP & SCHUTZ', timer: 150 };
             audioRef.current.effect('upgrade', settingsRef.current.soundVolume);
           }
           if (!spirit.friendly && spirit.ageMs >= 1200 && spirit.remainingMs > 0) {
-            const touches = (x: number, y: number) => Math.hypot(x + PLAYER_W / 2 - spirit.x, y + PLAYER_H / 2 - spirit.y) < 38;
+            const touches = (x: number, y: number) => spiritTouches(spirit, { x, y, width: PLAYER_W, height: PLAYER_H });
             if (!leaderDownRef.current && touches(playerRef.current.x, playerRef.current.y) && invincibleRef.current <= 0 && ultimateActiveRef.current <= 0) {
               const protection = protectPlayer({ shieldTimer: shieldTimerRef.current, shieldHp: playerShieldHpRef.current, invincibleTimer: invincibleRef.current, stealthTimer: stealthActiveRef.current });
               shieldTimerRef.current = protection.shieldTimer; playerShieldHpRef.current = protection.shieldHp;
@@ -5596,7 +5604,7 @@ export default function Game() {
           waveBannerRef.current = { text: 'GEHEIMNIS ENTDECKT · ' + SECRET_NAMES[signal.kind].toUpperCase(), timer: 140 };
           if (signal.kind === 'ace') {
             const hp = 120 + gs.level * 12;
-            addSpawnedEnemy(enemiesRef.current, { x: CANVAS_W + 10, y: signal.y, width: 125, height: 90,
+            addWorldEnemy(enemiesRef.current, { x: CANVAS_W + 10, y: signal.y, width: 125, height: 90,
               vx: -1.4, vy: 0, hp, maxHp: hp, type: 'overlord', secretAce: true, points: 4000,
               color: '#fcd34d', angle: 0, shootCooldown: 60, parts: createBossParts('titan', hp) }, gs.level);
             secretRef.current = null;
@@ -5738,7 +5746,7 @@ export default function Game() {
       }
 
       // Scheduled bosses own the arena until the entire encounter is defeated.
-      const scheduledBoss = getBossForLevel(gs.level);
+      const scheduledBoss = ghostWorld ? null : getBossForLevel(gs.level);
       if (activeModeRef.current !== "boss_fight" && !campaignBossDefeatedRef.current && scheduledBoss &&
           !encounterActive && !encounterLevelsSpawnedRef.current.has(gs.level)) {
         enemiesRef.current = [];
@@ -5777,7 +5785,7 @@ export default function Game() {
             waveBannerRef.current = { text: "☄ SELTENES EREIGNIS · METEORSTURM", timer: 180 };
             for (let index = 0; index < 9; index++) {
               const hp = 2 + Math.floor(gs.level / 4);
-              addSpawnedEnemy(enemiesRef.current, {
+              addWorldEnemy(enemiesRef.current, {
                 x: CANVAS_W + 80 + index * 65, y: rand(25, CANVAS_H - 45),
                 vx: -rand(5.5, 8), vy: rand(-.5, .5), hp, maxHp: hp,
                 width: 30, height: 18, type: "interceptor", shootCooldown: 999,
@@ -5798,7 +5806,7 @@ export default function Game() {
             waveBannerRef.current = { text: `◆ SCHATZKONVOI · +${eventCredits.toLocaleString(localize.locale)} CREDITS`, timer: 180 };
             for (let index = 0; index < 5; index++) {
               const hp = 3 + Math.floor(gs.level / 3);
-              addSpawnedEnemy(enemiesRef.current, {
+              addWorldEnemy(enemiesRef.current, {
                 x: CANVAS_W + 60 + index * 75, y: 110 + index * 78,
                 vx: -2.2, vy: 0, hp, maxHp: hp, width: 45, height: 25,
                 type: "fighter", shootCooldown: rand(90, 140), points: 250,
@@ -5817,7 +5825,7 @@ export default function Game() {
         milestoneBossFiredRef.current.add(gs.level);
         const ml = gs.level;
         const mbHp = increasedBossHealth(80 + ml * 12);
-        addSpawnedEnemy(enemiesRef.current, {
+        addWorldEnemy(enemiesRef.current, {
           x: CANVAS_W + 20,
           y: rand(40, CANVAS_H - 100),
           vx: -rand(0.45, 0.8),
@@ -5852,7 +5860,7 @@ export default function Game() {
             trainingRespawnRef.current = 0;
             const target = flightOptionsRef.current.target;
             if (target === 'dummy') {
-              addSpawnedEnemy(enemiesRef.current, { x: 650, y: 260, width: 90, height: 80, vx: 0, vy: 0,
+              addWorldEnemy(enemiesRef.current, { x: 650, y: 260, width: 90, height: 80, vx: 0, vy: 0,
                 hp: 1000000, maxHp: 1000000, type: 'sentinel', trainingDummy: true, points: 0,
                 color: '#67e8f9', angle: 0, shootCooldown: Infinity }, 1);
             } else spawnBossEncounter(BOSS_SEQUENCE.indexOf(target) + 1);
@@ -6151,7 +6159,7 @@ export default function Game() {
       if (halfLifeTitan) {
         halfLifeTitan.titanReinforcementsSpawned = true;
         [-70, 0, 70].forEach((offset, index) => {
-          addSpawnedEnemy(enemiesRef.current, {
+          addWorldEnemy(enemiesRef.current, {
             x: CANVAS_W + 30 + index * 45,
             y: clamp(playerRef.current.y + offset, 18, CANVAS_H - 42),
             vx: -13, vy: 0,
@@ -6195,6 +6203,11 @@ export default function Game() {
       enemiesRef.current = enemiesRef.current.filter(e => {
         const dtScale = dt / FRAME_MS * (flightOptionsRef.current.training ? TRAINING_DIFFICULTY[flightOptionsRef.current.difficulty] : 1);
         if (e.dead) return false;
+        if (ghostWorld && !isBossEnemy(e) && !e.trainingDummy && !getGhostAircraft(e.ghostAircraftId)) {
+          ensureGhostAircraft(e, Math.random());
+          // Mechanical weapon controllers must not run behind a ghost aircraft model.
+          e.type = e.ghostAircraftId === 'crystal' ? 'bomber' : 'fighter';
+        }
         const previousEnemyPosition = { x: e.x, y: e.y };
 
         if (e.trainingDummy) { e.hp = e.maxHp; e.shootCooldown = Infinity; e.vx = 0; e.vy = 0; }
@@ -6685,7 +6698,15 @@ export default function Game() {
             const baseCooldown = e.type === "overlord" || e.type === "titan" ? (bossPhase === 3 ? 10 : 16) : e.type === "boss" ? (bossPhase === 3 ? 12 : bossPhase === 2 ? 18 : 25) : e.type === "plasmawing" ? rand(38, 58) : e.type === "emeraldtiefighter" ? rand(80, 120) : e.type === "tiefighter" ? rand(40, 60) : e.type === "bomber" ? 55 : biomeFireCooldown ? rand(biomeFireCooldown[0], biomeFireCooldown[1]) : rand(70, 120);
             e.shootCooldown = baseCooldown * (e.bossCannonsDisabled ? 1.8 : 1) *
               (e.eliteModifier === "frenzied" ? .55 : 1);
-            if (e.encounterKind && e.encounterKind !== "titan") {
+            const ghostAircraft = getGhostAircraft(e.ghostAircraftId);
+            if (ghostAircraft && e.ghostAircraftId) {
+              const aircraft = ghostAircraft;
+              const target = getEnemyAttackTarget(activeModeRef.current, decoyAimBounds,
+                { ...protectPackageRef.current, width: PROTECT_PACKAGE_WIDTH, height: PROTECT_PACKAGE_HEIGHT }, shadowTarget);
+              const shots = createGhostShots(e.ghostAircraftId, { x: e.x, y: e.y + e.height / 2 }, target);
+              addProjectilesWithinLimit(bulletsRef.current, ...shots.map(shot => ({ ...shot, sourceEnemy: e })));
+              e.shootCooldown = aircraft.cooldown * (e.eliteModifier === 'frenzied' ? .55 : 1);
+            } else if (e.encounterKind && e.encounterKind !== "titan") {
               const weapon = e.encounterKind === "city" ? CITY_WEAPONS[e.citySlot ?? 0] : e.encounterKind === "submarine" ? "rocket" : e.encounterKind === "spider" ? "web" : "cannon";
               const flame = weapon === "flame";
               const count = flame ? 5 : weapon === "web" ? 9 : weapon === "rocket" ? 2 : 3;

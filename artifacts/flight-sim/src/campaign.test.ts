@@ -66,3 +66,6 @@ assert.equal(canCompleteCampaignLevel(7, 0, false, 180_000), true, 'Surviving th
 for (let level = 1; level <= MAX_LEVEL; level++) {
   if (isCampaignProtectLevel(level)) assert.equal(isCampaignBossLevel(level), false);
 }
+
+assert.equal(isCampaignBossLevel(40), false, 'ghost worlds take precedence over normal bosses');
+assert.equal(canCompleteCampaignLevel(40, getCampaignTarget(40), false), true, 'ghost missions cannot wait for an absent boss');

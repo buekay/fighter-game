@@ -1,4 +1,4 @@
-import type { GhostWorld } from '../ghost-worlds';
+import { getGhostAircraft, type GhostAircraftId, type GhostElement, type GhostWorld } from '../ghost-worlds';
 
 const noise = (seed: number) => { const n = Math.sin(seed * 127.1 + 311.7) * 43758.5453; return n - Math.floor(n); };
 function mist(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, color: string, opacity: number) {
@@ -10,7 +10,7 @@ function mist(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, r
   ctx.fillStyle = gradient; ctx.fillRect(-1, -1, 2, 2); ctx.restore();
 }
 export function drawGhostWorld(ctx: CanvasRenderingContext2D, world: GhostWorld, time: number, reducedMotion: boolean, economical: boolean): void {
-  const t = reducedMotion ? 0 : time * .012;
+  const t = reducedMotion ? 0 : time * .036;
   ctx.save();
   const sky = ctx.createLinearGradient(0, 0, 0, 600);
   sky.addColorStop(0, world.sky); sky.addColorStop(.62, world.horizon); sky.addColorStop(1, '#101b25');
@@ -92,10 +92,13 @@ export function drawGhostWorld(ctx: CanvasRenderingContext2D, world: GhostWorld,
   ctx.restore();
 }
 
-export function drawGhostAircraft(ctx: CanvasRenderingContext2D, enemy: { x: number; y: number; width: number; height: number }, world: GhostWorld, time: number, reducedMotion: boolean): void {
+export function drawGhostAircraft(ctx: CanvasRenderingContext2D, enemy: { x: number; y: number; width: number; height: number; ghostAircraftId?: GhostAircraftId }, environment: GhostWorld, time: number, reducedMotion: boolean): void {
+  const aircraft = getGhostAircraft(enemy.ghostAircraftId);
+  const world = aircraft ? { ...environment, color: aircraft.color } : environment;
+  const element = aircraft?.element;
   ctx.save(); ctx.translate(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
   ctx.scale(enemy.width / 80, enemy.height / 48);
-  const pulse = reducedMotion ? .78 : .76 + Math.sin(time * .0015 + enemy.x * .02) * .05;
+  const pulse = reducedMotion ? .96 : .94 + Math.sin(time * .0015 + enemy.x * .02) * .05;
   // Vapor dissipates behind the engines; no repeated wireframe silhouettes.
   for (const side of [-1, 1]) {
     for (let i = 0; i < 5; i++) {
@@ -105,14 +108,61 @@ export function drawGhostAircraft(ctx: CanvasRenderingContext2D, enemy: { x: num
   }
   ctx.globalAlpha = pulse;
   const metal = ctx.createLinearGradient(0, -23, 0, 23);
-  metal.addColorStop(0, '#c6d5d3b0'); metal.addColorStop(.24, '#6b8b9270'); metal.addColorStop(.48, '#d1e5e6b0'); metal.addColorStop(.57, '#344d6070'); metal.addColorStop(1, '#12253590');
-  ctx.fillStyle = metal; ctx.strokeStyle = '#b8dbdb90'; ctx.lineWidth = .65;
+  metal.addColorStop(0, '#e0f4f2f0'); metal.addColorStop(.24, '#94bec8d0'); metal.addColorStop(.48, '#e1f8faf0'); metal.addColorStop(.57, '#54788ed0'); metal.addColorStop(1, '#29485bd0');
+  ctx.fillStyle = metal; ctx.strokeStyle = '#e5ffff'; ctx.lineWidth = 1.1;
   const bomber = enemy.width >= 75;
-  ctx.beginPath(); ctx.moveTo(-38, 0); ctx.bezierCurveTo(-28, -5, -18, -5, -10, -5);
-  ctx.lineTo(bomber ? 3 : 13, -23); ctx.lineTo(24, -21); ctx.lineTo(16, -5);
-  ctx.lineTo(29, -5); ctx.lineTo(34, -12); ctx.lineTo(39, -11); ctx.lineTo(36, 0);
-  ctx.lineTo(39, 11); ctx.lineTo(34, 12); ctx.lineTo(29, 5); ctx.lineTo(16, 5);
-  ctx.lineTo(24, 21); ctx.lineTo(bomber ? 3 : 13, 23); ctx.lineTo(-10, 5); ctx.bezierCurveTo(-18, 5, -28, 5, -38, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath();
+  if (aircraft?.id === 'ash-wing') {
+    // Broad flying wing with four engine recesses.
+    ctx.moveTo(-38, 0); ctx.lineTo(-14, -8); ctx.lineTo(-3, -22); ctx.lineTo(12, -22);
+    ctx.lineTo(34, -12); ctx.lineTo(28, -7); ctx.lineTo(38, -3); ctx.lineTo(33, 0);
+    ctx.lineTo(38, 3); ctx.lineTo(28, 7); ctx.lineTo(34, 12); ctx.lineTo(12, 22);
+    ctx.lineTo(-3, 22); ctx.lineTo(-14, 8);
+  } else if (aircraft?.id === 'tide-spear') {
+    // Long narrow nose, short forward fins and split tail.
+    ctx.moveTo(-39, 0); ctx.quadraticCurveTo(-21, -7, -7, -4); ctx.lineTo(-12, -14);
+    ctx.lineTo(1, -11); ctx.lineTo(15, -21); ctx.lineTo(23, -18); ctx.lineTo(16, -5);
+    ctx.lineTo(38, -10); ctx.lineTo(31, 0); ctx.lineTo(38, 10); ctx.lineTo(16, 5);
+    ctx.lineTo(23, 18); ctx.lineTo(15, 21); ctx.lineTo(1, 11); ctx.lineTo(-12, 14);
+    ctx.lineTo(-7, 4); ctx.quadraticCurveTo(-21, 7, -39, 0);
+  } else if (aircraft?.id === 'frost-crown') {
+    // A seven-point crystal crown wraps around the central fuselage.
+    ctx.moveTo(-39, 0); ctx.lineTo(-16, -7); ctx.lineTo(-21, -20); ctx.lineTo(-3, -13);
+    ctx.lineTo(5, -23); ctx.lineTo(14, -13); ctx.lineTo(31, -21); ctx.lineTo(27, -8);
+    ctx.lineTo(39, 0); ctx.lineTo(27, 8); ctx.lineTo(31, 21); ctx.lineTo(14, 13);
+    ctx.lineTo(5, 23); ctx.lineTo(-3, 13); ctx.lineTo(-21, 20); ctx.lineTo(-16, 7);
+  } else if (aircraft?.id === 'storm-scythe') {
+    // Swept crescent wings curve forward around an open central tail.
+    ctx.moveTo(-38, 0); ctx.lineTo(-15, -5); ctx.bezierCurveTo(-30, -26, 15, -29, 37, -10);
+    ctx.quadraticCurveTo(11, -17, 8, -5); ctx.lineTo(29, -3); ctx.lineTo(24, 0);
+    ctx.lineTo(29, 3); ctx.quadraticCurveTo(7, 6, 37, 18);
+    ctx.bezierCurveTo(8, 26, -26, 23, -15, 5);
+  } else if (element === 'water') {
+    ctx.moveTo(-38, 0); ctx.bezierCurveTo(-26, -10, -12, -4, -6, -9);
+    ctx.bezierCurveTo(14, -29, 33, -23, 22, -14); ctx.quadraticCurveTo(11, -4, 38, -6);
+    ctx.lineTo(31, 0); ctx.lineTo(38, 6); ctx.quadraticCurveTo(11, 4, 22, 14);
+    ctx.bezierCurveTo(33, 23, 14, 29, -6, 9); ctx.bezierCurveTo(-12, 4, -26, 10, -38, 0);
+  } else if (element === 'crystal') {
+    ctx.moveTo(-39, 0); ctx.lineTo(-12, -6); ctx.lineTo(-2, -22); ctx.lineTo(7, -13);
+    ctx.lineTo(21, -23); ctx.lineTo(18, -9); ctx.lineTo(37, -15); ctx.lineTo(29, 0);
+    ctx.lineTo(37, 15); ctx.lineTo(18, 9); ctx.lineTo(21, 23); ctx.lineTo(7, 13);
+    ctx.lineTo(-2, 22); ctx.lineTo(-12, 6);
+  } else if (element === 'storm') {
+    ctx.moveTo(-39, 0); ctx.lineTo(-8, -5); ctx.lineTo(14, -23); ctx.lineTo(8, -9);
+    ctx.lineTo(29, -17); ctx.lineTo(21, -5); ctx.lineTo(38, -5); ctx.lineTo(31, 0);
+    ctx.lineTo(38, 5); ctx.lineTo(21, 5); ctx.lineTo(29, 17); ctx.lineTo(8, 9);
+    ctx.lineTo(14, 23); ctx.lineTo(-8, 5);
+  } else {
+    ctx.moveTo(-38, 0); ctx.bezierCurveTo(-28, -5, -18, -5, -10, -5);
+    ctx.lineTo(bomber ? 3 : 13, -23); ctx.lineTo(24, -21); ctx.lineTo(16, -5);
+    ctx.lineTo(29, -5); ctx.lineTo(34, -12); ctx.lineTo(39, -11); ctx.lineTo(36, 0);
+    ctx.lineTo(39, 11); ctx.lineTo(34, 12); ctx.lineTo(29, 5); ctx.lineTo(16, 5);
+    ctx.lineTo(24, 21); ctx.lineTo(bomber ? 3 : 13, 23); ctx.lineTo(-10, 5); ctx.bezierCurveTo(-18, 5, -28, 5, -38, 0);
+  }
+  ctx.closePath();
+  ctx.save(); ctx.strokeStyle = '#07131f'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+  ctx.fill(); ctx.stroke();
+  ctx.save(); ctx.clip(); ctx.fillStyle = world.color + '65'; ctx.fillRect(-40, -24, 80, 48); ctx.restore();
   // Curved fuselage and glass canopy catch the same overhead light as the ruins.
   const fuselage = ctx.createLinearGradient(0, -5, 0, 6);
   fuselage.addColorStop(0, '#64818e90'); fuselage.addColorStop(.28, '#edf7f1d0'); fuselage.addColorStop(.55, '#8baeb7a0'); fuselage.addColorStop(1, '#142737c0');
@@ -126,6 +176,30 @@ export function drawGhostAircraft(ctx: CanvasRenderingContext2D, enemy: { x: num
     ctx.beginPath(); ctx.moveTo(6, side * 7); ctx.lineTo(13, side * 14); ctx.strokeStyle = '#18313f90'; ctx.stroke();
     mist(ctx, 30, side * 6, 8, 3, world.color, .45);
   }
+  ctx.strokeStyle = world.color; ctx.lineWidth = 1.3;
+  for (const side of [-1, 1]) {
+    ctx.beginPath(); ctx.moveTo(-5, side * 4);
+    if (element === 'water') { ctx.bezierCurveTo(16, side * 4, 2, side * 19, 22, side * 16); }
+    else if (element === 'storm') { ctx.lineTo(8, side * 8); ctx.lineTo(3, side * 13); ctx.lineTo(22, side * 18); }
+    else { ctx.lineTo(5, side * 10); ctx.lineTo(17, side * 8); ctx.lineTo(21, side * 18); }
+    ctx.stroke();
+  }
+  ctx.fillStyle = world.color; ctx.beginPath(); ctx.ellipse(2, 0, 5, 2, 0, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = world.color + '65'; ctx.lineWidth = .7; ctx.beginPath(); ctx.moveTo(-32, -1); ctx.lineTo(-24, -3); ctx.stroke();
+  ctx.restore();
+}
+
+/** All elemental shots share the same small collision body; trails are cosmetic. */
+export function drawGhostShot(ctx: CanvasRenderingContext2D, shot: { x: number; y: number; vx: number; vy: number; color?: string }, element: GhostElement): void {
+  ctx.save(); ctx.translate(shot.x, shot.y); ctx.rotate(Math.atan2(shot.vy, shot.vx));
+  const color = shot.color ?? '#ddffff';
+  const trail = ctx.createLinearGradient(-20, 0, 4, 0);
+  trail.addColorStop(0, color + '00'); trail.addColorStop(1, color + 'b0');
+  ctx.fillStyle = trail; ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(0, -3); ctx.lineTo(4, 0); ctx.lineTo(0, 3); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = color; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  if (element === 'crystal') { ctx.moveTo(5, 0); ctx.lineTo(-1, -4); ctx.lineTo(-6, 0); ctx.lineTo(-1, 4); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+  else if (element === 'storm') { ctx.moveTo(-10, 2); ctx.lineTo(-3, -3); ctx.lineTo(0, 2); ctx.lineTo(6, -1); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.stroke(); }
+  else { ctx.ellipse(0, 0, element === 'water' ? 5 : 4, 3.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff8df'; ctx.beginPath(); ctx.ellipse(1, -1, 2, 1.5, 0, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
 }

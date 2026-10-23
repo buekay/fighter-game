@@ -20,13 +20,24 @@ export function awakenSpirit(kind: HazardKind, x: number, y: number): ElementSpi
 export function tickSpirit(spirit: ElementSpirit, ms: number, pilots: readonly { x: number; y: number }[]): 'waiting' | 'calmed' | 'gift' {
   if (!Number.isFinite(ms) || ms <= 0 || spirit.remainingMs <= 0) return 'waiting';
   const step = Math.min(ms, spirit.remainingMs);
+  const activeStep = Math.max(0, step - Math.max(0, 1200 - spirit.ageMs));
   spirit.ageMs += step; spirit.remainingMs -= step;
+  if (spirit.remainingMs <= 0) return 'waiting';
   const distance = pilots.reduce((nearest, pilot) => Math.min(nearest, Math.hypot(pilot.x - spirit.x, pilot.y - spirit.y)), Infinity);
   if (spirit.ageMs < 1200) return 'waiting';
   if (spirit.friendly && distance < 65) { spirit.remainingMs = 0; return 'gift'; }
   if (!spirit.friendly) {
-    spirit.calmMs = distance >= 45 && distance < 110 ? spirit.calmMs + step : Math.max(0, spirit.calmMs - step * .5);
+    const calming = pilots.some(pilot => { const d = Math.hypot(pilot.x - spirit.x, pilot.y - spirit.y); return d >= 65 && d < 110; });
+    spirit.calmMs = calming ? spirit.calmMs + activeStep : Math.max(0, spirit.calmMs - activeStep * .5);
     if (spirit.calmMs >= 2500) { spirit.friendly = true; return 'calmed'; }
   }
   return 'waiting';
+}
+
+/** The visible core collides with the pilot's full body, including its wings. */
+export function spiritTouches(spirit: ElementSpirit, pilot: { x: number; y: number; width: number; height: number }): boolean {
+  if (spirit.friendly || spirit.ageMs < 1200 || spirit.remainingMs <= 0) return false;
+  const x = Math.max(pilot.x, Math.min(spirit.x, pilot.x + pilot.width));
+  const y = Math.max(pilot.y, Math.min(spirit.y, pilot.y + pilot.height));
+  return Math.hypot(x - spirit.x, y - spirit.y) < 33;
 }
