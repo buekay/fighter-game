@@ -1,3 +1,4 @@
+import { getGhostWorld } from './ghost-worlds';
 import { MAX_LEVEL, getLevelThreshold, isMilestoneBossLevel, getGameModeRules } from './game-rules';
 import { BIOMES, getBiomeForLevel } from './biomes';
 import { readStoredJson, writeStoredJson } from './storage';
@@ -35,7 +36,8 @@ export function canCompleteCampaignLevel(level: number, score: number, bossDefea
 }
 export function getCampaignLandscape(level: number) {
   const biome = getBiomeForLevel(level);
+  const ghostWorld = getGhostWorld(level);
   // Every sector has its own fixed terrain layout, lighting and palette.
-  return { biome, seed: level * 137.508, hue: Math.floor((level - 1) / BIOMES.length) * 7 % 45, night: level % 7 === 0,
-    name: `${biome.name} · Sektor ${String(level).padStart(3, '0')}` };
+  return { biome, ghostWorld, seed: level * 137.508, hue: Math.floor((level - 1) / BIOMES.length) * 7 % 45, night: level % 7 === 0,
+    name: `${ghostWorld ? "✧ Geisterwelt: " + ghostWorld.name : biome.name} · Sektor ${String(level).padStart(3, '0')}` };
 }

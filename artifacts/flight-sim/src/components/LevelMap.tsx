@@ -25,7 +25,7 @@ function terrainImage(): string {
   ctx.putImageData(image,0,0); return canvas.toDataURL('image/jpeg', .88);
 }
 const nodeX = (i: number) => 50 + Math.sin(i * 1.15) * 25;
-export function LevelMap({ completed, onBack, onSelect }: { completed: number; onBack: () => void; onSelect: (level: number) => void }) {
+export function LevelMap({ completed, onBack, onSelect, onOpenFlightCenter }: { completed: number; onBack: () => void; onSelect: (level: number) => void; onOpenFlightCenter: () => void }) {
   const localize = useLocalize();
   const [terrain, setTerrain] = useState('');
   const scroller = useRef<HTMLDivElement>(null);
@@ -38,7 +38,10 @@ export function LevelMap({ completed, onBack, onSelect }: { completed: number; o
     <header className="campaign-map-header">
       <button onClick={onBack} className="campaign-back">{localize("← Zurück")}</button>
       <div><span>{localize("EINSATZGEBIET")}</span><h1>{localize("Deine Flugroute")}</h1></div>
-      <strong>{localize(completed)} {localize(" / ")}{localize(MAX_LEVEL)}<small>{localize("ABGESCHLOSSEN")}</small></strong>
+      <div className="campaign-map-actions">
+        <button className="flight-lab-entry" onClick={onOpenFlightCenter}>{localize("✦ Flugzentrum")}</button>
+        <strong>{localize(completed)} {localize(" / ")}{localize(MAX_LEVEL)}<small>{localize("ABGESCHLOSSEN")}</small></strong>
+      </div>
     </header>
     <div className="campaign-map-scroll" ref={scroller} tabIndex={0} aria-label={localize("Nach unten scrollen für weitere Level")}>
       <div className="campaign-terrain" style={{ backgroundImage: terrain ? `linear-gradient(90deg, #04131866, transparent 45%, #04131866), url(${terrain})` : undefined }}>

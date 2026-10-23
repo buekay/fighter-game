@@ -183,3 +183,17 @@ um einen feindlichen Geist zu beruhigen; der Kreis zeigt den Fortschritt. Danach
 kann auch dieser Geist helfen. Während der ersten 1,2 Sekunden erwachen Geister
 ohne Kontaktschaden. Bosskämpfe räumen Geister ab; Training und Tutorial erzeugen
 keine Begegnungen. Pause hält alle Geister-Timer an.
+
+## Geisterwelten
+
+Level 4 und 6 jedes Zehnerblocks (4, 6, 14, 16 …) führen abwechselnd ins
+Nebelreich, die Splitterdimension und den Geistersturm. Die Levelkarte nennt die
+Geisterwelt. Normale Landschaftsrotation und Bosslevel bleiben erhalten.
+
+In diesen Sektoren bestehen die Gegner aus durchscheinenden Geisterflugzeugen:
+Nebeljäger, Phantomflügel und Seelenbomber. Sie behalten sichtbare, treffbare
+Umrisse und hinterlassen kosmetische Nachbilder. Eigene Himmelspaletten, Portale,
+schwebende Ruinen, Lichtpartikel und Nebelbänder ersetzen die normalen Landschaften.
+Gefahren erscheinen in durchscheinender Geisterfarbe; Elementgeister können auch
+hier freundlich oder feindlich sein. Reduzierte Bewegung friert kosmetisches
+Pulsieren, Nachbildbewegung und Hintergrundbewegung ein.

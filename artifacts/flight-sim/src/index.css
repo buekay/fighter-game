@@ -931,7 +931,8 @@ input:focus-visible {
   .package-landing-engines,.package-landing-dust { opacity:0; }
 }
 
-.flight-lab-entry { position: absolute; top: 12px; right: 12px; z-index: 45; border: 1px solid #67e8f988; background: #071126f2; color: #a5f3fc; border-radius: 10px; padding: 10px 15px; font-size: 12px; font-weight: 800; cursor: pointer; }
+.campaign-map-actions { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.flight-lab-entry { border: 1px solid #67e8f988; background: #071126f2; color: #a5f3fc; border-radius: 10px; padding: 10px 15px; font-size: 12px; font-weight: 800; cursor: pointer; }
 .flight-lab-overlay { position: absolute; inset: 0; z-index: 65; background: #030814f5; overflow-y: auto; touch-action: pan-y; padding: clamp(12px, 3vw, 28px); color: #e2e8f0; user-select: text; }
 .flight-lab { max-width: 850px; margin: auto; }
 .flight-lab header { display: flex; justify-content: space-between; gap: 20px; align-items: center; }

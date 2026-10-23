@@ -1,3 +1,5 @@
+import { getGhostWorld, GHOST_AIRCRAFT, type GhostWorld } from "../ghost-worlds";
+import { drawGhostWorld, drawGhostAircraft } from "../rendering/ghost-worlds";
 import { awakenSpirit, tickSpirit, type ElementSpirit } from "../element-spirits";
 import { drawElementSpirit } from "../rendering/element-spirits";
 import { createLocalizer, translate, localizeCanvas, canvasLocale } from "../i18n";
@@ -1923,7 +1925,8 @@ function drawCombinedPlayerJet(
   ctx.restore();
 }
 
-function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, reducedMotion = false) {
+function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, reducedMotion = false, ghostWorld: GhostWorld | null = null) {
+  if (ghostWorld) { drawGhostAircraft(ctx, e, ghostWorld, performance.now(), reducedMotion); return; }
   if (e.encounterKind && e.encounterKind !== "titan") {
     drawEncounterBoss(ctx, e, reducedMotion ? 0 : performance.now());
     return;
@@ -3793,7 +3796,13 @@ export default function Game() {
     const isBossLevel = level >= 3 && level < 20 && isBossEligibleLevel(level) && timeRef.current % bossInterval < 5;
     const bossHpBase = (25 + level * 6) * (level >= 8 ? 5 : level >= 5 ? 3 : 1);
 
-    if (isBossLevel && enemiesRef.current.filter(isBossEnemy).length === 0) {
+    const ghostWorld = getGhostWorld(level);
+    if (ghostWorld) {
+      const aircraft = GHOST_AIRCRAFT[Math.min(2, Math.floor(roll * 3))];
+      type = aircraft === GHOST_AIRCRAFT[2] ? 'bomber' : 'fighter';
+      hp = aircraft.hp + Math.ceil(level * .6); w = aircraft.width; h = aircraft.height;
+      vx = -rand(aircraft.speed * .8, aircraft.speed * 1.2); pts = aircraft.points; color = ghostWorld.color;
+    } else if (isBossLevel && enemiesRef.current.filter(isBossEnemy).length === 0) {
       const isSuperBoss = level >= 12 && timeRef.current % (bossInterval * 4) < 5;
       type = "boss";
       hp   = increasedBossHealth(isSuperBoss ? bossHpBase * 3 : bossHpBase);
@@ -5097,8 +5106,11 @@ export default function Game() {
       // view: player fire travels up and incoming enemies travel down.
       if (upwardFlight) ctx.setTransform(0, -scaleY, scaleX, 0, 0, CANVAS_W * scaleY);
 
+      const ghostWorld = getGhostWorld(gs.level);
       const bossArena = gs.started ? getBossArena(enemiesRef.current) : null;
-      if (bossArena) {
+      if (ghostWorld) {
+        drawGhostWorld(ctx, ghostWorld, timeRef.current, settingsRef.current.reducedMotion, visualQuality.economical);
+      } else if (bossArena) {
         backgroundTransitionRef.current = null;
         drawBossBackground(ctx, bossArena, CANVAS_W, CANVAS_H, timeRef.current,
           settingsRef.current.reducedMotion, visualQuality.economical);
@@ -5502,7 +5514,7 @@ export default function Game() {
       const bossPresent = enemiesRef.current.some(e => isBossEnemy(e) && !e.dead);
       if (!tutorialActive && !flightOptionsRef.current.training && !bossPresent) {
         if (runElapsedMsRef.current >= nextHazardRef.current) {
-          hazardsRef.current.push(...createHazards(getCampaignLandscape(gs.level).biome.id, Math.random()));
+          hazardsRef.current.push(...createHazards(ghostWorld ? (ghostWorld.event === 'wave' ? 'ocean' : ghostWorld.event === 'ice' ? 'arctic' : 'storm') : getCampaignLandscape(gs.level).biome.id, Math.random()));
           nextHazardRef.current = runElapsedMsRef.current + 12500;
         }
         if (!secretRef.current && runElapsedMsRef.current >= nextSecretRef.current) {
@@ -5540,7 +5552,10 @@ export default function Game() {
         }
         return true;
       });
+      ctx.save();
+      if (ghostWorld) { ctx.globalAlpha = .65; ctx.filter = 'sepia(1) hue-rotate(125deg) saturate(.8)'; }
       drawHazards(ctx, hazardsRef.current, settingsRef.current.reducedMotion);
+      ctx.restore();
       spiritsRef.current = spiritsRef.current.filter(spirit => {
         if (!tutorialActive) {
           const pilots = [];
@@ -6834,7 +6849,7 @@ export default function Game() {
           ctx.fillText("ANGRIFF LÄDT", e.x + e.width / 2, e.y - 14);
           ctx.restore();
         }
-        if (!isSubmerged(e) && getBiomeForLevel(gs.level).id !== "space") drawFlightShadow(ctx, e.x, e.y, e.width, e.height);
+        if (!ghostWorld && !isSubmerged(e) && getBiomeForLevel(gs.level).id !== "space") drawFlightShadow(ctx, e.x, e.y, e.width, e.height);
         ctx.save();
         if (lightningFrozen && (settingsRef.current.reducedMotion ||
             Math.floor(((e.lightningFrozenUntilMs ?? 0) - runElapsedMsRef.current) / 125) % 2 === 0)) {
@@ -6842,7 +6857,7 @@ export default function Game() {
           ctx.shadowColor = "#ffe13b";
           ctx.shadowBlur = 0;
         }
-        drawEnemy(ctx, e, settingsRef.current.reducedMotion);
+        drawEnemy(ctx, e, settingsRef.current.reducedMotion, ghostWorld);
         if (e.parts && !isSubmerged(e)) drawBossParts(ctx, e, e.parts);
         ctx.restore();
         if (e.isGolden) {
@@ -8436,7 +8451,6 @@ export default function Game() {
             </div>
           </div>
         ))}
-        {localize(!displayState.started && !mapOpen && !introOpen && <button className="flight-lab-entry" onClick={() => setFlightLabOpen(true)}>{localize("✦ Flugzentrum")}</button>)}
         {showVirtualControls && displayState.started && !displayState.paused && !displayState.gameOver && flightOptionsRef.current.coop && (
           <div className="coop-touch-hud">
             <div className="coop-touch-pilot"><span>{localize("P1 · Links ziehen & schießen")}</span><div>{ultiLoadout.map((id, index) => <button key={id} onPointerDown={e => { e.preventDefault(); activateAbility(id); }} aria-label={`P1 Ulti ${index + 1}`}>⚡ {index + 1}</button>)}</div></div>
@@ -8444,7 +8458,7 @@ export default function Game() {
           </div>
         )}
         {localize(flightLabOpen && !displayState.started && <FlightFeaturesPanel completed={completedLevels} bosses={loadDefeatedBosses(completedLevels)} weapons={WEAPONS.filter(w => w.cost === 0 || unlockedItems.includes(`weapon_${w.id}`))} coop={coopEnabled} onClose={() => setFlightLabOpen(false)} onTraining={options => startGame(false, 1, options)} />)}
-        {localize(mapOpen && !displayState.started && <LevelMap completed={completedLevels} onBack={() => setMapOpen(false)} onSelect={level => startGame(false, level)} />)}
+        {localize(mapOpen && !displayState.started && <LevelMap completed={completedLevels} onBack={() => setMapOpen(false)} onSelect={level => startGame(false, level)} onOpenFlightCenter={() => setFlightLabOpen(true)} />)}
         {localize(completedAnimation !== null && (
           <div className="campaign-victory" role="status" aria-live="polite">
             {localize(getCampaignMode(completedAnimation) === "protect"
