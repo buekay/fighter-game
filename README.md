@@ -226,3 +226,16 @@ Zehn weitere Modelle erweitern den Pool: Funkenpfeil, Magmaschatten, Glutdreizac
 Nebelgleiter, Tiefenflügel, Strömungsklinge, Prismenlanze, Scherbenfestung,
 Ionenzwilling und Sturmkranz. Jedes Modell hat einen eigenen Rumpfumriss, eigene
 Geschossfarbe und eigene Feuerparameter.
+
+### Aktive Elementgeister
+
+Nach drei Sekunden beginnen Geister selbstständig zu handeln. Quellgeister heilen
+aktive Piloten innerhalb von 240 Pixeln alle drei Sekunden um einen HP. Andere
+friedliche Geister treffen alle 1,8 Sekunden einen sichtbaren, verwundbaren Gegner
+innerhalb von 360 Pixeln mit einem Elementstrahl; Gegner-Schilde werden beachtet.
+Feindliche Sturmgeister feuern alle 2,4 Sekunden gezielte Elementgeschosse.
+Feindliche Splittergeister beschwören alle fünf Sekunden zwei Kristallflugzeuge,
+maximal vier pro Geist, innerhalb des bestehenden Gegnerlimits. Diese fliegen vom
+rechten Bildschirmrand ein. Beruhigen ersetzt feindliche Fähigkeiten durch Hilfe.
+Pause hält die Fähigkeiten an; abgelaufene Geister wirken nicht weiter.
+Im Spiel erscheinen dazu keine Beschreibungen, Gesinnungs- oder Ereignistexte.

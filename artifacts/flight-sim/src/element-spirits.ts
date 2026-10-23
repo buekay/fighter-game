@@ -1,6 +1,7 @@
 import type { HazardKind } from './environment-hazards';
 
 export interface ElementSpirit {
+  originX?: number; originY?: number;
   x: number; y: number; ageMs: number; remainingMs: number;
   nextActionMs?: number; summoned?: number; flashUntilMs?: number; beamTarget?: { x: number; y: number };
   calmMs: number; friendly: boolean; name: string; color: string;
@@ -52,4 +53,16 @@ export function nextSpiritAction(spirit: ElementSpirit): SpiritAction | null {
   spirit.nextActionMs = spirit.ageMs + (action === 'summon' ? 5000 : action === 'heal' ? 3000 : action === 'attack' ? 1800 : 2400);
   if (action === 'summon' && (spirit.summoned ?? 0) >= 4) return null;
   return action;
+}
+
+/** Position depends on active age rather than frame count; collision and drawing share it. */
+export function moveSpirit(spirit: ElementSpirit): void {
+  if (spirit.remainingMs <= 0) return;
+  spirit.originX ??= spirit.x;
+  spirit.originY ??= spirit.y;
+  const seconds = spirit.ageMs / 1000;
+  const phase = (spirit.originX + spirit.originY) * .01;
+  const speed = spirit.element === 'storm' ? 18 : spirit.element === 'water' ? 11 : 8;
+  spirit.x = Math.max(75, Math.min(825, spirit.originX - seconds * speed + Math.sin(seconds * .55) * 20));
+  spirit.y = Math.max(95, Math.min(505, spirit.originY + (Math.sin(seconds * .65 + phase) - Math.sin(phase)) * 35));
 }

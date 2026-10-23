@@ -1,6 +1,6 @@
 import { getGhostWorld, GHOST_AIRCRAFT, getGhostAircraft, createGhostShots, ensureGhostAircraft, prepareGhostSpawn, type GhostAircraftId, type GhostElement, type GhostWorld } from "../ghost-worlds";
 import { drawGhostWorld, drawGhostAircraft, drawGhostShot } from "../rendering/ghost-worlds";
-import { awakenSpirit, tickSpirit, spiritTouches, nextSpiritAction, type ElementSpirit } from "../element-spirits";
+import { awakenSpirit, tickSpirit, spiritTouches, nextSpiritAction, moveSpirit, type ElementSpirit } from "../element-spirits";
 import { drawElementSpirit } from "../rendering/element-spirits";
 import { createLocalizer, translate, localizeCanvas, canvasLocale } from "../i18n";
 import { LanguageProvider, useLocalize } from "../i18n-react";
@@ -5573,6 +5573,7 @@ export default function Game() {
           if (!leaderDownRef.current) pilots.push({ x: playerRef.current.x + PLAYER_W / 2, y: playerRef.current.y + PLAYER_H / 2 });
           if (flightOptionsRef.current.coop && !partner.down) pilots.push({ x: partner.x + PLAYER_W / 2, y: partner.y + PLAYER_H / 2 });
           const outcome = tickSpirit(spirit, dt, pilots);
+          moveSpirit(spirit);
           if (outcome === 'gift') {
             if (!leaderDownRef.current) gs.hp = Math.min(gs.maxHp, gs.hp + 3);
             if (flightOptionsRef.current.coop && !partner.down) partner.hp = Math.min(partner.maxHp, partner.hp + 3);
