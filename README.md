@@ -191,8 +191,9 @@ Nebelreich, die Splitterdimension und den Geistersturm. Die Levelkarte nennt die
 Geisterwelt. Normale Landschaftsrotation und Bosslevel bleiben erhalten.
 
 In diesen Sektoren bestehen die Gegner aus durchscheinenden Geisterflugzeugen:
-Nebeljäger, Phantomflügel und Seelenbomber. Sie behalten sichtbare, treffbare
-Umrisse und hinterlassen kosmetische Nachbilder. Eigene Himmelspaletten, Portale,
+Nebeljäger, Phantomflügel und Seelenbomber. Schattierte Rümpfe, Glaskanzeln und
+Tragflächen geben ihnen räumliche Materialwirkung. Sie behalten sichtbare, treffbare
+Umrisse und hinterlassen auslaufende Geisterschleier. Eigene Himmelspaletten, Portale,
 schwebende Ruinen, Lichtpartikel und Nebelbänder ersetzen die normalen Landschaften.
 Gefahren erscheinen in durchscheinender Geisterfarbe; Elementgeister können auch
 hier freundlich oder feindlich sein. Reduzierte Bewegung friert kosmetisches
