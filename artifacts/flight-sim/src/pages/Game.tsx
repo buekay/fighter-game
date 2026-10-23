@@ -3362,6 +3362,7 @@ export default function Game() {
 
   // ── Touch / virtual controls ──
   const joystickRef = useRef({ active: false, id: -1, centerX: 0, centerY: 0, curX: 0, curY: 0 });
+  const partnerTouchRef = useRef({ active: false, id: -1, curX: 0, curY: 0 });
   const touchFireRef = useRef({ active: false, id: -1 });
   const showVirtualControlsRef = useRef(false);
   const gamepadInputRef = useRef({ x: 0, y: 0, firing: false });
@@ -3491,6 +3492,7 @@ export default function Game() {
     if (next.flightDirection !== previous.flightDirection) {
       backgroundTransitionRef.current = null;
       joystickRef.current.active = false;
+      partnerTouchRef.current.active = false;
       touchFireRef.current.active = false;
     }
     // Range input events are trusted gestures, so they are also a reliable way
@@ -3712,6 +3714,7 @@ export default function Game() {
       keysRef.current.clear();
       touchFireRef.current.active = false;
       joystickRef.current.active = false;
+      partnerTouchRef.current.active = false;
       if (!gs.started || gs.gameOver || gs.paused) return;
       gs.paused = true;
       setPauseView("menu");
@@ -4337,6 +4340,8 @@ export default function Game() {
     masterySavedAtRef.current = 0;
     if (training) requestedLevel = 1;
     setFlightLabOpen(false);
+    partnerTouchRef.current.active = false;
+    joystickRef.current.active = false;
     masteriesRef.current = loadMasteries();
     masteryDirtyRef.current = false;
     leaderDownRef.current = false;
@@ -4901,6 +4906,15 @@ export default function Game() {
         const t = e.changedTouches[i];
         const { x, y } = toCanvas(t.clientX, t.clientY);
         const viewWidth = settingsRef.current.flightDirection === "up" ? CANVAS_H : CANVAS_W;
+        if (flightOptionsRef.current.coop) {
+          // Each half owns one finger; identifiers stay assigned when crossing the divider.
+          if (x < viewWidth / 2 && !joystickRef.current.active) {
+            joystickRef.current = { active: true, id: t.identifier, centerX: x, centerY: y, curX: x, curY: y };
+          } else if (x >= viewWidth / 2 && !partnerTouchRef.current.active) {
+            partnerTouchRef.current = { active: true, id: t.identifier, curX: x, curY: y };
+          }
+          continue;
+        }
         if (x < viewWidth / 2) {
           if (tutorialStageRef.current === 0) {
             if (settingsRef.current.autoFire) {
@@ -4984,6 +4998,11 @@ export default function Game() {
       e.preventDefault();
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
+        if (t.identifier === partnerTouchRef.current.id) {
+          const { x, y } = toCanvas(t.clientX, t.clientY);
+          partnerTouchRef.current.curX = x;
+          partnerTouchRef.current.curY = y;
+        }
         if (t.identifier === joystickRef.current.id) {
           const { x, y } = toCanvas(t.clientX, t.clientY);
           joystickRef.current.curX = x;
@@ -4999,6 +5018,10 @@ export default function Game() {
         if (t.identifier === joystickRef.current.id) {
           joystickRef.current.active = false;
           joystickRef.current.id = -1;
+        }
+        if (t.identifier === partnerTouchRef.current.id) {
+          partnerTouchRef.current.active = false;
+          partnerTouchRef.current.id = -1;
         }
         if (t.identifier === touchFireRef.current.id) {
           touchFireRef.current.active = false;
@@ -5412,8 +5435,18 @@ export default function Game() {
           const dx = upward ? -axisY : axisX, dy = upward ? axisX : axisY;
           partner.x = clamp(partner.x + clamp(dx, -1, 1) * spd * dtScale, 0, CANVAS_W - PLAYER_W);
           partner.y = clamp(partner.y + clamp(dy, -1, 1) * spd * dtScale, 65, CANVAS_H - PLAYER_H);
+          if (partnerTouchRef.current.active) {
+            const touch = partnerTouchRef.current;
+            const target = screenToWorld({ x: touch.curX, y: touch.curY });
+            const deltaX = clamp(target.x - PLAYER_W / 2, 0, CANVAS_W - PLAYER_W) - partner.x;
+            const deltaY = clamp(target.y - PLAYER_H / 2, 65, CANVAS_H - PLAYER_H) - partner.y;
+            const distance = Math.hypot(deltaX, deltaY);
+            const ratio = distance > 0 ? Math.min(1, Math.max(24, spd * 6) * dtScale / distance) : 0;
+            partner.x += deltaX * ratio;
+            partner.y += deltaY * ratio;
+          }
           if ((keysRef.current.has('ShiftRight') || pad.ulti) && partner.ultiCooldownMs <= 0) partner.armedMs = 3000;
-          if (settingsRef.current.autoFire || keysRef.current.has('Enter') || pad.firing) {
+          if (settingsRef.current.autoFire || partnerTouchRef.current.active || keysRef.current.has('Enter') || pad.firing) {
             partner.lastFireMs = runElapsedMsRef.current;
             for (const weapon of activeWeaponsRef.current) {
               const stats = getWeaponStats(weapon, weaponLevelsRef.current[weapon.id] ?? 1);
@@ -5567,7 +5600,7 @@ export default function Game() {
       }
       if (pulse) pulse.pending = false;
 
-      const firing = settingsRef.current.autoFire || keyPressed("fire") || touchFireRef.current.active || gamepad.firing;
+      const firing = settingsRef.current.autoFire || (flightOptionsRef.current.coop && joystickRef.current.active) || keyPressed("fire") || touchFireRef.current.active || gamepad.firing;
       if (firing && !leaderDownRef.current) fireBullets(timestamp);
 
       const fireSword = leaderDownRef.current ? undefined : activeWeaponsRef.current.find(weapon => weapon.id === "fire_sword");
@@ -7941,7 +7974,7 @@ export default function Game() {
       ctx.restore();
 
       // ── Virtual controls overlay ──
-      if (showVirtualControlsRef.current) {
+      if (showVirtualControlsRef.current && !flightOptionsRef.current.coop) {
         drawVirtualControls(ctx, joystickRef.current, settingsRef.current.showJoystick, touchFireRef.current.active, settingsRef.current.autoFire, ultimaChargeRef.current, ultimaActiveRef.current, laserChargeRef.current, laserActiveRef.current, stealthChargeRef.current, stealthActiveRef.current, healChargeRef.current, healActiveRef.current, poisonMissileChargeRef.current, absorberChargeRef.current, absorberActiveRef.current, absorberHitsRef.current, ultimateChargeRef.current, ultimateActiveRef.current, gravityChargeRef.current, gravityActiveRef.current, empChargeRef.current, activeUnlocksRef.current, activeUltiLoadoutRef.current, extrasRef.current, upwardFlight);
         if (enemiesRef.current.some(enemy => enemy.type === "titan" && (enemy.titanDashTimer ?? 0) > 0)) {
           ctx.save(); ctx.font = "bold 25px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -8362,6 +8395,12 @@ export default function Game() {
           </div>
         ))}
         {localize(!displayState.started && !mapOpen && !introOpen && <button className="flight-lab-entry" onClick={() => setFlightLabOpen(true)}>{localize("✦ Flugzentrum")}</button>)}
+        {showVirtualControls && displayState.started && !displayState.paused && !displayState.gameOver && flightOptionsRef.current.coop && (
+          <div className="coop-touch-hud">
+            <div className="coop-touch-pilot"><span>{localize("P1 · Links ziehen & schießen")}</span><div>{ultiLoadout.map((id, index) => <button key={id} onPointerDown={e => { e.preventDefault(); activateAbility(id); }} aria-label={`P1 Ulti ${index + 1}`}>⚡ {index + 1}</button>)}</div></div>
+            <div className="coop-touch-pilot"><span>{localize("P2 · Rechts ziehen & schießen")}</span><button onPointerDown={e => { e.preventDefault(); const gs = stateRef.current; const partner = partnerRef.current; if (!gs.paused && !gs.gameOver && !partner.down && partner.ultiCooldownMs <= 0) partner.armedMs = 3000; }}>{localize("⚡ Team-Ulti bereit")}</button></div>
+          </div>
+        )}
         {localize(flightLabOpen && !displayState.started && <FlightFeaturesPanel completed={completedLevels} bosses={loadDefeatedBosses(completedLevels)} weapons={WEAPONS.filter(w => w.cost === 0 || unlockedItems.includes(`weapon_${w.id}`))} coop={coopEnabled} onClose={() => setFlightLabOpen(false)} onTraining={options => startGame(false, 1, options)} />)}
         {localize(mapOpen && !displayState.started && <LevelMap completed={completedLevels} onBack={() => setMapOpen(false)} onSelect={level => startGame(false, level)} />)}
         {localize(completedAnimation !== null && (
@@ -10131,7 +10170,7 @@ function SettingsScreen({ settings, onChange, onBack, coop, onCoop }: { coop: bo
       <div className="settings-grid grid gap-2 sm:grid-cols-2">
         <SettingToggle
           label={localize("Lokaler Koop · Zu zweit spielen")}
-          description={localize("Für den nächsten Einsatz. Eine Tastatur reicht: P1 mit WASD + Leertaste, P2 mit Pfeiltasten + Enter. Alternativ zwei Gamepads.")}
+          description={localize("Für den nächsten Einsatz. Handy/Tablet: P1 zieht links, P2 rechts; beim Ziehen feuern beide. Tastatur: P1 WASD + Leertaste, P2 Pfeiltasten + Enter. Auch mit zwei Gamepads.")}
           checked={coop}
           onClick={() => onCoop(!coop)}
         />
