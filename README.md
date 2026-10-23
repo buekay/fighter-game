@@ -204,7 +204,7 @@ Pulsieren, Nachbildbewegung und Hintergrundbewegung ein.
 
 ### Elementare Geisterflugzeuge
 
-In Geisterwelten erscheinen acht eigene Flugzeugtypen mit sichtbaren Elementfarben:
+In Geisterwelten erscheinen 18 eigene Flugzeugtypen mit sichtbaren Elementfarben:
 
 | Flugzeug | Element und Form | Geschosse |
 | --- | --- | --- |
@@ -215,9 +215,14 @@ In Geisterwelten erscheinen acht eigene Flugzeugtypen mit sichtbaren Elementfarb
 
 Die Angriffe zielen auf das aktuelle Angriffsziel, einschließlich Ablenkungen und
 Beschützen-Missionen. Farben und Schussformen bleiben unabhängig von der jeweiligen
-Geisterwelt. Alle acht Typen sind ab der ersten Geisterwelt verfügbar.
+Geisterwelt. Alle 18 Typen sind ab der ersten Geisterwelt verfügbar.
 
 Weitere Geisterflugzeuge: Aschenschwinge (Feuer, vier bernsteinfarbene Schüsse),
 Nebellanze (Wasser, schneller blauer Präzisionsschuss), Frostkrone (Kristall,
 sieben eisblaue Splitter) und Sturmsichel (Sturm, drei violette Blitzgeschosse).
 Jeder Typ besitzt eine eigene Silhouette sowie eigene Geschwindigkeiten und Feuerpausen.
+
+Zehn weitere Modelle erweitern den Pool: Funkenpfeil, Magmaschatten, Glutdreizack,
+Nebelgleiter, Tiefenflügel, Strömungsklinge, Prismenlanze, Scherbenfestung,
+Ionenzwilling und Sturmkranz. Jedes Modell hat einen eigenen Rumpfumriss, eigene
+Geschossfarbe und eigene Feuerparameter.

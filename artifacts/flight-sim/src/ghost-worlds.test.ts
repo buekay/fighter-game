@@ -18,9 +18,9 @@ assert.equal(getGhostWorld(15), null, 'level 15 keeps its boss encounter');
 assert.equal(getGhostWorld(16), GHOST_WORLDS[0]);
 assert.equal(getGhostWorld(24), GHOST_WORLDS[1]);
 assert.equal(getGhostWorld(32), GHOST_WORLDS[2]);
-assert.equal(GHOST_AIRCRAFT.length, 8);
+assert.equal(GHOST_AIRCRAFT.length, 18);
 assert.equal(new Set(GHOST_AIRCRAFT.map(a => a.element)).size, 4);
-assert.equal(new Set(GHOST_AIRCRAFT.map(a => a.shotColor)).size, 8);
+assert.equal(new Set(GHOST_AIRCRAFT.map(a => a.shotColor)).size, 18);
 for (const aircraft of GHOST_AIRCRAFT) {
   assert.equal(getGhostAircraft(aircraft.id), aircraft);
   const shots = createGhostShots(aircraft.id, { x: 700, y: 300 }, { x: 100, y: 300 });
@@ -57,8 +57,8 @@ assert.equal(spiritLevels[0], 16);
 for (let i = 1; i < spiritLevels.length; i++) assert.equal(spiritLevels[i] - spiritLevels[i - 1], 8);
 for (const level of [20, 26, 34, 46]) assert.equal(getGhostWorld(level), null);
 
-for (const element of ['ember', 'water', 'crystal', 'storm']) assert.equal(GHOST_AIRCRAFT.filter(a => a.element === element).length, 2);
-assert.equal(new Set(GHOST_AIRCRAFT.map(a => a.id)).size, 8);
+for (const element of ['ember', 'water', 'crystal', 'storm']) assert.equal(GHOST_AIRCRAFT.filter(a => a.element === element).length, element === 'ember' || element === 'water' ? 5 : 4);
+assert.equal(new Set(GHOST_AIRCRAFT.map(a => a.id)).size, 18);
 
 for (const type of ['scout', 'fighter', 'bomber', 'biome', 'laserdevice', 'overlord', 'titan', 'boss']) {
   const source: { type: string; color: string; shootCooldown: number; encounterKind?: string; parts?: unknown; shieldHp?: number; campaignBoss?: boolean; submarineDiveMs?: number; ghostAircraftId?: GhostAircraftId } = { type, color: '#f00', shootCooldown: 60, encounterKind: 'titan', parts: [{}], shieldHp: 5, campaignBoss: true, submarineDiveMs: 3000 };
@@ -73,3 +73,17 @@ for (const type of ['scout', 'fighter', 'bomber', 'biome', 'laserdevice', 'overl
   assert.equal(source.type, type, 'source template is preserved');
   assert.equal(prepareGhostSpawn(source, 15, .3), source, 'normal boss levels keep their original enemies');
 }
+
+const newAircraft = GHOST_AIRCRAFT.filter(a => 'outline' in a);
+assert.equal(newAircraft.length, 10, 'ten additional aircraft have distinct hulls');
+assert.equal(new Set(newAircraft.map(a => JSON.stringify(a.outline))).size, 10);
+for (const aircraft of newAircraft) {
+  assert.ok(aircraft.outline.every(([x, y]) => Math.abs(x) <= 39 && Math.abs(y) <= 23), 'new hulls fit their collision bounds');
+}
+const selected = new Set();
+for (let i = 0; i < GHOST_AIRCRAFT.length; i++) {
+  const enemy: { color: string; shootCooldown: number; ghostAircraftId?: GhostAircraftId } = { color: '', shootCooldown: 200 };
+  ensureGhostAircraft(enemy, (i + .5) / GHOST_AIRCRAFT.length);
+  selected.add(enemy.ghostAircraftId);
+}
+assert.equal(selected.size, 18, 'all eighteen aircraft are reachable in the spawn pool');

@@ -112,7 +112,12 @@ export function drawGhostAircraft(ctx: CanvasRenderingContext2D, enemy: { x: num
   ctx.fillStyle = metal; ctx.strokeStyle = '#e5ffff'; ctx.lineWidth = 1.1;
   const bomber = enemy.width >= 75;
   ctx.beginPath();
-  if (aircraft?.id === 'ash-wing') {
+  if (aircraft && 'outline' in aircraft) {
+    for (const [index, point] of aircraft.outline.entries()) {
+      if (index === 0) ctx.moveTo(point[0], point[1]);
+      else ctx.lineTo(point[0], point[1]);
+    }
+  } else if (aircraft?.id === 'ash-wing') {
     // Broad flying wing with four engine recesses.
     ctx.moveTo(-38, 0); ctx.lineTo(-14, -8); ctx.lineTo(-3, -22); ctx.lineTo(12, -22);
     ctx.lineTo(34, -12); ctx.lineTo(28, -7); ctx.lineTo(38, -3); ctx.lineTo(33, 0);
