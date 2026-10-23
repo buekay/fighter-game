@@ -1,3 +1,5 @@
+import { awakenSpirit, tickSpirit, type ElementSpirit } from "../element-spirits";
+import { drawElementSpirit } from "../rendering/element-spirits";
 import { createLocalizer, translate, localizeCanvas, canvasLocale } from "../i18n";
 import { LanguageProvider, useLocalize } from "../i18n-react";
 import { FlightFeaturesPanel } from "../components/FlightFeaturesPanel";
@@ -3284,6 +3286,8 @@ export default function Game() {
   const partnerRef = useRef(createCoopPilot(10));
   const leaderDownRef = useRef(false);
   const partnerPadRef = useRef({ x: 0, y: 0, firing: false, ulti: false });
+  const spiritsRef = useRef<ElementSpirit[]>([]);
+  const nextSpiritRef = useRef(0);
   const hazardsRef = useRef<Hazard[]>([]);
   const nextHazardRef = useRef(10000);
   const secretRef = useRef<SecretSignal | null>(null);
@@ -4345,6 +4349,7 @@ export default function Game() {
     masteriesRef.current = loadMasteries();
     masteryDirtyRef.current = false;
     leaderDownRef.current = false;
+    spiritsRef.current = []; nextSpiritRef.current = 0;
     hazardsRef.current = []; nextHazardRef.current = 10000;
     secretRef.current = null; nextSecretRef.current = 18000 + Math.random() * 10000;
     dpsSamplesRef.current = []; damageSampledRef.current = 0; trainingRespawnRef.current = 0;
@@ -5506,9 +5511,16 @@ export default function Game() {
           waveBannerRef.current = { text: '◇ UNBEKANNTES FUNKSIGNAL · GOLDENE MARKIERUNG ANFLIEGEN', timer: 170 };
         }
       }
-      if (bossPresent) hazardsRef.current = [];
+      if (bossPresent) { hazardsRef.current = []; spiritsRef.current = []; }
       hazardsRef.current = hazardsRef.current.filter(h => {
+        const wasWarning = h.warningMs > 0;
         if (!tutorialActive) tickHazard(h, dt);
+        if (wasWarning && h.warningMs === 0 && runElapsedMsRef.current >= nextSpiritRef.current) {
+          const spirit = awakenSpirit(h.kind, h.x + h.width / 2, h.y + h.height / 2);
+          spiritsRef.current.push(spirit);
+          nextSpiritRef.current = runElapsedMsRef.current + 10000;
+          waveBannerRef.current = { text: spirit.event.toUpperCase() + ' · ' + spirit.name.toUpperCase() + ' ERWACHT', timer: 150 };
+        }
         if (h.lifeMs <= 0 || h.x + h.width < 0) return false;
         if (h.warningMs > 0) return true;
         const leaderHit = !leaderDownRef.current && hazardHits(h, { ...playerRef.current, width: PLAYER_W, height: PLAYER_H });
@@ -5529,6 +5541,36 @@ export default function Game() {
         return true;
       });
       drawHazards(ctx, hazardsRef.current, settingsRef.current.reducedMotion);
+      spiritsRef.current = spiritsRef.current.filter(spirit => {
+        if (!tutorialActive) {
+          const pilots = [];
+          if (!leaderDownRef.current) pilots.push({ x: playerRef.current.x + PLAYER_W / 2, y: playerRef.current.y + PLAYER_H / 2 });
+          if (flightOptionsRef.current.coop && !partner.down) pilots.push({ x: partner.x + PLAYER_W / 2, y: partner.y + PLAYER_H / 2 });
+          const outcome = tickSpirit(spirit, dt, pilots);
+          if (outcome === 'calmed') waveBannerRef.current = { text: spirit.name.toUpperCase() + ' BERUHIGT · JETZT FREUNDLICH', timer: 150 };
+          if (outcome === 'gift') {
+            if (!leaderDownRef.current) gs.hp = Math.min(gs.maxHp, gs.hp + 3);
+            if (flightOptionsRef.current.coop && !partner.down) partner.hp = Math.min(partner.maxHp, partner.hp + 3);
+            shieldTimerRef.current = Math.max(shieldTimerRef.current, 180);
+            playerShieldHpRef.current = Math.max(playerShieldHpRef.current, 2);
+            waveBannerRef.current = { text: spirit.name.toUpperCase() + ' · +3 HP & SCHUTZ', timer: 150 };
+            audioRef.current.effect('upgrade', settingsRef.current.soundVolume);
+          }
+          if (!spirit.friendly && spirit.ageMs >= 1200 && spirit.remainingMs > 0) {
+            const touches = (x: number, y: number) => Math.hypot(x + PLAYER_W / 2 - spirit.x, y + PLAYER_H / 2 - spirit.y) < 38;
+            if (!leaderDownRef.current && touches(playerRef.current.x, playerRef.current.y) && invincibleRef.current <= 0 && ultimateActiveRef.current <= 0) {
+              const protection = protectPlayer({ shieldTimer: shieldTimerRef.current, shieldHp: playerShieldHpRef.current, invincibleTimer: invincibleRef.current, stealthTimer: stealthActiveRef.current });
+              shieldTimerRef.current = protection.shieldTimer; playerShieldHpRef.current = protection.shieldHp;
+              if (!protection.protected) { recordPlayerDamage(2); damagePlayer(2); }
+              invincibleRef.current = 90;
+            }
+            if (flightOptionsRef.current.coop && !partner.down && touches(partner.x, partner.y) && damageCoop(partner, 2)) recordPlayerDamage(2);
+          }
+        }
+        if (spirit.remainingMs <= 0) return false;
+        drawElementSpirit(ctx, spirit, settingsRef.current.reducedMotion);
+        return true;
+      });
       const signal = secretRef.current;
       if (signal && !bossPresent && !tutorialActive) {
         signal.remainingMs -= dt;

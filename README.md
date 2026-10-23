@@ -167,3 +167,19 @@ Waffen-Meisterschaft. Die normale Starttaste führt weiterhin auf die Levelkarte
 `flight-features.test.ts` prüft Bauteiltreffer, deaktivierte Boss-Spezialangriffe,
 Gefahren bei 30/60/120 Hz, Meisterschaft und Speicherfehler sowie beide
 Wiederbelebungsrichtungen und die DPS-Zeitfenster.
+
+## Elementgeister
+
+Umgebungsereignisse erwecken Geister aus unbelebter Materie. Glut und Wasser
+bringen freundliche Glut- und Quellgeister hervor; Sturm und zerbrechende Materie
+wecken feindliche Sturm- und Splittergeister. Die Geister erscheinen beim Ende
+der Gefahrenwarnung und bleiben 16 Sekunden. Sie haben keine Menschen- oder
+Tierkörper, sondern bestehen aus schwebenden Elementfragmenten.
+
+Grüne Markierungen zeigen Helfer: Anfliegen heilt das aktive Team um bis zu drei
+HP und gibt P1 einen Schutzschild. Rote Markierungen zeigen Feinde: Ihr Kern
+verursacht Kontaktschaden. Im äußeren Ring 2,5 Sekunden in der Nähe bleiben,
+um einen feindlichen Geist zu beruhigen; der Kreis zeigt den Fortschritt. Danach
+kann auch dieser Geist helfen. Während der ersten 1,2 Sekunden erwachen Geister
+ohne Kontaktschaden. Bosskämpfe räumen Geister ab; Training und Tutorial erzeugen
+keine Begegnungen. Pause hält alle Geister-Timer an.
