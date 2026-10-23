@@ -8,9 +8,9 @@ interface Props {
   completed: number; bosses: EncounterKind[];
   weapons: { id: string; name: string; pattern: string }[];
   onClose: () => void; onTraining: (options: FlightOptions) => void;
-  coop: boolean; onCoop: (enabled: boolean) => void;
+  coop: boolean;
 }
-export function FlightFeaturesPanel({ completed, bosses, weapons, onClose, onTraining, coop, onCoop }: Props) {
+export function FlightFeaturesPanel({ completed, bosses, weapons, onClose, onTraining, coop }: Props) {
   const localize = useLocalize();
   const panelRef = useRef<HTMLElement>(null);
   useEffect(() => { panelRef.current?.querySelector<HTMLButtonElement>('button')?.focus(); }, []);
@@ -28,11 +28,6 @@ export function FlightFeaturesPanel({ completed, bosses, weapons, onClose, onTra
       }
     }} role="dialog" aria-modal="true" aria-labelledby="flight-lab-title">
       <header><div><small>{localize("FIGHTER COMMAND / FLUGZENTRUM")}</small><h2 id="flight-lab-title">{localize("Neue Flugwege")}</h2></div><button onClick={onClose} aria-label={localize("Flugzentrum schließen")}>{localize("✕")}</button></header>
-      <section><h3>{localize("Zu zweit ins Gefecht")}</h3><label className="flight-toggle"><input type="checkbox" checked={coop} onChange={e => onCoop(e.target.checked)} /> {localize(" Lokaler Koop für den nächsten Einsatz")}</label>
-        <p>{localize("P1: WASD + Leertaste · P2: Pfeiltasten + Enter. Alternativ zwei Gamepads. Gemeinsamer Score, eigene Lebenspunkte.")}</p>
-        <p>{localize("Zum Wiederbeleben 2,5 Sekunden im markierten Kreis bleiben. P2 hält die Team-Ulti mit rechter Umschalttaste (Gamepad: rechte Schultertaste) bereit; P1 löst innerhalb von 3 Sekunden eine ausgerüstete Ulti aus. Team-Abklingzeit: 20 Sekunden.")}</p>
-        <small>{localize("Koop benötigt eine Tastatur oder zwei Gamepads. Im Koop steuert P1 immer mit WASD und Leertaste.")}</small>
-      </section>
       <section><h3>{localize("Trainingsarena")}</h3><p>{localize("Teste deine aktuelle Ausrüstung mit laufender DPS-Anzeige. Besiegte Bosse lassen sich unbegrenzt üben. Training vergibt keine Credits, Erfolge oder Kampagnenfortschritte.")}</p>
         <div className="flight-lab-controls"><label>{localize("Ziel")}<select value={target} onChange={e => setTarget(e.target.value as FlightOptions['target'])}><option value="dummy">{localize("Unbewaffnete Übungsdrohne")}</option>{localize(bosses.map(kind => <option key={kind} value={kind}>{localize(BOSS_NAMES[kind])}</option>))}</select></label>
         <label>{localize("Schwierigkeit")}<select value={difficulty} onChange={e => setDifficulty(e.target.value as FlightOptions['difficulty'])}><option value="easy">{localize("Leicht · 60 % Tempo / Schaden")}</option><option value="normal">{localize("Normal")}</option><option value="hard">{localize("Schwer · 150 % Tempo / Schaden")}</option></select></label>

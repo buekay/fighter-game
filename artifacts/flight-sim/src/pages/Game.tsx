@@ -8361,15 +8361,8 @@ export default function Game() {
             </div>
           </div>
         ))}
-        {localize(!displayState.started && !mapOpen && !introOpen && <div className="flight-entry-actions">
-          <button className="coop-entry" aria-pressed={coopEnabled} onClick={() => { const enabled = !coopEnabled; setCoopEnabled(enabled); coopEnabledRef.current = enabled; }}>
-            <span>👥 {localize("ZU ZWEIT SPIELEN")}</span>
-            <strong>{localize(coopEnabled ? "KOOP AN ✓" : "KOOP AUS")}</strong>
-            <small>{localize("Eine Tastatur reicht · WASD + Pfeiltasten")}</small>
-          </button>
-          <button className="flight-lab-entry" onClick={() => setFlightLabOpen(true)}>{localize("✦ Flugzentrum")}</button>
-        </div>)}
-        {localize(flightLabOpen && !displayState.started && <FlightFeaturesPanel completed={completedLevels} bosses={loadDefeatedBosses(completedLevels)} weapons={WEAPONS.filter(w => w.cost === 0 || unlockedItems.includes(`weapon_${w.id}`))} coop={coopEnabled} onCoop={enabled => { setCoopEnabled(enabled); coopEnabledRef.current = enabled; }} onClose={() => setFlightLabOpen(false)} onTraining={options => startGame(false, 1, options)} />)}
+        {localize(!displayState.started && !mapOpen && !introOpen && <button className="flight-lab-entry" onClick={() => setFlightLabOpen(true)}>{localize("✦ Flugzentrum")}</button>)}
+        {localize(flightLabOpen && !displayState.started && <FlightFeaturesPanel completed={completedLevels} bosses={loadDefeatedBosses(completedLevels)} weapons={WEAPONS.filter(w => w.cost === 0 || unlockedItems.includes(`weapon_${w.id}`))} coop={coopEnabled} onClose={() => setFlightLabOpen(false)} onTraining={options => startGame(false, 1, options)} />)}
         {localize(mapOpen && !displayState.started && <LevelMap completed={completedLevels} onBack={() => setMapOpen(false)} onSelect={level => startGame(false, level)} />)}
         {localize(completedAnimation !== null && (
           <div className="campaign-victory" role="status" aria-live="polite">
@@ -8519,6 +8512,8 @@ export default function Game() {
             }}
             settings={settings}
             onSettingsChange={updateSettings}
+            coop={coopEnabled}
+            onCoop={enabled => { setCoopEnabled(enabled); coopEnabledRef.current = enabled; }}
             achievements={achievements}
             achievementStats={{ ...runStatsRef.current }}
           />
@@ -8527,7 +8522,7 @@ export default function Game() {
           <div className="absolute inset-0 z-30 flex items-center justify-center p-4" style={{ background: "rgba(2,8,20,0.86)" }}>
             {localize(pauseView === "settings" ? (
               <div className="pause-panel h-full w-full max-w-2xl overflow-hidden rounded-2xl" style={{ background: "#071126", border: "1px solid #285078" }}>
-                <SettingsScreen settings={settings} onChange={updateSettings} onBack={() => setPauseView("menu")} />
+                <SettingsScreen coop={coopEnabled} onCoop={enabled => { setCoopEnabled(enabled); coopEnabledRef.current = enabled; }} settings={settings} onChange={updateSettings} onBack={() => setPauseView("menu")} />
               </div>
             ) : (
               <div className="pause-panel w-full max-w-sm rounded-2xl p-5 text-center" style={{ background: "#071126", border: "1px solid #285078", boxShadow: "0 3px 8px #0005" }}>
@@ -8806,7 +8801,7 @@ function HangarOverlay({
   hangarSlots, activeHangar, onHangarSelect, unlockedHangars, onHangarBuy,
   selectedSkin, ultiLoadout, selectedDroneSkin, aircraftBuild, hybridActive, droneBuild, savedAircraftBuilds, savedDroneBuilds, droneRole, selectedDroneWeapon, selectedWeaponCrate, selectedWeapons, coins, gems, highScore, unlockedItems, aircraftLevels, droneLevels, weaponLevels, hasSave, saveData,
   onStart, onNewGame, onSkinSelect, onUltiLoadoutChange, onDroneSkinSelect, onAircraftBuildChange, onHybridSelect, onSavedAircraftBuildSelect, onSavedDroneBuildSelect, onHybridBuild, onDroneBuildChange, onDroneRoleChange, onDroneWeaponChange, onDroneWeaponBuy, onWeaponCrateSelect, onWeaponCrateBuy, onWeaponSelect, onWeaponBuy, onWeaponUpgrade, onBuy, onUnlockSkin, onUnlockDroneSkin, onAircraftUpgrade, onDroneUpgrade, onCrateOpen, onAdminActivate,
-  fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, achievements, achievementStats,
+  fullscreenSupported, isFullscreen, onFullscreenToggle, settings, onSettingsChange, coop, onCoop, achievements, achievementStats,
 }: {
   hangarSlots: HangarSlot[]; activeHangar: number; onHangarSelect: (index: number) => void;
   unlockedHangars: number; onHangarBuy: (index: number) => void;
@@ -8836,6 +8831,7 @@ function HangarOverlay({
   onAdminActivate: () => void;
   fullscreenSupported: boolean; isFullscreen: boolean; onFullscreenToggle: () => void;
   settings: GameSettings; onSettingsChange: (settings: GameSettings) => void;
+  coop: boolean; onCoop: (enabled: boolean) => void;
   achievements: string[];
   achievementStats: RunStats;
 }) {
@@ -8937,7 +8933,7 @@ function HangarOverlay({
   if (view === "settings") {
     return (
       <div className="hangar-layer absolute inset-0 overflow-hidden" style={{ background: "rgba(4,12,28,0.97)" }}>
-        <SettingsScreen settings={settings} onChange={onSettingsChange} onBack={() => setView("main")} />
+        <SettingsScreen coop={coop} onCoop={onCoop} settings={settings} onChange={onSettingsChange} onBack={() => setView("main")} />
       </div>
     );
   }
@@ -10118,7 +10114,7 @@ function BriefingScreen({ settings, onDone }: { settings: GameSettings; onDone: 
 
 // ─── Settings Screen ──────────────────────────────────────────────────────────
 
-function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings; onChange: (settings: GameSettings) => void; onBack: () => void }) {
+function SettingsScreen({ settings, onChange, onBack, coop, onCoop }: { coop: boolean; onCoop: (enabled: boolean) => void; settings: GameSettings; onChange: (settings: GameSettings) => void; onBack: () => void }) {
   const localize = useLocalize();
   const [name, setName] = useState(() => loadName());
   const language = settings.language;
@@ -10133,6 +10129,12 @@ function SettingsScreen({ settings, onChange, onBack }: { settings: GameSettings
         <h2 className="font-bold text-xl tracking-wide">{localize(translated(language, "EINSTELLUNGEN", "SETTINGS"))}</h2>
       </div>
       <div className="settings-grid grid gap-2 sm:grid-cols-2">
+        <SettingToggle
+          label={localize("Lokaler Koop · Zu zweit spielen")}
+          description={localize("Für den nächsten Einsatz. Eine Tastatur reicht: P1 mit WASD + Leertaste, P2 mit Pfeiltasten + Enter. Alternativ zwei Gamepads.")}
+          checked={coop}
+          onClick={() => onCoop(!coop)}
+        />
         <label className="rounded-xl border border-cyan-700/70 bg-cyan-950/30 p-3">
           <span className="block text-sm font-bold">{localize(translated(language, "Sprache", "Language"))}</span>
           <span className="mb-2 block text-xs text-slate-400">{localize(translated(language, "Sprache der Menüs und Hinweise.", "Language used for menus and hints."))}</span>
