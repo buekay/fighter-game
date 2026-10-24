@@ -170,7 +170,7 @@ Wiederbelebungsrichtungen und die DPS-Zeitfenster.
 
 ## Elementgeister
 
-Umgebungsereignisse erwecken Geister aus unbelebter Materie. Glut und Wasser
+Nur in Geisterwelten erwecken Umgebungsereignisse Geister aus unbelebter Materie. Glut und Wasser
 bringen freundliche Glut- und Quellgeister hervor; Sturm und zerbrechende Materie
 wecken feindliche Sturm- und Splittergeister. Die Geister erscheinen beim Ende
 der Gefahrenwarnung und bleiben 16 Sekunden. Sie haben keine Menschen- oder
@@ -238,3 +238,9 @@ maximal vier pro Geist, innerhalb des bestehenden Gegnerlimits. Diese fliegen vo
 rechten Bildschirmrand ein. Feindliche Geister bleiben bis zu ihrem Verschwinden feindlich.
 Pause hält die Fähigkeiten an; abgelaufene Geister wirken nicht weiter.
 Im Spiel erscheinen dazu keine Beschreibungen, Gesinnungs- oder Ereignistexte.
+
+Elementgeister entstehen ausschließlich in Geisterwelten und werden beim Verlassen
+entfernt. In normalen Welten können ab Level 15 sehr selten Geisterflugzeuge
+erscheinen: 0,2 % Chance pro regulärem Gegner (im Mittel einer unter 500).
+Boss-Spawns und Training werden dadurch nicht ersetzt. Seltene Geisterflugzeuge
+bringen keine Elementgeister mit; ihre Elementwaffen und Geistermodelle bleiben aktiv.

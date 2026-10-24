@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { getGhostWorld, GHOST_WORLDS, GHOST_AIRCRAFT, createGhostShots, getGhostAircraft, ensureGhostAircraft, prepareGhostSpawn, type GhostAircraftId } from './ghost-worlds';
+import { getGhostWorld, GHOST_WORLDS, GHOST_AIRCRAFT, createGhostShots, getGhostAircraft, ensureGhostAircraft, prepareGhostSpawn, shouldSpawnRareGhostAircraft, canSpawnElementSpirit, RARE_GHOST_AIRCRAFT_CHANCE, type GhostAircraftId } from './ghost-worlds';
 import { getCampaignLandscape, isCampaignBossLevel } from './campaign';
 const seen = new Set();
 for (let level = 1; level <= 500; level++) {
@@ -87,3 +87,14 @@ for (let i = 0; i < GHOST_AIRCRAFT.length; i++) {
   selected.add(enemy.ghostAircraftId);
 }
 assert.equal(selected.size, 18, 'all eighteen aircraft are reachable in the spawn pool');
+
+for (let level = 1; level <= 500; level++) {
+  assert.equal(canSpawnElementSpirit(level), Boolean(getGhostWorld(level)), 'element spirits only exist in ghost worlds');
+  assert.equal(shouldSpawnRareGhostAircraft(level, 0), level >= 15 && !getGhostWorld(level));
+}
+assert.equal(shouldSpawnRareGhostAircraft(17, RARE_GHOST_AIRCRAFT_CHANCE - .000001), true);
+assert.equal(shouldSpawnRareGhostAircraft(17, RARE_GHOST_AIRCRAFT_CHANCE), false);
+for (const roll of [NaN, Infinity, -1, 1]) assert.equal(shouldSpawnRareGhostAircraft(17, roll), false);
+let rareCount = 0;
+for (let i = 0; i < 10000; i++) if (shouldSpawnRareGhostAircraft(17, i / 10000)) rareCount++;
+assert.equal(rareCount, 20, '0.2 percent of regular spawns are rare ghost aircraft');

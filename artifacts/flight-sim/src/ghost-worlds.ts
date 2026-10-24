@@ -72,3 +72,12 @@ export function prepareGhostSpawn<T extends {
   ghost.shieldHp = 0;
   return ghost;
 }
+
+export const RARE_GHOST_AIRCRAFT_CHANCE = .002;
+export function shouldSpawnRareGhostAircraft(level: number, roll: number): boolean {
+  return Number.isInteger(level) && level >= 15 && level <= 500 && !getGhostWorld(level)
+    && Number.isFinite(roll) && roll >= 0 && roll < RARE_GHOST_AIRCRAFT_CHANCE;
+}
+export function canSpawnElementSpirit(level: number): boolean {
+  return getGhostWorld(level) !== null;
+}

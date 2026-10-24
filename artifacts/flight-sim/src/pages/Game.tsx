@@ -1,4 +1,4 @@
-import { getGhostWorld, GHOST_AIRCRAFT, getGhostAircraft, createGhostShots, ensureGhostAircraft, prepareGhostSpawn, type GhostAircraftId, type GhostElement, type GhostWorld } from "../ghost-worlds";
+import { getGhostWorld, GHOST_AIRCRAFT, getGhostAircraft, createGhostShots, ensureGhostAircraft, prepareGhostSpawn, shouldSpawnRareGhostAircraft, canSpawnElementSpirit, type GhostAircraftId, type GhostElement, type GhostWorld } from "../ghost-worlds";
 import { drawGhostWorld, drawGhostAircraft, drawGhostShot } from "../rendering/ghost-worlds";
 import { awakenSpirit, tickSpirit, spiritTouches, nextSpiritAction, moveSpirit, type ElementSpirit } from "../element-spirits";
 import { drawElementSpirit } from "../rendering/element-spirits";
@@ -3807,7 +3807,7 @@ export default function Game() {
     const bossHpBase = (25 + level * 6) * (level >= 8 ? 5 : level >= 5 ? 3 : 1);
 
     const ghostWorld = getGhostWorld(level);
-    if (ghostWorld) {
+    if (ghostWorld || (!isBossLevel && !flightOptionsRef.current.training && shouldSpawnRareGhostAircraft(level, Math.random()))) {
       const aircraft = GHOST_AIRCRAFT[Math.min(GHOST_AIRCRAFT.length - 1, Math.floor(roll * GHOST_AIRCRAFT.length))];
       ghostAircraftId = aircraft.id;
       type = aircraft.element === 'crystal' ? 'bomber' : 'fighter';
@@ -5535,11 +5535,12 @@ export default function Game() {
           waveBannerRef.current = { text: '◇ UNBEKANNTES FUNKSIGNAL · GOLDENE MARKIERUNG ANFLIEGEN', timer: 170 };
         }
       }
-      if (bossPresent) { hazardsRef.current = []; spiritsRef.current = []; }
+      if (bossPresent) hazardsRef.current = [];
+      if (bossPresent || !canSpawnElementSpirit(gs.level)) spiritsRef.current = [];
       hazardsRef.current = hazardsRef.current.filter(h => {
         const wasWarning = h.warningMs > 0;
         if (!tutorialActive) tickHazard(h, dt);
-        if (wasWarning && h.warningMs === 0 && runElapsedMsRef.current >= nextSpiritRef.current) {
+        if (canSpawnElementSpirit(gs.level) && !tutorialActive && !flightOptionsRef.current.training && wasWarning && h.warningMs === 0 && runElapsedMsRef.current >= nextSpiritRef.current) {
           const spirit = awakenSpirit(h.kind, h.x + h.width / 2, h.y + h.height / 2);
           spiritsRef.current.push(spirit);
           nextSpiritRef.current = runElapsedMsRef.current + 10000;
